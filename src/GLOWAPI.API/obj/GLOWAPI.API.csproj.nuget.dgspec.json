@@ -1,0 +1,289 @@
+{
+  "format": 1,
+  "restore": {
+    "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.API\\GLOWAPI.API.csproj": {}
+  },
+  "projects": {
+    "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.API\\GLOWAPI.API.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.API\\GLOWAPI.API.csproj",
+        "projectName": "GLOWAPI.API",
+        "projectPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.API\\GLOWAPI.API.csproj",
+        "packagesPath": "C:\\Users\\GustavodeOliveiraFag\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.API\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\GustavodeOliveiraFag\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Infrastructure\\GLOWAPI.Infrastructure.csproj": {
+                "projectPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Infrastructure\\GLOWAPI.Infrastructure.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "Microsoft.AspNetCore.OpenApi": {
+              "target": "Package",
+              "version": "[8.0.25, )"
+            },
+            "Swashbuckle.AspNetCore": {
+              "target": "Package",
+              "version": "[6.6.2, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.AspNetCore.App": {
+              "privateAssets": "none"
+            },
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.419/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj",
+        "projectName": "GLOWAPI.Application",
+        "projectPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj",
+        "packagesPath": "C:\\Users\\GustavodeOliveiraFag\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Application\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\GustavodeOliveiraFag\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj": {
+                "projectPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.419/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj",
+        "projectName": "GLOWAPI.Domain",
+        "projectPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj",
+        "packagesPath": "C:\\Users\\GustavodeOliveiraFag\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Domain\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\GustavodeOliveiraFag\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.419/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Infrastructure\\GLOWAPI.Infrastructure.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Infrastructure\\GLOWAPI.Infrastructure.csproj",
+        "projectName": "GLOWAPI.Infrastructure",
+        "projectPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Infrastructure\\GLOWAPI.Infrastructure.csproj",
+        "packagesPath": "C:\\Users\\GustavodeOliveiraFag\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Infrastructure\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\GustavodeOliveiraFag\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj": {
+                "projectPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "Microsoft.EntityFrameworkCore.Design": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.EntityFrameworkCore.SqlServer": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.Extensions.Configuration.Binder": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Npgsql.EntityFrameworkCore.PostgreSQL": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Pomelo.EntityFrameworkCore.MySql": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.419/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

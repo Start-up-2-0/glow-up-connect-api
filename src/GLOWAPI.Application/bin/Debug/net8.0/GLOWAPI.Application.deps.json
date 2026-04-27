@@ -1,0 +1,39 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "GLOWAPI.Application/1.0.0": {
+        "dependencies": {
+          "GLOWAPI.Domain": "1.0.0"
+        },
+        "runtime": {
+          "GLOWAPI.Application.dll": {}
+        }
+      },
+      "GLOWAPI.Domain/1.0.0": {
+        "runtime": {
+          "GLOWAPI.Domain.dll": {
+            "assemblyVersion": "1.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "GLOWAPI.Application/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "GLOWAPI.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
