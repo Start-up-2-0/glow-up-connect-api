@@ -11,7 +11,9 @@ O projeto segue a divisão em 4 camadas principais:
 - **Infrastructure:** Implementação do Entity Framework Core, acesso a dados e serviços externos.
 - **API:** Ponto de entrada (REST), Controllers e configurações de Middleware.
 
+## Estrutura de Pastas
 
+```text
 GLOWAPI/
 ├── src/
 │   ├── GLOWAPI.Domain/                 # Camada de Domínio (O Coração)
@@ -43,6 +45,8 @@ GLOWAPI/
 │
 ├── tests/                              # (Opcional) Testes Unitários e de Integração
 └── GLOWAPI.sln                         # Arquivo de solução do Visual Studio/Dotnet
+
+```
 
 ## Tecnologias Utilizadas
 
