@@ -1,0 +1,29 @@
+# GLOWAPI 
+
+Uma API robusta desenvolvida em **.NET 8** utilizando os princípios de **Clean Architecture** (Arquitetura Limpa). O projeto foi estruturado para ser escalável, testável e independente de provedores de banco de dados.
+
+## Arquitetura
+
+O projeto segue a divisão em 4 camadas principais:
+
+- **Domain:** Entidades, interfaces globais e lógica de domínio pura.
+- **Application:** Casos de uso, DTOs, Mappers e lógica de negócio.
+- **Infrastructure:** Implementação do Entity Framework Core, acesso a dados e serviços externos.
+- **API:** Ponto de entrada (REST), Controllers e configurações de Middleware.
+
+## Tecnologias Utilizadas
+
+- **Runtime:** .NET 8
+- **ORM:** Entity Framework Core
+- **Bancos de Dados Suportados:** - SQL Server
+  - PostgreSQL
+  - MySQL / MariaDB (via Pomelo)
+- **Documentação:** Swagger (OpenAPI)
+
+## Como Executar o Projeto
+
+### 1. Pré-requisitos
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- Ferramenta de linha de comando do EF Core:
+  ```bash
+  dotnet tool install --global dotnet-ef
