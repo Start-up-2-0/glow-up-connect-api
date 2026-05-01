@@ -3,6 +3,7 @@ using System;
 using GLOWAPI.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GLOWAPI.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260501185241_CreateEstabelecimentos")]
+    partial class CreateEstabelecimentos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -77,46 +80,6 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
                     b.ToTable("Estabelecimentos", (string)null);
                 });
 
-            modelBuilder.Entity("GLOWAPI.Domain.Entities.EstabelecimentoUsuario", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Ativo")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true);
-
-                    b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("EstabelecimentoId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("RoleNoEstabelecimento")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("UsuarioId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UsuarioId");
-
-                    b.HasIndex("EstabelecimentoId", "UsuarioId")
-                        .IsUnique();
-
-                    b.ToTable("EstabelecimentoUsuarios", (string)null);
-                });
-
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Usuario", b =>
                 {
                     b.Property<int>("Id")
@@ -172,35 +135,6 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Usuarios", (string)null);
-                });
-
-            modelBuilder.Entity("GLOWAPI.Domain.Entities.EstabelecimentoUsuario", b =>
-                {
-                    b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
-                        .WithMany("Usuarios")
-                        .HasForeignKey("EstabelecimentoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GLOWAPI.Domain.Entities.Usuario", "Usuario")
-                        .WithMany("Estabelecimentos")
-                        .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Estabelecimento");
-
-                    b.Navigation("Usuario");
-                });
-
-            modelBuilder.Entity("GLOWAPI.Domain.Entities.Estabelecimento", b =>
-                {
-                    b.Navigation("Usuarios");
-                });
-
-            modelBuilder.Entity("GLOWAPI.Domain.Entities.Usuario", b =>
-                {
-                    b.Navigation("Estabelecimentos");
                 });
 #pragma warning restore 612, 618
         }

@@ -11,6 +11,8 @@ public class ApplicationDbContext : DbContext
     }
 
     public DbSet<Usuario> Usuarios { get; set; }
+    public DbSet<Estabelecimento> Estabelecimentos { get; set; }
+    public DbSet<EstabelecimentoUsuario> EstabelecimentoUsuarios { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
