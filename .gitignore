@@ -1,2 +1,3 @@
 # Local environment settings
 src/GLOWAPI.API/appsettings.Development.json
+context/Database.HML.local.md
