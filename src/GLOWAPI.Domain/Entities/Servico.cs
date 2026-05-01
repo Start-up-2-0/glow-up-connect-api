@@ -16,4 +16,5 @@ public class Servico
     public Estabelecimento? Estabelecimento { get; set; }
     public Profissional? ProfissionalAutonomo { get; set; }
     public ICollection<ProfissionalServico> Profissionais { get; set; } = new List<ProfissionalServico>();
+    public ICollection<AgendamentoItem> AgendamentoItens { get; set; } = new List<AgendamentoItem>();
 }

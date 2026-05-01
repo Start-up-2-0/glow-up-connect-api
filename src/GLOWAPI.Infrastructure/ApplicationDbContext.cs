@@ -18,6 +18,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<Endereco> Enderecos { get; set; }
     public DbSet<Servico> Servicos { get; set; }
     public DbSet<ProfissionalServico> ProfissionalServicos { get; set; }
+    public DbSet<HorarioFuncionamentoEstabelecimento> HorariosFuncionamentoEstabelecimento { get; set; }
+    public DbSet<HorarioAtendimentoProfissional> HorariosAtendimentoProfissional { get; set; }
+    public DbSet<Agendamento> Agendamentos { get; set; }
+    public DbSet<AgendamentoItem> AgendamentoItens { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

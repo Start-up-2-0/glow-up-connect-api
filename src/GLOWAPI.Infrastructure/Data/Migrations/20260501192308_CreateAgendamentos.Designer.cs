@@ -3,6 +3,7 @@ using System;
 using GLOWAPI.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GLOWAPI.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260501192308_CreateAgendamentos")]
+    partial class CreateAgendamentos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -73,63 +76,6 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
                     b.ToTable("Agendamentos", null, t =>
                         {
                             t.HasCheckConstraint("CK_Agendamentos_Titular", "((\"EstabelecimentoId\" IS NOT NULL AND \"ProfissionalAutonomoId\" IS NULL) OR (\"EstabelecimentoId\" IS NULL AND \"ProfissionalAutonomoId\" IS NOT NULL))");
-                        });
-                });
-
-            modelBuilder.Entity("GLOWAPI.Domain.Entities.AgendamentoItem", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("AgendamentoId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("Fim")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("Inicio")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("ProfissionalId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("RepassadoDeProfissionalId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ServicoId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("Valor")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AgendamentoId");
-
-                    b.HasIndex("ProfissionalId");
-
-                    b.HasIndex("RepassadoDeProfissionalId");
-
-                    b.HasIndex("ServicoId");
-
-                    b.ToTable("AgendamentoItens", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_AgendamentoItens_Horario", "\"Inicio\" < \"Fim\"");
                         });
                 });
 
@@ -660,40 +606,6 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
                     b.Navigation("UsuarioCliente");
                 });
 
-            modelBuilder.Entity("GLOWAPI.Domain.Entities.AgendamentoItem", b =>
-                {
-                    b.HasOne("GLOWAPI.Domain.Entities.Agendamento", "Agendamento")
-                        .WithMany("Itens")
-                        .HasForeignKey("AgendamentoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GLOWAPI.Domain.Entities.Profissional", "Profissional")
-                        .WithMany("AgendamentoItens")
-                        .HasForeignKey("ProfissionalId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GLOWAPI.Domain.Entities.Profissional", "RepassadoDeProfissional")
-                        .WithMany("AgendamentoItensRepassados")
-                        .HasForeignKey("RepassadoDeProfissionalId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("GLOWAPI.Domain.Entities.Servico", "Servico")
-                        .WithMany("AgendamentoItens")
-                        .HasForeignKey("ServicoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Agendamento");
-
-                    b.Navigation("Profissional");
-
-                    b.Navigation("RepassadoDeProfissional");
-
-                    b.Navigation("Servico");
-                });
-
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Endereco", b =>
                 {
                     b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
@@ -825,11 +737,6 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
                     b.Navigation("ProfissionalAutonomo");
                 });
 
-            modelBuilder.Entity("GLOWAPI.Domain.Entities.Agendamento", b =>
-                {
-                    b.Navigation("Itens");
-                });
-
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Estabelecimento", b =>
                 {
                     b.Navigation("Agendamentos");
@@ -849,10 +756,6 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Profissional", b =>
                 {
-                    b.Navigation("AgendamentoItens");
-
-                    b.Navigation("AgendamentoItensRepassados");
-
                     b.Navigation("AgendamentosAutonomo");
 
                     b.Navigation("Endereco");
@@ -868,8 +771,6 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Servico", b =>
                 {
-                    b.Navigation("AgendamentoItens");
-
                     b.Navigation("Profissionais");
                 });
 

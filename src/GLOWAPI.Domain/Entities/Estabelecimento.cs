@@ -16,5 +16,8 @@ public class Estabelecimento
     public ICollection<EstabelecimentoUsuario> Usuarios { get; set; } = new List<EstabelecimentoUsuario>();
     public ICollection<ProfissionalEstabelecimento> Profissionais { get; set; } = new List<ProfissionalEstabelecimento>();
     public ICollection<Servico> Servicos { get; set; } = new List<Servico>();
+    public ICollection<HorarioFuncionamentoEstabelecimento> HorariosFuncionamento { get; set; } = new List<HorarioFuncionamentoEstabelecimento>();
+    public ICollection<HorarioAtendimentoProfissional> HorariosProfissionais { get; set; } = new List<HorarioAtendimentoProfissional>();
+    public ICollection<Agendamento> Agendamentos { get; set; } = new List<Agendamento>();
     public Endereco? Endereco { get; set; }
 }

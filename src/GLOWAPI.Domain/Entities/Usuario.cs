@@ -16,4 +16,5 @@ public class Usuario
     public DateTime? UpdatedAt { get; set; }
 
     public ICollection<EstabelecimentoUsuario> Estabelecimentos { get; set; } = new List<EstabelecimentoUsuario>();
+    public ICollection<Agendamento> Agendamentos { get; set; } = new List<Agendamento>();
 }
