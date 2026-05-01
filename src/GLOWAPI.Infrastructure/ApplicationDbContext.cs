@@ -16,6 +16,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<Profissional> Profissionais { get; set; }
     public DbSet<ProfissionalEstabelecimento> ProfissionalEstabelecimentos { get; set; }
     public DbSet<Endereco> Enderecos { get; set; }
+    public DbSet<Servico> Servicos { get; set; }
+    public DbSet<ProfissionalServico> ProfissionalServicos { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
