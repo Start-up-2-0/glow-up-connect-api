@@ -16,4 +16,5 @@ public class Profissional
 
     public Usuario? Usuario { get; set; }
     public ICollection<ProfissionalEstabelecimento> Estabelecimentos { get; set; } = new List<ProfissionalEstabelecimento>();
+    public Endereco? Endereco { get; set; }
 }

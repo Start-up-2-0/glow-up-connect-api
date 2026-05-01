@@ -393,9 +393,6 @@ Complemento
 Bairro
 Cidade
 Estado
-Pais
-Latitude
-Longitude
 CreateAd
 UpdatedAt
 ```
@@ -405,7 +402,6 @@ UpdatedAt
 - Estabelecimento possui endereço.
 - Profissional autônomo pode possuir endereço.
 - Cliente final usa localização atual, não necessariamente endereço cadastrado.
-- Latitude e longitude serão usadas para busca por proximidade.
 
 ## Agendamento
 

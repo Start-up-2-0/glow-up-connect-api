@@ -15,4 +15,5 @@ public class Estabelecimento
 
     public ICollection<EstabelecimentoUsuario> Usuarios { get; set; } = new List<EstabelecimentoUsuario>();
     public ICollection<ProfissionalEstabelecimento> Profissionais { get; set; } = new List<ProfissionalEstabelecimento>();
+    public Endereco? Endereco { get; set; }
 }
