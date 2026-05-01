@@ -12,7 +12,7 @@ builder.Services.AddSwaggerGen();
 
 // 2. Chamar os métodos de extensão das outras camadas
 // Isso mantém o Program.cs limpo e focado na Web API
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.EnvironmentName);
 // builder.Services.AddApplication(); // Registrará MediatR, AutoMapper, etc.
 
 var app = builder.Build();

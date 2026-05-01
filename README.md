@@ -52,10 +52,37 @@ GLOWAPI/
 
 - **Runtime:** .NET 8
 - **ORM:** Entity Framework Core
-- **Bancos de Dados Suportados:** - SQL Server
-  - PostgreSQL
-  - MySQL / MariaDB (via Pomelo)
+- **Banco de Dados:** PostgreSQL
 - **Documentação:** Swagger (OpenAPI)
+
+## Configuração de Ambiente
+
+O projeto usa **PostgreSQL** como banco principal.
+
+### Desenvolvimento
+
+Em desenvolvimento, a conexão fica em `src/GLOWAPI.API/appsettings.Development.json`:
+
+```json
+{
+  "Database": {
+    "Provider": "PostgreSQL"
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5432;Database=glow_up_connect_dev;Username=postgres;Password=postgres"
+  }
+}
+```
+
+### Produção
+
+Em produção, a connection string não deve ficar em arquivo versionado. Quando `ASPNETCORE_ENVIRONMENT=Production`, a aplicação olha apenas para a variável:
+
+```bash
+POSTGSL="Host=<host>;Port=5432;Database=<database>;Username=<user>;Password=<password>;SSL Mode=Require;Trust Server Certificate=true"
+```
+
+Em produção, `ConnectionStrings__DefaultConnection`, `POSTGRESQL` ou qualquer outra variável de conexão são ignoradas para evitar fallback acidental.
 
 ## Como Executar o Projeto
 
@@ -64,3 +91,4 @@ GLOWAPI/
 - Ferramenta de linha de comando do EF Core:
   ```bash
   dotnet tool install --global dotnet-ef
+  ```
