@@ -1,3 +1,4 @@
+using GLOWAPI.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace GLOWAPI.Infrastructure;
@@ -9,10 +10,7 @@ public class ApplicationDbContext : DbContext
     {
     }
 
-    /* DbSets: Aqui você listará suas entidades conforme for criando-as no Domain.
-       Exemplo: 
-       public DbSet<User> Users { get; set; } 
-    */
+    public DbSet<Usuario> Usuarios { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

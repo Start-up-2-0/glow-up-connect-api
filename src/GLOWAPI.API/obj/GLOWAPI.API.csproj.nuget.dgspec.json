@@ -51,6 +51,12 @@
               "target": "Package",
               "version": "[8.0.25, )"
             },
+            "Microsoft.EntityFrameworkCore.Design": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
             "Swashbuckle.AspNetCore": {
               "target": "Package",
               "version": "[6.6.2, )"
@@ -223,6 +229,9 @@
             "projectReferences": {
               "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj": {
                 "projectPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj"
+              },
+              "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj": {
+                "projectPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj"
               }
             }
           }

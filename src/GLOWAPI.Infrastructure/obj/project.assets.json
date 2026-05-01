@@ -4217,6 +4217,7 @@
   "projectFileDependencyGroups": {
     "net8.0": [
       "GLOWAPI.Application >= 1.0.0",
+      "GLOWAPI.Domain >= 1.0.0",
       "Microsoft.EntityFrameworkCore.Design >= 8.0.0",
       "Microsoft.EntityFrameworkCore.SqlServer >= 8.0.0",
       "Microsoft.Extensions.Configuration.Binder >= 8.0.0",
@@ -4251,6 +4252,9 @@
           "projectReferences": {
             "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj": {
               "projectPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj"
+            },
+            "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj": {
+              "projectPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj"
             }
           }
         }

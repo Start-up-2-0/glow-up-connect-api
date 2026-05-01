@@ -9,6 +9,7 @@
       "GLOWAPI.Infrastructure/1.0.0": {
         "dependencies": {
           "GLOWAPI.Application": "1.0.0",
+          "GLOWAPI.Domain": "1.0.0",
           "Microsoft.EntityFrameworkCore.Design": "8.0.0",
           "Microsoft.EntityFrameworkCore.SqlServer": "8.0.0",
           "Microsoft.Extensions.Configuration.Binder": "8.0.0",

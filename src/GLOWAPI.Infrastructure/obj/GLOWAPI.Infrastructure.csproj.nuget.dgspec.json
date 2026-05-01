@@ -148,6 +148,9 @@
             "projectReferences": {
               "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj": {
                 "projectPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj"
+              },
+              "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj": {
+                "projectPath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj"
               }
             }
           }
