@@ -22,5 +22,8 @@ public class Profissional
     public ICollection<Agendamento> AgendamentosAutonomo { get; set; } = new List<Agendamento>();
     public ICollection<AgendamentoItem> AgendamentoItens { get; set; } = new List<AgendamentoItem>();
     public ICollection<AgendamentoItem> AgendamentoItensRepassados { get; set; } = new List<AgendamentoItem>();
+    public ICollection<Assinatura> AssinaturasAutonomo { get; set; } = new List<Assinatura>();
+    public ICollection<LancamentoCaixa> LancamentosCaixa { get; set; } = new List<LancamentoCaixa>();
     public Endereco? Endereco { get; set; }
+    public Caixa? Caixa { get; set; }
 }

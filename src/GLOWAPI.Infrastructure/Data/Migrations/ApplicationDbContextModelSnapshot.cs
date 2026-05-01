@@ -133,6 +133,126 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.Assinatura", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CanceladoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreateAd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("EstabelecimentoId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("Fim")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Gateway")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("GatewayCustomerId")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("GatewaySubscriptionId")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime>("Inicio")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PlanoId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ProfissionalAutonomoId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("RenovacaoAutomatica")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("UltimoPagamentoId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EstabelecimentoId");
+
+                    b.HasIndex("PlanoId");
+
+                    b.HasIndex("ProfissionalAutonomoId");
+
+                    b.ToTable("Assinaturas", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Assinaturas_Titular", "((\"EstabelecimentoId\" IS NOT NULL AND \"ProfissionalAutonomoId\" IS NULL) OR (\"EstabelecimentoId\" IS NULL AND \"ProfissionalAutonomoId\" IS NOT NULL))");
+                        });
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.Caixa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreateAd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("EstabelecimentoId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ProfissionalAutonomoId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("SaldoDisponivel")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<decimal>("SaldoRetido")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<decimal>("SaldoTotal")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EstabelecimentoId")
+                        .IsUnique();
+
+                    b.HasIndex("ProfissionalAutonomoId")
+                        .IsUnique();
+
+                    b.ToTable("Caixas", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Caixas_Titular", "((\"EstabelecimentoId\" IS NOT NULL AND \"ProfissionalAutonomoId\" IS NULL) OR (\"EstabelecimentoId\" IS NULL AND \"ProfissionalAutonomoId\" IS NOT NULL))");
+                        });
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Endereco", b =>
                 {
                     b.Property<int>("Id")
@@ -386,6 +506,180 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.LancamentoCaixa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AgendamentoId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CaixaId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreateAd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("PagamentoId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ProfissionalId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgendamentoId");
+
+                    b.HasIndex("CaixaId");
+
+                    b.HasIndex("PagamentoId");
+
+                    b.HasIndex("ProfissionalId");
+
+                    b.ToTable("LancamentosCaixa", (string)null);
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.Pagamento", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AgendamentoId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("AssinaturaId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreateAd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ExpiraEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Gateway")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("GatewayPaymentId")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("MetodoPagamento")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Moeda")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<DateTime?>("PagoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgendamentoId");
+
+                    b.HasIndex("AssinaturaId");
+
+                    b.HasIndex("GatewayPaymentId");
+
+                    b.ToTable("Pagamentos", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Pagamentos_Origem", "((\"AgendamentoId\" IS NOT NULL AND \"AssinaturaId\" IS NULL) OR (\"AgendamentoId\" IS NULL AND \"AssinaturaId\" IS NOT NULL))");
+                        });
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.Plano", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime>("CreateAd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("LimiteAgendamentos")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("LimiteProfissionais")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("LimiteServicos")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Periodo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<decimal>("Preco")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nome")
+                        .IsUnique();
+
+                    b.ToTable("Planos", (string)null);
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Profissional", b =>
                 {
                     b.Property<int>("Id")
@@ -635,6 +929,57 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
                     b.ToTable("Usuarios", (string)null);
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.WebhookPagamento", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreateAd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ErroProcessamento")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("EventId")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Gateway")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Processado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime?>("ProcessadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Gateway", "EventId")
+                        .IsUnique();
+
+                    b.ToTable("WebhookPagamentos", (string)null);
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Agendamento", b =>
                 {
                     b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
@@ -692,6 +1037,48 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
                     b.Navigation("RepassadoDeProfissional");
 
                     b.Navigation("Servico");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.Assinatura", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
+                        .WithMany("Assinaturas")
+                        .HasForeignKey("EstabelecimentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Plano", "Plano")
+                        .WithMany("Assinaturas")
+                        .HasForeignKey("PlanoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Profissional", "ProfissionalAutonomo")
+                        .WithMany("AssinaturasAutonomo")
+                        .HasForeignKey("ProfissionalAutonomoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Estabelecimento");
+
+                    b.Navigation("Plano");
+
+                    b.Navigation("ProfissionalAutonomo");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.Caixa", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
+                        .WithOne("Caixa")
+                        .HasForeignKey("GLOWAPI.Domain.Entities.Caixa", "EstabelecimentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Profissional", "ProfissionalAutonomo")
+                        .WithOne("Caixa")
+                        .HasForeignKey("GLOWAPI.Domain.Entities.Caixa", "ProfissionalAutonomoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Estabelecimento");
+
+                    b.Navigation("ProfissionalAutonomo");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Endereco", b =>
@@ -757,6 +1144,55 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Estabelecimento");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.LancamentoCaixa", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Agendamento", "Agendamento")
+                        .WithMany("LancamentosCaixa")
+                        .HasForeignKey("AgendamentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Caixa", "Caixa")
+                        .WithMany("Lancamentos")
+                        .HasForeignKey("CaixaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Pagamento", "Pagamento")
+                        .WithMany("LancamentosCaixa")
+                        .HasForeignKey("PagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Profissional", "Profissional")
+                        .WithMany("LancamentosCaixa")
+                        .HasForeignKey("ProfissionalId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Agendamento");
+
+                    b.Navigation("Caixa");
+
+                    b.Navigation("Pagamento");
+
+                    b.Navigation("Profissional");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.Pagamento", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Agendamento", "Agendamento")
+                        .WithMany("Pagamentos")
+                        .HasForeignKey("AgendamentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Assinatura", "Assinatura")
+                        .WithMany("Pagamentos")
+                        .HasForeignKey("AssinaturaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Agendamento");
+
+                    b.Navigation("Assinatura");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Profissional", b =>
@@ -828,11 +1264,29 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Agendamento", b =>
                 {
                     b.Navigation("Itens");
+
+                    b.Navigation("LancamentosCaixa");
+
+                    b.Navigation("Pagamentos");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.Assinatura", b =>
+                {
+                    b.Navigation("Pagamentos");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.Caixa", b =>
+                {
+                    b.Navigation("Lancamentos");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Estabelecimento", b =>
                 {
                     b.Navigation("Agendamentos");
+
+                    b.Navigation("Assinaturas");
+
+                    b.Navigation("Caixa");
 
                     b.Navigation("Endereco");
 
@@ -847,6 +1301,16 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
                     b.Navigation("Usuarios");
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.Pagamento", b =>
+                {
+                    b.Navigation("LancamentosCaixa");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.Plano", b =>
+                {
+                    b.Navigation("Assinaturas");
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Profissional", b =>
                 {
                     b.Navigation("AgendamentoItens");
@@ -855,11 +1319,17 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
 
                     b.Navigation("AgendamentosAutonomo");
 
+                    b.Navigation("AssinaturasAutonomo");
+
+                    b.Navigation("Caixa");
+
                     b.Navigation("Endereco");
 
                     b.Navigation("Estabelecimentos");
 
                     b.Navigation("HorariosAtendimento");
+
+                    b.Navigation("LancamentosCaixa");
 
                     b.Navigation("Servicos");
 

@@ -19,4 +19,6 @@ public class Agendamento
     public Estabelecimento? Estabelecimento { get; set; }
     public Profissional? ProfissionalAutonomo { get; set; }
     public ICollection<AgendamentoItem> Itens { get; set; } = new List<AgendamentoItem>();
+    public ICollection<Pagamento> Pagamentos { get; set; } = new List<Pagamento>();
+    public ICollection<LancamentoCaixa> LancamentosCaixa { get; set; } = new List<LancamentoCaixa>();
 }
