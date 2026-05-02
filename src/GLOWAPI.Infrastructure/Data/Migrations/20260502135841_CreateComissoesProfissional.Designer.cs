@@ -3,6 +3,7 @@ using System;
 using GLOWAPI.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GLOWAPI.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260502135841_CreateComissoesProfissional")]
+    partial class CreateComissoesProfissional
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -602,55 +605,6 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
                     b.HasIndex("ProfissionalId");
 
                     b.ToTable("LancamentosCaixa", (string)null);
-                });
-
-            modelBuilder.Entity("GLOWAPI.Domain.Entities.MetaProfissional", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("FimPeriodo")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("InicioPeriodo")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("ProfissionalEstabelecimentoId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("QuantidadeAtendimentos")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("TipoMeta")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal?>("ValorFaturamento")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProfissionalEstabelecimentoId");
-
-                    b.HasIndex("Status");
-
-                    b.ToTable("MetasProfissional", (string)null);
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Pagamento", b =>
@@ -1286,17 +1240,6 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
                     b.Navigation("Profissional");
                 });
 
-            modelBuilder.Entity("GLOWAPI.Domain.Entities.MetaProfissional", b =>
-                {
-                    b.HasOne("GLOWAPI.Domain.Entities.ProfissionalEstabelecimento", "ProfissionalEstabelecimento")
-                        .WithMany("Metas")
-                        .HasForeignKey("ProfissionalEstabelecimentoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("ProfissionalEstabelecimento");
-                });
-
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Pagamento", b =>
                 {
                     b.HasOne("GLOWAPI.Domain.Entities.Agendamento", "Agendamento")
@@ -1458,8 +1401,6 @@ namespace GLOWAPI.Infrastructure.Data.Migrations
             modelBuilder.Entity("GLOWAPI.Domain.Entities.ProfissionalEstabelecimento", b =>
                 {
                     b.Navigation("Comissoes");
-
-                    b.Navigation("Metas");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Servico", b =>
