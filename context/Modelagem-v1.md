@@ -616,6 +616,22 @@ Mista
 
 Representa os planos disponíveis na plataforma.
 
+O cadastro e manutenção dos planos será feito pelo Dashboard Operacional,
+em uma API administrativa separada. Neste projeto, a entidade permanece no
+domínio e no banco para relacionamento com assinaturas e pagamentos.
+
+Nesta API não haverá CRUD administrativo de planos. Os endpoints relacionados
+a plano serão apenas:
+
+```txt
+GET /planos
+POST /assinaturas/trocar-plano
+```
+
+O endpoint de listagem deve retornar apenas planos ativos disponíveis para
+contratação. A troca de plano deve atuar sobre a assinatura do estabelecimento
+ou profissional autônomo.
+
 ### Campos principais
 
 ```txt
@@ -637,6 +653,7 @@ UpdatedAt
 - Plano gratuito será limitado.
 - Plano pago será controlado por assinatura.
 - Limites devem ser usados para restringir funcionalidades.
+- Cadastro, edição, ativação e desativação de planos pertencem ao Dashboard Operacional.
 
 ## Assinatura
 
