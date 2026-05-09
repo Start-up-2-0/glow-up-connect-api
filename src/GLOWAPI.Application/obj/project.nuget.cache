@@ -1,8 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "0vjfSCXL2W8=",
+  "dgSpecHash": "kItP+xyDCEE=",
   "success": true,
-  "projectFilePath": "C:\\Users\\GustavodeOliveiraFag\\OneDrive - Delbank\\Área de Trabalho\\pessoal\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj",
-  "expectedPackageFiles": [],
+  "projectFilePath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Application/GLOWAPI.Application.csproj",
+  "expectedPackageFiles": [
+    "/home/wesley/.nuget/packages/bcrypt.net-next/4.1.0/bcrypt.net-next.4.1.0.nupkg.sha512",
+    "/home/wesley/.nuget/packages/microsoft.extensions.dependencyinjection/8.0.0/microsoft.extensions.dependencyinjection.8.0.0.nupkg.sha512",
+    "/home/wesley/.nuget/packages/microsoft.extensions.dependencyinjection.abstractions/8.0.0/microsoft.extensions.dependencyinjection.abstractions.8.0.0.nupkg.sha512",
+    "/home/wesley/.nuget/packages/microsoft.aspnetcore.app.ref/8.0.25/microsoft.aspnetcore.app.ref.8.0.25.nupkg.sha512"
+  ],
   "logs": []
 }

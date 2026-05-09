@@ -27,7 +27,7 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         builder.Property(usuario => usuario.Telefone)
             .HasMaxLength(20);
 
-        builder.Property(usuario => usuario.Senha)
+        builder.Property(usuario => usuario.SenhaHash)
             .IsRequired()
             .HasMaxLength(255);
 
@@ -38,13 +38,13 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
             .IsRequired()
             .HasMaxLength(50);
 
-        builder.Property(usuario => usuario.Tentivas)
+        builder.Property(usuario => usuario.Tentativas)
             .HasDefaultValue(0);
 
         builder.Property(usuario => usuario.Ativo)
             .HasDefaultValue(true);
 
-        builder.Property(usuario => usuario.CreateAd)
+        builder.Property(usuario => usuario.CreatedAt)
             .IsRequired();
 
         builder.Property(usuario => usuario.UpdatedAt);

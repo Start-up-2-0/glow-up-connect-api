@@ -1,12 +1,35 @@
-C:\Users\GustavodeOliveiraFag\OneDrive - Delbank\Área de Trabalho\pessoal\glow-up-connect-api\src\GLOWAPI.Domain\bin\Debug\net8.0\GLOWAPI.Domain.deps.json
-C:\Users\GustavodeOliveiraFag\OneDrive - Delbank\Área de Trabalho\pessoal\glow-up-connect-api\src\GLOWAPI.Domain\bin\Debug\net8.0\GLOWAPI.Domain.dll
-C:\Users\GustavodeOliveiraFag\OneDrive - Delbank\Área de Trabalho\pessoal\glow-up-connect-api\src\GLOWAPI.Domain\bin\Debug\net8.0\GLOWAPI.Domain.pdb
-C:\Users\GustavodeOliveiraFag\OneDrive - Delbank\Área de Trabalho\pessoal\glow-up-connect-api\src\GLOWAPI.Domain\obj\Debug\net8.0\GLOWAPI.Domain.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\GustavodeOliveiraFag\OneDrive - Delbank\Área de Trabalho\pessoal\glow-up-connect-api\src\GLOWAPI.Domain\obj\Debug\net8.0\GLOWAPI.Domain.AssemblyInfoInputs.cache
-C:\Users\GustavodeOliveiraFag\OneDrive - Delbank\Área de Trabalho\pessoal\glow-up-connect-api\src\GLOWAPI.Domain\obj\Debug\net8.0\GLOWAPI.Domain.AssemblyInfo.cs
-C:\Users\GustavodeOliveiraFag\OneDrive - Delbank\Área de Trabalho\pessoal\glow-up-connect-api\src\GLOWAPI.Domain\obj\Debug\net8.0\GLOWAPI.Domain.csproj.CoreCompileInputs.cache
-C:\Users\GustavodeOliveiraFag\OneDrive - Delbank\Área de Trabalho\pessoal\glow-up-connect-api\src\GLOWAPI.Domain\obj\Debug\net8.0\GLOWAPI.Domain.sourcelink.json
-C:\Users\GustavodeOliveiraFag\OneDrive - Delbank\Área de Trabalho\pessoal\glow-up-connect-api\src\GLOWAPI.Domain\obj\Debug\net8.0\GLOWAPI.Domain.dll
-C:\Users\GustavodeOliveiraFag\OneDrive - Delbank\Área de Trabalho\pessoal\glow-up-connect-api\src\GLOWAPI.Domain\obj\Debug\net8.0\refint\GLOWAPI.Domain.dll
-C:\Users\GustavodeOliveiraFag\OneDrive - Delbank\Área de Trabalho\pessoal\glow-up-connect-api\src\GLOWAPI.Domain\obj\Debug\net8.0\GLOWAPI.Domain.pdb
-C:\Users\GustavodeOliveiraFag\OneDrive - Delbank\Área de Trabalho\pessoal\glow-up-connect-api\src\GLOWAPI.Domain\obj\Debug\net8.0\ref\GLOWAPI.Domain.dll
+C:/Users/GustavodeOliveiraFag/OneDrive - Delbank/Área de Trabalho/pessoal/glow-up-connect-api/src/GLOWAPI.Domain/bin/Debug/net8.0/GLOWAPI.Domain.deps.json
+C:/Users/GustavodeOliveiraFag/OneDrive - Delbank/Área de Trabalho/pessoal/glow-up-connect-api/src/GLOWAPI.Domain/bin/Debug/net8.0/GLOWAPI.Domain.dll
+C:/Users/GustavodeOliveiraFag/OneDrive - Delbank/Área de Trabalho/pessoal/glow-up-connect-api/src/GLOWAPI.Domain/bin/Debug/net8.0/GLOWAPI.Domain.pdb
+C:/Users/GustavodeOliveiraFag/OneDrive - Delbank/Área de Trabalho/pessoal/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:/Users/GustavodeOliveiraFag/OneDrive - Delbank/Área de Trabalho/pessoal/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.AssemblyInfoInputs.cache
+C:/Users/GustavodeOliveiraFag/OneDrive - Delbank/Área de Trabalho/pessoal/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.AssemblyInfo.cs
+C:/Users/GustavodeOliveiraFag/OneDrive - Delbank/Área de Trabalho/pessoal/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.csproj.CoreCompileInputs.cache
+C:/Users/GustavodeOliveiraFag/OneDrive - Delbank/Área de Trabalho/pessoal/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.sourcelink.json
+C:/Users/GustavodeOliveiraFag/OneDrive - Delbank/Área de Trabalho/pessoal/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.dll
+C:/Users/GustavodeOliveiraFag/OneDrive - Delbank/Área de Trabalho/pessoal/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/refint/GLOWAPI.Domain.dll
+C:/Users/GustavodeOliveiraFag/OneDrive - Delbank/Área de Trabalho/pessoal/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.pdb
+C:/Users/GustavodeOliveiraFag/OneDrive - Delbank/Área de Trabalho/pessoal/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/ref/GLOWAPI.Domain.dll
+/home/wesley/Documentos/glow-up-connect-api-main/src/GLOWAPI.Domain/bin/Debug/net8.0/GLOWAPI.Domain.deps.json
+/home/wesley/Documentos/glow-up-connect-api-main/src/GLOWAPI.Domain/bin/Debug/net8.0/GLOWAPI.Domain.dll
+/home/wesley/Documentos/glow-up-connect-api-main/src/GLOWAPI.Domain/bin/Debug/net8.0/GLOWAPI.Domain.pdb
+/home/wesley/Documentos/glow-up-connect-api-main/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.GeneratedMSBuildEditorConfig.editorconfig
+/home/wesley/Documentos/glow-up-connect-api-main/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.AssemblyInfoInputs.cache
+/home/wesley/Documentos/glow-up-connect-api-main/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.AssemblyInfo.cs
+/home/wesley/Documentos/glow-up-connect-api-main/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.csproj.CoreCompileInputs.cache
+/home/wesley/Documentos/glow-up-connect-api-main/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.dll
+/home/wesley/Documentos/glow-up-connect-api-main/src/GLOWAPI.Domain/obj/Debug/net8.0/refint/GLOWAPI.Domain.dll
+/home/wesley/Documentos/glow-up-connect-api-main/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.pdb
+/home/wesley/Documentos/glow-up-connect-api-main/src/GLOWAPI.Domain/obj/Debug/net8.0/ref/GLOWAPI.Domain.dll
+/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/bin/Debug/net8.0/GLOWAPI.Domain.deps.json
+/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/bin/Debug/net8.0/GLOWAPI.Domain.dll
+/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/bin/Debug/net8.0/GLOWAPI.Domain.pdb
+/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.GeneratedMSBuildEditorConfig.editorconfig
+/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.AssemblyInfoInputs.cache
+/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.AssemblyInfo.cs
+/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.csproj.CoreCompileInputs.cache
+/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.sourcelink.json
+/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.dll
+/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/refint/GLOWAPI.Domain.dll
+/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/GLOWAPI.Domain.pdb
+/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/obj/Debug/net8.0/ref/GLOWAPI.Domain.dll
