@@ -29,7 +29,7 @@ public class UsuarioService : IUsuarioService
             Nome = nome,
             Email = email,
             Telefone = telefone,
-            SenhaHash = senhaHash,
+            Senha = senhaHash,
             Role = role,
             Ativo = true
         };

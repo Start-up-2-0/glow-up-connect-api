@@ -8,6 +8,7 @@
     ".NETCoreApp,Version=v8.0": {
       "GLOWAPI.API/1.0.0": {
         "dependencies": {
+          "GLOWAPI.Application": "1.0.0",
           "GLOWAPI.Infrastructure": "1.0.0",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.0",
           "Microsoft.AspNetCore.OpenApi": "8.0.25",

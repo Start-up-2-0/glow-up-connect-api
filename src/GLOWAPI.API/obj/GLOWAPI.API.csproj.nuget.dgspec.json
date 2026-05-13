@@ -26,6 +26,9 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
+              "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Application/GLOWAPI.Application.csproj": {
+                "projectPath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Application/GLOWAPI.Application.csproj"
+              },
               "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Infrastructure/GLOWAPI.Infrastructure.csproj": {
                 "projectPath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Infrastructure/GLOWAPI.Infrastructure.csproj"
               }

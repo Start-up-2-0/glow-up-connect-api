@@ -27,7 +27,7 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         builder.Property(usuario => usuario.Telefone)
             .HasMaxLength(20);
 
-        builder.Property(usuario => usuario.SenhaHash)
+        builder.Property(usuario => usuario.Senha)
             .IsRequired()
             .HasMaxLength(255);
 

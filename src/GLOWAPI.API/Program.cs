@@ -3,6 +3,7 @@ using GLOWAPI.Application;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using GLOWAPI.API.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +45,8 @@ if (app.Environment.IsDevelopment())
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "GLOWAPI v1");
     });
 }
+
+app.UseMiddleware<ExceptionMiddleware>();
 
 // Redirecionamento HTTPS e autenticação
 app.UseHttpsRedirection();

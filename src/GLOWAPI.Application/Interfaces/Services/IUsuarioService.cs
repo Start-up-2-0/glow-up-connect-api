@@ -10,5 +10,5 @@ public interface IUsuarioService
     Task<Usuario?> ObterUsuarioPorEmailAsync(string email, CancellationToken cancellationToken = default);
     Task AtualizarUsuarioAsync(int id, string nome, string telefone, CancellationToken cancellationToken = default);
     Task DesativarUsuarioAsync(int id, CancellationToken cancellationToken = default);
-    bool VerificarSenha(string senha, string senhaHash);
+    bool VerificarSenha(string senha, string Senha);
 }

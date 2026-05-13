@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GLOWAPI.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+34da4b6ce2874899e7bbf855912124a584ea6f39")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d3289230743db9b70b3478d86811ef2ccf2d6b5f")]
 [assembly: System.Reflection.AssemblyProductAttribute("GLOWAPI.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GLOWAPI.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
