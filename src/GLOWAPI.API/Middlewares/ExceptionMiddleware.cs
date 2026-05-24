@@ -1,4 +1,6 @@
 using System.Net;
+using GLOWAPI.API.Models;
+using GLOWAPI.Domain.Exceptions.Auth;
 
 namespace GLOWAPI.API.Middlewares;
 
@@ -19,26 +21,57 @@ public class ExceptionMiddleware
         {
             await _next(context);
         }
+        catch (AuthenticationException ex)
+        {
+            var statusCode = ex switch
+            {
+                InvalidCredentialsException or UnauthorizedException or TokenExpiredException or InvalidTokenException
+                    => HttpStatusCode.Unauthorized,
+                UserBlockedException or InactiveUserException => HttpStatusCode.Forbidden,
+                _ => HttpStatusCode.Unauthorized
+            };
+
+            await WriteErrorAsync(context, (int)statusCode, ex.Message, ex.Code);
+            _logger.LogWarning(ex, "Falha de autenticação: {Code}", ex.Code);
+        }
         catch (KeyNotFoundException ex)
         {
             _logger.LogWarning(ex, "Recurso não encontrado");
-            context.Response.StatusCode = 404;
-            context.Response.ContentType = "application/json";
-            await context.Response.WriteAsJsonAsync(new { error = ex.Message });
+            await WriteLegacyErrorAsync(context, 404, ex.Message);
         }
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning(ex, "Operação inválida");
-            context.Response.StatusCode = 400;
-            context.Response.ContentType = "application/json";
-            await context.Response.WriteAsJsonAsync(new { error = ex.Message });
+            await WriteLegacyErrorAsync(context, 400, ex.Message);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erro interno do servidor");
-            context.Response.StatusCode = 500;
-            context.Response.ContentType = "application/json";
-            await context.Response.WriteAsJsonAsync(new { error = "Erro interno do servidor" });
+            await WriteLegacyErrorAsync(context, 500, "Erro interno do servidor");
         }
+    }
+
+    private static async Task WriteErrorAsync(HttpContext context, int statusCode, string message, string code)
+    {
+        if (context.Response.HasStarted)
+        {
+            return;
+        }
+
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(ApiErrorResponse.From(message, code));
+    }
+
+    private static async Task WriteLegacyErrorAsync(HttpContext context, int statusCode, string message)
+    {
+        if (context.Response.HasStarted)
+        {
+            return;
+        }
+
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new { error = message });
     }
 }
