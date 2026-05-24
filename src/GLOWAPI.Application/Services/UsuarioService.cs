@@ -8,10 +8,12 @@ namespace GLOWAPI.Application.Services;
 public class UsuarioService : IUsuarioService
 {
     private readonly IUsuarioRepository _usuarioRepository;
+    private readonly IPasswordHasher _passwordHasher;
 
-    public UsuarioService(IUsuarioRepository usuarioRepository)
+    public UsuarioService(IUsuarioRepository usuarioRepository, IPasswordHasher passwordHasher)
     {
         _usuarioRepository = usuarioRepository;
+        _passwordHasher = passwordHasher;
     }
 
     public async Task<Usuario> CriarUsuarioAsync(string nome, string email, string telefone, string senha, UserRole role, CancellationToken cancellationToken = default)
@@ -22,7 +24,7 @@ public class UsuarioService : IUsuarioService
             throw new InvalidOperationException("Usuário com este email já existe.");
         }
 
-        var senhaHash = HashPassword(senha);
+        var senhaHash = _passwordHasher.Hash(senha);
 
         var usuario = new Usuario
         {
@@ -81,13 +83,6 @@ public class UsuarioService : IUsuarioService
         await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
     }
 
-    public bool VerificarSenha(string senha, string senhaHash)
-    {
-        return BCrypt.Net.BCrypt.Verify(senha, senhaHash);
-    }
-
-    private string HashPassword(string password)
-    {
-        return BCrypt.Net.BCrypt.HashPassword(password);
-    }
+    public bool VerificarSenha(string senha, string senhaHash) =>
+        _passwordHasher.Verify(senha, senhaHash);
 }

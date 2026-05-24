@@ -41,6 +41,8 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         builder.Property(usuario => usuario.Tentativas)
             .HasDefaultValue(0);
 
+        builder.Property(usuario => usuario.BloqueadoAte);
+
         builder.Property(usuario => usuario.Ativo)
             .HasDefaultValue(true);
 
