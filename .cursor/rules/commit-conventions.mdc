@@ -1,0 +1,54 @@
+---
+description: Padrao de commits semanticos do projeto — mensagens em portugues, commits pequenos por responsabilidade
+alwaysApply: true
+---
+
+# Convencoes de commit — Glow Up Connect API
+
+## Formato obrigatorio
+
+```
+<tipo>(<escopo>): <descricao curta em portugues>
+```
+
+Exemplos:
+- `feat(auth): adicionar middleware de autenticacao x-glow-token`
+- `chore(database): adicionar migration de sessoes de autenticacao`
+- `test(auth): adicionar testes de integracao do controller de auth`
+
+## Tipos permitidos
+
+| Tipo | Uso |
+|------|-----|
+| `feat` | Nova funcionalidade |
+| `fix` | Correcao de bug |
+| `refactor` | Mudanca interna sem alterar comportamento externo |
+| `test` | Testes |
+| `chore` | Migrations, deps, tooling |
+| `docs` | README, documentacao |
+
+## Escopos comuns
+
+`domain`, `usuario`, `auth`, `api`, `infrastructure`, `database`, `test`
+
+## Regras
+
+1. **Um commit = uma responsabilidade** — nunca misturar domain + API + testes no mesmo commit
+2. **Mensagens especificas** — proibido: `ajustes`, `fix`, `update`, `varias coisas`
+3. **Ordem sugerida:** domain → application → infrastructure → migrations → api → testes
+4. **Nunca commitar:** `bin/`, `obj/`, `appsettings.Development.json`, credenciais
+5. **Autoria:** commits apenas com o usuario local — **sem** `Co-authored-by: Cursor`
+6. **Idioma:** portugues; preferir ASCII sem acentos na mensagem
+
+## Agrupamento por camada
+
+- **Domain:** entidades, enums, excecoes
+- **Application:** interfaces, services, options, models
+- **Infrastructure:** repositories, configurations, security, migrations, DI
+- **API:** controllers, DTOs, middlewares, Program.cs
+- **Testes:** `tests/GLOWAPI.Tests/`
+
+## Skill e scripts
+
+- Skill completa: `.cursor/skills/semantic-commits/SKILL.md`
+- Batch auth: `scripts/commit-auth-feature.cmd` (usar `.cmd`, nao duplo clique no `.ps1`)
