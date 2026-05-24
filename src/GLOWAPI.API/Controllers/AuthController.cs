@@ -1,5 +1,5 @@
-using GLOWAPI.API.DTOs.Auth;
 using GLOWAPI.API.Models;
+using GLOWAPI.Application.DTOs.Auth;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Auth;
 using GLOWAPI.Application.Options;
@@ -26,28 +26,10 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request, CancellationToken cancellationToken)
     {
-        var result = await _authService.LoginAsync(
-            request.Email,
-            request.Senha,
-            BuildSessionContext(),
-            cancellationToken);
-
-        var data = new LoginResponseDto
-        {
-            Token = result.Token,
-            RefreshToken = result.RefreshToken,
-            ExpiresAt = result.ExpiresAt,
-            RefreshExpiresAt = result.RefreshExpiresAt,
-            Usuario = new UsuarioAuthDto
-            {
-                Id = result.Usuario.Id,
-                Nome = result.Usuario.Nome,
-                Email = result.Usuario.Email,
-                Role = result.Usuario.Role
-            }
-        };
-
-        return Ok(ApiSuccessResponse<LoginResponseDto>.From("Login realizado com sucesso", data));
+        var result = await _authService.LoginAsync(request, BuildSessionContext(), cancellationToken);
+        return Ok(ApiSuccessResponse<LoginResponseDto>.From(
+            "Login realizado com sucesso",
+            LoginResponseDto.From(result)));
     }
 
     [HttpPost("logout")]
@@ -67,18 +49,10 @@ public class AuthController : ControllerBase
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto request, CancellationToken cancellationToken)
     {
-        var result = await _authService.RefreshAsync(
-            request.RefreshToken,
-            BuildSessionContext(),
-            cancellationToken);
-
-        return Ok(ApiSuccessResponse<object>.From("Token renovado com sucesso", new
-        {
-            token = result.Token,
-            refreshToken = result.RefreshToken,
-            expiresAt = result.ExpiresAt,
-            refreshExpiresAt = result.RefreshExpiresAt
-        }));
+        var result = await _authService.RefreshAsync(request, BuildSessionContext(), cancellationToken);
+        return Ok(ApiSuccessResponse<RefreshTokenResponseDto>.From(
+            "Token renovado com sucesso",
+            RefreshTokenResponseDto.From(result)));
     }
 
     [AllowAnonymous]

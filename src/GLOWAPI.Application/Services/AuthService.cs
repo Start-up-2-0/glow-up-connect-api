@@ -1,3 +1,4 @@
+using GLOWAPI.Application.DTOs.Auth;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Auth;
@@ -30,11 +31,12 @@ public class AuthService : IAuthService
     }
 
     public async Task<AuthLoginResult> LoginAsync(
-        string email,
-        string senha,
+        LoginRequestDto dto,
         AuthSessionContext context,
         CancellationToken cancellationToken = default)
     {
+        var email = dto.Email;
+        var senha = dto.Senha;
         var usuario = await _usuarioRepository.ObterPorEmailAsync(email, cancellationToken);
 
         if (usuario is null)
@@ -108,11 +110,11 @@ public class AuthService : IAuthService
     }
 
     public async Task<AuthRefreshResult> RefreshAsync(
-        string refreshToken,
+        RefreshTokenRequestDto dto,
         AuthSessionContext context,
         CancellationToken cancellationToken = default)
     {
-        var sessao = await _authSessionService.ObterSessaoAtivaPorRefreshTokenAsync(refreshToken, cancellationToken);
+        var sessao = await _authSessionService.ObterSessaoAtivaPorRefreshTokenAsync(dto.RefreshToken, cancellationToken);
         var usuario = await _usuarioRepository.ObterPorIdAsync(sessao.UsuarioId, cancellationToken);
 
         if (usuario is null || !usuario.PodeAutenticar(_authOptions.MaxLoginAttempts))

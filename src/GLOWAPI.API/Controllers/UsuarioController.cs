@@ -1,6 +1,6 @@
-using GLOWAPI.API.DTOs.Usuario;
+using GLOWAPI.Application.DTOs.Usuario;
 using GLOWAPI.Application.Interfaces.Services;
-using GLOWAPI.Domain.Enums;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GLOWAPI.API.Controllers;
@@ -16,48 +16,32 @@ public class UsuarioController : ControllerBase
         _usuarioService = usuarioService;
     }
 
-    // POST: api/Usuario
+    [AllowAnonymous]
     [HttpPost]
-    public async Task<IActionResult> CriarUsuario([FromBody] CriarUsuarioDto request)
+    public async Task<IActionResult> CriarUsuario([FromBody] CriarUsuarioDto request, CancellationToken cancellationToken)
     {
-        var usuario = await _usuarioService.CriarUsuarioAsync(
-            request.Nome,
-            request.Email,
-            request.Telefone,
-            request.Senha,
-            request.Role);
-
-        return CreatedAtAction(nameof(ObterUsuario), new { id = usuario.Id }, usuario);
+        var usuario = await _usuarioService.CriarUsuarioAsync(request, cancellationToken);
+        return StatusCode(StatusCodes.Status201Created, UsuarioResponseDto.From(usuario));
     }
 
-    // GET: api/Usuario/
-    [HttpGet("{id}")]
-    public async Task<IActionResult> ObterUsuario(int id)
+    [HttpGet("me")]
+    public async Task<IActionResult> ObterUsuario(CancellationToken cancellationToken)
     {
-        var usuario = await _usuarioService.ObterUsuarioPorIdAsync(id);
-        if (usuario == null || !usuario.Ativo)
-        {
-            return NotFound();
-        }
-
-        return Ok(usuario);
+        var usuario = await _usuarioService.ObterPerfilAtualAsync(cancellationToken);
+        return Ok(UsuarioResponseDto.From(usuario));
     }
 
-    // PUT: api/Usuario
-    [HttpPut("{id}")]
-    public async Task<IActionResult> AtualizarUsuario(int id, [FromBody] AtualizarUsuarioDto request)
+    [HttpPut("me")]
+    public async Task<IActionResult> AtualizarUsuario([FromBody] AtualizarUsuarioDto request, CancellationToken cancellationToken)
     {
-        await _usuarioService.AtualizarUsuarioAsync(id, request.Nome, request.Telefone);
+        await _usuarioService.AtualizarPerfilAtualAsync(request, cancellationToken);
         return NoContent();
     }
 
-
-    // DELETE: api/Usuario/
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DesativarUsuario(int id)
+    [HttpDelete("me")]
+    public async Task<IActionResult> DesativarUsuario(CancellationToken cancellationToken)
     {
-        await _usuarioService.DesativarUsuarioAsync(id);
+        await _usuarioService.DesativarContaAtualAsync(cancellationToken);
         return NoContent();
     }
-
 }
