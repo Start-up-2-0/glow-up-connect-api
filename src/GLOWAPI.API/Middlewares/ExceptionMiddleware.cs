@@ -1,6 +1,8 @@
 using System.Net;
 using GLOWAPI.API.Models;
+using GLOWAPI.Domain.Exceptions;
 using GLOWAPI.Domain.Exceptions.Auth;
+using GLOWAPI.Domain.Exceptions.Usuario;
 
 namespace GLOWAPI.API.Middlewares;
 
@@ -33,6 +35,17 @@ public class ExceptionMiddleware
 
             await WriteErrorAsync(context, (int)statusCode, ex.Message, ex.Code);
             _logger.LogWarning(ex, "Falha de autenticação: {Code}", ex.Code);
+        }
+        catch (DomainException ex)
+        {
+            var statusCode = ex switch
+            {
+                EmailJaCadastradoException => HttpStatusCode.Conflict,
+                _ => HttpStatusCode.NotFound
+            };
+
+            await WriteErrorAsync(context, (int)statusCode, ex.Message, ex.Code);
+            _logger.LogWarning(ex, "Regra de negócio violada: {Code}", ex.Code);
         }
         catch (KeyNotFoundException ex)
         {
