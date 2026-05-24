@@ -1,8 +1,6 @@
 using GLOWAPI.API.DTOs.Usuario;
 using GLOWAPI.Application.Interfaces.Services;
-using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GLOWAPI.API.Controllers;
@@ -20,8 +18,6 @@ public class UsuarioController : ControllerBase
 
     // POST: api/Usuario
     [HttpPost]
-    [AllowAnonymous]
-    //[Authorize]
     public async Task<IActionResult> CriarUsuario([FromBody] CriarUsuarioDto request)
     {
         var usuario = await _usuarioService.CriarUsuarioAsync(
@@ -36,7 +32,6 @@ public class UsuarioController : ControllerBase
 
     // GET: api/Usuario/
     [HttpGet("{id}")]
-    // [Authorize]
     public async Task<IActionResult> ObterUsuario(int id)
     {
         var usuario = await _usuarioService.ObterUsuarioPorIdAsync(id);
@@ -50,7 +45,6 @@ public class UsuarioController : ControllerBase
 
     // PUT: api/Usuario
     [HttpPut("{id}")]
-    //[Authorize]
     public async Task<IActionResult> AtualizarUsuario(int id, [FromBody] AtualizarUsuarioDto request)
     {
         await _usuarioService.AtualizarUsuarioAsync(id, request.Nome, request.Telefone);
@@ -60,7 +54,6 @@ public class UsuarioController : ControllerBase
 
     // DELETE: api/Usuario/
     [HttpDelete("{id}")]
-    //[Authorize]
     public async Task<IActionResult> DesativarUsuario(int id)
     {
         await _usuarioService.DesativarUsuarioAsync(id);

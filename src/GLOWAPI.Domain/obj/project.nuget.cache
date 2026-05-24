@@ -1,10 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "4wFCEqZ4tg0=",
+  "dgSpecHash": "kGEGMiq6gTk=",
   "success": true,
-  "projectFilePath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/GLOWAPI.Domain.csproj",
-  "expectedPackageFiles": [
-    "/home/wesley/.nuget/packages/microsoft.aspnetcore.app.ref/8.0.25/microsoft.aspnetcore.app.ref.8.0.25.nupkg.sha512"
-  ],
+  "projectFilePath": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj",
+  "expectedPackageFiles": [],
   "logs": []
 }

@@ -1,58 +1,69 @@
-using GLOWAPI.Infrastructure;
+using System.Text.Json.Serialization;
 using GLOWAPI.Application;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
+using GLOWAPI.Application.Options;
 using GLOWAPI.API.Middlewares;
+using GLOWAPI.Infrastructure;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Adicionar serviços ao container
-builder.Services.AddControllers();
-builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.EnvironmentName);
-builder.Services.AddApplication();
-
-// Configura o Swagger/OpenAPI para documentação
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-// Configura autenticação JWT
-var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key não configurado.");
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
     {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
-        };
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.EnvironmentName);
+builder.Services.AddApplication();
+builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.SectionName));
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("GlowToken", new OpenApiSecurityScheme
+    {
+        Name = "x-glow-token",
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Header,
+        Description = "Token de autenticação customizado emitido no login"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "GlowToken"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "GLOWAPI v1");
-    });
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "GLOWAPI v1"));
 }
 
 app.UseMiddleware<ExceptionMiddleware>();
 
-// Redirecionamento HTTPS e autenticação
-app.UseHttpsRedirection();
-app.UseAuthentication();
-app.UseAuthorization();
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHttpsRedirection();
+}
 
-// Mapeia os controllers para as rotas
+app.UseMiddleware<GlowTokenAuthenticationMiddleware>();
+app.UseMiddleware<PermissionMiddleware>();
 app.MapControllers();
+
 app.Run();
+
+public partial class Program;

@@ -1,5 +1,8 @@
 using GLOWAPI.Application.Interfaces.Repositories;
+using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Options;
 using GLOWAPI.Infrastructure.Repositories;
+using GLOWAPI.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +61,10 @@ public static class DependencyInjection
         services.AddScoped<IWebhookPagamentoRepository, WebhookPagamentoRepository>();
         services.AddScoped<IComissaoProfissionalRepository, ComissaoProfissionalRepository>();
         services.AddScoped<IMetaProfissionalRepository, MetaProfissionalRepository>();
+        services.AddScoped<ISessaoAutenticacaoRepository, SessaoAutenticacaoRepository>();
+        services.AddScoped<ILogAutenticacaoRepository, LogAutenticacaoRepository>();
+        services.AddScoped<IGlowTokenService, GlowTokenService>();
+        services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
 
         return services;
     }

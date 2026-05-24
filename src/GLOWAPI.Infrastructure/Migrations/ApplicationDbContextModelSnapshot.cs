@@ -604,6 +604,53 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.ToTable("LancamentosCaixa", (string)null);
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.LogAutenticacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Detalhes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Evento")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Ip")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<int?>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Evento");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("LogsAutenticacao", (string)null);
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.MetaProfissional", b =>
                 {
                     b.Property<int>("Id")
@@ -969,6 +1016,71 @@ namespace GLOWAPI.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.SessaoAutenticacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AccessTokenExpiraEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("AccessTokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiraEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Ip")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)");
+
+                    b.Property<DateTime>("LoginEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MetadataJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("RefreshTokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime?>("RevogadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("UltimaRenovacaoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccessTokenHash");
+
+                    b.HasIndex("ExpiraEm");
+
+                    b.HasIndex("RefreshTokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("SessoesAutenticacao", (string)null);
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Usuario", b =>
                 {
                     b.Property<int>("Id")
@@ -981,6 +1093,9 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(true);
+
+                    b.Property<DateTime?>("BloqueadoAte")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1380,6 +1495,17 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Navigation("ProfissionalAutonomo");
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.SessaoAutenticacao", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Usuario", "Usuario")
+                        .WithMany("Sessoes")
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Agendamento", b =>
                 {
                     b.Navigation("Itens");
@@ -1474,6 +1600,8 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Navigation("Agendamentos");
 
                     b.Navigation("Estabelecimentos");
+
+                    b.Navigation("Sessoes");
                 });
 #pragma warning restore 612, 618
         }

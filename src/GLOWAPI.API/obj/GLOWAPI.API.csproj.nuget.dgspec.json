@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.API/GLOWAPI.API.csproj": {}
+    "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.API\\GLOWAPI.API.csproj": {}
   },
   "projects": {
-    "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.API/GLOWAPI.API.csproj": {
+    "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.API\\GLOWAPI.API.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.API/GLOWAPI.API.csproj",
+        "projectUniqueName": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.API\\GLOWAPI.API.csproj",
         "projectName": "GLOWAPI.API",
-        "projectPath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.API/GLOWAPI.API.csproj",
-        "packagesPath": "/home/wesley/.nuget/packages/",
-        "outputPath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.API/obj/",
+        "projectPath": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.API\\GLOWAPI.API.csproj",
+        "packagesPath": "C:\\Users\\James\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.API\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "/home/wesley/.nuget/NuGet/NuGet.Config"
+          "C:\\Users\\James\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
@@ -26,11 +26,11 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Application/GLOWAPI.Application.csproj": {
-                "projectPath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Application/GLOWAPI.Application.csproj"
+              "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj": {
+                "projectPath": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj"
               },
-              "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Infrastructure/GLOWAPI.Infrastructure.csproj": {
-                "projectPath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Infrastructure/GLOWAPI.Infrastructure.csproj"
+              "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Infrastructure\\GLOWAPI.Infrastructure.csproj": {
+                "projectPath": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Infrastructure\\GLOWAPI.Infrastructure.csproj"
               }
             }
           }
@@ -44,17 +44,12 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        },
-        "SdkAnalysisLevel": "10.0.100"
+        }
       },
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
           "dependencies": {
-            "Microsoft.AspNetCore.Authentication.JwtBearer": {
-              "target": "Package",
-              "version": "[8.0.0, )"
-            },
             "Microsoft.AspNetCore.OpenApi": {
               "target": "Package",
               "version": "[8.0.25, )"
@@ -81,16 +76,6 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
-          "downloadDependencies": [
-            {
-              "name": "Microsoft.AspNetCore.App.Ref",
-              "version": "[8.0.25, 8.0.25]"
-            },
-            {
-              "name": "Microsoft.NETCore.App.Host.linux-x64",
-              "version": "[8.0.25, 8.0.25]"
-            }
-          ],
           "frameworkReferences": {
             "Microsoft.AspNetCore.App": {
               "privateAssets": "none"
@@ -99,21 +84,21 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/10.0.104/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.419/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Application/GLOWAPI.Application.csproj": {
+    "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Application/GLOWAPI.Application.csproj",
+        "projectUniqueName": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj",
         "projectName": "GLOWAPI.Application",
-        "projectPath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Application/GLOWAPI.Application.csproj",
-        "packagesPath": "/home/wesley/.nuget/packages/",
-        "outputPath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Application/obj/",
+        "projectPath": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj",
+        "packagesPath": "C:\\Users\\James\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Application\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "/home/wesley/.nuget/NuGet/NuGet.Config"
+          "C:\\Users\\James\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
@@ -125,8 +110,8 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/GLOWAPI.Domain.csproj": {
-                "projectPath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/GLOWAPI.Domain.csproj"
+              "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj": {
+                "projectPath": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj"
               }
             }
           }
@@ -140,8 +125,7 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        },
-        "SdkAnalysisLevel": "10.0.100"
+        }
       },
       "frameworks": {
         "net8.0": {
@@ -154,6 +138,10 @@
             "Microsoft.Extensions.DependencyInjection": {
               "target": "Package",
               "version": "[8.0.0, )"
+            },
+            "Microsoft.Extensions.Options": {
+              "target": "Package",
+              "version": "[8.0.2, )"
             }
           },
           "imports": [
@@ -167,32 +155,26 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
-          "downloadDependencies": [
-            {
-              "name": "Microsoft.AspNetCore.App.Ref",
-              "version": "[8.0.25, 8.0.25]"
-            }
-          ],
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/10.0.104/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.419/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/GLOWAPI.Domain.csproj": {
+    "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/GLOWAPI.Domain.csproj",
+        "projectUniqueName": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj",
         "projectName": "GLOWAPI.Domain",
-        "projectPath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/GLOWAPI.Domain.csproj",
-        "packagesPath": "/home/wesley/.nuget/packages/",
-        "outputPath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/obj/",
+        "projectPath": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj",
+        "packagesPath": "C:\\Users\\James\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "/home/wesley/.nuget/NuGet/NuGet.Config"
+          "C:\\Users\\James\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
@@ -215,8 +197,7 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        },
-        "SdkAnalysisLevel": "10.0.100"
+        }
       },
       "frameworks": {
         "net8.0": {
@@ -232,32 +213,26 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
-          "downloadDependencies": [
-            {
-              "name": "Microsoft.AspNetCore.App.Ref",
-              "version": "[8.0.25, 8.0.25]"
-            }
-          ],
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/10.0.104/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.419/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Infrastructure/GLOWAPI.Infrastructure.csproj": {
+    "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Infrastructure\\GLOWAPI.Infrastructure.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Infrastructure/GLOWAPI.Infrastructure.csproj",
+        "projectUniqueName": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Infrastructure\\GLOWAPI.Infrastructure.csproj",
         "projectName": "GLOWAPI.Infrastructure",
-        "projectPath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Infrastructure/GLOWAPI.Infrastructure.csproj",
-        "packagesPath": "/home/wesley/.nuget/packages/",
-        "outputPath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Infrastructure/obj/",
+        "projectPath": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Infrastructure\\GLOWAPI.Infrastructure.csproj",
+        "packagesPath": "C:\\Users\\James\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Infrastructure\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "/home/wesley/.nuget/NuGet/NuGet.Config"
+          "C:\\Users\\James\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
@@ -269,11 +244,11 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Application/GLOWAPI.Application.csproj": {
-                "projectPath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Application/GLOWAPI.Application.csproj"
+              "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj": {
+                "projectPath": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Application\\GLOWAPI.Application.csproj"
               },
-              "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/GLOWAPI.Domain.csproj": {
-                "projectPath": "/home/wesley/Documentos/glow-up-connect-api/src/GLOWAPI.Domain/GLOWAPI.Domain.csproj"
+              "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj": {
+                "projectPath": "C:\\Users\\James\\Documents\\programacao\\glow-up-connect-api\\src\\GLOWAPI.Domain\\GLOWAPI.Domain.csproj"
               }
             }
           }
@@ -287,8 +262,7 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        },
-        "SdkAnalysisLevel": "10.0.100"
+        }
       },
       "frameworks": {
         "net8.0": {
@@ -306,7 +280,11 @@
             },
             "Microsoft.Extensions.Configuration.Binder": {
               "target": "Package",
-              "version": "[8.0.0, )"
+              "version": "[8.0.2, )"
+            },
+            "Microsoft.Extensions.Logging.Abstractions": {
+              "target": "Package",
+              "version": "[8.0.2, )"
             },
             "Npgsql.EntityFrameworkCore.PostgreSQL": {
               "target": "Package",
@@ -328,18 +306,12 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
-          "downloadDependencies": [
-            {
-              "name": "Microsoft.AspNetCore.App.Ref",
-              "version": "[8.0.25, 8.0.25]"
-            }
-          ],
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/10.0.104/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.419/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
