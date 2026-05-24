@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace GLOWAPI.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/usuario")]
 public class UsuarioController : ControllerBase
 {
     private readonly IUsuarioService _usuarioService;
