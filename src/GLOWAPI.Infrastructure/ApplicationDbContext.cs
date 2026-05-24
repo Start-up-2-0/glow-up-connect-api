@@ -30,6 +30,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<WebhookPagamento> WebhookPagamentos { get; set; }
     public DbSet<ComissaoProfissional> ComissoesProfissional { get; set; }
     public DbSet<MetaProfissional> MetasProfissional { get; set; }
+    public DbSet<SessaoAutenticacao> SessoesAutenticacao { get; set; }
+    public DbSet<LogAutenticacao> LogsAutenticacao { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
