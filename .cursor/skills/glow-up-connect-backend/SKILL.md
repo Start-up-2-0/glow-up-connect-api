@@ -156,7 +156,7 @@ Resumo — detalhes em [reference.md](reference.md):
 ## Banco de dados
 
 - Dev: `ConnectionStrings:DefaultConnection` em `appsettings.Development.json`
-- Prod: **somente** variável `POSTGSL` (ignora outras connection strings)
+- Staging/Prod: **somente** variável `POSTGSL` (ignora outras connection strings)
 - Provider: PostgreSQL obrigatório
 
 ## Checklist antes de PR

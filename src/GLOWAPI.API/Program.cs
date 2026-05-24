@@ -47,7 +47,7 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "GLOWAPI v1"));
@@ -55,7 +55,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<ExceptionMiddleware>();
 
-if (!app.Environment.IsEnvironment("Testing"))
+if (app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }

@@ -1,0 +1,27 @@
+name: CI (staging)
+
+on:
+  push:
+    branches: [staging]
+  pull_request:
+    branches: [staging]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore GLOWAPI.sln
+
+      - name: Build
+        run: dotnet build GLOWAPI.sln --no-restore -c Release
+
+      - name: Test
+        run: dotnet test GLOWAPI.sln --no-build -c Release --verbosity normal

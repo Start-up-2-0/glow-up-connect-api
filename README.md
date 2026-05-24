@@ -32,6 +32,10 @@ API → Application → Domain ← Infrastructure
 
 ```text
 glow-up-connect-api/
+├── Dockerfile
+├── railway.toml
+├── docs/
+│   └── railway-staging-setup.md
 ├── src/
 │   ├── GLOWAPI.Domain/
 │   │   ├── Entities/
@@ -166,15 +170,52 @@ dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=..." --proje
 dotnet user-secrets set "Auth:TokenSalt" "seu-salt-com-minimo-32-chars" --project src/GLOWAPI.API
 ```
 
-### Produção
+### Staging e produção (Railway)
 
-Quando `ASPNETCORE_ENVIRONMENT=Production`, a connection string vem da variável:
+Quando `ASPNETCORE_ENVIRONMENT` é `Staging` ou `Production`, a connection string vem **somente** da variável `POSTGSL` (valores distintos por ambiente no Railway):
 
 ```bash
-POSTGSL="Host=<host>;Port=5432;Database=<database>;Username=<user>;Password=<password>;SSL Mode=Require;Trust Server Certificate=true"
+POSTGSL="Host=<host>;Port=<port>;Database=<database>;Username=<user>;Password=<password>;SSL Mode=Require;Trust Server Certificate=true"
 ```
 
-`ConnectionStrings__DefaultConnection` e outras variáveis de conexão são ignoradas em produção para evitar fallback acidental.
+`ConnectionStrings__DefaultConnection` é ignorada nesses ambientes para evitar fallback acidental.
+
+| Ambiente | `ASPNETCORE_ENVIRONMENT` | Branch Git (deploy) | Swagger |
+|----------|--------------------------|---------------------|---------|
+| Local | `Development` | — | Sim |
+| Homologação | `Staging` | `staging` | Sim |
+| Produção | `Production` | `main` | Não |
+
+Variáveis obrigatórias no Railway (API):
+
+| Variável | Staging | Produção |
+|----------|---------|----------|
+| `POSTGSL` | Postgres do environment staging | Postgres do environment production |
+| `Auth__TokenSalt` | Salt próprio (≥ 32 chars) | Salt próprio (diferente) |
+| `ASPNETCORE_URLS` | `http://0.0.0.0:$PORT` (opcional) | idem |
+
+Guia completo do painel Railway: [docs/railway-staging-setup.md](docs/railway-staging-setup.md).
+
+### Deploy com Docker (Railway)
+
+O repositório inclui [`Dockerfile`](Dockerfile), [`.dockerignore`](.dockerignore) e [`railway.toml`](railway.toml) (health check em `/health`).
+
+```bash
+docker build -t glowapi-api .
+docker run -p 8080:8080 \
+  -e ASPNETCORE_ENVIRONMENT=Staging \
+  -e POSTGSL="Host=..." \
+  -e Auth__TokenSalt="seu-salt-staging-com-minimo-32-chars" \
+  glowapi-api
+```
+
+Migrations no ambiente Railway:
+
+```bash
+.\scripts\railway-migrate.ps1 -Environment staging
+```
+
+CI (GitHub Actions): workflows separados — [`ci-staging.yml`](.github/workflows/ci-staging.yml) (branch `staging`) e [`ci-main.yml`](.github/workflows/ci-main.yml) (branch `main`). Deploy continua via Railway por branch.
 
 ## Como executar
 
