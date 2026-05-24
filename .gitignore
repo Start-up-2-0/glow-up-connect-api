@@ -1,3 +1,41 @@
 # Local environment settings
 src/GLOWAPI.API/appsettings.Development.json
 context/Database.HML.local.md
+
+# Build output (.NET)
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+artifacts/
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# .NET user-specific
+*.user
+*.userosscache
+*.suo
+*.rsuser
+
+# IDE
+.vs/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+.tmp/
+*.tmp
