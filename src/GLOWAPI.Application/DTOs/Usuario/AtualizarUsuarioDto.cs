@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace GLOWAPI.API.DTOs.Usuario;
+namespace GLOWAPI.Application.DTOs.Usuario;
 
 public class AtualizarUsuarioDto
 {

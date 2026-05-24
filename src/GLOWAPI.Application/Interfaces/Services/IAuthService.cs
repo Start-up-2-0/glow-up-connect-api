@@ -1,3 +1,4 @@
+using GLOWAPI.Application.DTOs.Auth;
 using GLOWAPI.Application.Models.Auth;
 
 namespace GLOWAPI.Application.Interfaces.Services;
@@ -5,15 +6,14 @@ namespace GLOWAPI.Application.Interfaces.Services;
 public interface IAuthService
 {
     Task<AuthLoginResult> LoginAsync(
-        string email,
-        string senha,
+        LoginRequestDto dto,
         AuthSessionContext context,
         CancellationToken cancellationToken = default);
 
     Task LogoutAsync(string accessToken, CancellationToken cancellationToken = default);
 
     Task<AuthRefreshResult> RefreshAsync(
-        string refreshToken,
+        RefreshTokenRequestDto dto,
         AuthSessionContext context,
         CancellationToken cancellationToken = default);
 }

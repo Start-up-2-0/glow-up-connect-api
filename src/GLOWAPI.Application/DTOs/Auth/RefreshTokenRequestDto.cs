@@ -1,4 +1,4 @@
-namespace GLOWAPI.API.DTOs.Auth;
+namespace GLOWAPI.Application.DTOs.Auth;
 
 public class RefreshTokenRequestDto
 {

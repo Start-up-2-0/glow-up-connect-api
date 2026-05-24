@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using GLOWAPI.Domain.Enums;
 
-namespace GLOWAPI.API.DTOs.Usuario;
+namespace GLOWAPI.Application.DTOs.Usuario;
 
 public class CriarUsuarioDto
 {

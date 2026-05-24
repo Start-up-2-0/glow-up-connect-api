@@ -29,6 +29,8 @@ Marketplace de agendamentos para profissionais autônomos e estabelecimentos (ba
 
 **Dependências:** Domain ← Application ← Infrastructure ← API. Domain não referencia outras camadas.
 
+**Padrões de controller/service/DTOs/erros:** skill `glow-api-patterns` em `.cursor/skills/glow-api-patterns/`
+
 ## Estado atual do código
 
 - 20 entidades + enums implementados; migration `InitialCreate` aplicável

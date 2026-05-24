@@ -30,8 +30,24 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
     public async Task Usuario_GetSemToken_DeveRetornar401()
     {
         var client = _factory.CreateClient();
-        var response = await client.GetAsync("/api/Usuario/1");
+        var response = await client.GetAsync("/api/usuario/me");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CriarUsuario_SemToken_DeveRetornar201()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/usuario", new
+        {
+            nome = "Novo Usuario",
+            email = "novo@email.com",
+            telefone = "11999999999",
+            senha = "Senha123!",
+            role = UserRole.Cliente
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
 
     [Fact]
@@ -90,10 +106,9 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { email, senha });
         var loginBody = await loginResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
         var token = loginBody.GetProperty("data").GetProperty("token").GetString();
-        var usuarioId = loginBody.GetProperty("data").GetProperty("usuario").GetProperty("id").GetInt32();
 
         client.DefaultRequestHeaders.Add("x-glow-token", token);
-        var meResponse = await client.GetAsync($"/api/Usuario/{usuarioId}");
+        var meResponse = await client.GetAsync("/api/usuario/me");
         Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
     }
 
@@ -104,7 +119,7 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("x-glow-token", expiredToken);
-        var response = await client.GetAsync("/api/Usuario/1");
+        var response = await client.GetAsync("/api/usuario/me");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
@@ -122,17 +137,36 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { email, senha });
         var loginBody = await loginResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
         var token = loginBody.GetProperty("data").GetProperty("token").GetString();
-        var usuarioId = loginBody.GetProperty("data").GetProperty("usuario").GetProperty("id").GetInt32();
 
         client.DefaultRequestHeaders.Add("x-glow-token", token);
         var logoutResponse = await client.PostAsync("/api/auth/logout", null);
         Assert.Equal(HttpStatusCode.OK, logoutResponse.StatusCode);
 
-        var retryResponse = await client.GetAsync($"/api/Usuario/{usuarioId}");
+        var retryResponse = await client.GetAsync("/api/usuario/me");
         Assert.Equal(HttpStatusCode.Unauthorized, retryResponse.StatusCode);
 
         var retryBody = await retryResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
         Assert.Equal("INVALID_TOKEN", retryBody.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task DesativarUsuario_DeveRevogarSessao_DeveRetornar401NoProximoAcesso()
+    {
+        const string email = "desativar@email.com";
+        const string senha = "Senha123!";
+        await _factory.SeedUsuarioAsync(email, senha);
+
+        var client = _factory.CreateClient();
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { email, senha });
+        var loginBody = await loginResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        var token = loginBody.GetProperty("data").GetProperty("token").GetString();
+
+        client.DefaultRequestHeaders.Add("x-glow-token", token);
+        var deleteResponse = await client.DeleteAsync("/api/usuario/me");
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+
+        var retryResponse = await client.GetAsync("/api/usuario/me");
+        Assert.Equal(HttpStatusCode.Unauthorized, retryResponse.StatusCode);
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using GLOWAPI.Application.DTOs.Auth;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Auth;
@@ -40,7 +41,9 @@ public class AuthServiceTests
         _authSessionService.Setup(s => s.CriarSessaoComTokensAsync(usuario, _context, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new IssuedTokenPair("access-token", "refresh-token", expiresAccess, expiresRefresh, 10));
 
-        var result = await CreateService().LoginAsync(usuario.Email, "Senha123", _context);
+        var result = await CreateService().LoginAsync(
+            new LoginRequestDto { Email = usuario.Email, Senha = "Senha123" },
+            _context);
 
         Assert.Equal("access-token", result.Token);
         Assert.Equal("refresh-token", result.RefreshToken);
@@ -56,7 +59,9 @@ public class AuthServiceTests
             .ReturnsAsync((Usuario?)null);
 
         await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
-            CreateService().LoginAsync("nao@existe.com", "Senha123", _context));
+            CreateService().LoginAsync(
+                new LoginRequestDto { Email = "nao@existe.com", Senha = "Senha123" },
+                _context));
     }
 
     [Fact]
@@ -67,7 +72,9 @@ public class AuthServiceTests
             .ReturnsAsync(usuario);
 
         await Assert.ThrowsAsync<InactiveUserException>(() =>
-            CreateService().LoginAsync(usuario.Email, "Senha123", _context));
+            CreateService().LoginAsync(
+                new LoginRequestDto { Email = usuario.Email, Senha = "Senha123" },
+                _context));
     }
 
     [Fact]
@@ -78,7 +85,9 @@ public class AuthServiceTests
             .ReturnsAsync(usuario);
 
         await Assert.ThrowsAsync<UserBlockedException>(() =>
-            CreateService().LoginAsync(usuario.Email, "Senha123", _context));
+            CreateService().LoginAsync(
+                new LoginRequestDto { Email = usuario.Email, Senha = "Senha123" },
+                _context));
     }
 
     [Fact]
@@ -90,7 +99,9 @@ public class AuthServiceTests
         _passwordHasher.Setup(p => p.Verify("errada", usuario.Senha)).Returns(false);
 
         await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
-            CreateService().LoginAsync(usuario.Email, "errada", _context));
+            CreateService().LoginAsync(
+                new LoginRequestDto { Email = usuario.Email, Senha = "errada" },
+                _context));
 
         Assert.Equal(5, usuario.Tentativas);
         Assert.NotNull(usuario.BloqueadoAte);
@@ -105,7 +116,9 @@ public class AuthServiceTests
         _passwordHasher.Setup(p => p.Verify("errada", usuario.Senha)).Returns(false);
 
         await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
-            CreateService().LoginAsync(usuario.Email, "errada", _context));
+            CreateService().LoginAsync(
+                new LoginRequestDto { Email = usuario.Email, Senha = "errada" },
+                _context));
 
         Assert.Equal(3, usuario.Tentativas);
         _usuarioRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -144,7 +157,9 @@ public class AuthServiceTests
         _authSessionService.Setup(s => s.RotacionarSessaoAsync(sessao, usuario, _context, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new IssuedTokenPair("new-access", "new-refresh", expiresAccess, expiresRefresh, 2));
 
-        var result = await CreateService().RefreshAsync("refresh", _context);
+        var result = await CreateService().RefreshAsync(
+            new RefreshTokenRequestDto { RefreshToken = "refresh" },
+            _context);
 
         Assert.Equal("new-access", result.Token);
         Assert.Equal("new-refresh", result.RefreshToken);
@@ -157,6 +172,8 @@ public class AuthServiceTests
             .ThrowsAsync(new InvalidTokenException());
 
         await Assert.ThrowsAsync<InvalidTokenException>(() =>
-            CreateService().RefreshAsync("bad", _context));
+            CreateService().RefreshAsync(
+                new RefreshTokenRequestDto { RefreshToken = "bad" },
+                _context));
     }
 }

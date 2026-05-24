@@ -122,7 +122,7 @@ Content-Type: application/json
 ### Exemplo — rota protegida
 
 ```http
-GET /api/Usuario/1
+GET /api/usuario/me
 x-glow-token: eyJ1aWQi...
 ```
 
@@ -272,7 +272,7 @@ dotnet test
 | Controller | Prefixo | Descrição |
 |---|---|---|
 | `AuthController` | `/api/auth` | Login, logout, refresh |
-| `UsuarioController` | `/api/Usuario` | CRUD de usuários |
+| `UsuarioController` | `/api/usuario` | Cadastro (`POST`), perfil autenticado (`GET/PUT/DELETE /me`) |
 | `HealthController` | `/health` | Health check |
 
 ## Migrations recentes (auth)
