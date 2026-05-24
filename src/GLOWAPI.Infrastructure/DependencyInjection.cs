@@ -19,8 +19,9 @@ public static class DependencyInjection
         string environmentName)
     {
         var provider = configuration.GetValue<string>("Database:Provider") ?? "PostgreSQL";
-        var isProduction = string.Equals(environmentName, "Production", StringComparison.OrdinalIgnoreCase);
-        var connectionString = isProduction
+        var isHosted = string.Equals(environmentName, "Production", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(environmentName, "Staging", StringComparison.OrdinalIgnoreCase);
+        var connectionString = isHosted
             ? configuration["POSTGSL"]
             : configuration.GetConnectionString("DefaultConnection");
 
@@ -32,7 +33,7 @@ public static class DependencyInjection
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new InvalidOperationException(
-                "Connection string do PostgreSQL nao configurada. Use ConnectionStrings:DefaultConnection em desenvolvimento ou a variavel de ambiente POSTGSL em producao.");
+                "Connection string do PostgreSQL nao configurada. Use ConnectionStrings:DefaultConnection em desenvolvimento ou a variavel de ambiente POSTGSL em staging/producao.");
         }
 
         services.AddDbContext<ApplicationDbContext>(options =>
