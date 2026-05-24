@@ -1,23 +1,42 @@
 using GLOWAPI.Infrastructure;
-// using GLOWAPI.Application; // Descomente quando criar o DependencyInjection da Application
+using GLOWAPI.Application;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using GLOWAPI.API.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Adicionar serviços ao container
 builder.Services.AddControllers();
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.EnvironmentName);
+builder.Services.AddApplication();
 
 // Configura o Swagger/OpenAPI para documentação
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// 2. Chamar os métodos de extensão das outras camadas
-// Isso mantém o Program.cs limpo e focado na Web API
-builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.EnvironmentName);
-// builder.Services.AddApplication(); // Registrará MediatR, AutoMapper, etc.
+// Configura autenticação JWT
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key não configurado.");
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// 3. Configurar o pipeline de requisições HTTP (Middleware)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -27,12 +46,13 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// Redirecionamento HTTPS e Autorização
-app.UseHttpsRedirection();
+app.UseMiddleware<ExceptionMiddleware>();
 
+// Redirecionamento HTTPS e autenticação
+app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Mapeia os controllers para as rotas
 app.MapControllers();
-
 app.Run();

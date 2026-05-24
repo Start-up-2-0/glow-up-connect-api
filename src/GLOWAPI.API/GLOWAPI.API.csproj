@@ -13,10 +13,12 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\GLOWAPI.Infrastructure\GLOWAPI.Infrastructure.csproj" />
+    <ProjectReference Include="..\GLOWAPI.Application\GLOWAPI.Application.csproj" />
   </ItemGroup>
 
 </Project>

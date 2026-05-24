@@ -38,13 +38,13 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
             .IsRequired()
             .HasMaxLength(50);
 
-        builder.Property(usuario => usuario.Tentivas)
+        builder.Property(usuario => usuario.Tentativas)
             .HasDefaultValue(0);
 
         builder.Property(usuario => usuario.Ativo)
             .HasDefaultValue(true);
 
-        builder.Property(usuario => usuario.CreateAd)
+        builder.Property(usuario => usuario.CreatedAt)
             .IsRequired();
 
         builder.Property(usuario => usuario.UpdatedAt);
