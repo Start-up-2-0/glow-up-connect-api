@@ -1,7 +1,9 @@
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.DTOs.Usuario;
 using GLOWAPI.Domain.Entities;
-using GLOWAPI.Domain.Enums;
+using GLOWAPI.Domain.Exceptions.Auth;
+using GLOWAPI.Domain.Exceptions.Usuario;
 
 namespace GLOWAPI.Application.Services;
 
@@ -9,30 +11,40 @@ public class UsuarioService : IUsuarioService
 {
     private readonly IUsuarioRepository _usuarioRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly ICurrentUserContext _currentUser;
+    private readonly IAuthSessionService _authSessionService;
 
-    public UsuarioService(IUsuarioRepository usuarioRepository, IPasswordHasher passwordHasher)
+    public UsuarioService(
+        IUsuarioRepository usuarioRepository,
+        IPasswordHasher passwordHasher,
+        ICurrentUserContext currentUser,
+        IAuthSessionService authSessionService)
     {
         _usuarioRepository = usuarioRepository;
         _passwordHasher = passwordHasher;
+        _currentUser = currentUser;
+        _authSessionService = authSessionService;
     }
 
-    public async Task<Usuario> CriarUsuarioAsync(string nome, string email, string telefone, string senha, UserRole role, CancellationToken cancellationToken = default)
+    public async Task<Usuario> CriarUsuarioAsync(
+        CriarUsuarioDto dto,
+        CancellationToken cancellationToken = default)
     {
-        var usuarioExistente = await _usuarioRepository.ObterPorEmailAsync(email, cancellationToken);
-        if (usuarioExistente != null)
+        var usuarioExistente = await _usuarioRepository.ObterPorEmailAsync(dto.Email, cancellationToken);
+        if (usuarioExistente is not null)
         {
-            throw new InvalidOperationException("Usuário com este email já existe.");
+            throw new EmailJaCadastradoException();
         }
 
-        var senhaHash = _passwordHasher.Hash(senha);
+        var senhaHash = _passwordHasher.Hash(dto.Senha);
 
         var usuario = new Usuario
         {
-            Nome = nome,
-            Email = email,
-            Telefone = telefone,
+            Nome = dto.Nome,
+            Email = dto.Email,
+            Telefone = dto.Telefone,
             Senha = senhaHash,
-            Role = role,
+            Role = dto.Role,
             Ativo = true
         };
 
@@ -52,28 +64,36 @@ public class UsuarioService : IUsuarioService
         return await _usuarioRepository.ObterPorEmailAsync(email, cancellationToken);
     }
 
-    public async Task AtualizarUsuarioAsync(int id, string nome, string telefone, CancellationToken cancellationToken = default)
+    public async Task<Usuario> ObterPerfilAtualAsync(CancellationToken cancellationToken = default)
     {
-        var usuario = await _usuarioRepository.ObterPorIdAsync(id, cancellationToken);
-        if (usuario == null || !usuario.Ativo)
-        {
-            throw new KeyNotFoundException("Usuário não encontrado ou inativo.");
-        }
+        var userId = ObterUserIdAutenticado();
+        return await ObterUsuarioAtivoAsync(userId, cancellationToken);
+    }
 
-        usuario.Nome = nome;
-        usuario.Telefone = telefone;
+    public async Task AtualizarPerfilAtualAsync(
+        AtualizarUsuarioDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = ObterUserIdAutenticado();
+        var usuario = await ObterUsuarioAtivoAsync(userId, cancellationToken);
+
+        usuario.Nome = dto.Nome;
+        usuario.Telefone = dto.Telefone;
         usuario.UpdatedAt = DateTime.UtcNow;
 
         _usuarioRepository.Atualizar(usuario);
         await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
     }
 
-    public async Task DesativarUsuarioAsync(int id, CancellationToken cancellationToken = default)
+    public async Task DesativarContaAtualAsync(CancellationToken cancellationToken = default)
     {
-        var usuario = await _usuarioRepository.ObterPorIdAsync(id, cancellationToken);
-        if (usuario == null)
+        var userId = ObterUserIdAutenticado();
+        var sessionId = ObterSessionIdAutenticado();
+
+        var usuario = await _usuarioRepository.ObterPorIdAsync(userId, cancellationToken);
+        if (usuario is null)
         {
-            throw new KeyNotFoundException("Usuário não encontrado.");
+            throw new UsuarioNaoEncontradoException();
         }
 
         usuario.Ativo = false;
@@ -81,8 +101,45 @@ public class UsuarioService : IUsuarioService
 
         _usuarioRepository.Atualizar(usuario);
         await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        var sessao = await _authSessionService.ObterSessaoPorIdAsync(sessionId, cancellationToken);
+        if (sessao is not null)
+        {
+            await _authSessionService.RevogarSessaoAsync(sessao, cancellationToken);
+        }
     }
 
     public bool VerificarSenha(string senha, string senhaHash) =>
         _passwordHasher.Verify(senha, senhaHash);
+
+    private int ObterUserIdAutenticado()
+    {
+        if (!_currentUser.UserId.HasValue)
+        {
+            throw new UnauthorizedException();
+        }
+
+        return _currentUser.UserId.Value;
+    }
+
+    private int ObterSessionIdAutenticado()
+    {
+        if (!_currentUser.SessionId.HasValue)
+        {
+            throw new UnauthorizedException();
+        }
+
+        return _currentUser.SessionId.Value;
+    }
+
+    private async Task<Usuario> ObterUsuarioAtivoAsync(int id, CancellationToken cancellationToken)
+    {
+        var usuario = await _usuarioRepository.ObterPorIdAsync(id, cancellationToken);
+        if (usuario is null || !usuario.Ativo)
+        {
+            throw new UsuarioNaoEncontradoException();
+        }
+
+        return usuario;
+    }
 }
