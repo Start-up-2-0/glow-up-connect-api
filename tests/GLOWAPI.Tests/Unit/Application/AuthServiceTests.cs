@@ -65,11 +65,28 @@ public class AuthServiceTests
     }
 
     [Fact]
-    public async Task LoginAsync_DeveLancarInactiveUser_QuandoUsuarioInativo()
+    public async Task LoginAsync_DeveLancarEmailNaoConfirmado_QuandoPendenteConfirmacao()
+    {
+        var usuario = UsuarioBuilder.Criar(ativo: false);
+        usuario.ConfirmacaoTokenHash = "hash";
+        usuario.ConfirmacaoExpiraEm = DateTime.UtcNow.AddHours(1);
+        _usuarioRepository.Setup(r => r.ObterPorEmailAsync(usuario.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usuario);
+        _passwordHasher.Setup(p => p.Verify("Senha123", usuario.Senha)).Returns(true);
+
+        await Assert.ThrowsAsync<EmailNaoConfirmadoException>(() =>
+            CreateService().LoginAsync(
+                new LoginRequestDto { Email = usuario.Email, Senha = "Senha123" },
+                _context));
+    }
+
+    [Fact]
+    public async Task LoginAsync_DeveLancarInactiveUser_QuandoUsuarioDesativado()
     {
         var usuario = UsuarioBuilder.Criar(ativo: false);
         _usuarioRepository.Setup(r => r.ObterPorEmailAsync(usuario.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync(usuario);
+        _passwordHasher.Setup(p => p.Verify("Senha123", usuario.Senha)).Returns(true);
 
         await Assert.ThrowsAsync<InactiveUserException>(() =>
             CreateService().LoginAsync(

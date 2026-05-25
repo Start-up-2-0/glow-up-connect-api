@@ -46,6 +46,21 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         builder.Property(usuario => usuario.Ativo)
             .HasDefaultValue(true);
 
+        builder.Property(usuario => usuario.AvatarBase64)
+            .HasColumnType("text");
+
+        builder.Property(usuario => usuario.ConfirmacaoTokenHash)
+            .HasMaxLength(128);
+
+        builder.HasIndex(usuario => usuario.ConfirmacaoTokenHash);
+
+        builder.Property(usuario => usuario.ConfirmacaoCodigoHash)
+            .HasMaxLength(128);
+
+        builder.HasIndex(usuario => usuario.ConfirmacaoCodigoHash);
+
+        builder.Property(usuario => usuario.ConfirmacaoExpiraEm);
+
         builder.Property(usuario => usuario.CreatedAt)
             .IsRequired();
 

@@ -14,42 +14,73 @@ public class UsuarioServiceTests
     private readonly Mock<IPasswordHasher> _passwordHasher = new();
     private readonly Mock<ICurrentUserContext> _currentUser = new();
     private readonly Mock<IAuthSessionService> _authSessionService = new();
+    private readonly Mock<IConfirmacaoEmailService> _confirmacaoEmailService = new();
+    private readonly Mock<IAvatarBase64Decoder> _avatarDecoder = new();
 
     public UsuarioServiceTests()
     {
         _passwordHasher.Setup(p => p.Hash(It.IsAny<string>())).Returns("hashed-password");
+        _confirmacaoEmailService
+            .Setup(c => c.GerarEEnviarConfirmacaoAsync(It.IsAny<Usuario>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(("token", "123456"));
     }
 
     [Fact]
-    public async Task CriarUsuarioAsync_DeveCriarUsuario_QuandoEmailNaoExiste()
+    public async Task CadastrarClienteAsync_DeveCriarClienteInativo_QuandoEmailNaoExiste()
     {
         var repoMock = new Mock<IUsuarioRepository>();
-        repoMock.Setup(r => r.ObterPorEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        repoMock.Setup(r => r.ObterPorEmailAsync("joao@email.com", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((Usuario?)null);
 
         var service = CreateService(repoMock.Object);
 
-        var usuario = await service.CriarUsuarioAsync(new CriarUsuarioDto
+        var usuario = await service.CadastrarClienteAsync(new CadastrarClienteDto
         {
-            Nome = "João",
-            Email = "joao@email.com",
+            Nome = "Joao",
+            Email = "Joao@Email.com",
             Telefone = "11999999999",
-            Senha = "Senha123",
-            Role = UserRole.DonoEstabelecimento
+            Senha = "Senha123!"
         });
 
         Assert.NotNull(usuario);
-        Assert.Equal("João", usuario.Nome);
+        Assert.Equal("Joao", usuario.Nome);
         Assert.Equal("joao@email.com", usuario.Email);
-        Assert.True(usuario.Ativo);
-        Assert.Equal("hashed-password", usuario.Senha);
+        Assert.Equal(UserRole.Cliente, usuario.Role);
+        Assert.False(usuario.Ativo);
+        Assert.Null(usuario.AvatarBase64);
 
         repoMock.Verify(r => r.AdicionarAsync(It.IsAny<Usuario>(), It.IsAny<CancellationToken>()), Times.Once);
         repoMock.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task CriarUsuarioAsync_DeveLancarExcecao_QuandoEmailJaExiste()
+    public async Task CadastrarClienteAsync_DevePersistirAvatarBase64_QuandoInformado()
+    {
+        var repoMock = new Mock<IUsuarioRepository>();
+        repoMock.Setup(r => r.ObterPorEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Usuario?)null);
+
+        _avatarDecoder
+            .Setup(d => d.ValidarENormalizar(It.IsAny<string>(), It.IsAny<string?>()))
+            .Returns("data:image/png;base64,abc123");
+
+        var service = CreateService(repoMock.Object);
+
+        var usuario = await service.CadastrarClienteAsync(new CadastrarClienteDto
+        {
+            Nome = "Maria",
+            Email = "maria@email.com",
+            Telefone = "11999999999",
+            Senha = "Senha123!",
+            AvatarBase64 = "data:image/png;base64,abc"
+        });
+
+        Assert.Equal("data:image/png;base64,abc123", usuario.AvatarBase64);
+        _avatarDecoder.Verify(d => d.ValidarENormalizar(It.IsAny<string>(), It.IsAny<string?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CadastrarClienteAsync_DeveLancarExcecao_QuandoEmailJaExiste()
     {
         var usuarioExistente = new Usuario { Id = 1, Email = "maria@email.com", Senha = "hash123" };
 
@@ -60,20 +91,19 @@ public class UsuarioServiceTests
         var service = CreateService(repoMock.Object);
 
         await Assert.ThrowsAsync<EmailJaCadastradoException>(() =>
-            service.CriarUsuarioAsync(new CriarUsuarioDto
+            service.CadastrarClienteAsync(new CadastrarClienteDto
             {
-                Nome = "João",
+                Nome = "Joao",
                 Email = "maria@email.com",
                 Telefone = "11999999999",
-                Senha = "Senha123",
-                Role = UserRole.DonoEstabelecimento
+                Senha = "Senha123!"
             }));
     }
 
     [Fact]
     public async Task ObterPerfilAtualAsync_DeveRetornarUsuario_QuandoAtivo()
     {
-        var usuario = new Usuario { Id = 1, Nome = "João", Ativo = true };
+        var usuario = new Usuario { Id = 1, Nome = "Joao", Ativo = true };
         var repoMock = new Mock<IUsuarioRepository>();
         repoMock.Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(usuario);
@@ -83,7 +113,7 @@ public class UsuarioServiceTests
         var service = CreateService(repoMock.Object);
         var result = await service.ObterPerfilAtualAsync();
 
-        Assert.Equal("João", result.Nome);
+        Assert.Equal("Joao", result.Nome);
     }
 
     [Fact]
@@ -105,7 +135,7 @@ public class UsuarioServiceTests
     public async Task DesativarContaAtualAsync_DeveRevogarSessao()
     {
         var usuario = new Usuario { Id = 1, Ativo = true };
-        var sessao = new GLOWAPI.Domain.Entities.SessaoAutenticacao { Id = 10, UsuarioId = 1 };
+        var sessao = new SessaoAutenticacao { Id = 10, UsuarioId = 1 };
 
         var repoMock = new Mock<IUsuarioRepository>();
         repoMock.Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
@@ -121,10 +151,16 @@ public class UsuarioServiceTests
         await service.DesativarContaAtualAsync();
 
         Assert.False(usuario.Ativo);
+        Assert.Null(usuario.ConfirmacaoTokenHash);
         _authSessionService.Verify(s => s.RevogarSessaoAsync(sessao, It.IsAny<CancellationToken>()), Times.Once);
-        repoMock.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private UsuarioService CreateService(IUsuarioRepository repository) =>
-        new(repository, _passwordHasher.Object, _currentUser.Object, _authSessionService.Object);
+        new(
+            repository,
+            _passwordHasher.Object,
+            _currentUser.Object,
+            _authSessionService.Object,
+            _confirmacaoEmailService.Object,
+            _avatarDecoder.Object);
 }

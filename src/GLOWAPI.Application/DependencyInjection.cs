@@ -12,6 +12,8 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<IUsuarioService, UsuarioService>();
+        services.AddScoped<IConfirmacaoEmailService, ConfirmacaoEmailService>();
+        services.AddScoped<IAvatarBase64Decoder, AvatarBase64Decoder>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IAuthSessionService, AuthSessionService>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();

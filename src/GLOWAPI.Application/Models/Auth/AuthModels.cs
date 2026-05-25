@@ -2,7 +2,7 @@ using GLOWAPI.Domain.Enums;
 
 namespace GLOWAPI.Application.Models.Auth;
 
-public record UsuarioAuthInfo(int Id, string Nome, string Email, UserRole Role);
+public record UsuarioAuthInfo(int Id, string Nome, string Email, UserRole Role, string? AvatarBase64 = null);
 
 public record AuthLoginResult(
     string Token,

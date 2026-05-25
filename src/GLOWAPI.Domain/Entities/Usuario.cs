@@ -13,6 +13,10 @@ public class Usuario
     public int Tentativas { get; set; }
     public DateTime? BloqueadoAte { get; set; }
     public bool Ativo { get; set; } = true;
+    public string? AvatarBase64 { get; set; }
+    public string? ConfirmacaoTokenHash { get; set; }
+    public string? ConfirmacaoCodigoHash { get; set; }
+    public DateTime? ConfirmacaoExpiraEm { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
@@ -44,4 +48,14 @@ public class Usuario
     }
 
     public bool PodeAutenticar(int max) => Ativo && !EstaBloqueado(max);
+
+    public bool PendenteConfirmacaoEmail() =>
+        !string.IsNullOrEmpty(ConfirmacaoTokenHash) || !string.IsNullOrEmpty(ConfirmacaoCodigoHash);
+
+    public void LimparConfirmacaoEmail()
+    {
+        ConfirmacaoTokenHash = null;
+        ConfirmacaoCodigoHash = null;
+        ConfirmacaoExpiraEm = null;
+    }
 }
