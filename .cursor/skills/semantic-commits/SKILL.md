@@ -59,11 +59,14 @@ Se o usuario pedir que o agente commite:
 - Um `git add` + `git commit` por grupo
 - Nunca `git commit --amend` salvo pedido explicito
 
-Script existente para batch (auth feature):
+Scripts existentes para batch:
 
 ```cmd
 scripts\commit-auth-feature.cmd -DryRun
 scripts\commit-auth-feature.cmd
+
+scripts\commit-mensageria-feature.cmd -DryRun
+scripts\commit-mensageria-feature.cmd
 ```
 
 > Rodar o `.cmd`, nunca duplo clique no `.ps1` (abre Notepad no Windows).

@@ -32,6 +32,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<MetaProfissional> MetasProfissional { get; set; }
     public DbSet<SessaoAutenticacao> SessoesAutenticacao { get; set; }
     public DbSet<LogAutenticacao> LogsAutenticacao { get; set; }
+    public DbSet<MensagemNotificacao> MensagensNotificacao { get; set; }
+    public DbSet<MensagemNotificacaoLog> MensagensNotificacaoLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

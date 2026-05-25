@@ -2,6 +2,7 @@ using System.Net;
 using GLOWAPI.API.Models;
 using GLOWAPI.Domain.Exceptions;
 using GLOWAPI.Domain.Exceptions.Auth;
+using GLOWAPI.Domain.Exceptions.Mensageria;
 using GLOWAPI.Domain.Exceptions.Usuario;
 
 namespace GLOWAPI.API.Middlewares;
@@ -40,7 +41,9 @@ public class ExceptionMiddleware
         {
             var statusCode = ex switch
             {
-                EmailJaCadastradoException => HttpStatusCode.Conflict,
+                EmailJaCadastradoException or MensagemNotificacaoJaEnviadaException or MensagemNotificacaoNaoCancelavelException
+                    => HttpStatusCode.Conflict,
+                MensagemNotificacaoNaoEncontradaException => HttpStatusCode.NotFound,
                 _ => HttpStatusCode.NotFound
             };
 

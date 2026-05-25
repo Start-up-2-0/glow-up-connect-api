@@ -57,7 +57,9 @@ O script `commit-auth-feature.ps1`:
 
 ## Criar script batch para nova feature
 
-Copiar `scripts/commit-auth-feature.ps1` e ajustar array `$commits` com:
+Scripts batch: `scripts/commit-auth-feature.ps1`, `scripts/commit-mensageria-feature.ps1`.
+
+Copiar um deles e ajustar array `$commits` com:
 - `Message` — mensagem em portugues
 - `Paths` — paths relativos ao repo (pastas ou arquivos)
 
