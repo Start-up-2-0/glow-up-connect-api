@@ -1,6 +1,7 @@
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Options;
+using GLOWAPI.Infrastructure.Mensageria.Provedores;
 using GLOWAPI.Infrastructure.Repositories;
 using GLOWAPI.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
@@ -66,6 +67,10 @@ public static class DependencyInjection
         services.AddScoped<ILogAutenticacaoRepository, LogAutenticacaoRepository>();
         services.AddScoped<IGlowTokenService, GlowTokenService>();
         services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
+        services.AddScoped<IMensagemNotificacaoRepository, MensagemNotificacaoRepository>();
+        services.AddScoped<IProvedorMensagem, ProvedorMensagemEmail>();
+        services.AddScoped<IProvedorMensagem, ProvedorMensagemWhatsApp>();
+        services.AddScoped<IProvedorMensagem, ProvedorMensagemSms>();
 
         return services;
     }
