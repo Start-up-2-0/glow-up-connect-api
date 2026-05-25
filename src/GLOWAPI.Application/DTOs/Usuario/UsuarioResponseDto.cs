@@ -11,6 +11,7 @@ public class UsuarioResponseDto
     public string Telefone { get; set; } = string.Empty;
     public UserRole Role { get; set; }
     public bool Ativo { get; set; }
+    public string? AvatarBase64 { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
@@ -22,6 +23,7 @@ public class UsuarioResponseDto
         Telefone = usuario.Telefone,
         Role = usuario.Role,
         Ativo = usuario.Ativo,
+        AvatarBase64 = usuario.AvatarBase64,
         CreatedAt = usuario.CreatedAt,
         UpdatedAt = usuario.UpdatedAt
     };

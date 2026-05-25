@@ -5,7 +5,7 @@ namespace GLOWAPI.Application.Interfaces.Services;
 
 public interface IUsuarioService
 {
-    Task<Usuario> CriarUsuarioAsync(CriarUsuarioDto dto, CancellationToken cancellationToken = default);
+    Task<Usuario> CadastrarClienteAsync(CadastrarClienteDto dto, CancellationToken cancellationToken = default);
     Task<Usuario?> ObterUsuarioPorIdAsync(int id, CancellationToken cancellationToken = default);
     Task<Usuario?> ObterUsuarioPorEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<Usuario> ObterPerfilAtualAsync(CancellationToken cancellationToken = default);

@@ -2,6 +2,7 @@ using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.DTOs.Usuario;
 using GLOWAPI.Domain.Entities;
+using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Auth;
 using GLOWAPI.Domain.Exceptions.Usuario;
 
@@ -13,24 +14,31 @@ public class UsuarioService : IUsuarioService
     private readonly IPasswordHasher _passwordHasher;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuthSessionService _authSessionService;
+    private readonly IConfirmacaoEmailService _confirmacaoEmailService;
+    private readonly IAvatarBase64Decoder _avatarDecoder;
 
     public UsuarioService(
         IUsuarioRepository usuarioRepository,
         IPasswordHasher passwordHasher,
         ICurrentUserContext currentUser,
-        IAuthSessionService authSessionService)
+        IAuthSessionService authSessionService,
+        IConfirmacaoEmailService confirmacaoEmailService,
+        IAvatarBase64Decoder avatarDecoder)
     {
         _usuarioRepository = usuarioRepository;
         _passwordHasher = passwordHasher;
         _currentUser = currentUser;
         _authSessionService = authSessionService;
+        _confirmacaoEmailService = confirmacaoEmailService;
+        _avatarDecoder = avatarDecoder;
     }
 
-    public async Task<Usuario> CriarUsuarioAsync(
-        CriarUsuarioDto dto,
+    public async Task<Usuario> CadastrarClienteAsync(
+        CadastrarClienteDto dto,
         CancellationToken cancellationToken = default)
     {
-        var usuarioExistente = await _usuarioRepository.ObterPorEmailAsync(dto.Email, cancellationToken);
+        var email = ConfirmacaoEmailService.NormalizarEmail(dto.Email);
+        var usuarioExistente = await _usuarioRepository.ObterPorEmailAsync(email, cancellationToken);
         if (usuarioExistente is not null)
         {
             throw new EmailJaCadastradoException();
@@ -38,18 +46,27 @@ public class UsuarioService : IUsuarioService
 
         var senhaHash = _passwordHasher.Hash(dto.Senha);
 
+        string? avatarBase64 = null;
+        if (!string.IsNullOrWhiteSpace(dto.AvatarBase64))
+        {
+            avatarBase64 = _avatarDecoder.ValidarENormalizar(dto.AvatarBase64, dto.AvatarContentType);
+        }
+
         var usuario = new Usuario
         {
-            Nome = dto.Nome,
-            Email = dto.Email,
-            Telefone = dto.Telefone,
+            Nome = dto.Nome.Trim(),
+            Email = email,
+            Telefone = dto.Telefone.Trim(),
             Senha = senhaHash,
-            Role = dto.Role,
-            Ativo = true
+            Role = UserRole.Cliente,
+            Ativo = false,
+            AvatarBase64 = avatarBase64
         };
 
         await _usuarioRepository.AdicionarAsync(usuario, cancellationToken);
         await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        await _confirmacaoEmailService.GerarEEnviarConfirmacaoAsync(usuario, cancellationToken);
 
         return usuario;
     }
@@ -97,6 +114,7 @@ public class UsuarioService : IUsuarioService
         }
 
         usuario.Ativo = false;
+        usuario.LimparConfirmacaoEmail();
         usuario.UpdatedAt = DateTime.UtcNow;
 
         _usuarioRepository.Atualizar(usuario);
