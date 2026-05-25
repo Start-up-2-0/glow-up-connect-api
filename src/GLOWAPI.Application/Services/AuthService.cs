@@ -35,7 +35,7 @@ public class AuthService : IAuthService
         AuthSessionContext context,
         CancellationToken cancellationToken = default)
     {
-        var email = dto.Email;
+        var email = ConfirmacaoEmailService.NormalizarEmail(dto.Email);
         var senha = dto.Senha;
         var usuario = await _usuarioRepository.ObterPorEmailAsync(email, cancellationToken);
 
@@ -47,6 +47,12 @@ public class AuthService : IAuthService
 
         if (!usuario.Ativo)
         {
+            if (usuario.PendenteConfirmacaoEmail())
+            {
+                await _auditLogger.LoginFailedAsync(email, "email_nao_confirmado", context.Ip, context.UserAgent, usuario.Id, cancellationToken);
+                throw new EmailNaoConfirmadoException();
+            }
+
             await _auditLogger.LoginFailedAsync(email, "usuario_inativo", context.Ip, context.UserAgent, usuario.Id, cancellationToken);
             throw new InactiveUserException();
         }
@@ -89,7 +95,7 @@ public class AuthService : IAuthService
             tokens.RefreshToken,
             tokens.AccessTokenExpiresAt,
             tokens.RefreshTokenExpiresAt,
-            new UsuarioAuthInfo(usuario.Id, usuario.Nome, usuario.Email, usuario.Role));
+            new UsuarioAuthInfo(usuario.Id, usuario.Nome, usuario.Email, usuario.Role, usuario.AvatarBase64));
     }
 
     public async Task LogoutAsync(string accessToken, CancellationToken cancellationToken = default)

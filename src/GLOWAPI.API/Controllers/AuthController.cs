@@ -14,11 +14,16 @@ namespace GLOWAPI.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IConfirmacaoEmailService _confirmacaoEmailService;
     private readonly AuthOptions _authOptions;
 
-    public AuthController(IAuthService authService, IOptions<AuthOptions> authOptions)
+    public AuthController(
+        IAuthService authService,
+        IConfirmacaoEmailService confirmacaoEmailService,
+        IOptions<AuthOptions> authOptions)
     {
         _authService = authService;
+        _confirmacaoEmailService = confirmacaoEmailService;
         _authOptions = authOptions.Value;
     }
 
@@ -53,6 +58,43 @@ public class AuthController : ControllerBase
         return Ok(ApiSuccessResponse<RefreshTokenResponseDto>.From(
             "Token renovado com sucesso",
             RefreshTokenResponseDto.From(result)));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("confirmar-email")]
+    public async Task<IActionResult> ConfirmarEmail([FromBody] ConfirmarEmailRequestDto request, CancellationToken cancellationToken)
+    {
+        var temToken = !string.IsNullOrWhiteSpace(request.Token);
+        var temCodigo = !string.IsNullOrWhiteSpace(request.Codigo);
+
+        if (temToken == temCodigo)
+        {
+            return BadRequest(ApiErrorResponse.From(
+                "Informe exatamente token ou codigo.",
+                "CONFIRMACAO_EMAIL_INVALIDA"));
+        }
+
+        if (temToken)
+        {
+            await _confirmacaoEmailService.ConfirmarPorTokenAsync(request.Token!, cancellationToken);
+        }
+        else
+        {
+            await _confirmacaoEmailService.ConfirmarPorCodigoAsync(request.Codigo!, cancellationToken);
+        }
+
+        return Ok(ApiSuccessResponse.From("E-mail confirmado com sucesso. Voce ja pode fazer login."));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("reenviar-confirmacao")]
+    public async Task<IActionResult> ReenviarConfirmacao(
+        [FromBody] ReenviarConfirmacaoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        await _confirmacaoEmailService.ReenviarConfirmacaoAsync(request.Email, cancellationToken);
+        return Ok(ApiSuccessResponse.From(
+            "Se o e-mail estiver cadastrado e pendente de confirmacao, enviaremos um novo link e codigo."));
     }
 
     [AllowAnonymous]

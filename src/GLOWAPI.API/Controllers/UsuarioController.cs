@@ -18,10 +18,10 @@ public class UsuarioController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost]
-    public async Task<IActionResult> CriarUsuario([FromBody] CriarUsuarioDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> CadastrarCliente([FromBody] CadastrarClienteDto request, CancellationToken cancellationToken)
     {
-        var usuario = await _usuarioService.CriarUsuarioAsync(request, cancellationToken);
-        return StatusCode(StatusCodes.Status201Created, UsuarioResponseDto.From(usuario));
+        var usuario = await _usuarioService.CadastrarClienteAsync(request, cancellationToken);
+        return StatusCode(StatusCodes.Status201Created, CadastroClienteResponseDto.From(usuario));
     }
 
     [HttpGet("me")]

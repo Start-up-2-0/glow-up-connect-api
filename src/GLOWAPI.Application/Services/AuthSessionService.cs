@@ -109,7 +109,7 @@ public class AuthSessionService : IAuthSessionService
 
         return new AuthenticatedSessionResult(
             new SessaoAutenticacaoInfo(sessao.Id, sessao.UsuarioId, sessao.Ip, sessao.UserAgent),
-            new UsuarioAuthInfo(usuario.Id, usuario.Nome, usuario.Email, usuario.Role));
+            new UsuarioAuthInfo(usuario.Id, usuario.Nome, usuario.Email, usuario.Role, usuario.AvatarBase64));
     }
 
     public async Task<SessaoAutenticacao> ObterSessaoAtivaPorRefreshTokenAsync(

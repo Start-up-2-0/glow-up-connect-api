@@ -30,7 +30,7 @@ public class ExceptionMiddleware
             {
                 InvalidCredentialsException or UnauthorizedException or TokenExpiredException or InvalidTokenException
                     => HttpStatusCode.Unauthorized,
-                UserBlockedException or InactiveUserException => HttpStatusCode.Forbidden,
+                UserBlockedException or InactiveUserException or EmailNaoConfirmadoException => HttpStatusCode.Forbidden,
                 _ => HttpStatusCode.Unauthorized
             };
 
@@ -43,6 +43,7 @@ public class ExceptionMiddleware
             {
                 EmailJaCadastradoException or MensagemNotificacaoJaEnviadaException or MensagemNotificacaoNaoCancelavelException
                     => HttpStatusCode.Conflict,
+                ConfirmacaoEmailInvalidaException or AvatarInvalidoException => HttpStatusCode.BadRequest,
                 MensagemNotificacaoNaoEncontradaException => HttpStatusCode.NotFound,
                 _ => HttpStatusCode.NotFound
             };
