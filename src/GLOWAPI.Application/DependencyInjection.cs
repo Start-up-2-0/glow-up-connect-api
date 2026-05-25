@@ -16,6 +16,9 @@ public static class DependencyInjection
         services.AddScoped<IAuthSessionService, AuthSessionService>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<ICurrentUserContext, CurrentUserContext>();
+        services.AddScoped<IMensagemNotificacaoService, MensagemNotificacaoService>();
+        services.AddScoped<IMensagemNotificacaoProcessadorService, MensagemNotificacaoProcessadorService>();
+        services.AddScoped<IProvedorMensagemResolver, ProvedorMensagemResolver>();
 
         return services;
     }
