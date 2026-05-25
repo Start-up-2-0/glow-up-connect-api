@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using GLOWAPI.Application;
 using GLOWAPI.Application.Options;
 using GLOWAPI.API.Middlewares;
+using GLOWAPI.API.Workers;
 using GLOWAPI.Infrastructure;
 using Microsoft.OpenApi.Models;
 
@@ -17,6 +18,9 @@ builder.Services.AddControllers()
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.EnvironmentName);
 builder.Services.AddApplication();
 builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.SectionName));
+builder.Services.Configure<MensageriaOptions>(builder.Configuration.GetSection(MensageriaOptions.SectionName));
+builder.Services.AddHostedService<MensagemNotificacaoWorker>();
+builder.Services.AddHostedService<MensagemNotificacaoRecuperacaoWorker>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
