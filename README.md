@@ -81,12 +81,54 @@ A API **não usa JWT**. O fluxo de autenticação é baseado em token assinado c
 | Método | Rota |
 |---|---|
 | GET | `/health` |
+| POST | `/api/usuario` | Cadastro de cliente (e-mail + avatar opcional em base64) |
+| POST | `/api/auth/confirmar-email` | Ativa conta com `token` (link) ou `codigo` (6 digitos) |
+| POST | `/api/auth/reenviar-confirmacao` | Reenvia link e codigo |
 | POST | `/api/auth/login` |
 | POST | `/api/auth/refresh` |
 | POST | `/api/auth/forgot-password` *(501)* |
 | POST | `/api/auth/reset-password` *(501)* |
 
 Demais rotas exigem token válido.
+
+### Cadastro de cliente
+
+Fluxo: cadastro → confirmar e-mail (link ou codigo) → login.
+
+```http
+POST /api/usuario
+Content-Type: application/json
+
+{
+  "nome": "Maria Silva",
+  "email": "maria@email.com",
+  "telefone": "11999999999",
+  "senha": "Senha123!",
+  "avatarBase64": "data:image/jpeg;base64,/9j/4AAQ..."
+}
+```
+
+- Sempre cria usuario com role `Cliente` (nao envie `role` no body).
+- Conta inicia com `ativo: false` ate confirmar o e-mail.
+- `avatarBase64`: opcional; aceita data URI (`data:image/jpeg;base64,...`) ou base64 puro com `avatarContentType`.
+- O avatar e **validado** e persistido como data URI no PostgreSQL (`Usuarios.AvatarBase64`, tipo `text`) — **sem pasta nem arquivo em disco**.
+- Limite: 5 MB decodificado; tipos `image/jpeg`, `image/png`, `image/webp`.
+
+```http
+POST /api/auth/confirmar-email
+Content-Type: application/json
+
+{ "codigo": "482913" }
+```
+
+ou `{ "token": "<token-do-link>" }` (informe exatamente um dos dois).
+
+```http
+POST /api/auth/reenviar-confirmacao
+Content-Type: application/json
+
+{ "email": "maria@email.com" }
+```
 
 ### Exemplo — login
 
@@ -113,11 +155,14 @@ Content-Type: application/json
       "id": 1,
       "nome": "Usuario Teste",
       "email": "user@email.com",
-      "role": "Cliente"
+      "role": "Cliente",
+      "avatarBase64": "data:image/png;base64,..."
     }
   }
 }
 ```
+
+Login com e-mail nao confirmado retorna `403` e codigo `EMAIL_NAO_CONFIRMADO`.
 
 ### Exemplo — rota protegida
 
@@ -271,14 +316,16 @@ dotnet test
 
 | Controller | Prefixo | Descrição |
 |---|---|---|
-| `AuthController` | `/api/auth` | Login, logout, refresh |
-| `UsuarioController` | `/api/usuario` | Cadastro (`POST`), perfil autenticado (`GET/PUT/DELETE /me`) |
+| `AuthController` | `/api/auth` | Login, confirmar e-mail, reenviar confirmacao, refresh, logout |
+| `UsuarioController` | `/api/usuario` | Cadastro cliente (`POST`), perfil (`GET/PUT/DELETE /me`) |
 | `HealthController` | `/health` | Health check |
 
-## Migrations recentes (auth)
+## Migrations recentes
 
 | Migration | Descrição |
 |---|---|
+| `AddUsuarioConfirmacaoEmailEAvatar` | `AvatarBase64` (text), confirmacao de e-mail no usuario |
+| `CreateMensagensNotificacao` | Fila de notificacoes (e-mail de confirmacao) |
 | `CreateSessoesAutenticacao` | Tabela de sessões persistidas |
 | `RefactorSessaoAutenticacaoGlowToken` | `AccessTokenHash`, `BloqueadoAte`, `LogsAutenticacao` |
 
