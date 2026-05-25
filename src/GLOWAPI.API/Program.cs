@@ -18,6 +18,7 @@ builder.Services.AddControllers()
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.EnvironmentName);
 builder.Services.AddApplication();
 builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.SectionName));
+builder.Services.Configure<AvatarOptions>(builder.Configuration.GetSection(AvatarOptions.SectionName));
 builder.Services.Configure<MensageriaOptions>(builder.Configuration.GetSection(MensageriaOptions.SectionName));
 builder.Services.AddHostedService<MensagemNotificacaoWorker>();
 builder.Services.AddHostedService<MensagemNotificacaoRecuperacaoWorker>();
