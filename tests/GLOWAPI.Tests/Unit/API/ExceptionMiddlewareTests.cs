@@ -53,6 +53,30 @@ public class ExceptionMiddlewareTests
     }
 
     [Fact]
+    public async Task InvokeAsync_DeveRetornarForbidden_ParaEmailNaoConfirmado()
+    {
+        var middleware = new ExceptionMiddleware(_ => throw new EmailNaoConfirmadoException(), NullLogger<ExceptionMiddleware>.Instance);
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_DeveRetornarBadRequest_ParaAvatarInvalido()
+    {
+        var middleware = new ExceptionMiddleware(_ => throw new AvatarInvalidoException(), NullLogger<ExceptionMiddleware>.Instance);
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
+    }
+
+    [Fact]
     public async Task InvokeAsync_DeveRetornarConflict_ParaEmailJaCadastrado()
     {
         var middleware = new ExceptionMiddleware(_ => throw new EmailJaCadastradoException(), NullLogger<ExceptionMiddleware>.Instance);

@@ -35,7 +35,7 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
     }
 
     [Fact]
-    public async Task CriarUsuario_SemToken_DeveRetornar201()
+    public async Task CadastrarCliente_SemToken_DeveRetornar201ComAtivoFalse()
     {
         var client = _factory.CreateClient();
         var response = await client.PostAsJsonAsync("/api/usuario", new
@@ -43,11 +43,56 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
             nome = "Novo Usuario",
             email = "novo@email.com",
             telefone = "11999999999",
-            senha = "Senha123!",
-            role = UserRole.Cliente
+            senha = "Senha123!"
         });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        Assert.False(body.GetProperty("ativo").GetBoolean());
+        Assert.Equal("novo@email.com", body.GetProperty("email").GetString());
+    }
+
+    [Fact]
+    public async Task CadastrarCliente_ComAvatarBase64_DeveRetornarAvatarBase64()
+    {
+        const string pngDataUri =
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/usuario", new
+        {
+            nome = "Usuario Avatar",
+            email = "avatar@email.com",
+            telefone = "11988887777",
+            senha = "Senha123!",
+            avatarBase64 = pngDataUri
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        Assert.StartsWith("data:image/png;base64,", body.GetProperty("avatarBase64").GetString());
+    }
+
+    [Fact]
+    public async Task Login_AposCadastroSemConfirmar_DeveRetornar403EmailNaoConfirmado()
+    {
+        const string email = "pendente@email.com";
+        const string senha = "Senha123!";
+
+        var client = _factory.CreateClient();
+        var cadastro = await client.PostAsJsonAsync("/api/usuario", new
+        {
+            nome = "Pendente",
+            email,
+            telefone = "11999999999",
+            senha
+        });
+        Assert.Equal(HttpStatusCode.Created, cadastro.StatusCode);
+
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { email, senha });
+        Assert.Equal(HttpStatusCode.Forbidden, login.StatusCode);
+        var body = await login.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        Assert.Equal("EMAIL_NAO_CONFIRMADO", body.GetProperty("code").GetString());
     }
 
     [Fact]
