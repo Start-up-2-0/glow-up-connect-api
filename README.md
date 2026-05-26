@@ -245,7 +245,7 @@ Variáveis obrigatórias no Railway (API):
 | `Mensageria__Email__Habilitado` | `true` | `true` |
 | `ASPNETCORE_URLS` | `http://0.0.0.0:$PORT` (opcional) | idem |
 
-Chaves aninhadas no Railway usam `__` (ex.: `Mensageria__Email__From` → `Mensageria:Email:From`). E-mails transitam pela fila assíncrona e são enviados via Resend — ver [context/Mensageria-assincrona.md](context/Mensageria-assincrona.md).
+Chaves aninhadas no Railway usam `__` (ex.: `Mensageria__Email__From` → `Mensageria:Email:From`). E-mails transitam pela fila assíncrona e são enviados via Resend — ver [docs/mensageria.md](docs/mensageria.md) e [context/Mensageria-assincrona.md](context/Mensageria-assincrona.md).
 
 Guia completo do painel Railway: [docs/railway-staging-setup.md](docs/railway-staging-setup.md).
 
