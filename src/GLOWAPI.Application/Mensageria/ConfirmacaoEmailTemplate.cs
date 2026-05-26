@@ -64,7 +64,7 @@ public static class ConfirmacaoEmailTemplate
                           <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                             <tr>
                               <td width="44" height="44" align="center" style="background:#6f5af0; border-radius:14px; color:#ffffff; font-size:20px; font-weight:800; letter-spacing:-1px;">
-                                GU
+                                GLOW
                               </td>
                             </tr>
                           </table>
