@@ -95,6 +95,8 @@ Demais rotas exigem token válido.
 
 Fluxo: cadastro → confirmar e-mail (link ou codigo) → login.
 
+**Documentacao completa (endpoints, exemplos JSON, cURL e script de teste):** [docs/cadastro-usuario.md](docs/cadastro-usuario.md).
+
 ```http
 POST /api/usuario
 Content-Type: application/json

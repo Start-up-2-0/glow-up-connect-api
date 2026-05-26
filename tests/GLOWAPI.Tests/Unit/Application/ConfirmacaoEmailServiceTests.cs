@@ -1,5 +1,6 @@
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.DTOs.Mensageria;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
@@ -58,6 +59,37 @@ public class ConfirmacaoEmailServiceTests
 
         await Assert.ThrowsAsync<ConfirmacaoEmailInvalidaException>(() =>
             service.ConfirmarPorTokenAsync("token-plano-abc"));
+    }
+
+    [Fact]
+    public async Task GerarEEnviarConfirmacaoAsync_DeveRegistrarEmailComTemplateHtml()
+    {
+        var usuario = new Usuario
+        {
+            Id = 1,
+            Nome = "Gustavo",
+            Email = "gustavo@email.com",
+            Role = UserRole.Cliente,
+            Ativo = false
+        };
+
+        RegistrarMensagemNotificacaoDto? mensagemRegistrada = null;
+        _mensagemService
+            .Setup(m => m.RegistrarAsync(It.IsAny<RegistrarMensagemNotificacaoDto>(), It.IsAny<CancellationToken>()))
+            .Callback<RegistrarMensagemNotificacaoDto, CancellationToken>((dto, _) => mensagemRegistrada = dto);
+
+        var service = CreateService();
+
+        var result = await service.GerarEEnviarConfirmacaoAsync(usuario);
+
+        Assert.Equal("token-plano-abc", result.TokenPlano);
+        Assert.Equal(6, result.CodigoPlano.Length);
+        Assert.NotNull(mensagemRegistrada);
+        Assert.Equal(CanalMensagemNotificacao.Email, mensagemRegistrada!.Canal);
+        Assert.Equal("gustavo@email.com", mensagemRegistrada.Destinatario);
+        Assert.Contains("<!doctype html>", mensagemRegistrada.Conteudo);
+        Assert.Contains("class=\"confirm-code\"", mensagemRegistrada.Conteudo);
+        Assert.Contains("Confirmar e-mail", mensagemRegistrada.Conteudo);
     }
 
     private static Usuario CriarUsuarioPendente() => new()

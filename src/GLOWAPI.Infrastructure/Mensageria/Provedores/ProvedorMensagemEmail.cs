@@ -89,7 +89,7 @@ public class ProvedorMensagemEmail : IProvedorMensagem
             {
                 From = _options.From,
                 Subject = mensagem.Assunto,
-                HtmlBody = EmailConteudoHtml.TextoParaHtml(mensagem.Conteudo)
+                HtmlBody = EmailConteudoHtml.ConteudoParaHtml(mensagem.Conteudo)
             };
             emailMessage.To.Add(mensagem.Destinatario);
 
