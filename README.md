@@ -95,6 +95,8 @@ Demais rotas exigem token válido.
 
 Fluxo: cadastro → confirmar e-mail (link ou codigo) → login.
 
+**Documentacao completa (endpoints, exemplos JSON, cURL e script de teste):** [docs/cadastro-usuario.md](docs/cadastro-usuario.md).
+
 ```http
 POST /api/usuario
 Content-Type: application/json
@@ -237,7 +239,13 @@ Variáveis obrigatórias no Railway (API):
 |----------|---------|----------|
 | `POSTGSL` | Postgres do environment staging | Postgres do environment production |
 | `Auth__TokenSalt` | Salt próprio (≥ 32 chars) | Salt próprio (diferente) |
+| `Auth__FrontendBaseUrl` | URL do front staging | URL do front produção |
+| `RESEND_APITOKEN` | API key Resend | API key Resend (produção) |
+| `Mensageria__Email__From` | Remetente verificado no Resend | Remetente produção |
+| `Mensageria__Email__Habilitado` | `true` | `true` |
 | `ASPNETCORE_URLS` | `http://0.0.0.0:$PORT` (opcional) | idem |
+
+Chaves aninhadas no Railway usam `__` (ex.: `Mensageria__Email__From` → `Mensageria:Email:From`). E-mails transitam pela fila assíncrona e são enviados via Resend — ver [docs/mensageria.md](docs/mensageria.md) e [context/Mensageria-assincrona.md](context/Mensageria-assincrona.md).
 
 Guia completo do painel Railway: [docs/railway-staging-setup.md](docs/railway-staging-setup.md).
 

@@ -7,6 +7,7 @@ using GLOWAPI.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Resend;
 
 
 
@@ -68,6 +69,13 @@ public static class DependencyInjection
         services.AddScoped<IGlowTokenService, GlowTokenService>();
         services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
         services.AddScoped<IMensagemNotificacaoRepository, MensagemNotificacaoRepository>();
+
+        services.AddHttpClient<ResendClient>();
+        services.Configure<ResendClientOptions>(options =>
+        {
+            options.ApiToken = configuration["RESEND_APITOKEN"] ?? string.Empty;
+        });
+        services.AddTransient<IResend, ResendClient>();
         services.AddScoped<IProvedorMensagem, ProvedorMensagemEmail>();
         services.AddScoped<IProvedorMensagem, ProvedorMensagemWhatsApp>();
         services.AddScoped<IProvedorMensagem, ProvedorMensagemSms>();

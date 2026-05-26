@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using GLOWAPI.Application.DTOs.Mensageria;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Mensageria;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
@@ -45,17 +46,11 @@ public class ConfirmacaoEmailService : IConfirmacaoEmailService
         await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
 
         var link = $"{_authOptions.FrontendBaseUrl.TrimEnd('/')}/confirmar-email?token={Uri.EscapeDataString(tokenPlano)}";
-        var conteudo = $"""
-            Ola {usuario.Nome},
-
-            Confirme seu cadastro no Glow Up Connect:
-
-            Link: {link}
-
-            Ou digite o codigo no app: {codigoPlano}
-
-            Validade: {_authOptions.ConfirmacaoEmailHoras} horas.
-            """;
+        var conteudo = ConfirmacaoEmailTemplate.Criar(
+            usuario.Nome,
+            link,
+            codigoPlano,
+            _authOptions.ConfirmacaoEmailHoras);
 
         await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
         {

@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using GLOWAPI.Application;
 using GLOWAPI.Application.Options;
+using GLOWAPI.API.Configuration;
 using GLOWAPI.API.Middlewares;
 using GLOWAPI.API.Workers;
 using GLOWAPI.Infrastructure;
@@ -20,6 +21,13 @@ builder.Services.AddApplication();
 builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.SectionName));
 builder.Services.Configure<AvatarOptions>(builder.Configuration.GetSection(AvatarOptions.SectionName));
 builder.Services.Configure<MensageriaOptions>(builder.Configuration.GetSection(MensageriaOptions.SectionName));
+builder.Services.Configure<MensageriaEmailOptions>(
+    builder.Configuration.GetSection(MensageriaEmailOptions.SectionName));
+
+HostedConfigurationValidator.ValidarSeAmbienteHospedado(
+    builder.Configuration,
+    builder.Environment.EnvironmentName);
+
 builder.Services.AddHostedService<MensagemNotificacaoWorker>();
 builder.Services.AddHostedService<MensagemNotificacaoRecuperacaoWorker>();
 

@@ -2,7 +2,7 @@
 
 ## Visao geral
 
-Fila de notificacoes persistida em PostgreSQL, processada por **BackgroundServices** no mesmo host da **GLOWAPI.API**. Canais iniciais: Email, WhatsApp e SMS (provedores stub na fase 1).
+Fila de notificacoes persistida em PostgreSQL, processada por **BackgroundServices** no mesmo host da **GLOWAPI.API**. Canal **Email** usa [Resend](https://resend.com/docs/send-with-dotnet); WhatsApp e SMS permanecem stub na fase 1.
 
 ## Fluxo completo
 
@@ -92,7 +92,31 @@ Configuracao em `Mensageria` no [`appsettings.json`](../src/GLOWAPI.API/appsetti
 }
 ```
 
-Subsecoes futuras: `Mensageria:Email`, `Mensageria:WhatsApp`, `Mensageria:Sms`.
+### Email (Resend)
+
+Todo e-mail (confirmacao de cadastro, reenvio, futuros modulos) passa pela fila com `Canal = Email` e e enviado por `ProvedorMensagemEmail` via SDK Resend. Nenhum modulo chama a API Resend diretamente.
+
+| Configuracao | Origem |
+|--------------|--------|
+| `Mensageria:Email:From` | Railway `Mensageria__Email__From` (dominio verificado no Resend) |
+| `Mensageria:Email:Habilitado` | Railway `Mensageria__Email__Habilitado` ou appsettings local |
+| `Mensageria:Email:Provedor` | `resend` (padrao em appsettings commitado) |
+| `RESEND_APITOKEN` | Variavel plana (Railway / User Secrets em dev) |
+| `Auth:FrontendBaseUrl` | Railway `Auth__FrontendBaseUrl` (links nos e-mails) |
+
+`appsettings.json` commitado mantem apenas estrutura neutra (`Habilitado: false`, sem `From` nem token). Em **Staging** e **Production**, o startup valida `POSTGSL`, `RESEND_APITOKEN`, `Mensageria:Email:From` e `Auth:FrontendBaseUrl`.
+
+Desenvolvimento local: habilitar em `appsettings.Development.json` ou User Secrets:
+
+```bash
+dotnet user-secrets set "RESEND_APITOKEN" "re_..." --project src/GLOWAPI.API
+dotnet user-secrets set "Mensageria:Email:From" "Glow Up Connect <noreply@seu-dominio.com>" --project src/GLOWAPI.API
+dotnet user-secrets set "Mensageria:Email:Habilitado" "true" --project src/GLOWAPI.API
+```
+
+O corpo textual da fila e convertido em HTML minimo (escape + quebras de linha em `<br/>`) antes do envio.
+
+Subsecoes futuras: `Mensageria:WhatsApp`, `Mensageria:Sms`.
 
 ## Adicionar novo provedor
 
