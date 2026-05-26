@@ -33,6 +33,12 @@ Guia para configurar homologacao no **mesmo projeto Railway** da producao, com i
 | `POSTGSL` | Ver abaixo |
 | `Auth__TokenSalt` | Salt unico staging (minimo 32 caracteres) |
 | `Auth__TokenHeaderName` | `x-glow-token` |
+| `Auth__FrontendBaseUrl` | URL do front staging (links nos e-mails) |
+| `RESEND_APITOKEN` | API key em [resend.com/api-keys](https://resend.com/api-keys) |
+| `Mensageria__Email__From` | Ex.: `Glow Up Connect <noreply@dominio-verificado.com>` |
+| `Mensageria__Email__Habilitado` | `true` |
+
+> O remetente (`Mensageria__Email__From`) deve usar um dominio verificado em [resend.com/domains](https://resend.com/domains). Nao commite token nem `From` no `appsettings.json` do repositorio.
 
 ### Montar `POSTGSL`
 
@@ -98,7 +104,7 @@ Swagger em staging: `https://<dominio>/swagger`.
 ## 9. Checklist pos-deploy
 
 - [ ] `GET /health` → 200
-- [ ] Logs sem erro de `POSTGSL` ou `TokenSalt`
+- [ ] Logs sem erro de `POSTGSL`, `TokenSalt`, `RESEND_APITOKEN` ou `Mensageria__Email__From`
 - [ ] Migrations em `__EFMigrationsHistory`
 - [ ] Push em `staging` nao redeploya producao
 - [ ] `Auth__TokenSalt` staging diferente de producao
@@ -113,5 +119,9 @@ No environment `production`:
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
 | `POSTGSL` | Connection string do Postgres de **producao** |
 | `Auth__TokenSalt` | Salt proprio de producao |
+| `Auth__FrontendBaseUrl` | URL do front de producao |
+| `RESEND_APITOKEN` | API key Resend de producao |
+| `Mensageria__Email__From` | Remetente com dominio verificado (producao) |
+| `Mensageria__Email__Habilitado` | `true` |
 
 Branch tipica: `main`.
