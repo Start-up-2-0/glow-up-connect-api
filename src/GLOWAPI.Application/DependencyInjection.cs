@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<IMensagemNotificacaoService, MensagemNotificacaoService>();
         services.AddScoped<IMensagemNotificacaoProcessadorService, MensagemNotificacaoProcessadorService>();
         services.AddScoped<IProvedorMensagemResolver, ProvedorMensagemResolver>();
+        services.AddScoped<IPlanoService, PlanoService>();
 
         return services;
     }
