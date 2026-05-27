@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<IPlanoService, PlanoService>();
         services.AddScoped<IAssinaturaService, AssinaturaService>();
         services.AddScoped<IGatewayPagamentoResolver, GatewayPagamentoResolver>();
+        services.AddScoped<IWebhookPagamentoService, WebhookPagamentoService>();
 
         return services;
     }

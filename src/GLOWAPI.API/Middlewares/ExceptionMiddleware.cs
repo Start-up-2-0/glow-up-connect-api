@@ -4,6 +4,7 @@ using GLOWAPI.Domain.Exceptions;
 using GLOWAPI.Domain.Exceptions.Assinatura;
 using GLOWAPI.Domain.Exceptions.Auth;
 using GLOWAPI.Domain.Exceptions.Mensageria;
+using GLOWAPI.Domain.Exceptions.Pagamentos;
 using GLOWAPI.Domain.Exceptions.Usuario;
 
 namespace GLOWAPI.API.Middlewares;
@@ -52,7 +53,8 @@ public class ExceptionMiddleware
                     or AvatarInvalidoException
                     or AssinaturaTitularInvalidoException
                     or EstabelecimentoAssinaturaInvalidoException
-                    or ProfissionalAutonomoAssinaturaInvalidoException => HttpStatusCode.BadRequest,
+                    or ProfissionalAutonomoAssinaturaInvalidoException
+                    or WebhookPagamentoInvalidoException => HttpStatusCode.BadRequest,
                 UsuarioSemPermissaoAssinaturaException => HttpStatusCode.Forbidden,
                 MensagemNotificacaoNaoEncontradaException
                     or PlanoNaoEncontradoException
