@@ -11,6 +11,7 @@ namespace GLOWAPI.Tests.Unit.Application;
 public class WebhookPagamentoServiceTests
 {
     private readonly Mock<IWebhookPagamentoRepository> _repository = new();
+    private readonly Mock<IPagamentoRepository> _pagamentoRepository = new();
 
     [Fact]
     public async Task RegistrarAsync_DeveCriarWebhook_QuandoEventoNaoExiste()
@@ -29,7 +30,7 @@ public class WebhookPagamentoServiceTests
             })
             .Returns(Task.CompletedTask);
 
-        var service = new WebhookPagamentoService(_repository.Object);
+        var service = CreateService();
 
         var response = await service.RegistrarAsync(new RegistrarWebhookPagamentoRequestDto
         {
@@ -47,6 +48,7 @@ public class WebhookPagamentoServiceTests
 
         Assert.NotNull(webhookCriado);
         Assert.Equal("""{"id":"pay-1"}""", webhookCriado!.Payload);
+        Assert.Equal("Pagamento nao encontrado para o gatewayPaymentId informado.", webhookCriado.ErroProcessamento);
 
         _repository.Verify(r => r.AdicionarAsync(It.IsAny<WebhookPagamento>(), It.IsAny<CancellationToken>()), Times.Once);
         _repository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -68,7 +70,7 @@ public class WebhookPagamentoServiceTests
             .Setup(r => r.ObterPorEventoAsync(GatewayPagamento.AbacatePay, "evt-1", It.IsAny<CancellationToken>()))
             .ReturnsAsync(webhookExistente);
 
-        var service = new WebhookPagamentoService(_repository.Object);
+        var service = CreateService();
 
         var response = await service.RegistrarAsync(new RegistrarWebhookPagamentoRequestDto
         {
@@ -88,7 +90,7 @@ public class WebhookPagamentoServiceTests
     [Fact]
     public async Task RegistrarAsync_DeveLancarExcecao_QuandoEventIdNaoForInformado()
     {
-        var service = new WebhookPagamentoService(_repository.Object);
+        var service = CreateService();
 
         await Assert.ThrowsAsync<WebhookPagamentoInvalidoException>(() =>
             service.RegistrarAsync(new RegistrarWebhookPagamentoRequestDto
@@ -99,4 +101,65 @@ public class WebhookPagamentoServiceTests
                 Payload = "{}"
             }));
     }
+
+    [Fact]
+    public async Task RegistrarAsync_DeveAtivarAssinatura_QuandoEventoForPagamentoAprovado()
+    {
+        var assinatura = new Assinatura
+        {
+            Id = 20,
+            Status = AssinaturaStatus.PendentePagamento,
+            Plano = new Plano
+            {
+                Id = 1,
+                Periodo = PlanoPeriodo.Mensal
+            }
+        };
+
+        var pagamento = new Pagamento
+        {
+            Id = 30,
+            Gateway = GatewayPagamento.MercadoPago,
+            GatewayPaymentId = "pay-1",
+            Status = PagamentoStatus.Pendente,
+            Assinatura = assinatura
+        };
+
+        _repository
+            .Setup(r => r.ObterPorEventoAsync(GatewayPagamento.MercadoPago, "evt-aprovado", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((WebhookPagamento?)null);
+
+        _repository
+            .Setup(r => r.AdicionarAsync(It.IsAny<WebhookPagamento>(), It.IsAny<CancellationToken>()))
+            .Callback<WebhookPagamento, CancellationToken>((webhook, _) => webhook.Id = 10)
+            .Returns(Task.CompletedTask);
+
+        _pagamentoRepository
+            .Setup(r => r.ObterPorGatewayPaymentIdAsync(GatewayPagamento.MercadoPago, "pay-1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagamento);
+
+        var service = CreateService();
+
+        var response = await service.RegistrarAsync(new RegistrarWebhookPagamentoRequestDto
+        {
+            Gateway = GatewayPagamento.MercadoPago,
+            EventId = "evt-aprovado",
+            EventType = "payment.approved",
+            Payload = """{"gatewayPaymentId":"pay-1"}"""
+        });
+
+        Assert.True(response.Processado);
+        Assert.Equal(PagamentoStatus.Pago, pagamento.Status);
+        Assert.NotNull(pagamento.PagoEm);
+        Assert.Equal(AssinaturaStatus.Ativa, assinatura.Status);
+        Assert.Equal(30, assinatura.UltimoPagamentoId);
+        Assert.NotNull(assinatura.Fim);
+        Assert.Equal(assinatura.Inicio.AddMonths(1), assinatura.Fim);
+
+        _pagamentoRepository.Verify(r => r.Atualizar(pagamento), Times.Once);
+        _repository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    private WebhookPagamentoService CreateService() =>
+        new(_repository.Object, _pagamentoRepository.Object);
 }
