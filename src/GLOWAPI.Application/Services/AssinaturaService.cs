@@ -56,6 +56,16 @@ public class AssinaturaService : IAssinaturaService
         await _assinaturaRepository.AdicionarAsync(assinatura, cancellationToken);
         await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
 
+        if (assinatura.Estabelecimento is not null && !assinatura.EstabelecimentoId.HasValue)
+        {
+            assinatura.EstabelecimentoId = assinatura.Estabelecimento.Id;
+        }
+
+        if (assinatura.ProfissionalAutonomo is not null && !assinatura.ProfissionalAutonomoId.HasValue)
+        {
+            assinatura.ProfissionalAutonomoId = assinatura.ProfissionalAutonomo.Id;
+        }
+
         return AssinaturaResponseDto.From(assinatura);
     }
 
@@ -64,6 +74,11 @@ public class AssinaturaService : IAssinaturaService
         int userId,
         CancellationToken cancellationToken)
     {
+        if (request.Estabelecimento is not null)
+        {
+            return await CriarParaNovoEstabelecimentoAsync(request, userId, cancellationToken);
+        }
+
         var estabelecimentoId = request.EstabelecimentoId!.Value;
         var estabelecimento = await _estabelecimentoRepository.ObterPorIdAsync(estabelecimentoId, cancellationToken);
         if (estabelecimento is null || !estabelecimento.Ativo)
@@ -88,11 +103,38 @@ public class AssinaturaService : IAssinaturaService
         return assinatura;
     }
 
+    private async Task<Assinatura> CriarParaNovoEstabelecimentoAsync(
+        IniciarAssinaturaRequestDto request,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var estabelecimento = CriarEstabelecimento(request.Estabelecimento!);
+        await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
+
+        await _estabelecimentoUsuarioRepository.AdicionarAsync(new EstabelecimentoUsuario
+        {
+            Estabelecimento = estabelecimento,
+            UsuarioId = userId,
+            RoleNoEstabelecimento = EstablishmentUserRole.Owner,
+            Ativo = true
+        }, cancellationToken);
+
+        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
+        assinatura.Estabelecimento = estabelecimento;
+
+        return assinatura;
+    }
+
     private async Task<Assinatura> CriarParaProfissionalAutonomoAsync(
         IniciarAssinaturaRequestDto request,
         int userId,
         CancellationToken cancellationToken)
     {
+        if (request.ProfissionalAutonomo is not null)
+        {
+            return await CriarParaNovoOuExistenteProfissionalAutonomoAsync(request, userId, cancellationToken);
+        }
+
         var profissionalId = request.ProfissionalAutonomoId!.Value;
         var profissional = await _profissionalRepository.ObterPorIdAsync(profissionalId, cancellationToken);
         if (profissional is null || !profissional.Ativo || profissional.TipoProfissional != ProfessionalType.Autonomo)
@@ -116,21 +158,151 @@ public class AssinaturaService : IAssinaturaService
         return assinatura;
     }
 
+    private async Task<Assinatura> CriarParaNovoOuExistenteProfissionalAutonomoAsync(
+        IniciarAssinaturaRequestDto request,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var profissional = await _profissionalRepository.ObterPorUsuarioIdAsync(userId, cancellationToken);
+        if (profissional is null)
+        {
+            profissional = CriarProfissionalAutonomo(request.ProfissionalAutonomo!, userId);
+            await _profissionalRepository.AdicionarAsync(profissional, cancellationToken);
+        }
+        else
+        {
+            ValidarPerfilProfissionalAutonomoExistente(profissional);
+            if (await _assinaturaRepository.ExisteAtivaOuPendentePorProfissionalAutonomoAsync(profissional.Id, cancellationToken))
+            {
+                throw new AssinaturaDuplicadaException();
+            }
+
+            AtualizarProfissionalAutonomo(profissional, request.ProfissionalAutonomo!);
+            _profissionalRepository.Atualizar(profissional);
+        }
+
+        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
+        assinatura.ProfissionalAutonomo = profissional;
+
+        return assinatura;
+    }
+
     private static void ValidarTitular(IniciarAssinaturaRequestDto request)
     {
         var titularEstabelecimento = request.EstabelecimentoId.HasValue;
+        var novoEstabelecimento = request.Estabelecimento is not null;
         var titularAutonomo = request.ProfissionalAutonomoId.HasValue;
+        var novoAutonomo = request.ProfissionalAutonomo is not null;
 
         var titularValido = request.TipoAssinatura switch
         {
-            TipoAssinatura.Estabelecimento => titularEstabelecimento && !titularAutonomo,
-            TipoAssinatura.ProfissionalAutonomo => titularAutonomo && !titularEstabelecimento,
+            TipoAssinatura.Estabelecimento => (titularEstabelecimento ^ novoEstabelecimento) && !titularAutonomo && !novoAutonomo,
+            TipoAssinatura.ProfissionalAutonomo => (titularAutonomo ^ novoAutonomo) && !titularEstabelecimento && !novoEstabelecimento,
             _ => false
         };
 
         if (!titularValido)
         {
             throw new AssinaturaTitularInvalidoException();
+        }
+    }
+
+    private static Estabelecimento CriarEstabelecimento(CriarEstabelecimentoAssinaturaDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Nome))
+        {
+            throw new EstabelecimentoAssinaturaInvalidoException("Nome do estabelecimento e obrigatorio.");
+        }
+
+        if (dto.Nome.Length > 150)
+        {
+            throw new EstabelecimentoAssinaturaInvalidoException("Nome do estabelecimento deve ter no maximo 150 caracteres.");
+        }
+
+        if (dto.Descricao.Length > 500)
+        {
+            throw new EstabelecimentoAssinaturaInvalidoException("Descricao do estabelecimento deve ter no maximo 500 caracteres.");
+        }
+
+        if (dto.Logo.Length > 500)
+        {
+            throw new EstabelecimentoAssinaturaInvalidoException("Logo do estabelecimento deve ter no maximo 500 caracteres.");
+        }
+
+        if (dto.Telefone.Length > 20)
+        {
+            throw new EstabelecimentoAssinaturaInvalidoException("Telefone do estabelecimento deve ter no maximo 20 caracteres.");
+        }
+
+        if (dto.Email.Length > 255)
+        {
+            throw new EstabelecimentoAssinaturaInvalidoException("Email do estabelecimento deve ter no maximo 255 caracteres.");
+        }
+
+        return new Estabelecimento
+        {
+            Nome = dto.Nome.Trim(),
+            Descricao = dto.Descricao.Trim(),
+            Logo = dto.Logo.Trim(),
+            Telefone = dto.Telefone.Trim(),
+            Email = dto.Email.Trim(),
+            Ativo = true
+        };
+    }
+
+    private static Profissional CriarProfissionalAutonomo(
+        CriarProfissionalAutonomoAssinaturaDto dto,
+        int userId)
+    {
+        ValidarProfissionalAutonomo(dto);
+
+        return new Profissional
+        {
+            UsuarioId = userId,
+            NomePublico = dto.NomePublico.Trim(),
+            Biografia = dto.Biografia.Trim(),
+            TipoProfissional = ProfessionalType.Autonomo,
+            Ativo = true
+        };
+    }
+
+    private static void AtualizarProfissionalAutonomo(
+        Profissional profissional,
+        CriarProfissionalAutonomoAssinaturaDto dto)
+    {
+        ValidarProfissionalAutonomo(dto);
+
+        profissional.NomePublico = dto.NomePublico.Trim();
+        profissional.Biografia = dto.Biografia.Trim();
+        profissional.TipoProfissional = ProfessionalType.Autonomo;
+        profissional.Ativo = true;
+        profissional.UpdatedAt = DateTime.UtcNow;
+    }
+
+    private static void ValidarPerfilProfissionalAutonomoExistente(Profissional profissional)
+    {
+        if (profissional.TipoProfissional != ProfessionalType.Autonomo)
+        {
+            throw new ProfissionalAutonomoAssinaturaInvalidoException(
+                "Usuario ja possui um perfil profissional que nao e autonomo.");
+        }
+    }
+
+    private static void ValidarProfissionalAutonomo(CriarProfissionalAutonomoAssinaturaDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.NomePublico))
+        {
+            throw new ProfissionalAutonomoAssinaturaInvalidoException("Nome publico do profissional e obrigatorio.");
+        }
+
+        if (dto.NomePublico.Length > 150)
+        {
+            throw new ProfissionalAutonomoAssinaturaInvalidoException("Nome publico do profissional deve ter no maximo 150 caracteres.");
+        }
+
+        if (dto.Biografia.Length > 1000)
+        {
+            throw new ProfissionalAutonomoAssinaturaInvalidoException("Biografia do profissional deve ter no maximo 1000 caracteres.");
         }
     }
 
