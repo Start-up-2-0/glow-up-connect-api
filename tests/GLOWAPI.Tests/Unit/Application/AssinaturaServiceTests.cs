@@ -21,6 +21,7 @@ public class AssinaturaServiceTests
     private readonly Mock<IGatewayPagamentoResolver> _gatewayPagamentoResolver = new();
     private readonly Mock<IGatewayPagamento> _gatewayPagamento = new();
     private readonly Mock<ICurrentUserContext> _currentUser = new();
+    private readonly Mock<IAssinaturaNotificacaoService> _assinaturaNotificacaoService = new();
 
     public AssinaturaServiceTests()
     {
@@ -103,6 +104,11 @@ public class AssinaturaServiceTests
 
         _pagamentoRepository.Verify(r => r.AdicionarAsync(It.IsAny<Pagamento>(), It.IsAny<CancellationToken>()), Times.Once);
         _assinaturaRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _assinaturaNotificacaoService.Verify(n => n.AssinaturaIniciadaAsync(
+            assinaturaCriada,
+            It.Is<Plano>(plano => plano.Id == 1),
+            "usuario@email.com",
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -695,6 +701,10 @@ public class AssinaturaServiceTests
 
         _assinaturaRepository.Verify(r => r.Atualizar(assinatura), Times.Once);
         _assinaturaRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _assinaturaNotificacaoService.Verify(n => n.AssinaturaCanceladaAsync(
+            assinatura,
+            "usuario@email.com",
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -758,5 +768,6 @@ public class AssinaturaServiceTests
             _profissionalRepository.Object,
             _pagamentoRepository.Object,
             _gatewayPagamentoResolver.Object,
-            _currentUser.Object);
+            _currentUser.Object,
+            _assinaturaNotificacaoService.Object);
 }

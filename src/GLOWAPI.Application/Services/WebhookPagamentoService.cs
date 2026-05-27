@@ -13,15 +13,18 @@ public class WebhookPagamentoService : IWebhookPagamentoService
     private readonly IWebhookPagamentoRepository _webhookPagamentoRepository;
     private readonly IPagamentoRepository _pagamentoRepository;
     private readonly IAssinaturaRepository _assinaturaRepository;
+    private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
 
     public WebhookPagamentoService(
         IWebhookPagamentoRepository webhookPagamentoRepository,
         IPagamentoRepository pagamentoRepository,
-        IAssinaturaRepository assinaturaRepository)
+        IAssinaturaRepository assinaturaRepository,
+        IAssinaturaNotificacaoService assinaturaNotificacaoService)
     {
         _webhookPagamentoRepository = webhookPagamentoRepository;
         _pagamentoRepository = pagamentoRepository;
         _assinaturaRepository = assinaturaRepository;
+        _assinaturaNotificacaoService = assinaturaNotificacaoService;
     }
 
     public async Task<WebhookPagamentoResponseDto> RegistrarAsync(
@@ -107,6 +110,12 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return;
         }
 
+        if (EventoPagamentoNaoAprovado(webhook.EventType))
+        {
+            await ProcessarPagamentoNaoAprovadoAsync(webhook, cancellationToken);
+            return;
+        }
+
         if (!EventoPagamentoAprovado(webhook.EventType))
         {
             return;
@@ -157,6 +166,12 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             pagamento.Assinatura.Fim = CalcularFimAssinatura(pagamento.PagoEm.Value, pagamento.Assinatura.Plano?.Periodo);
             pagamento.Assinatura.UltimoPagamentoId = pagamento.Id;
             pagamento.Assinatura.UpdatedAt = DateTime.UtcNow;
+
+            await _assinaturaNotificacaoService.PagamentoConfirmadoAsync(
+                pagamento.Assinatura,
+                pagamento,
+                ExtrairEmail(webhook.Payload),
+                cancellationToken);
         }
 
         webhook.Processado = true;
@@ -195,6 +210,56 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         }
 
         _assinaturaRepository.Atualizar(assinatura);
+
+        if (novoStatus == AssinaturaStatus.Cancelada)
+        {
+            await _assinaturaNotificacaoService.AssinaturaCanceladaAsync(
+                assinatura,
+                ExtrairEmail(webhook.Payload),
+                cancellationToken);
+        }
+        else
+        {
+            await _assinaturaNotificacaoService.AssinaturaSuspensaAsync(
+                assinatura,
+                ExtrairEmail(webhook.Payload),
+                cancellationToken);
+        }
+
+        webhook.Processado = true;
+        webhook.ProcessadoEm = DateTime.UtcNow;
+    }
+
+    private async Task ProcessarPagamentoNaoAprovadoAsync(
+        WebhookPagamento webhook,
+        CancellationToken cancellationToken)
+    {
+        var gatewayPaymentId = ExtrairGatewayPaymentId(webhook.Payload);
+        if (string.IsNullOrWhiteSpace(gatewayPaymentId))
+        {
+            webhook.ErroProcessamento = "Payload nao contem gatewayPaymentId.";
+            return;
+        }
+
+        var pagamento = await _pagamentoRepository.ObterPorGatewayPaymentIdAsync(
+            webhook.Gateway,
+            gatewayPaymentId,
+            cancellationToken);
+
+        if (pagamento is null)
+        {
+            webhook.ErroProcessamento = "Pagamento nao encontrado para o gatewayPaymentId informado.";
+            return;
+        }
+
+        pagamento.Status = ObterStatusPagamentoNaoAprovado(webhook.EventType);
+        pagamento.UpdatedAt = DateTime.UtcNow;
+        _pagamentoRepository.Atualizar(pagamento);
+
+        await _assinaturaNotificacaoService.PagamentoRecusadoAsync(
+            pagamento,
+            ExtrairEmail(webhook.Payload),
+            cancellationToken);
 
         webhook.Processado = true;
         webhook.ProcessadoEm = DateTime.UtcNow;
@@ -239,6 +304,30 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         eventType.Equals("subscription.suspended", StringComparison.OrdinalIgnoreCase)
         || eventType.Equals("billing.suspended", StringComparison.OrdinalIgnoreCase)
         || eventType.Equals("subscription.paused", StringComparison.OrdinalIgnoreCase);
+
+    private static bool EventoPagamentoNaoAprovado(string eventType) =>
+        eventType.Equals("payment.rejected", StringComparison.OrdinalIgnoreCase)
+        || eventType.Equals("payment.refused", StringComparison.OrdinalIgnoreCase)
+        || eventType.Equals("payment.failed", StringComparison.OrdinalIgnoreCase)
+        || eventType.Equals("payment.cancelled", StringComparison.OrdinalIgnoreCase)
+        || eventType.Equals("payment.canceled", StringComparison.OrdinalIgnoreCase)
+        || eventType.Equals("payment.expired", StringComparison.OrdinalIgnoreCase);
+
+    private static PagamentoStatus ObterStatusPagamentoNaoAprovado(string eventType)
+    {
+        if (eventType.Equals("payment.cancelled", StringComparison.OrdinalIgnoreCase)
+            || eventType.Equals("payment.canceled", StringComparison.OrdinalIgnoreCase))
+        {
+            return PagamentoStatus.Cancelado;
+        }
+
+        if (eventType.Equals("payment.expired", StringComparison.OrdinalIgnoreCase))
+        {
+            return PagamentoStatus.Expirado;
+        }
+
+        return PagamentoStatus.Recusado;
+    }
 
     private static string? ExtrairGatewayPaymentId(string payload)
     {
@@ -299,6 +388,48 @@ public class WebhookPagamentoService : IWebhookPagamentoService
                 && TryGetInt(data, "assinaturaId", out var dataAssinaturaId))
             {
                 return dataAssinaturaId;
+            }
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        return null;
+    }
+
+    private static string? ExtrairEmail(string payload)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(payload);
+            var root = document.RootElement;
+
+            if (TryGetString(root, "email", out var email))
+            {
+                return email;
+            }
+
+            if (TryGetString(root, "payerEmail", out var payerEmail))
+            {
+                return payerEmail;
+            }
+
+            if (TryGetString(root, "pagadorEmail", out var pagadorEmail))
+            {
+                return pagadorEmail;
+            }
+
+            if (TryGetString(root, "customerEmail", out var customerEmail))
+            {
+                return customerEmail;
+            }
+
+            if (root.TryGetProperty("data", out var data)
+                && data.ValueKind == JsonValueKind.Object
+                && TryGetString(data, "email", out var dataEmail))
+            {
+                return dataEmail;
             }
         }
         catch (JsonException)

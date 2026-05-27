@@ -19,6 +19,7 @@ public class AssinaturaService : IAssinaturaService
     private readonly IPagamentoRepository _pagamentoRepository;
     private readonly IGatewayPagamentoResolver _gatewayPagamentoResolver;
     private readonly ICurrentUserContext _currentUser;
+    private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
 
     public AssinaturaService(
         IAssinaturaRepository assinaturaRepository,
@@ -28,7 +29,8 @@ public class AssinaturaService : IAssinaturaService
         IProfissionalRepository profissionalRepository,
         IPagamentoRepository pagamentoRepository,
         IGatewayPagamentoResolver gatewayPagamentoResolver,
-        ICurrentUserContext currentUser)
+        ICurrentUserContext currentUser,
+        IAssinaturaNotificacaoService assinaturaNotificacaoService)
     {
         _assinaturaRepository = assinaturaRepository;
         _planoRepository = planoRepository;
@@ -38,6 +40,7 @@ public class AssinaturaService : IAssinaturaService
         _pagamentoRepository = pagamentoRepository;
         _gatewayPagamentoResolver = gatewayPagamentoResolver;
         _currentUser = currentUser;
+        _assinaturaNotificacaoService = assinaturaNotificacaoService;
     }
 
     public async Task<AssinaturaResponseDto> IniciarAsync(
@@ -80,6 +83,12 @@ public class AssinaturaService : IAssinaturaService
         {
             pagamentoInicial.Pagamento.AssinaturaId = assinatura.Id;
         }
+
+        await _assinaturaNotificacaoService.AssinaturaIniciadaAsync(
+            assinatura,
+            plano,
+            _currentUser.Email,
+            cancellationToken);
 
         return AssinaturaResponseDto.From(
             assinatura,
@@ -178,6 +187,11 @@ public class AssinaturaService : IAssinaturaService
 
         _assinaturaRepository.Atualizar(assinatura);
         await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        await _assinaturaNotificacaoService.AssinaturaCanceladaAsync(
+            assinatura,
+            _currentUser.Email,
+            cancellationToken);
 
         return AssinaturaResponseDto.From(assinatura);
     }
