@@ -121,6 +121,14 @@ public class WebhookPagamentoService : IWebhookPagamentoService
 
         if (pagamento.Assinatura is not null)
         {
+            if (pagamento.Assinatura.PlanoAlteracaoPendenteId.HasValue)
+            {
+                pagamento.Assinatura.PlanoId = pagamento.Assinatura.PlanoAlteracaoPendenteId.Value;
+                pagamento.Assinatura.Plano = pagamento.Assinatura.PlanoAlteracaoPendente;
+                pagamento.Assinatura.PlanoAlteracaoPendenteId = null;
+                pagamento.Assinatura.PlanoAlteracaoPendente = null;
+            }
+
             pagamento.Assinatura.Status = AssinaturaStatus.Ativa;
             pagamento.Assinatura.Inicio = pagamento.PagoEm.Value;
             pagamento.Assinatura.Fim = CalcularFimAssinatura(pagamento.PagoEm.Value, pagamento.Assinatura.Plano?.Periodo);

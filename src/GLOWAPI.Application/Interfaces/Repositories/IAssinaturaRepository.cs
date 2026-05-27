@@ -6,6 +6,7 @@ public interface IAssinaturaRepository : IRepository<Assinatura>
 {
     Task<Assinatura?> ObterAtivaPorEstabelecimentoAsync(int estabelecimentoId, CancellationToken cancellationToken = default);
     Task<Assinatura?> ObterAtivaPorProfissionalAutonomoAsync(int profissionalId, CancellationToken cancellationToken = default);
+    Task<Assinatura?> ObterPorIdComPlanoAsync(int assinaturaId, CancellationToken cancellationToken = default);
     Task<Assinatura?> ObterAtualPorEstabelecimentoAsync(int estabelecimentoId, CancellationToken cancellationToken = default);
     Task<Assinatura?> ObterAtualPorProfissionalAutonomoAsync(int profissionalId, CancellationToken cancellationToken = default);
     Task<bool> ExisteAtivaOuPendentePorEstabelecimentoAsync(int estabelecimentoId, CancellationToken cancellationToken = default);

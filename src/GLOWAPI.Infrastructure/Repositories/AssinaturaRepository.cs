@@ -38,6 +38,14 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
                 cancellationToken);
     }
 
+    public Task<Assinatura?> ObterPorIdComPlanoAsync(int assinaturaId, CancellationToken cancellationToken = default)
+    {
+        return DbSet
+            .Include(assinatura => assinatura.Plano)
+            .Include(assinatura => assinatura.PlanoAlteracaoPendente)
+            .FirstOrDefaultAsync(assinatura => assinatura.Id == assinaturaId, cancellationToken);
+    }
+
     public Task<Assinatura?> ObterAtualPorEstabelecimentoAsync(int estabelecimentoId, CancellationToken cancellationToken = default)
     {
         return DbSet

@@ -19,6 +19,8 @@ public class PagamentoRepository : Repository<Pagamento>, IPagamentoRepository
         return DbSet
             .Include(pagamento => pagamento.Assinatura)
                 .ThenInclude(assinatura => assinatura!.Plano)
+            .Include(pagamento => pagamento.Assinatura)
+                .ThenInclude(assinatura => assinatura!.PlanoAlteracaoPendente)
             .FirstOrDefaultAsync(
                 pagamento => pagamento.Gateway == gateway
                     && pagamento.GatewayPaymentId == gatewayPaymentId,

@@ -462,6 +462,204 @@ public class AssinaturaServiceTests
             }));
     }
 
+    [Fact]
+    public async Task TrocarPlanoAsync_DeveCriarPagamentoPendente_QuandoNovoPlanoExigirCobranca()
+    {
+        var assinatura = new Assinatura
+        {
+            Id = 30,
+            PlanoId = 1,
+            EstabelecimentoId = 20,
+            Status = AssinaturaStatus.Ativa,
+            Gateway = GatewayPagamento.MercadoPago,
+            Plano = new Plano
+            {
+                Id = 1,
+                Nome = "Plano Basico",
+                Preco = 49.90m,
+                Periodo = PlanoPeriodo.Mensal
+            }
+        };
+
+        var novoPlano = new Plano
+        {
+            Id = 2,
+            Nome = "Plano Pro",
+            Preco = 99.90m,
+            Periodo = PlanoPeriodo.Mensal,
+            Ativo = true
+        };
+
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdComPlanoAsync(30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(assinatura);
+
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(novoPlano);
+
+        Pagamento? pagamentoCriado = null;
+        _pagamentoRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Pagamento>(), It.IsAny<CancellationToken>()))
+            .Callback<Pagamento, CancellationToken>((pagamento, _) =>
+            {
+                pagamento.Id = 91;
+                pagamentoCriado = pagamento;
+            })
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService();
+
+        var response = await service.TrocarPlanoAsync(30, new TrocarPlanoAssinaturaRequestDto
+        {
+            NovoPlanoId = 2
+        });
+
+        Assert.Equal(30, response.Id);
+        Assert.Equal(1, response.PlanoId);
+        Assert.Equal(2, response.PlanoAlteracaoPendenteId);
+        Assert.NotNull(response.PagamentoInicial);
+        Assert.Equal(91, response.PagamentoInicial!.Id);
+        Assert.Equal(99.90m, response.PagamentoInicial.Valor);
+        Assert.Equal("pay_test_123", response.PagamentoInicial.GatewayPaymentId);
+
+        Assert.NotNull(pagamentoCriado);
+        Assert.Equal(30, pagamentoCriado!.AssinaturaId);
+        Assert.Equal("TrocaPlano", pagamentoCriado.MetodoPagamento);
+        Assert.Equal(PagamentoStatus.Pendente, pagamentoCriado.Status);
+        Assert.Equal(2, assinatura.PlanoAlteracaoPendenteId);
+        Assert.Equal(1, assinatura.PlanoId);
+
+        _assinaturaRepository.Verify(r => r.Atualizar(assinatura), Times.Once);
+        _assinaturaRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task TrocarPlanoAsync_DeveAtualizarPlanoImediatamente_QuandoNovoPlanoNaoExigirCobranca()
+    {
+        var assinatura = new Assinatura
+        {
+            Id = 30,
+            PlanoId = 1,
+            ProfissionalAutonomoId = 70,
+            Status = AssinaturaStatus.Ativa,
+            Gateway = GatewayPagamento.MercadoPago,
+            Plano = new Plano
+            {
+                Id = 1,
+                Nome = "Plano Solo A",
+                Preco = 49.90m,
+                Periodo = PlanoPeriodo.Mensal
+            }
+        };
+
+        var novoPlano = new Plano
+        {
+            Id = 2,
+            Nome = "Plano Solo B",
+            Preco = 49.90m,
+            Periodo = PlanoPeriodo.Mensal,
+            Ativo = true
+        };
+
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdComPlanoAsync(30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(assinatura);
+
+        _profissionalRepository
+            .Setup(r => r.ObterPorIdAsync(70, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Profissional
+            {
+                Id = 70,
+                UsuarioId = 10,
+                TipoProfissional = ProfessionalType.Autonomo,
+                Ativo = true
+            });
+
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(novoPlano);
+
+        var service = CreateService();
+
+        var response = await service.TrocarPlanoAsync(30, new TrocarPlanoAssinaturaRequestDto
+        {
+            NovoPlanoId = 2
+        });
+
+        Assert.Equal(2, response.PlanoId);
+        Assert.Null(response.PlanoAlteracaoPendenteId);
+        Assert.Null(response.PagamentoInicial);
+        Assert.Equal(2, assinatura.PlanoId);
+        Assert.Null(assinatura.PlanoAlteracaoPendenteId);
+        Assert.NotNull(assinatura.UpdatedAt);
+
+        _pagamentoRepository.Verify(r => r.AdicionarAsync(It.IsAny<Pagamento>(), It.IsAny<CancellationToken>()), Times.Never);
+        _assinaturaRepository.Verify(r => r.Atualizar(assinatura), Times.Once);
+        _assinaturaRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task TrocarPlanoAsync_DeveLancarExcecao_QuandoAssinaturaNaoEstaAtiva()
+    {
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdComPlanoAsync(30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Assinatura
+            {
+                Id = 30,
+                EstabelecimentoId = 20,
+                Status = AssinaturaStatus.PendentePagamento,
+                Plano = new Plano { Id = 1 }
+            });
+
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<TrocaPlanoAssinaturaInvalidaException>(() =>
+            service.TrocarPlanoAsync(30, new TrocarPlanoAssinaturaRequestDto
+            {
+                NovoPlanoId = 2
+            }));
+    }
+
+    [Fact]
+    public async Task TrocarPlanoAsync_DeveLancarExcecao_QuandoNovoPlanoNaoExisteOuInativo()
+    {
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdComPlanoAsync(30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Assinatura
+            {
+                Id = 30,
+                EstabelecimentoId = 20,
+                Status = AssinaturaStatus.Ativa,
+                PlanoId = 1,
+                Plano = new Plano { Id = 1, Preco = 49.90m, Periodo = PlanoPeriodo.Mensal }
+            });
+
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Plano { Id = 2, Ativo = false });
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<PlanoNaoEncontradoException>(() =>
+            service.TrocarPlanoAsync(30, new TrocarPlanoAssinaturaRequestDto
+            {
+                NovoPlanoId = 2
+            }));
+    }
+
     private AssinaturaService CreateService() =>
         new(
             _assinaturaRepository.Object,
