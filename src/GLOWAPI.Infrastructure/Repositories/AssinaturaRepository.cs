@@ -7,6 +7,13 @@ namespace GLOWAPI.Infrastructure.Repositories;
 
 public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepository
 {
+    private static readonly AssinaturaStatus[] StatusBloqueadosParaNovaAssinatura =
+    [
+        AssinaturaStatus.Ativa,
+        AssinaturaStatus.PendentePagamento,
+        AssinaturaStatus.Trial
+    ];
+
     public AssinaturaRepository(ApplicationDbContext context) : base(context)
     {
     }
@@ -29,5 +36,25 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
                 assinatura => assinatura.ProfissionalAutonomoId == profissionalId
                     && assinatura.Status == AssinaturaStatus.Ativa,
                 cancellationToken);
+    }
+
+    public Task<bool> ExisteAtivaOuPendentePorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet.AnyAsync(
+            assinatura => assinatura.EstabelecimentoId == estabelecimentoId
+                && StatusBloqueadosParaNovaAssinatura.Contains(assinatura.Status),
+            cancellationToken);
+    }
+
+    public Task<bool> ExisteAtivaOuPendentePorProfissionalAutonomoAsync(
+        int profissionalId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet.AnyAsync(
+            assinatura => assinatura.ProfissionalAutonomoId == profissionalId
+                && StatusBloqueadosParaNovaAssinatura.Contains(assinatura.Status),
+            cancellationToken);
     }
 }
