@@ -53,6 +53,11 @@ public class AssinaturaConfiguration : IEntityTypeConfiguration<Assinatura>
             .HasForeignKey(assinatura => assinatura.PlanoId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(assinatura => assinatura.PlanoAlteracaoPendente)
+            .WithMany()
+            .HasForeignKey(assinatura => assinatura.PlanoAlteracaoPendenteId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne(assinatura => assinatura.Estabelecimento)
             .WithMany(estabelecimento => estabelecimento.Assinaturas)
             .HasForeignKey(assinatura => assinatura.EstabelecimentoId)
@@ -64,6 +69,7 @@ public class AssinaturaConfiguration : IEntityTypeConfiguration<Assinatura>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(assinatura => assinatura.PlanoId);
+        builder.HasIndex(assinatura => assinatura.PlanoAlteracaoPendenteId);
         builder.HasIndex(assinatura => assinatura.EstabelecimentoId);
         builder.HasIndex(assinatura => assinatura.ProfissionalAutonomoId);
     }

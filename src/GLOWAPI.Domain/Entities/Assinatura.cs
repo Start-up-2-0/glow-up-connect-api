@@ -6,6 +6,7 @@ public class Assinatura
 {
     public int Id { get; set; }
     public int PlanoId { get; set; }
+    public int? PlanoAlteracaoPendenteId { get; set; }
     public int? EstabelecimentoId { get; set; }
     public int? ProfissionalAutonomoId { get; set; }
     public AssinaturaStatus Status { get; set; } = AssinaturaStatus.PendentePagamento;
@@ -21,6 +22,7 @@ public class Assinatura
     public DateTime? CanceladoEm { get; set; }
 
     public Plano? Plano { get; set; }
+    public Plano? PlanoAlteracaoPendente { get; set; }
     public Estabelecimento? Estabelecimento { get; set; }
     public Profissional? ProfissionalAutonomo { get; set; }
     public ICollection<Pagamento> Pagamentos { get; set; } = new List<Pagamento>();
