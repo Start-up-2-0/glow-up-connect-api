@@ -74,6 +74,91 @@ public class AssinaturaServiceTests
     }
 
     [Fact]
+    public async Task IniciarAsync_DeveCriarEstabelecimentoEVinculoOwner_QuandoInformarDadosDoEstabelecimento()
+    {
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Plano { Id = 1, Ativo = true });
+
+        Estabelecimento? estabelecimentoCriado = null;
+        _estabelecimentoRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Estabelecimento>(), It.IsAny<CancellationToken>()))
+            .Callback<Estabelecimento, CancellationToken>((estabelecimento, _) =>
+            {
+                estabelecimento.Id = 50;
+                estabelecimentoCriado = estabelecimento;
+            })
+            .Returns(Task.CompletedTask);
+
+        EstabelecimentoUsuario? vinculoCriado = null;
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<EstabelecimentoUsuario>(), It.IsAny<CancellationToken>()))
+            .Callback<EstabelecimentoUsuario, CancellationToken>((vinculo, _) => vinculoCriado = vinculo)
+            .Returns(Task.CompletedTask);
+
+        _assinaturaRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Assinatura>(), It.IsAny<CancellationToken>()))
+            .Callback<Assinatura, CancellationToken>((assinatura, _) => assinatura.Id = 60)
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService();
+
+        var response = await service.IniciarAsync(new IniciarAssinaturaRequestDto
+        {
+            PlanoId = 1,
+            TipoAssinatura = TipoAssinatura.Estabelecimento,
+            Estabelecimento = new CriarEstabelecimentoAssinaturaDto
+            {
+                Nome = " Studio Glow ",
+                Descricao = " Salao premium ",
+                Telefone = "11999999999",
+                Email = "studio@email.com"
+            }
+        });
+
+        Assert.Equal(60, response.Id);
+        Assert.Equal(50, response.EstabelecimentoId);
+        Assert.Equal("PendentePagamento", response.Status);
+
+        Assert.NotNull(estabelecimentoCriado);
+        Assert.Equal("Studio Glow", estabelecimentoCriado!.Nome);
+        Assert.Equal("Salao premium", estabelecimentoCriado.Descricao);
+        Assert.True(estabelecimentoCriado.Ativo);
+        Assert.NotEqual(Guid.Empty, estabelecimentoCriado.PublicGuid);
+
+        Assert.NotNull(vinculoCriado);
+        Assert.Equal(10, vinculoCriado!.UsuarioId);
+        Assert.Equal(EstablishmentUserRole.Owner, vinculoCriado.RoleNoEstabelecimento);
+        Assert.True(vinculoCriado.Ativo);
+        Assert.Same(estabelecimentoCriado, vinculoCriado.Estabelecimento);
+
+        _estabelecimentoRepository.Verify(r => r.AdicionarAsync(It.IsAny<Estabelecimento>(), It.IsAny<CancellationToken>()), Times.Once);
+        _estabelecimentoUsuarioRepository.Verify(r => r.AdicionarAsync(It.IsAny<EstabelecimentoUsuario>(), It.IsAny<CancellationToken>()), Times.Once);
+        _assinaturaRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task IniciarAsync_DeveLancarExcecao_QuandoNomeDoNovoEstabelecimentoNaoForInformado()
+    {
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Plano { Id = 1, Ativo = true });
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<EstabelecimentoAssinaturaInvalidoException>(() =>
+            service.IniciarAsync(new IniciarAssinaturaRequestDto
+            {
+                PlanoId = 1,
+                TipoAssinatura = TipoAssinatura.Estabelecimento,
+                Estabelecimento = new CriarEstabelecimentoAssinaturaDto
+                {
+                    Nome = " "
+                }
+            }));
+    }
+
+    [Fact]
     public async Task IniciarAsync_DeveLancarExcecao_QuandoPlanoNaoExisteOuInativo()
     {
         _planoRepository

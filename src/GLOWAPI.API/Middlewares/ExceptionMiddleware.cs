@@ -49,7 +49,8 @@ public class ExceptionMiddleware
                     => HttpStatusCode.Conflict,
                 ConfirmacaoEmailInvalidaException
                     or AvatarInvalidoException
-                    or AssinaturaTitularInvalidoException => HttpStatusCode.BadRequest,
+                    or AssinaturaTitularInvalidoException
+                    or EstabelecimentoAssinaturaInvalidoException => HttpStatusCode.BadRequest,
                 UsuarioSemPermissaoAssinaturaException => HttpStatusCode.Forbidden,
                 MensagemNotificacaoNaoEncontradaException
                     or PlanoNaoEncontradoException
