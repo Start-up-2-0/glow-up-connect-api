@@ -112,6 +112,51 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
             && assinatura.Status == AssinaturaStatus.PendentePagamento);
     }
 
+    [Fact]
+    public async Task Iniciar_DeveCriarProfissionalAutonomoEAssinaturaPendente()
+    {
+        var seed = await SeedUsuarioEPlanoAsync("onboarding-autonomo@email.com");
+        var client = _factory.CreateClient();
+        await AutenticarAsync(client, seed.Email, seed.Senha);
+
+        var response = await client.PostAsJsonAsync("/api/assinaturas", new
+        {
+            planoId = seed.PlanoId,
+            tipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+            profissionalAutonomo = new
+            {
+                nomePublico = "Maria Glow",
+                biografia = "Especialista em beleza"
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        var data = body.GetProperty("data");
+        var profissionalId = data.GetProperty("profissionalAutonomoId").GetInt32();
+
+        Assert.Equal(seed.PlanoId, data.GetProperty("planoId").GetInt32());
+        Assert.Equal("PendentePagamento", data.GetProperty("status").GetString());
+        Assert.True(profissionalId > 0);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var profissional = await db.Profissionais.FindAsync(profissionalId);
+        Assert.NotNull(profissional);
+        Assert.Equal(seed.UsuarioId, profissional!.UsuarioId);
+        Assert.Equal("Maria Glow", profissional.NomePublico);
+        Assert.Equal(ProfessionalType.Autonomo, profissional.TipoProfissional);
+        Assert.True(profissional.Ativo);
+        Assert.NotEqual(Guid.Empty, profissional.PublicGuid);
+
+        Assert.Contains(db.Assinaturas, assinatura =>
+            assinatura.ProfissionalAutonomoId == profissionalId
+            && assinatura.PlanoId == seed.PlanoId
+            && assinatura.Status == AssinaturaStatus.PendentePagamento);
+    }
+
     private async Task<(string Email, string Senha, int PlanoId, int EstabelecimentoId)> SeedEstabelecimentoAsync()
     {
         const string email = "assinatura-estabelecimento@email.com";

@@ -50,7 +50,8 @@ public class ExceptionMiddleware
                 ConfirmacaoEmailInvalidaException
                     or AvatarInvalidoException
                     or AssinaturaTitularInvalidoException
-                    or EstabelecimentoAssinaturaInvalidoException => HttpStatusCode.BadRequest,
+                    or EstabelecimentoAssinaturaInvalidoException
+                    or ProfissionalAutonomoAssinaturaInvalidoException => HttpStatusCode.BadRequest,
                 UsuarioSemPermissaoAssinaturaException => HttpStatusCode.Forbidden,
                 MensagemNotificacaoNaoEncontradaException
                     or PlanoNaoEncontradoException

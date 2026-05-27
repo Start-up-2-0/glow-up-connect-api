@@ -159,6 +159,138 @@ public class AssinaturaServiceTests
     }
 
     [Fact]
+    public async Task IniciarAsync_DeveCriarProfissionalAutonomoEAssinaturaPendente_QuandoInformarDadosDoAutonomo()
+    {
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Plano { Id = 1, Ativo = true });
+
+        _profissionalRepository
+            .Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Profissional?)null);
+
+        Profissional? profissionalCriado = null;
+        _profissionalRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Profissional>(), It.IsAny<CancellationToken>()))
+            .Callback<Profissional, CancellationToken>((profissional, _) =>
+            {
+                profissional.Id = 70;
+                profissionalCriado = profissional;
+            })
+            .Returns(Task.CompletedTask);
+
+        _assinaturaRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Assinatura>(), It.IsAny<CancellationToken>()))
+            .Callback<Assinatura, CancellationToken>((assinatura, _) => assinatura.Id = 80)
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService();
+
+        var response = await service.IniciarAsync(new IniciarAssinaturaRequestDto
+        {
+            PlanoId = 1,
+            TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+            ProfissionalAutonomo = new CriarProfissionalAutonomoAssinaturaDto
+            {
+                NomePublico = " Maria Glow ",
+                Biografia = " Especialista em beleza "
+            }
+        });
+
+        Assert.Equal(80, response.Id);
+        Assert.Equal(70, response.ProfissionalAutonomoId);
+        Assert.Null(response.EstabelecimentoId);
+        Assert.Equal("PendentePagamento", response.Status);
+
+        Assert.NotNull(profissionalCriado);
+        Assert.Equal(10, profissionalCriado!.UsuarioId);
+        Assert.Equal("Maria Glow", profissionalCriado.NomePublico);
+        Assert.Equal("Especialista em beleza", profissionalCriado.Biografia);
+        Assert.Equal(ProfessionalType.Autonomo, profissionalCriado.TipoProfissional);
+        Assert.True(profissionalCriado.Ativo);
+        Assert.NotEqual(Guid.Empty, profissionalCriado.PublicGuid);
+
+        _profissionalRepository.Verify(r => r.AdicionarAsync(It.IsAny<Profissional>(), It.IsAny<CancellationToken>()), Times.Once);
+        _assinaturaRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task IniciarAsync_DeveAtivarProfissionalAutonomoExistente_QuandoPerfilEstiverInativo()
+    {
+        var profissional = new Profissional
+        {
+            Id = 70,
+            UsuarioId = 10,
+            NomePublico = "Nome antigo",
+            TipoProfissional = ProfessionalType.Autonomo,
+            Ativo = false
+        };
+
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Plano { Id = 1, Ativo = true });
+
+        _profissionalRepository
+            .Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profissional);
+
+        _assinaturaRepository
+            .Setup(r => r.ExisteAtivaOuPendentePorProfissionalAutonomoAsync(70, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _assinaturaRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Assinatura>(), It.IsAny<CancellationToken>()))
+            .Callback<Assinatura, CancellationToken>((assinatura, _) => assinatura.Id = 80)
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService();
+
+        var response = await service.IniciarAsync(new IniciarAssinaturaRequestDto
+        {
+            PlanoId = 1,
+            TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+            ProfissionalAutonomo = new CriarProfissionalAutonomoAssinaturaDto
+            {
+                NomePublico = "Novo nome",
+                Biografia = "Nova bio"
+            }
+        });
+
+        Assert.Equal(70, response.ProfissionalAutonomoId);
+        Assert.Equal("Novo nome", profissional.NomePublico);
+        Assert.Equal("Nova bio", profissional.Biografia);
+        Assert.True(profissional.Ativo);
+        Assert.NotNull(profissional.UpdatedAt);
+
+        _profissionalRepository.Verify(r => r.Atualizar(profissional), Times.Once);
+    }
+
+    [Fact]
+    public async Task IniciarAsync_DeveLancarExcecao_QuandoNomePublicoDoAutonomoNaoForInformado()
+    {
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Plano { Id = 1, Ativo = true });
+
+        _profissionalRepository
+            .Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Profissional?)null);
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<ProfissionalAutonomoAssinaturaInvalidoException>(() =>
+            service.IniciarAsync(new IniciarAssinaturaRequestDto
+            {
+                PlanoId = 1,
+                TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+                ProfissionalAutonomo = new CriarProfissionalAutonomoAssinaturaDto
+                {
+                    NomePublico = " "
+                }
+            }));
+    }
+
+    [Fact]
     public async Task IniciarAsync_DeveLancarExcecao_QuandoPlanoNaoExisteOuInativo()
     {
         _planoRepository
