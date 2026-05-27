@@ -10,9 +10,12 @@ public record AssinaturaResponseDto(
     string Status,
     string Gateway,
     DateTime Inicio,
-    DateTime? Fim)
+    DateTime? Fim,
+    PagamentoAssinaturaResponseDto? PagamentoInicial = null)
 {
-    public static AssinaturaResponseDto From(Assinatura assinatura) =>
+    public static AssinaturaResponseDto From(
+        Assinatura assinatura,
+        PagamentoAssinaturaResponseDto? pagamentoInicial = null) =>
         new(
             assinatura.Id,
             assinatura.PlanoId,
@@ -21,5 +24,6 @@ public record AssinaturaResponseDto(
             assinatura.Status.ToString(),
             assinatura.Gateway.ToString(),
             assinatura.Inicio,
-            assinatura.Fim);
+            assinatura.Fim,
+            pagamentoInicial);
 }

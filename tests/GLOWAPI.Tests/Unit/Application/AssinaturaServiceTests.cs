@@ -1,6 +1,7 @@
 using GLOWAPI.Application.DTOs.Assinaturas;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Models.Pagamentos;
 using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
@@ -16,11 +17,36 @@ public class AssinaturaServiceTests
     private readonly Mock<IEstabelecimentoRepository> _estabelecimentoRepository = new();
     private readonly Mock<IEstabelecimentoUsuarioRepository> _estabelecimentoUsuarioRepository = new();
     private readonly Mock<IProfissionalRepository> _profissionalRepository = new();
+    private readonly Mock<IPagamentoRepository> _pagamentoRepository = new();
+    private readonly Mock<IGatewayPagamentoResolver> _gatewayPagamentoResolver = new();
+    private readonly Mock<IGatewayPagamento> _gatewayPagamento = new();
     private readonly Mock<ICurrentUserContext> _currentUser = new();
 
     public AssinaturaServiceTests()
     {
         _currentUser.Setup(c => c.UserId).Returns(10);
+        _currentUser.Setup(c => c.Email).Returns("usuario@email.com");
+        _gatewayPagamento.Setup(g => g.GatewaySuportado).Returns(GatewayPagamento.MercadoPago);
+        _gatewayPagamento
+            .Setup(g => g.CriarCobrancaAsync(
+                It.IsAny<CriarCobrancaGatewayRequest>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CriarCobrancaGatewayResponse(
+                Sucesso: true,
+                GatewayPaymentId: "pay_test_123",
+                CheckoutUrl: "https://checkout.test/pay_test_123",
+                QrCode: "qr-code",
+                RequestPayload: "{}",
+                ResponsePayload: "{}"));
+
+        _gatewayPagamentoResolver
+            .Setup(r => r.Resolver(GatewayPagamento.MercadoPago))
+            .Returns(_gatewayPagamento.Object);
+
+        _pagamentoRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Pagamento>(), It.IsAny<CancellationToken>()))
+            .Callback<Pagamento, CancellationToken>((pagamento, _) => pagamento.Id = 90)
+            .Returns(Task.CompletedTask);
     }
 
     [Fact]
@@ -67,9 +93,15 @@ public class AssinaturaServiceTests
         Assert.Null(response.ProfissionalAutonomoId);
         Assert.Equal("PendentePagamento", response.Status);
         Assert.Equal("MercadoPago", response.Gateway);
+        Assert.NotNull(response.PagamentoInicial);
+        Assert.Equal(90, response.PagamentoInicial!.Id);
+        Assert.Equal("Pendente", response.PagamentoInicial.Status);
+        Assert.Equal("pay_test_123", response.PagamentoInicial.GatewayPaymentId);
+        Assert.Equal("https://checkout.test/pay_test_123", response.PagamentoInicial.CheckoutUrl);
         Assert.NotNull(assinaturaCriada);
         Assert.Equal(AssinaturaStatus.PendentePagamento, assinaturaCriada!.Status);
 
+        _pagamentoRepository.Verify(r => r.AdicionarAsync(It.IsAny<Pagamento>(), It.IsAny<CancellationToken>()), Times.Once);
         _assinaturaRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -291,6 +323,52 @@ public class AssinaturaServiceTests
     }
 
     [Fact]
+    public async Task IniciarAsync_DeveLancarExcecao_ENaoPersistir_QuandoGatewayFalhar()
+    {
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Plano
+            {
+                Id = 1,
+                Nome = "Plano Pro",
+                Preco = 99.90m,
+                Ativo = true
+            });
+
+        _estabelecimentoRepository
+            .Setup(r => r.ObterPorIdAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Estabelecimento { Id = 20, Ativo = true });
+
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+
+        _assinaturaRepository
+            .Setup(r => r.ExisteAtivaOuPendentePorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _gatewayPagamento
+            .Setup(g => g.CriarCobrancaAsync(
+                It.IsAny<CriarCobrancaGatewayRequest>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CriarCobrancaGatewayResponse.Falha("{}", "{}", "Gateway indisponivel"));
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<GatewayPagamentoException>(() =>
+            service.IniciarAsync(new IniciarAssinaturaRequestDto
+            {
+                PlanoId = 1,
+                TipoAssinatura = TipoAssinatura.Estabelecimento,
+                EstabelecimentoId = 20
+            }));
+
+        _assinaturaRepository.Verify(r => r.AdicionarAsync(It.IsAny<Assinatura>(), It.IsAny<CancellationToken>()), Times.Never);
+        _pagamentoRepository.Verify(r => r.AdicionarAsync(It.IsAny<Pagamento>(), It.IsAny<CancellationToken>()), Times.Never);
+        _assinaturaRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task IniciarAsync_DeveLancarExcecao_QuandoPlanoNaoExisteOuInativo()
     {
         _planoRepository
@@ -391,5 +469,7 @@ public class AssinaturaServiceTests
             _estabelecimentoRepository.Object,
             _estabelecimentoUsuarioRepository.Object,
             _profissionalRepository.Object,
+            _pagamentoRepository.Object,
+            _gatewayPagamentoResolver.Object,
             _currentUser.Object);
 }

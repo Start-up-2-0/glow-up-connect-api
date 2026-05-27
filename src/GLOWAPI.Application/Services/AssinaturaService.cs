@@ -1,6 +1,7 @@
 using GLOWAPI.Application.DTOs.Assinaturas;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Models.Pagamentos;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
@@ -15,6 +16,8 @@ public class AssinaturaService : IAssinaturaService
     private readonly IEstabelecimentoRepository _estabelecimentoRepository;
     private readonly IEstabelecimentoUsuarioRepository _estabelecimentoUsuarioRepository;
     private readonly IProfissionalRepository _profissionalRepository;
+    private readonly IPagamentoRepository _pagamentoRepository;
+    private readonly IGatewayPagamentoResolver _gatewayPagamentoResolver;
     private readonly ICurrentUserContext _currentUser;
 
     public AssinaturaService(
@@ -23,6 +26,8 @@ public class AssinaturaService : IAssinaturaService
         IEstabelecimentoRepository estabelecimentoRepository,
         IEstabelecimentoUsuarioRepository estabelecimentoUsuarioRepository,
         IProfissionalRepository profissionalRepository,
+        IPagamentoRepository pagamentoRepository,
+        IGatewayPagamentoResolver gatewayPagamentoResolver,
         ICurrentUserContext currentUser)
     {
         _assinaturaRepository = assinaturaRepository;
@@ -30,6 +35,8 @@ public class AssinaturaService : IAssinaturaService
         _estabelecimentoRepository = estabelecimentoRepository;
         _estabelecimentoUsuarioRepository = estabelecimentoUsuarioRepository;
         _profissionalRepository = profissionalRepository;
+        _pagamentoRepository = pagamentoRepository;
+        _gatewayPagamentoResolver = gatewayPagamentoResolver;
         _currentUser = currentUser;
     }
 
@@ -53,7 +60,10 @@ public class AssinaturaService : IAssinaturaService
             _ => throw new AssinaturaTitularInvalidoException()
         };
 
+        var pagamentoInicial = await CriarPagamentoInicialAsync(assinatura, plano, cancellationToken);
+
         await _assinaturaRepository.AdicionarAsync(assinatura, cancellationToken);
+        await _pagamentoRepository.AdicionarAsync(pagamentoInicial.Pagamento, cancellationToken);
         await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
 
         if (assinatura.Estabelecimento is not null && !assinatura.EstabelecimentoId.HasValue)
@@ -66,7 +76,17 @@ public class AssinaturaService : IAssinaturaService
             assinatura.ProfissionalAutonomoId = assinatura.ProfissionalAutonomo.Id;
         }
 
-        return AssinaturaResponseDto.From(assinatura);
+        if (!pagamentoInicial.Pagamento.AssinaturaId.HasValue)
+        {
+            pagamentoInicial.Pagamento.AssinaturaId = assinatura.Id;
+        }
+
+        return AssinaturaResponseDto.From(
+            assinatura,
+            PagamentoAssinaturaResponseDto.From(
+                pagamentoInicial.Pagamento,
+                pagamentoInicial.CheckoutUrl,
+                pagamentoInicial.QrCode));
     }
 
     private async Task<Assinatura> CriarParaEstabelecimentoAsync(
@@ -316,6 +336,49 @@ public class AssinaturaService : IAssinaturaService
             RenovacaoAutomatica = true
         };
 
+    private async Task<PagamentoInicial> CriarPagamentoInicialAsync(
+        Assinatura assinatura,
+        Plano plano,
+        CancellationToken cancellationToken)
+    {
+        var gateway = _gatewayPagamentoResolver.Resolver(assinatura.Gateway);
+        var referenciaInterna = $"assinatura-{Guid.NewGuid():N}";
+        var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
+            Gateway: assinatura.Gateway,
+            ReferenciaInterna: referenciaInterna,
+            Descricao: $"Assinatura {plano.Nome}",
+            Valor: plano.Preco,
+            Moeda: "BRL",
+            PagadorNome: _currentUser.Email ?? "Usuario Glow",
+            PagadorEmail: _currentUser.Email ?? string.Empty,
+            Metadados: new Dictionary<string, string>
+            {
+                ["planoId"] = plano.Id.ToString(),
+                ["tipo"] = assinatura.EstabelecimentoId.HasValue || assinatura.Estabelecimento is not null
+                    ? TipoAssinatura.Estabelecimento.ToString()
+                    : TipoAssinatura.ProfissionalAutonomo.ToString()
+            }),
+            cancellationToken);
+
+        if (!response.Sucesso)
+        {
+            throw new GatewayPagamentoException(response.MensagemErro ?? "Nao foi possivel criar a cobranca no gateway.");
+        }
+
+        var pagamento = new Pagamento
+        {
+            Assinatura = assinatura,
+            Gateway = assinatura.Gateway,
+            GatewayPaymentId = response.GatewayPaymentId,
+            MetodoPagamento = "Checkout",
+            Status = PagamentoStatus.Pendente,
+            Valor = plano.Preco,
+            Moeda = "BRL"
+        };
+
+        return new PagamentoInicial(pagamento, response.CheckoutUrl, response.QrCode);
+    }
+
     private int ObterUserIdAutenticado()
     {
         if (!_currentUser.UserId.HasValue)
@@ -325,4 +388,6 @@ public class AssinaturaService : IAssinaturaService
 
         return _currentUser.UserId.Value;
     }
+
+    private record PagamentoInicial(Pagamento Pagamento, string CheckoutUrl, string QrCode);
 }

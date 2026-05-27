@@ -47,6 +47,7 @@ public class ExceptionMiddleware
                     or MensagemNotificacaoNaoCancelavelException
                     or AssinaturaDuplicadaException
                     => HttpStatusCode.Conflict,
+                GatewayPagamentoException => HttpStatusCode.BadGateway,
                 ConfirmacaoEmailInvalidaException
                     or AvatarInvalidoException
                     or AssinaturaTitularInvalidoException
