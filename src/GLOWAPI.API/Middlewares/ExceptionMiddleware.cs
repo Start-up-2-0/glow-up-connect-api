@@ -52,6 +52,7 @@ public class ExceptionMiddleware
                 ConfirmacaoEmailInvalidaException
                     or AvatarInvalidoException
                     or AssinaturaTitularInvalidoException
+                    or CancelamentoAssinaturaInvalidoException
                     or EstabelecimentoAssinaturaInvalidoException
                     or ProfissionalAutonomoAssinaturaInvalidoException
                     or TrocaPlanoAssinaturaInvalidaException

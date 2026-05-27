@@ -12,6 +12,7 @@ public class WebhookPagamentoServiceTests
 {
     private readonly Mock<IWebhookPagamentoRepository> _repository = new();
     private readonly Mock<IPagamentoRepository> _pagamentoRepository = new();
+    private readonly Mock<IAssinaturaRepository> _assinaturaRepository = new();
 
     [Fact]
     public async Task RegistrarAsync_DeveCriarWebhook_QuandoEventoNaoExiste()
@@ -231,6 +232,92 @@ public class WebhookPagamentoServiceTests
         _repository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task RegistrarAsync_DeveCancelarAssinatura_QuandoEventoForCancelamento()
+    {
+        var assinatura = new Assinatura
+        {
+            Id = 20,
+            Status = AssinaturaStatus.Ativa,
+            RenovacaoAutomatica = true,
+            PlanoAlteracaoPendenteId = 2
+        };
+
+        _repository
+            .Setup(r => r.ObterPorEventoAsync(GatewayPagamento.MercadoPago, "evt-cancelado", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((WebhookPagamento?)null);
+
+        _repository
+            .Setup(r => r.AdicionarAsync(It.IsAny<WebhookPagamento>(), It.IsAny<CancellationToken>()))
+            .Callback<WebhookPagamento, CancellationToken>((webhook, _) => webhook.Id = 12)
+            .Returns(Task.CompletedTask);
+
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdComPlanoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(assinatura);
+
+        var service = CreateService();
+
+        var response = await service.RegistrarAsync(new RegistrarWebhookPagamentoRequestDto
+        {
+            Gateway = GatewayPagamento.MercadoPago,
+            EventId = "evt-cancelado",
+            EventType = "subscription.cancelled",
+            Payload = """{"assinaturaId":20}"""
+        });
+
+        Assert.True(response.Processado);
+        Assert.Equal(AssinaturaStatus.Cancelada, assinatura.Status);
+        Assert.NotNull(assinatura.CanceladoEm);
+        Assert.False(assinatura.RenovacaoAutomatica);
+        Assert.Null(assinatura.PlanoAlteracaoPendenteId);
+
+        _assinaturaRepository.Verify(r => r.Atualizar(assinatura), Times.Once);
+        _repository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RegistrarAsync_DeveSuspenderAssinatura_QuandoEventoForSuspensao()
+    {
+        var assinatura = new Assinatura
+        {
+            Id = 20,
+            Status = AssinaturaStatus.Ativa,
+            RenovacaoAutomatica = true
+        };
+
+        _repository
+            .Setup(r => r.ObterPorEventoAsync(GatewayPagamento.MercadoPago, "evt-suspenso", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((WebhookPagamento?)null);
+
+        _repository
+            .Setup(r => r.AdicionarAsync(It.IsAny<WebhookPagamento>(), It.IsAny<CancellationToken>()))
+            .Callback<WebhookPagamento, CancellationToken>((webhook, _) => webhook.Id = 13)
+            .Returns(Task.CompletedTask);
+
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdComPlanoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(assinatura);
+
+        var service = CreateService();
+
+        var response = await service.RegistrarAsync(new RegistrarWebhookPagamentoRequestDto
+        {
+            Gateway = GatewayPagamento.MercadoPago,
+            EventId = "evt-suspenso",
+            EventType = "subscription.suspended",
+            Payload = """{"data":{"assinaturaId":"20"}}"""
+        });
+
+        Assert.True(response.Processado);
+        Assert.Equal(AssinaturaStatus.Suspensa, assinatura.Status);
+        Assert.Null(assinatura.CanceladoEm);
+        Assert.False(assinatura.RenovacaoAutomatica);
+
+        _assinaturaRepository.Verify(r => r.Atualizar(assinatura), Times.Once);
+        _repository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private WebhookPagamentoService CreateService() =>
-        new(_repository.Object, _pagamentoRepository.Object);
+        new(_repository.Object, _pagamentoRepository.Object, _assinaturaRepository.Object);
 }

@@ -660,6 +660,95 @@ public class AssinaturaServiceTests
             }));
     }
 
+    [Fact]
+    public async Task CancelarAsync_DeveCancelarAssinaturaAtiva_QuandoUsuarioTemPermissao()
+    {
+        var assinatura = new Assinatura
+        {
+            Id = 30,
+            EstabelecimentoId = 20,
+            Status = AssinaturaStatus.Ativa,
+            RenovacaoAutomatica = true,
+            PlanoAlteracaoPendenteId = 2,
+            Plano = new Plano { Id = 1 }
+        };
+
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdComPlanoAsync(30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(assinatura);
+
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+
+        var service = CreateService();
+
+        var response = await service.CancelarAsync(30);
+
+        Assert.Equal(30, response.Id);
+        Assert.Equal("Cancelada", response.Status);
+        Assert.Equal(AssinaturaStatus.Cancelada, assinatura.Status);
+        Assert.NotNull(assinatura.CanceladoEm);
+        Assert.False(assinatura.RenovacaoAutomatica);
+        Assert.Null(assinatura.PlanoAlteracaoPendenteId);
+        Assert.NotNull(assinatura.UpdatedAt);
+
+        _assinaturaRepository.Verify(r => r.Atualizar(assinatura), Times.Once);
+        _assinaturaRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CancelarAsync_DeveLancarExcecao_QuandoAssinaturaNaoEstaAtiva()
+    {
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdComPlanoAsync(30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Assinatura
+            {
+                Id = 30,
+                ProfissionalAutonomoId = 70,
+                Status = AssinaturaStatus.Suspensa,
+                Plano = new Plano { Id = 1 }
+            });
+
+        _profissionalRepository
+            .Setup(r => r.ObterPorIdAsync(70, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Profissional
+            {
+                Id = 70,
+                UsuarioId = 10,
+                TipoProfissional = ProfessionalType.Autonomo,
+                Ativo = true
+            });
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<CancelamentoAssinaturaInvalidoException>(() =>
+            service.CancelarAsync(30));
+    }
+
+    [Fact]
+    public async Task CancelarAsync_DeveLancarExcecao_QuandoUsuarioNaoTemPermissao()
+    {
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdComPlanoAsync(30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Assinatura
+            {
+                Id = 30,
+                EstabelecimentoId = 20,
+                Status = AssinaturaStatus.Ativa,
+                Plano = new Plano { Id = 1 }
+            });
+
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((EstabelecimentoUsuario?)null);
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<UsuarioSemPermissaoAssinaturaException>(() =>
+            service.CancelarAsync(30));
+    }
+
     private AssinaturaService CreateService() =>
         new(
             _assinaturaRepository.Object,

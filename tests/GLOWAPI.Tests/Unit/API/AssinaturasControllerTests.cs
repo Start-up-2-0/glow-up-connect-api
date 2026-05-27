@@ -52,4 +52,35 @@ public class AssinaturasControllerTests
             It.IsAny<TrocarPlanoAssinaturaRequestDto>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task Cancelar_DeveRetornarOkComAssinaturaCancelada()
+    {
+        _assinaturaService
+            .Setup(s => s.CancelarAsync(30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AssinaturaResponseDto(
+                Id: 30,
+                PlanoId: 1,
+                PlanoAlteracaoPendenteId: null,
+                EstabelecimentoId: 20,
+                ProfissionalAutonomoId: null,
+                Status: "Cancelada",
+                Gateway: GatewayPagamento.MercadoPago.ToString(),
+                Inicio: DateTime.UtcNow.AddDays(-10),
+                Fim: DateTime.UtcNow.AddDays(20),
+                PagamentoInicial: null));
+
+        var controller = new AssinaturasController(_assinaturaService.Object);
+
+        var result = await controller.Cancelar(30, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiSuccessResponse<AssinaturaResponseDto>>(ok.Value);
+        Assert.True(response.Success);
+        Assert.Equal("Assinatura cancelada com sucesso.", response.Message);
+        Assert.Equal(30, response.Data!.Id);
+        Assert.Equal("Cancelada", response.Data.Status);
+
+        _assinaturaService.Verify(s => s.CancelarAsync(30, It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

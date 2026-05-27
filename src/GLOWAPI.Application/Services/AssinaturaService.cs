@@ -101,7 +101,7 @@ public class AssinaturaService : IAssinaturaService
             throw new AssinaturaNaoEncontradaException();
         }
 
-        await ValidarPermissaoTrocaPlanoAsync(assinatura, userId, cancellationToken);
+        await ValidarPermissaoGerenciarAssinaturaAsync(assinatura, userId, cancellationToken);
         ValidarAssinaturaPermiteTroca(assinatura);
 
         var novoPlano = await _planoRepository.ObterPorIdAsync(request.NovoPlanoId, cancellationToken);
@@ -141,6 +141,37 @@ public class AssinaturaService : IAssinaturaService
 
         assinatura.PlanoId = novoPlano.Id;
         assinatura.Plano = novoPlano;
+        assinatura.PlanoAlteracaoPendenteId = null;
+        assinatura.PlanoAlteracaoPendente = null;
+        assinatura.UpdatedAt = DateTime.UtcNow;
+
+        _assinaturaRepository.Atualizar(assinatura);
+        await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        return AssinaturaResponseDto.From(assinatura);
+    }
+
+    public async Task<AssinaturaResponseDto> CancelarAsync(
+        int assinaturaId,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = ObterUserIdAutenticado();
+        var assinatura = await _assinaturaRepository.ObterPorIdComPlanoAsync(assinaturaId, cancellationToken);
+        if (assinatura is null)
+        {
+            throw new AssinaturaNaoEncontradaException();
+        }
+
+        await ValidarPermissaoGerenciarAssinaturaAsync(assinatura, userId, cancellationToken);
+
+        if (assinatura.Status != AssinaturaStatus.Ativa)
+        {
+            throw new CancelamentoAssinaturaInvalidoException("Somente assinatura ativa pode ser cancelada pelo usuario.");
+        }
+
+        assinatura.Status = AssinaturaStatus.Cancelada;
+        assinatura.CanceladoEm = DateTime.UtcNow;
+        assinatura.RenovacaoAutomatica = false;
         assinatura.PlanoAlteracaoPendenteId = null;
         assinatura.PlanoAlteracaoPendente = null;
         assinatura.UpdatedAt = DateTime.UtcNow;
@@ -486,7 +517,7 @@ public class AssinaturaService : IAssinaturaService
         return new PagamentoInicial(pagamento, response.CheckoutUrl, response.QrCode);
     }
 
-    private async Task ValidarPermissaoTrocaPlanoAsync(
+    private async Task ValidarPermissaoGerenciarAssinaturaAsync(
         Assinatura assinatura,
         int userId,
         CancellationToken cancellationToken)
