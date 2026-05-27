@@ -38,6 +38,26 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
                 cancellationToken);
     }
 
+    public Task<Assinatura?> ObterAtualPorEstabelecimentoAsync(int estabelecimentoId, CancellationToken cancellationToken = default)
+    {
+        return DbSet
+            .Include(assinatura => assinatura.Plano)
+            .Where(assinatura => assinatura.EstabelecimentoId == estabelecimentoId)
+            .OrderByDescending(assinatura => assinatura.CreateAd)
+            .ThenByDescending(assinatura => assinatura.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<Assinatura?> ObterAtualPorProfissionalAutonomoAsync(int profissionalId, CancellationToken cancellationToken = default)
+    {
+        return DbSet
+            .Include(assinatura => assinatura.Plano)
+            .Where(assinatura => assinatura.ProfissionalAutonomoId == profissionalId)
+            .OrderByDescending(assinatura => assinatura.CreateAd)
+            .ThenByDescending(assinatura => assinatura.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public Task<bool> ExisteAtivaOuPendentePorEstabelecimentoAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default)
