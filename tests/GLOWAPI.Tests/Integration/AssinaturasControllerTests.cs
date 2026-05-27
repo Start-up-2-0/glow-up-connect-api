@@ -53,13 +53,20 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         Assert.True(body.GetProperty("success").GetBoolean());
 
         var data = body.GetProperty("data");
+        var assinaturaId = data.GetProperty("id").GetInt32();
         Assert.Equal(seed.PlanoId, data.GetProperty("planoId").GetInt32());
         Assert.Equal(seed.EstabelecimentoId, data.GetProperty("estabelecimentoId").GetInt32());
         Assert.Equal("PendentePagamento", data.GetProperty("status").GetString());
+        Assert.Equal("Pendente", data.GetProperty("pagamentoInicial").GetProperty("status").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(data.GetProperty("pagamentoInicial").GetProperty("gatewayPaymentId").GetString()));
+        Assert.False(string.IsNullOrWhiteSpace(data.GetProperty("pagamentoInicial").GetProperty("checkoutUrl").GetString()));
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         Assert.Single(db.Assinaturas.Where(assinatura => assinatura.EstabelecimentoId == seed.EstabelecimentoId));
+        Assert.Single(db.Pagamentos.Where(pagamento =>
+            pagamento.AssinaturaId == assinaturaId
+            && pagamento.Status == PagamentoStatus.Pendente));
     }
 
     [Fact]
@@ -86,11 +93,13 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
         var data = body.GetProperty("data");
+        var assinaturaId = data.GetProperty("id").GetInt32();
         var estabelecimentoId = data.GetProperty("estabelecimentoId").GetInt32();
 
         Assert.Equal(seed.PlanoId, data.GetProperty("planoId").GetInt32());
         Assert.Equal("PendentePagamento", data.GetProperty("status").GetString());
         Assert.True(estabelecimentoId > 0);
+        Assert.Equal("Pendente", data.GetProperty("pagamentoInicial").GetProperty("status").GetString());
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -110,6 +119,9 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
             assinatura.EstabelecimentoId == estabelecimentoId
             && assinatura.PlanoId == seed.PlanoId
             && assinatura.Status == AssinaturaStatus.PendentePagamento);
+        Assert.Contains(db.Pagamentos, pagamento =>
+            pagamento.AssinaturaId == assinaturaId
+            && pagamento.Status == PagamentoStatus.Pendente);
     }
 
     [Fact]
@@ -134,11 +146,13 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
         var data = body.GetProperty("data");
+        var assinaturaId = data.GetProperty("id").GetInt32();
         var profissionalId = data.GetProperty("profissionalAutonomoId").GetInt32();
 
         Assert.Equal(seed.PlanoId, data.GetProperty("planoId").GetInt32());
         Assert.Equal("PendentePagamento", data.GetProperty("status").GetString());
         Assert.True(profissionalId > 0);
+        Assert.Equal("Pendente", data.GetProperty("pagamentoInicial").GetProperty("status").GetString());
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -155,6 +169,9 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
             assinatura.ProfissionalAutonomoId == profissionalId
             && assinatura.PlanoId == seed.PlanoId
             && assinatura.Status == AssinaturaStatus.PendentePagamento);
+        Assert.Contains(db.Pagamentos, pagamento =>
+            pagamento.AssinaturaId == assinaturaId
+            && pagamento.Status == PagamentoStatus.Pendente);
     }
 
     private async Task<(string Email, string Senha, int PlanoId, int EstabelecimentoId)> SeedEstabelecimentoAsync()
