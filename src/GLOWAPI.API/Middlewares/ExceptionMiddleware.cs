@@ -1,6 +1,7 @@
 using System.Net;
 using GLOWAPI.API.Models;
 using GLOWAPI.Domain.Exceptions;
+using GLOWAPI.Domain.Exceptions.Assinatura;
 using GLOWAPI.Domain.Exceptions.Auth;
 using GLOWAPI.Domain.Exceptions.Mensageria;
 using GLOWAPI.Domain.Exceptions.Usuario;
@@ -41,10 +42,18 @@ public class ExceptionMiddleware
         {
             var statusCode = ex switch
             {
-                EmailJaCadastradoException or MensagemNotificacaoJaEnviadaException or MensagemNotificacaoNaoCancelavelException
+                EmailJaCadastradoException
+                    or MensagemNotificacaoJaEnviadaException
+                    or MensagemNotificacaoNaoCancelavelException
+                    or AssinaturaDuplicadaException
                     => HttpStatusCode.Conflict,
-                ConfirmacaoEmailInvalidaException or AvatarInvalidoException => HttpStatusCode.BadRequest,
-                MensagemNotificacaoNaoEncontradaException => HttpStatusCode.NotFound,
+                ConfirmacaoEmailInvalidaException
+                    or AvatarInvalidoException
+                    or AssinaturaTitularInvalidoException => HttpStatusCode.BadRequest,
+                UsuarioSemPermissaoAssinaturaException => HttpStatusCode.Forbidden,
+                MensagemNotificacaoNaoEncontradaException
+                    or PlanoNaoEncontradoException
+                    or TitularAssinaturaNaoEncontradoException => HttpStatusCode.NotFound,
                 _ => HttpStatusCode.NotFound
             };
 
