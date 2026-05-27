@@ -12,4 +12,8 @@ public interface IAssinaturaService
         int assinaturaId,
         TrocarPlanoAssinaturaRequestDto request,
         CancellationToken cancellationToken = default);
+
+    Task<AssinaturaResponseDto> CancelarAsync(
+        int assinaturaId,
+        CancellationToken cancellationToken = default);
 }
