@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IProvedorMensagemResolver, ProvedorMensagemResolver>();
         services.AddScoped<IPlanoService, PlanoService>();
         services.AddScoped<IAssinaturaService, AssinaturaService>();
+        services.AddScoped<IGatewayPagamentoResolver, GatewayPagamentoResolver>();
 
         return services;
     }

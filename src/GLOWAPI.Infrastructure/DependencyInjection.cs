@@ -2,6 +2,7 @@ using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Infrastructure.Mensageria.Provedores;
+using GLOWAPI.Infrastructure.Pagamentos;
 using GLOWAPI.Infrastructure.Repositories;
 using GLOWAPI.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
@@ -79,6 +80,8 @@ public static class DependencyInjection
         services.AddScoped<IProvedorMensagem, ProvedorMensagemEmail>();
         services.AddScoped<IProvedorMensagem, ProvedorMensagemWhatsApp>();
         services.AddScoped<IProvedorMensagem, ProvedorMensagemSms>();
+        services.AddScoped<IGatewayPagamento>(_ => new GatewayPagamentoFake(GLOWAPI.Domain.Enums.GatewayPagamento.MercadoPago));
+        services.AddScoped<IGatewayPagamento>(_ => new GatewayPagamentoFake(GLOWAPI.Domain.Enums.GatewayPagamento.AbacatePay));
 
         return services;
     }
