@@ -54,10 +54,12 @@ public class ExceptionMiddleware
                     or AssinaturaTitularInvalidoException
                     or EstabelecimentoAssinaturaInvalidoException
                     or ProfissionalAutonomoAssinaturaInvalidoException
+                    or TrocaPlanoAssinaturaInvalidaException
                     or WebhookPagamentoInvalidoException => HttpStatusCode.BadRequest,
                 UsuarioSemPermissaoAssinaturaException => HttpStatusCode.Forbidden,
                 MensagemNotificacaoNaoEncontradaException
                     or PlanoNaoEncontradoException
+                    or AssinaturaNaoEncontradaException
                     or TitularAssinaturaNaoEncontradoException => HttpStatusCode.NotFound,
                 _ => HttpStatusCode.NotFound
             };

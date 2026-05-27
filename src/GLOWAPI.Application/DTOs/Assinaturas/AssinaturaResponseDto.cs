@@ -5,6 +5,7 @@ namespace GLOWAPI.Application.DTOs.Assinaturas;
 public record AssinaturaResponseDto(
     int Id,
     int PlanoId,
+    int? PlanoAlteracaoPendenteId,
     int? EstabelecimentoId,
     int? ProfissionalAutonomoId,
     string Status,
@@ -19,6 +20,7 @@ public record AssinaturaResponseDto(
         new(
             assinatura.Id,
             assinatura.PlanoId,
+            assinatura.PlanoAlteracaoPendenteId,
             assinatura.EstabelecimentoId,
             assinatura.ProfissionalAutonomoId,
             assinatura.Status.ToString(),

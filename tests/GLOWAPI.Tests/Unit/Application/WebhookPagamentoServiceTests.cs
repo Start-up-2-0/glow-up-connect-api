@@ -160,6 +160,77 @@ public class WebhookPagamentoServiceTests
         _repository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task RegistrarAsync_DeveAplicarPlanoPendente_QuandoPagamentoDaTrocaForAprovado()
+    {
+        var planoAtual = new Plano
+        {
+            Id = 1,
+            Periodo = PlanoPeriodo.Mensal
+        };
+
+        var novoPlano = new Plano
+        {
+            Id = 2,
+            Periodo = PlanoPeriodo.Anual
+        };
+
+        var assinatura = new Assinatura
+        {
+            Id = 20,
+            PlanoId = 1,
+            PlanoAlteracaoPendenteId = 2,
+            Status = AssinaturaStatus.Ativa,
+            Plano = planoAtual,
+            PlanoAlteracaoPendente = novoPlano
+        };
+
+        var pagamento = new Pagamento
+        {
+            Id = 31,
+            Gateway = GatewayPagamento.MercadoPago,
+            GatewayPaymentId = "pay-troca",
+            Status = PagamentoStatus.Pendente,
+            Assinatura = assinatura
+        };
+
+        _repository
+            .Setup(r => r.ObterPorEventoAsync(GatewayPagamento.MercadoPago, "evt-troca", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((WebhookPagamento?)null);
+
+        _repository
+            .Setup(r => r.AdicionarAsync(It.IsAny<WebhookPagamento>(), It.IsAny<CancellationToken>()))
+            .Callback<WebhookPagamento, CancellationToken>((webhook, _) => webhook.Id = 11)
+            .Returns(Task.CompletedTask);
+
+        _pagamentoRepository
+            .Setup(r => r.ObterPorGatewayPaymentIdAsync(GatewayPagamento.MercadoPago, "pay-troca", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagamento);
+
+        var service = CreateService();
+
+        var response = await service.RegistrarAsync(new RegistrarWebhookPagamentoRequestDto
+        {
+            Gateway = GatewayPagamento.MercadoPago,
+            EventId = "evt-troca",
+            EventType = "payment.approved",
+            Payload = """{"gatewayPaymentId":"pay-troca"}"""
+        });
+
+        Assert.True(response.Processado);
+        Assert.Equal(PagamentoStatus.Pago, pagamento.Status);
+        Assert.Equal(2, assinatura.PlanoId);
+        Assert.Same(novoPlano, assinatura.Plano);
+        Assert.Null(assinatura.PlanoAlteracaoPendenteId);
+        Assert.Null(assinatura.PlanoAlteracaoPendente);
+        Assert.Equal(31, assinatura.UltimoPagamentoId);
+        Assert.NotNull(assinatura.Fim);
+        Assert.Equal(assinatura.Inicio.AddYears(1), assinatura.Fim);
+
+        _pagamentoRepository.Verify(r => r.Atualizar(pagamento), Times.Once);
+        _repository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private WebhookPagamentoService CreateService() =>
         new(_repository.Object, _pagamentoRepository.Object);
 }

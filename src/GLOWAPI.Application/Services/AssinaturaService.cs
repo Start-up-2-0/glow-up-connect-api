@@ -84,9 +84,71 @@ public class AssinaturaService : IAssinaturaService
         return AssinaturaResponseDto.From(
             assinatura,
             PagamentoAssinaturaResponseDto.From(
-                pagamentoInicial.Pagamento,
-                pagamentoInicial.CheckoutUrl,
-                pagamentoInicial.QrCode));
+            pagamentoInicial.Pagamento,
+            pagamentoInicial.CheckoutUrl,
+            pagamentoInicial.QrCode));
+    }
+
+    public async Task<AssinaturaResponseDto> TrocarPlanoAsync(
+        int assinaturaId,
+        TrocarPlanoAssinaturaRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = ObterUserIdAutenticado();
+        var assinatura = await _assinaturaRepository.ObterPorIdComPlanoAsync(assinaturaId, cancellationToken);
+        if (assinatura is null)
+        {
+            throw new AssinaturaNaoEncontradaException();
+        }
+
+        await ValidarPermissaoTrocaPlanoAsync(assinatura, userId, cancellationToken);
+        ValidarAssinaturaPermiteTroca(assinatura);
+
+        var novoPlano = await _planoRepository.ObterPorIdAsync(request.NovoPlanoId, cancellationToken);
+        if (novoPlano is null || !novoPlano.Ativo)
+        {
+            throw new PlanoNaoEncontradoException();
+        }
+
+        if (assinatura.PlanoId == novoPlano.Id)
+        {
+            throw new TrocaPlanoAssinaturaInvalidaException("Assinatura ja esta vinculada ao plano informado.");
+        }
+
+        if (TrocaExigeCobranca(assinatura.Plano, novoPlano))
+        {
+            assinatura.PlanoAlteracaoPendenteId = novoPlano.Id;
+            assinatura.PlanoAlteracaoPendente = novoPlano;
+            assinatura.UpdatedAt = DateTime.UtcNow;
+
+            var pagamentoTroca = await CriarPagamentoTrocaPlanoAsync(
+                assinatura,
+                novoPlano,
+                request.Gateway ?? assinatura.Gateway,
+                cancellationToken);
+
+            await _pagamentoRepository.AdicionarAsync(pagamentoTroca.Pagamento, cancellationToken);
+            _assinaturaRepository.Atualizar(assinatura);
+            await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+
+            return AssinaturaResponseDto.From(
+                assinatura,
+                PagamentoAssinaturaResponseDto.From(
+                    pagamentoTroca.Pagamento,
+                    pagamentoTroca.CheckoutUrl,
+                    pagamentoTroca.QrCode));
+        }
+
+        assinatura.PlanoId = novoPlano.Id;
+        assinatura.Plano = novoPlano;
+        assinatura.PlanoAlteracaoPendenteId = null;
+        assinatura.PlanoAlteracaoPendente = null;
+        assinatura.UpdatedAt = DateTime.UtcNow;
+
+        _assinaturaRepository.Atualizar(assinatura);
+        await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        return AssinaturaResponseDto.From(assinatura);
     }
 
     private async Task<Assinatura> CriarParaEstabelecimentoAsync(
@@ -377,6 +439,111 @@ public class AssinaturaService : IAssinaturaService
         };
 
         return new PagamentoInicial(pagamento, response.CheckoutUrl, response.QrCode);
+    }
+
+    private async Task<PagamentoInicial> CriarPagamentoTrocaPlanoAsync(
+        Assinatura assinatura,
+        Plano novoPlano,
+        GatewayPagamento gatewayPagamento,
+        CancellationToken cancellationToken)
+    {
+        var gateway = _gatewayPagamentoResolver.Resolver(gatewayPagamento);
+        var referenciaInterna = $"troca-plano-{assinatura.Id}-{Guid.NewGuid():N}";
+        var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
+            Gateway: gatewayPagamento,
+            ReferenciaInterna: referenciaInterna,
+            Descricao: $"Troca de plano para {novoPlano.Nome}",
+            Valor: novoPlano.Preco,
+            Moeda: "BRL",
+            PagadorNome: _currentUser.Email ?? "Usuario Glow",
+            PagadorEmail: _currentUser.Email ?? string.Empty,
+            Metadados: new Dictionary<string, string>
+            {
+                ["assinaturaId"] = assinatura.Id.ToString(),
+                ["planoAtualId"] = assinatura.PlanoId.ToString(),
+                ["novoPlanoId"] = novoPlano.Id.ToString(),
+                ["acao"] = "TrocaPlano"
+            }),
+            cancellationToken);
+
+        if (!response.Sucesso)
+        {
+            throw new GatewayPagamentoException(response.MensagemErro ?? "Nao foi possivel criar a cobranca no gateway.");
+        }
+
+        var pagamento = new Pagamento
+        {
+            Assinatura = assinatura,
+            AssinaturaId = assinatura.Id,
+            Gateway = gatewayPagamento,
+            GatewayPaymentId = response.GatewayPaymentId,
+            MetodoPagamento = "TrocaPlano",
+            Status = PagamentoStatus.Pendente,
+            Valor = novoPlano.Preco,
+            Moeda = "BRL"
+        };
+
+        return new PagamentoInicial(pagamento, response.CheckoutUrl, response.QrCode);
+    }
+
+    private async Task ValidarPermissaoTrocaPlanoAsync(
+        Assinatura assinatura,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        if (assinatura.EstabelecimentoId.HasValue)
+        {
+            var vinculo = await _estabelecimentoUsuarioRepository.ObterAtivoAsync(
+                assinatura.EstabelecimentoId.Value,
+                userId,
+                cancellationToken);
+
+            if (vinculo is null)
+            {
+                throw new UsuarioSemPermissaoAssinaturaException();
+            }
+
+            return;
+        }
+
+        if (assinatura.ProfissionalAutonomoId.HasValue)
+        {
+            var profissional = await _profissionalRepository.ObterPorIdAsync(
+                assinatura.ProfissionalAutonomoId.Value,
+                cancellationToken);
+
+            if (profissional is null || profissional.UsuarioId != userId)
+            {
+                throw new UsuarioSemPermissaoAssinaturaException();
+            }
+
+            return;
+        }
+
+        throw new AssinaturaTitularInvalidoException();
+    }
+
+    private static void ValidarAssinaturaPermiteTroca(Assinatura assinatura)
+    {
+        if (assinatura.Status != AssinaturaStatus.Ativa)
+        {
+            throw new TrocaPlanoAssinaturaInvalidaException("Somente assinatura ativa pode trocar de plano.");
+        }
+
+        if (assinatura.PlanoAlteracaoPendenteId.HasValue)
+        {
+            throw new TrocaPlanoAssinaturaInvalidaException("Assinatura ja possui troca de plano pendente.");
+        }
+    }
+
+    private static bool TrocaExigeCobranca(Plano? planoAtual, Plano novoPlano)
+    {
+        if (planoAtual is null)
+        {
+            return true;
+        }
+
+        return planoAtual.Preco != novoPlano.Preco || planoAtual.Periodo != novoPlano.Periodo;
     }
 
     private int ObterUserIdAutenticado()
