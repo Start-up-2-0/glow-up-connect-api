@@ -22,6 +22,7 @@ public class AssinaturaServiceTests
     private readonly Mock<IGatewayPagamento> _gatewayPagamento = new();
     private readonly Mock<ICurrentUserContext> _currentUser = new();
     private readonly Mock<IAssinaturaNotificacaoService> _assinaturaNotificacaoService = new();
+    private readonly Mock<IAssinaturaHistoricoService> _assinaturaHistoricoService = new();
 
     public AssinaturaServiceTests()
     {
@@ -815,5 +816,6 @@ public class AssinaturaServiceTests
             _pagamentoRepository.Object,
             _gatewayPagamentoResolver.Object,
             _currentUser.Object,
-            _assinaturaNotificacaoService.Object);
+            _assinaturaNotificacaoService.Object,
+            _assinaturaHistoricoService.Object);
 }

@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IProvedorMensagemResolver, ProvedorMensagemResolver>();
         services.AddScoped<IPlanoService, PlanoService>();
         services.AddScoped<IAssinaturaService, AssinaturaService>();
+        services.AddScoped<IAssinaturaHistoricoService, AssinaturaHistoricoService>();
         services.AddScoped<IEstabelecimentoPerfilService, EstabelecimentoPerfilService>();
         services.AddScoped<IProfissionalAutonomoPerfilService, ProfissionalAutonomoPerfilService>();
         services.AddScoped<IModulosAssinaturaService, ModulosAssinaturaService>();

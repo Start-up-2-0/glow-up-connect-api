@@ -18,6 +18,7 @@ public class WebhookPagamentoServiceTests
     private readonly Mock<IAssinaturaNotificacaoService> _assinaturaNotificacaoService = new();
     private readonly Mock<IGatewayPagamentoResolver> _gatewayPagamentoResolver = new();
     private readonly Mock<IGatewayPagamento> _gatewayPagamento = new();
+    private readonly Mock<IAssinaturaHistoricoService> _assinaturaHistoricoService = new();
 
     [Fact]
     public async Task RegistrarAsync_DeveCriarWebhook_QuandoEventoNaoExiste()
@@ -456,5 +457,6 @@ public class WebhookPagamentoServiceTests
             _pagamentoRepository.Object,
             _assinaturaRepository.Object,
             _assinaturaNotificacaoService.Object,
-            _gatewayPagamentoResolver.Object);
+            _gatewayPagamentoResolver.Object,
+            _assinaturaHistoricoService.Object);
 }

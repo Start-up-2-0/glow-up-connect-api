@@ -21,6 +21,7 @@ public class AssinaturaService : IAssinaturaService
     private readonly IGatewayPagamentoResolver _gatewayPagamentoResolver;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
+    private readonly IAssinaturaHistoricoService _assinaturaHistoricoService;
 
     public AssinaturaService(
         IAssinaturaRepository assinaturaRepository,
@@ -31,7 +32,8 @@ public class AssinaturaService : IAssinaturaService
         IPagamentoRepository pagamentoRepository,
         IGatewayPagamentoResolver gatewayPagamentoResolver,
         ICurrentUserContext currentUser,
-        IAssinaturaNotificacaoService assinaturaNotificacaoService)
+        IAssinaturaNotificacaoService assinaturaNotificacaoService,
+        IAssinaturaHistoricoService assinaturaHistoricoService)
     {
         _assinaturaRepository = assinaturaRepository;
         _planoRepository = planoRepository;
@@ -42,6 +44,7 @@ public class AssinaturaService : IAssinaturaService
         _gatewayPagamentoResolver = gatewayPagamentoResolver;
         _currentUser = currentUser;
         _assinaturaNotificacaoService = assinaturaNotificacaoService;
+        _assinaturaHistoricoService = assinaturaHistoricoService;
     }
 
     public async Task<AssinaturaResponseDto> IniciarAsync(
@@ -69,6 +72,32 @@ public class AssinaturaService : IAssinaturaService
             plano,
             request.Pagamento,
             cancellationToken);
+
+        await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+            assinatura,
+            "AssinaturaIniciada",
+            null,
+            assinatura.Status,
+            pagamentoInicial.Pagamento,
+            "Assinatura criada aguardando pagamento inicial.",
+            cancellationToken: cancellationToken);
+        await _assinaturaHistoricoService.RegistrarPagamentoAsync(
+            pagamentoInicial.Pagamento,
+            "PagamentoInicialCriado",
+            null,
+            pagamentoInicial.Pagamento.Status,
+            "Cobranca inicial criada no gateway.",
+            pagamentoInicial.Pagamento.GatewayPaymentId,
+            cancellationToken);
+        await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
+            assinatura,
+            "RecorrenciaAguardandoPagamento",
+            "AguardandoPagamento",
+            pagamentoInicial.Pagamento,
+            assinatura.Inicio,
+            assinatura.Fim,
+            "Primeiro ciclo aguardando confirmacao de pagamento.",
+            cancellationToken: cancellationToken);
 
         await _assinaturaRepository.AdicionarAsync(assinatura, cancellationToken);
         await _pagamentoRepository.AdicionarAsync(pagamentoInicial.Pagamento, cancellationToken);
@@ -144,6 +173,22 @@ public class AssinaturaService : IAssinaturaService
 
             await _pagamentoRepository.AdicionarAsync(pagamentoTroca.Pagamento, cancellationToken);
             _assinaturaRepository.Atualizar(assinatura);
+            await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+                assinatura,
+                "TrocaPlanoSolicitada",
+                AssinaturaStatus.Ativa,
+                assinatura.Status,
+                pagamentoTroca.Pagamento,
+                $"Troca de plano solicitada para o plano {novoPlano.Id}.",
+                cancellationToken: cancellationToken);
+            await _assinaturaHistoricoService.RegistrarPagamentoAsync(
+                pagamentoTroca.Pagamento,
+                "PagamentoTrocaPlanoCriado",
+                null,
+                pagamentoTroca.Pagamento.Status,
+                "Cobranca de troca de plano criada no gateway.",
+                pagamentoTroca.Pagamento.GatewayPaymentId,
+                cancellationToken);
             await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
 
             return AssinaturaResponseDto.From(
@@ -154,6 +199,7 @@ public class AssinaturaService : IAssinaturaService
                     pagamentoTroca.QrCode));
         }
 
+        var planoAnteriorId = assinatura.PlanoId;
         assinatura.PlanoId = novoPlano.Id;
         assinatura.Plano = novoPlano;
         assinatura.PlanoAlteracaoPendenteId = null;
@@ -161,6 +207,13 @@ public class AssinaturaService : IAssinaturaService
         assinatura.UpdatedAt = DateTime.UtcNow;
 
         _assinaturaRepository.Atualizar(assinatura);
+        await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+            assinatura,
+            "TrocaPlanoAplicadaSemCobranca",
+            AssinaturaStatus.Ativa,
+            assinatura.Status,
+            observacao: $"Plano alterado de {planoAnteriorId} para {novoPlano.Id} sem cobranca.",
+            cancellationToken: cancellationToken);
         await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
 
         return AssinaturaResponseDto.From(assinatura);
@@ -184,6 +237,7 @@ public class AssinaturaService : IAssinaturaService
             throw new CancelamentoAssinaturaInvalidoException("Somente assinatura ativa pode ser cancelada pelo usuario.");
         }
 
+        var statusAnterior = assinatura.Status;
         assinatura.Status = AssinaturaStatus.Cancelada;
         assinatura.CanceladoEm = DateTime.UtcNow;
         assinatura.RenovacaoAutomatica = false;
@@ -192,6 +246,21 @@ public class AssinaturaService : IAssinaturaService
         assinatura.UpdatedAt = DateTime.UtcNow;
 
         _assinaturaRepository.Atualizar(assinatura);
+        await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+            assinatura,
+            "AssinaturaCanceladaPeloUsuario",
+            statusAnterior,
+            assinatura.Status,
+            observacao: "Cancelamento solicitado pelo usuario.",
+            cancellationToken: cancellationToken);
+        await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
+            assinatura,
+            "RecorrenciaCancelada",
+            "Cancelada",
+            cicloInicio: assinatura.Inicio,
+            cicloFim: assinatura.Fim,
+            observacao: "Renovacao automatica desativada por cancelamento.",
+            cancellationToken: cancellationToken);
         await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
 
         await _assinaturaNotificacaoService.AssinaturaCanceladaAsync(

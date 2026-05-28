@@ -21,4 +21,7 @@ public class Pagamento
     public Agendamento? Agendamento { get; set; }
     public Assinatura? Assinatura { get; set; }
     public ICollection<LancamentoCaixa> LancamentosCaixa { get; set; } = new List<LancamentoCaixa>();
+    public ICollection<PagamentoHistorico> Historicos { get; set; } = new List<PagamentoHistorico>();
+    public ICollection<AssinaturaHistorico> AssinaturasHistorico { get; set; } = new List<AssinaturaHistorico>();
+    public ICollection<AssinaturaRecorrenciaHistorico> RecorrenciasHistorico { get; set; } = new List<AssinaturaRecorrenciaHistorico>();
 }
