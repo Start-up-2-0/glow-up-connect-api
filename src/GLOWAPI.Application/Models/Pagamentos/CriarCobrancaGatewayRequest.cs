@@ -12,4 +12,4 @@ public record CriarCobrancaGatewayRequest(
     string PagadorEmail,
     DateTime? ExpiraEm = null,
     IReadOnlyDictionary<string, string>? Metadados = null,
-    MetodoPagamentoAssinatura MetodoPagamento = MetodoPagamentoAssinatura.Cartao);
+    PagamentoTransparenteGatewayRequest? PagamentoTransparente = null);

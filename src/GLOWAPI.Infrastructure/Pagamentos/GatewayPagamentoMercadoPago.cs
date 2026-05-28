@@ -50,14 +50,23 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
                 "Access token do Mercado Pago nao configurado.");
         }
 
+        if (request.PagamentoTransparente is null)
+        {
+            return CriarCobrancaGatewayResponse.Falha(
+                SerializarRequest(request),
+                "{}",
+                "Dados do Checkout Transparente sao obrigatorios para criar pagamento no Mercado Pago.");
+        }
+
         var payload = CriarPayload(request);
         var requestPayload = JsonSerializer.Serialize(payload, JsonOptions);
 
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "checkout/preferences")
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "v1/payments")
         {
             Content = new StringContent(requestPayload, Encoding.UTF8, "application/json")
         };
         httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);
+        httpRequest.Headers.Add("X-Idempotency-Key", request.ReferenciaInterna);
 
         using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
         var responsePayload = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -67,31 +76,35 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             return CriarCobrancaGatewayResponse.Falha(
                 requestPayload,
                 responsePayload,
-                $"Mercado Pago retornou {(int)response.StatusCode} ao criar preferencia de pagamento.");
+                $"Mercado Pago retornou {(int)response.StatusCode} ao criar pagamento.");
         }
 
         using var document = JsonDocument.Parse(responsePayload);
         var root = document.RootElement;
-        var preferenceId = ObterString(root, "id");
-        var checkoutUrl = ObterString(root, "init_point")
-            ?? ObterString(root, "sandbox_init_point")
+        var paymentId = ObterString(root, "id");
+        var checkoutUrl = ObterString(root, "transaction_details.external_resource_url")
+            ?? ObterString(root, "point_of_interaction.transaction_data.ticket_url")
+            ?? string.Empty;
+        var qrCode = ObterString(root, "point_of_interaction.transaction_data.qr_code")
+            ?? ObterString(root, "point_of_interaction.transaction_data.qr_code_base64")
             ?? string.Empty;
 
-        if (string.IsNullOrWhiteSpace(preferenceId) || string.IsNullOrWhiteSpace(checkoutUrl))
+        if (string.IsNullOrWhiteSpace(paymentId))
         {
             return CriarCobrancaGatewayResponse.Falha(
                 requestPayload,
                 responsePayload,
-                "Mercado Pago nao retornou id ou URL de checkout da preferencia.");
+                "Mercado Pago nao retornou id do pagamento.");
         }
 
         return new CriarCobrancaGatewayResponse(
             Sucesso: true,
-            GatewayPaymentId: preferenceId,
+            GatewayPaymentId: paymentId,
             CheckoutUrl: checkoutUrl,
-            QrCode: string.Empty,
+            QrCode: qrCode,
             RequestPayload: requestPayload,
-            ResponsePayload: responsePayload);
+            ResponsePayload: responsePayload,
+            MetodoPagamento: request.PagamentoTransparente.PaymentMethodId);
     }
 
     public async Task<ConsultarPagamentoGatewayResponse> ConsultarPagamentoAsync(
@@ -154,80 +167,61 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
 
     private object CriarPayload(CriarCobrancaGatewayRequest request)
     {
-        var backUrls = CriarBackUrls();
+        var pagamento = request.PagamentoTransparente!;
 
         return new
         {
-            items = new[]
-            {
-                new
-                {
-                    id = request.ReferenciaInterna,
-                    title = request.Descricao,
-                    quantity = 1,
-                    currency_id = request.Moeda,
-                    unit_price = request.Valor
-                }
-            },
+            transaction_amount = request.Valor,
+            description = request.Descricao,
+            payment_method_id = pagamento.PaymentMethodId,
+            token = TextoOuNull(pagamento.Token),
+            issuer_id = TextoOuNull(pagamento.IssuerId),
+            installments = pagamento.Installments,
             payer = new
             {
-                name = request.PagadorNome,
-                email = request.PagadorEmail
+                email = request.PagadorEmail,
+                first_name = request.PagadorNome,
+                identification = CriarIdentificacao(pagamento)
             },
             external_reference = request.ReferenciaInterna,
             notification_url = TextoOuNull(_options.NotificationUrl),
-            back_urls = backUrls,
-            auto_return = backUrls is null ? null : "approved",
-            payment_methods = CriarPaymentMethods(request.MetodoPagamento),
-            expires = request.ExpiraEm.HasValue,
-            expiration_date_to = request.ExpiraEm,
             metadata = request.Metadados
         };
     }
 
-    private object? CriarBackUrls()
+    private static object? CriarIdentificacao(PagamentoTransparenteGatewayRequest pagamento)
     {
-        var success = TextoOuNull(_options.SuccessUrl);
-        var failure = TextoOuNull(_options.FailureUrl);
-        var pending = TextoOuNull(_options.PendingUrl);
-
-        if (success is null && failure is null && pending is null)
+        var type = TextoOuNull(pagamento.IdentificationType);
+        var number = TextoOuNull(pagamento.IdentificationNumber);
+        if (type is null || number is null)
         {
             return null;
         }
 
         return new
         {
-            success,
-            failure,
-            pending
+            type,
+            number
         };
     }
 
-    private static object CriarPaymentMethods(MetodoPagamentoAssinatura metodoPagamento)
-    {
-        var excludedPaymentTypes = metodoPagamento switch
-        {
-            MetodoPagamentoAssinatura.Pix => new[] { "credit_card", "debit_card", "ticket" },
-            MetodoPagamentoAssinatura.Boleto => new[] { "credit_card", "debit_card", "pix" },
-            MetodoPagamentoAssinatura.Cartao => new[] { "pix", "ticket" },
-            _ => Array.Empty<string>()
-        };
-
-        return new
-        {
-            excluded_payment_types = excludedPaymentTypes
-                .Select(id => new { id })
-                .ToArray()
-        };
-    }
-
-    private static string? TextoOuNull(string value) =>
+    private static string? TextoOuNull(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static string? ObterString(JsonElement element, string propertyName)
     {
-        if (!element.TryGetProperty(propertyName, out var property))
+        var current = element;
+        foreach (var segment in propertyName.Split('.'))
+        {
+            if (current.ValueKind != JsonValueKind.Object
+                || !current.TryGetProperty(segment, out current))
+            {
+                return null;
+            }
+        }
+
+        var property = current;
+        if (property.ValueKind == JsonValueKind.Undefined)
         {
             return null;
         }
@@ -260,7 +254,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             description = request.Descricao,
             amount = request.Valor,
             currency = request.Moeda,
-            paymentMethod = request.MetodoPagamento.ToString(),
+            paymentMethod = request.PagamentoTransparente?.PaymentMethodId,
             payer = new
             {
                 name = request.PagadorNome,

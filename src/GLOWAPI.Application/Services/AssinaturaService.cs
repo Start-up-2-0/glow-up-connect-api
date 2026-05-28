@@ -1,4 +1,5 @@
 using GLOWAPI.Application.DTOs.Assinaturas;
+using GLOWAPI.Application.DTOs.Pagamentos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Pagamentos;
@@ -66,7 +67,7 @@ public class AssinaturaService : IAssinaturaService
         var pagamentoInicial = await CriarPagamentoInicialAsync(
             assinatura,
             plano,
-            request.MetodoPagamento,
+            request.Pagamento,
             cancellationToken);
 
         await _assinaturaRepository.AdicionarAsync(assinatura, cancellationToken);
@@ -138,7 +139,7 @@ public class AssinaturaService : IAssinaturaService
                 assinatura,
                 novoPlano,
                 request.Gateway ?? assinatura.Gateway,
-                request.MetodoPagamento,
+                request.Pagamento,
                 cancellationToken);
 
             await _pagamentoRepository.AdicionarAsync(pagamentoTroca.Pagamento, cancellationToken);
@@ -461,7 +462,7 @@ public class AssinaturaService : IAssinaturaService
     private async Task<PagamentoInicial> CriarPagamentoInicialAsync(
         Assinatura assinatura,
         Plano plano,
-        MetodoPagamentoAssinatura metodoPagamento,
+        PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
         CancellationToken cancellationToken)
     {
         var gateway = _gatewayPagamentoResolver.Resolver(assinatura.Gateway);
@@ -477,12 +478,11 @@ public class AssinaturaService : IAssinaturaService
             Metadados: new Dictionary<string, string>
             {
                 ["planoId"] = plano.Id.ToString(),
-                ["metodoPagamento"] = metodoPagamento.ToString(),
                 ["tipo"] = assinatura.EstabelecimentoId.HasValue || assinatura.Estabelecimento is not null
                     ? TipoAssinatura.Estabelecimento.ToString()
                     : TipoAssinatura.ProfissionalAutonomo.ToString()
             },
-            MetodoPagamento: metodoPagamento),
+            PagamentoTransparente: CriarPagamentoTransparenteRequest(pagamentoTransparente)),
             cancellationToken);
 
         if (!response.Sucesso)
@@ -495,7 +495,7 @@ public class AssinaturaService : IAssinaturaService
             Assinatura = assinatura,
             Gateway = assinatura.Gateway,
             GatewayPaymentId = response.GatewayPaymentId,
-            MetodoPagamento = metodoPagamento.ToString(),
+            MetodoPagamento = response.MetodoPagamento,
             Status = PagamentoStatus.Pendente,
             Valor = plano.Preco,
             Moeda = "BRL"
@@ -508,7 +508,7 @@ public class AssinaturaService : IAssinaturaService
         Assinatura assinatura,
         Plano novoPlano,
         GatewayPagamento gatewayPagamento,
-        MetodoPagamentoAssinatura metodoPagamento,
+        PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
         CancellationToken cancellationToken)
     {
         var gateway = _gatewayPagamentoResolver.Resolver(gatewayPagamento);
@@ -526,10 +526,9 @@ public class AssinaturaService : IAssinaturaService
                 ["assinaturaId"] = assinatura.Id.ToString(),
                 ["planoAtualId"] = assinatura.PlanoId.ToString(),
                 ["novoPlanoId"] = novoPlano.Id.ToString(),
-                ["metodoPagamento"] = metodoPagamento.ToString(),
                 ["acao"] = "TrocaPlano"
             },
-            MetodoPagamento: metodoPagamento),
+            PagamentoTransparente: CriarPagamentoTransparenteRequest(pagamentoTransparente)),
             cancellationToken);
 
         if (!response.Sucesso)
@@ -543,13 +542,30 @@ public class AssinaturaService : IAssinaturaService
             AssinaturaId = assinatura.Id,
             Gateway = gatewayPagamento,
             GatewayPaymentId = response.GatewayPaymentId,
-            MetodoPagamento = metodoPagamento.ToString(),
+            MetodoPagamento = response.MetodoPagamento,
             Status = PagamentoStatus.Pendente,
             Valor = novoPlano.Preco,
             Moeda = "BRL"
         };
 
         return new PagamentoInicial(pagamento, response.CheckoutUrl, response.QrCode);
+    }
+
+    private static PagamentoTransparenteGatewayRequest? CriarPagamentoTransparenteRequest(
+        PagamentoTransparenteMercadoPagoDto? pagamento)
+    {
+        if (pagamento is null)
+        {
+            return null;
+        }
+
+        return new PagamentoTransparenteGatewayRequest(
+            pagamento.PaymentMethodId,
+            pagamento.Token,
+            pagamento.IssuerId,
+            pagamento.Installments,
+            pagamento.IdentificationType,
+            pagamento.IdentificationNumber);
     }
 
     private async Task ValidarPermissaoGerenciarAssinaturaAsync(
