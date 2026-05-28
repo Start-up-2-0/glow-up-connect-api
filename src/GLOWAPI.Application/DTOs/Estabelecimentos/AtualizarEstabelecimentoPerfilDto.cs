@@ -1,11 +1,10 @@
-namespace GLOWAPI.Application.DTOs.Assinaturas;
-
 using GLOWAPI.Application.DTOs.Operacoes;
 
-public class CriarProfissionalAutonomoAssinaturaDto
+namespace GLOWAPI.Application.DTOs.Estabelecimentos;
+
+public class AtualizarEstabelecimentoPerfilDto
 {
-    public string NomePublico { get; set; } = string.Empty;
-    public string Biografia { get; set; } = string.Empty;
+    public string Nome { get; set; } = string.Empty;
     public string Logo { get; set; } = string.Empty;
     public string Telefone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;

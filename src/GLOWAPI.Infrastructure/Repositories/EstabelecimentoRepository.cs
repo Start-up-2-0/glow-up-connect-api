@@ -14,4 +14,11 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
     {
         return DbSet.FirstOrDefaultAsync(estabelecimento => estabelecimento.PublicGuid == publicGuid, cancellationToken);
     }
+
+    public Task<Estabelecimento?> ObterPorIdComEnderecoAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return DbSet
+            .Include(estabelecimento => estabelecimento.Endereco)
+            .FirstOrDefaultAsync(estabelecimento => estabelecimento.Id == id, cancellationToken);
+    }
 }

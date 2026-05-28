@@ -34,8 +34,15 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
             {
                 nome = "Studio Fluxo",
                 descricao = "Fluxo integrado",
+                logo = "https://cdn.test/studio-fluxo.png",
                 telefone = "11999999999",
-                email = "studio-fluxo@email.com"
+                email = "studio-fluxo@email.com",
+                endereco = new
+                {
+                    cidade = "Sao Paulo",
+                    estado = "SP",
+                    local = "Rua Fluxo"
+                }
             }
         });
 
@@ -106,7 +113,16 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
             profissionalAutonomo = new
             {
                 nomePublico = "Autonomo Fluxo",
-                biografia = "Fluxo integrado autonomo"
+                biografia = "Fluxo integrado autonomo",
+                logo = "https://cdn.test/autonomo-fluxo.png",
+                telefone = "11988888888",
+                email = "autonomo-fluxo@email.com",
+                endereco = new
+                {
+                    cidade = "Campinas",
+                    estado = "SP",
+                    local = "Sala Fluxo"
+                }
             }
         });
 
