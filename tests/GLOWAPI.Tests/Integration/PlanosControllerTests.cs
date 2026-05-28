@@ -35,12 +35,23 @@ public class PlanosControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         Assert.Single(data);
 
         var plano = data[0];
-        Assert.Equal("Plano Ativo", plano.GetProperty("nome").GetString());
+        Assert.Equal("Basic", plano.GetProperty("nome").GetString());
         Assert.Equal("Mensal", plano.GetProperty("periodo").GetString());
-        Assert.Equal(5, plano.GetProperty("limiteProfissionais").GetInt32());
-        Assert.Equal(20, plano.GetProperty("limiteServicos").GetInt32());
-        Assert.Equal(200, plano.GetProperty("limiteAgendamentos").GetInt32());
-        Assert.Empty(plano.GetProperty("modulos").EnumerateArray());
+        Assert.Equal(1, plano.GetProperty("limiteProfissionais").GetInt32());
+        Assert.Equal(10, plano.GetProperty("limiteServicos").GetInt32());
+        Assert.Equal(10, plano.GetProperty("limiteAgendamentos").GetInt32());
+        Assert.Equal(1, plano.GetProperty("limiteUsuarios").GetInt32());
+        Assert.Equal(10, plano.GetProperty("limiteAgendamentosPorDia").GetInt32());
+        Assert.False(plano.GetProperty("prioridadeListagemPublica").GetBoolean());
+
+        var modulos = plano.GetProperty("modulos").EnumerateArray().Select(item => item.GetString()).ToList();
+        Assert.Contains("Agenda", modulos);
+        Assert.Contains("Servicos", modulos);
+        Assert.Contains("HorariosAtendimento", modulos);
+        Assert.Contains("Notificacoes", modulos);
+        Assert.Contains("Email", modulos);
+        Assert.DoesNotContain("WhatsApp", modulos);
+        Assert.DoesNotContain("Caixa", modulos);
     }
 
     private async Task SeedPlanosAsync()
@@ -52,13 +63,13 @@ public class PlanosControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         db.Planos.AddRange(
             new Plano
             {
-                Nome = "Plano Ativo",
-                Descricao = "Disponivel para contratacao",
-                Preco = 99.90m,
+                Nome = "Basic",
+                Descricao = "Gratuito para profissionais autonomos iniciando",
+                Preco = 0m,
                 Periodo = PlanoPeriodo.Mensal,
-                LimiteProfissionais = 5,
-                LimiteServicos = 20,
-                LimiteAgendamentos = 200,
+                LimiteProfissionais = 1,
+                LimiteServicos = 10,
+                LimiteAgendamentos = 10,
                 Ativo = true
             },
             new Plano

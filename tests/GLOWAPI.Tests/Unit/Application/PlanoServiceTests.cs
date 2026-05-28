@@ -16,13 +16,13 @@ public class PlanoServiceTests
             new()
             {
                 Id = 1,
-                Nome = "Basico",
-                Descricao = "Plano inicial",
-                Preco = 49.90m,
+                Nome = "Basic",
+                Descricao = "Plano gratuito para autonomos iniciando",
+                Preco = 0m,
                 Periodo = PlanoPeriodo.Mensal,
-                LimiteProfissionais = 3,
+                LimiteProfissionais = 1,
                 LimiteServicos = 10,
-                LimiteAgendamentos = 100,
+                LimiteAgendamentos = 10,
                 Ativo = true
             }
         };
@@ -37,14 +37,24 @@ public class PlanoServiceTests
         var resultado = await service.ListarAtivosAsync();
 
         Assert.Single(resultado);
-        Assert.Equal("Basico", resultado[0].Nome);
-        Assert.Equal("Plano inicial", resultado[0].Descricao);
-        Assert.Equal(49.90m, resultado[0].Preco);
+        Assert.Equal("Basic", resultado[0].Nome);
+        Assert.Equal("Plano gratuito para autonomos iniciando", resultado[0].Descricao);
+        Assert.Equal(0m, resultado[0].Preco);
         Assert.Equal("Mensal", resultado[0].Periodo);
-        Assert.Equal(3, resultado[0].LimiteProfissionais);
+        Assert.Equal(1, resultado[0].LimiteProfissionais);
         Assert.Equal(10, resultado[0].LimiteServicos);
-        Assert.Equal(100, resultado[0].LimiteAgendamentos);
-        Assert.Empty(resultado[0].Modulos);
+        Assert.Equal(10, resultado[0].LimiteAgendamentos);
+        Assert.Equal(1, resultado[0].LimiteUsuarios);
+        Assert.Equal(10, resultado[0].LimiteAgendamentosPorDia);
+        Assert.False(resultado[0].PrioridadeListagemPublica);
+        Assert.Contains("Agenda", resultado[0].Modulos);
+        Assert.Contains("Servicos", resultado[0].Modulos);
+        Assert.Contains("HorariosAtendimento", resultado[0].Modulos);
+        Assert.Contains("Notificacoes", resultado[0].Modulos);
+        Assert.Contains("Email", resultado[0].Modulos);
+        Assert.DoesNotContain("WhatsApp", resultado[0].Modulos);
+        Assert.DoesNotContain("Caixa", resultado[0].Modulos);
+        Assert.Contains("Agenda simples", resultado[0].Funcionalidades);
 
         repository.Verify(r => r.ListarAtivosAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
