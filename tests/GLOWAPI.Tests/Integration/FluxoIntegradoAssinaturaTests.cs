@@ -30,6 +30,7 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.Estabelecimento,
+            pagamento = PagamentoValido(),
             estabelecimento = new
             {
                 nome = "Studio Fluxo",
@@ -110,6 +111,7 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+            pagamento = PagamentoValido(),
             profissionalAutonomo = new
             {
                 nomePublico = "Autonomo Fluxo",
@@ -242,4 +244,9 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
         var service = scope.ServiceProvider.GetRequiredService<IModulosAssinaturaService>();
         return await service.PossuiModuloPorProfissionalAutonomoAsync(profissionalId, modulo);
     }
+
+    private static object PagamentoValido() => new
+    {
+        paymentMethodId = "pix"
+    };
 }

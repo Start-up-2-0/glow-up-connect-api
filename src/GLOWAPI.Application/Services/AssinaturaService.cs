@@ -551,7 +551,7 @@ public class AssinaturaService : IAssinaturaService
                     ? TipoAssinatura.Estabelecimento.ToString()
                     : TipoAssinatura.ProfissionalAutonomo.ToString()
             },
-            PagamentoTransparente: CriarPagamentoTransparenteRequest(pagamentoTransparente)),
+            PagamentoTransparente: CriarPagamentoTransparenteRequest(assinatura.Gateway, pagamentoTransparente)),
             cancellationToken);
 
         if (!response.Sucesso)
@@ -597,7 +597,7 @@ public class AssinaturaService : IAssinaturaService
                 ["novoPlanoId"] = novoPlano.Id.ToString(),
                 ["acao"] = "TrocaPlano"
             },
-            PagamentoTransparente: CriarPagamentoTransparenteRequest(pagamentoTransparente)),
+            PagamentoTransparente: CriarPagamentoTransparenteRequest(gatewayPagamento, pagamentoTransparente)),
             cancellationToken);
 
         if (!response.Sucesso)
@@ -621,15 +621,27 @@ public class AssinaturaService : IAssinaturaService
     }
 
     private static PagamentoTransparenteGatewayRequest? CriarPagamentoTransparenteRequest(
+        GatewayPagamento gateway,
         PagamentoTransparenteMercadoPagoDto? pagamento)
     {
-        if (pagamento is null)
+        if (gateway != GatewayPagamento.MercadoPago)
         {
             return null;
         }
 
+        if (pagamento is null)
+        {
+            throw new PagamentoAssinaturaInvalidoException(
+                "Dados do Checkout Transparente sao obrigatorios para pagamento via Mercado Pago.");
+        }
+
+        if (string.IsNullOrWhiteSpace(pagamento.PaymentMethodId))
+        {
+            throw new PagamentoAssinaturaInvalidoException("PaymentMethodId do pagamento e obrigatorio.");
+        }
+
         return new PagamentoTransparenteGatewayRequest(
-            pagamento.PaymentMethodId,
+            pagamento.PaymentMethodId.Trim(),
             pagamento.Token,
             pagamento.IssuerId,
             pagamento.Installments,

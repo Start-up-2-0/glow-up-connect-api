@@ -54,6 +54,7 @@ public class ExceptionMiddleware
                     or AssinaturaTitularInvalidoException
                     or CancelamentoAssinaturaInvalidoException
                     or EstabelecimentoAssinaturaInvalidoException
+                    or PagamentoAssinaturaInvalidoException
                     or ProfissionalAutonomoAssinaturaInvalidoException
                     or TrocaPlanoAssinaturaInvalidaException
                     or WebhookPagamentoInvalidoException => HttpStatusCode.BadRequest,
