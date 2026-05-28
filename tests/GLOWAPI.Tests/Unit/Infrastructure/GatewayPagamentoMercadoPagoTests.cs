@@ -153,6 +153,35 @@ public class GatewayPagamentoMercadoPagoTests
     }
 
     [Fact]
+    public async Task CriarCobrancaAsync_NaoDeveEnviarNotificationUrl_QuandoConfiguracaoEstiverVazia()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Created)
+        {
+            Content = new StringContent(
+                """{"id":"pref-123","init_point":"https://checkout.test/pref-123"}""",
+                Encoding.UTF8,
+                "application/json")
+        });
+        var gateway = CriarGateway(handler, new MercadoPagoOptions
+        {
+            AccessToken = "TEST-123",
+            ApiBaseUrl = "https://api.mercadopago.com"
+        });
+
+        var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
+            Gateway: GatewayPagamento.MercadoPago,
+            ReferenciaInterna: "assinatura-abc",
+            Descricao: "Assinatura Premium",
+            Valor: 199.90m,
+            Moeda: "BRL",
+            PagadorNome: "Maria",
+            PagadorEmail: "maria@email.com"));
+
+        using var json = JsonDocument.Parse(response.RequestPayload);
+        Assert.False(json.RootElement.TryGetProperty("notification_url", out _));
+    }
+
+    [Fact]
     public async Task CriarCobrancaAsync_DeveRetornarFalha_QuandoMercadoPagoRetornarErro()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.BadRequest)
