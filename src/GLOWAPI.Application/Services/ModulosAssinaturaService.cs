@@ -11,21 +11,12 @@ public class ModulosAssinaturaService : IModulosAssinaturaService
     private static readonly IReadOnlyList<ModuloAssinatura> ModulosEstabelecimento =
     [
         ModuloAssinatura.Estabelecimento,
-        ModuloAssinatura.Profissionais,
-        ModuloAssinatura.Servicos,
-        ModuloAssinatura.Agenda,
-        ModuloAssinatura.Clientes,
-        ModuloAssinatura.Caixa,
         ModuloAssinatura.Assinatura
     ];
 
     private static readonly IReadOnlyList<ModuloAssinatura> ModulosProfissionalAutonomo =
     [
         ModuloAssinatura.ProfissionalAutonomo,
-        ModuloAssinatura.Servicos,
-        ModuloAssinatura.Agenda,
-        ModuloAssinatura.Clientes,
-        ModuloAssinatura.Caixa,
         ModuloAssinatura.Assinatura
     ];
 
@@ -85,6 +76,12 @@ public class ModulosAssinaturaService : IModulosAssinaturaService
             return ModulosAssinaturaResponseDto.Bloqueado(assinatura);
         }
 
-        return ModulosAssinaturaResponseDto.Liberado(assinatura, modulos);
+        var modulosDoPlano = PlanoComercialCatalogo.Obter(assinatura.Plano).Modulos;
+        var modulosLiberados = modulos
+            .Concat(modulosDoPlano)
+            .Distinct()
+            .ToList();
+
+        return ModulosAssinaturaResponseDto.Liberado(assinatura, modulosLiberados);
     }
 }

@@ -34,8 +34,15 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
             {
                 nome = "Studio Fluxo",
                 descricao = "Fluxo integrado",
+                logo = "https://cdn.test/studio-fluxo.png",
                 telefone = "11999999999",
-                email = "studio-fluxo@email.com"
+                email = "studio-fluxo@email.com",
+                endereco = new
+                {
+                    cidade = "Sao Paulo",
+                    estado = "SP",
+                    local = "Rua Fluxo"
+                }
             }
         });
 
@@ -106,7 +113,16 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
             profissionalAutonomo = new
             {
                 nomePublico = "Autonomo Fluxo",
-                biografia = "Fluxo integrado autonomo"
+                biografia = "Fluxo integrado autonomo",
+                logo = "https://cdn.test/autonomo-fluxo.png",
+                telefone = "11988888888",
+                email = "autonomo-fluxo@email.com",
+                endereco = new
+                {
+                    cidade = "Campinas",
+                    estado = "SP",
+                    local = "Sala Fluxo"
+                }
             }
         });
 
@@ -186,13 +202,13 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
 
         var plano = new Plano
         {
-            Nome = $"Plano Fluxo {Guid.NewGuid():N}",
+            Nome = role == UserRole.DonoEstabelecimento ? "Premium" : "Basic",
             Descricao = "Plano para fluxo integrado",
-            Preco = 99.90m,
+            Preco = role == UserRole.DonoEstabelecimento ? 199.90m : 0m,
             Periodo = PlanoPeriodo.Mensal,
-            LimiteProfissionais = 5,
-            LimiteServicos = 20,
-            LimiteAgendamentos = 200,
+            LimiteProfissionais = role == UserRole.DonoEstabelecimento ? null : 1,
+            LimiteServicos = role == UserRole.DonoEstabelecimento ? null : 10,
+            LimiteAgendamentos = role == UserRole.DonoEstabelecimento ? null : 10,
             Ativo = true
         };
 

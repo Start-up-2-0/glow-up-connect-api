@@ -1,3 +1,4 @@
+using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 
 namespace GLOWAPI.Application.DTOs.Planos;
@@ -11,10 +12,17 @@ public record PlanoResponseDto(
     int? LimiteProfissionais,
     int? LimiteServicos,
     int? LimiteAgendamentos,
-    IReadOnlyList<string> Modulos)
+    int? LimiteUsuarios,
+    int? LimiteAgendamentosPorDia,
+    bool PrioridadeListagemPublica,
+    IReadOnlyList<string> Modulos,
+    IReadOnlyList<string> Funcionalidades)
 {
-    public static PlanoResponseDto From(Plano plano) =>
-        new(
+    public static PlanoResponseDto From(Plano plano)
+    {
+        var perfil = PlanoComercialCatalogo.Obter(plano);
+
+        return new(
             plano.Id,
             plano.Nome,
             plano.Descricao,
@@ -23,5 +31,10 @@ public record PlanoResponseDto(
             plano.LimiteProfissionais,
             plano.LimiteServicos,
             plano.LimiteAgendamentos,
-            Array.Empty<string>());
+            perfil.LimiteUsuarios,
+            perfil.LimiteAgendamentosPorDia,
+            perfil.PrioridadeListagemPublica,
+            perfil.Modulos.Select(modulo => modulo.ToString()).ToList(),
+            perfil.Funcionalidades);
+    }
 }

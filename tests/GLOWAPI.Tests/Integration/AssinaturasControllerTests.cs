@@ -84,8 +84,15 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
             {
                 nome = "Studio Glow",
                 descricao = "Salao de beleza",
+                logo = "https://cdn.test/studio.png",
                 telefone = "11999999999",
-                email = "studio@email.com"
+                email = "studio@email.com",
+                endereco = new
+                {
+                    cidade = "Sao Paulo",
+                    estado = "SP",
+                    local = "Rua Glow"
+                }
             }
         });
 
@@ -107,6 +114,9 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         var estabelecimento = await db.Estabelecimentos.FindAsync(estabelecimentoId);
         Assert.NotNull(estabelecimento);
         Assert.Equal("Studio Glow", estabelecimento!.Nome);
+        Assert.Equal("https://cdn.test/studio.png", estabelecimento.Logo);
+        Assert.Equal("11999999999", estabelecimento.Telefone);
+        Assert.Equal("studio@email.com", estabelecimento.Email);
         Assert.NotEqual(Guid.Empty, estabelecimento.PublicGuid);
 
         Assert.Contains(db.EstabelecimentoUsuarios, vinculo =>
@@ -138,7 +148,16 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
             profissionalAutonomo = new
             {
                 nomePublico = "Maria Glow",
-                biografia = "Especialista em beleza"
+                biografia = "Especialista em beleza",
+                logo = "https://cdn.test/maria.png",
+                telefone = "11988888888",
+                email = "maria@email.com",
+                endereco = new
+                {
+                    cidade = "Campinas",
+                    estado = "SP",
+                    local = "Sala 12"
+                }
             }
         });
 
@@ -161,6 +180,9 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         Assert.NotNull(profissional);
         Assert.Equal(seed.UsuarioId, profissional!.UsuarioId);
         Assert.Equal("Maria Glow", profissional.NomePublico);
+        Assert.Equal("https://cdn.test/maria.png", profissional.Logo);
+        Assert.Equal("11988888888", profissional.Telefone);
+        Assert.Equal("maria@email.com", profissional.Email);
         Assert.Equal(ProfessionalType.Autonomo, profissional.TipoProfissional);
         Assert.True(profissional.Ativo);
         Assert.NotEqual(Guid.Empty, profissional.PublicGuid);

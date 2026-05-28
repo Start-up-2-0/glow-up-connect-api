@@ -1,3 +1,4 @@
+using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 
@@ -43,11 +44,18 @@ public record ModulosAssinaturaResponseDto(
             Modulos: modulos.Select(modulo => modulo.ToString()).ToList(),
             Limites: CriarLimites(assinatura.Plano));
 
-    private static LimitesAssinaturaDto CriarLimites(Plano? plano) =>
-        new(
+    private static LimitesAssinaturaDto CriarLimites(Plano? plano)
+    {
+        var perfil = PlanoComercialCatalogo.Obter(plano);
+
+        return new(
             plano?.LimiteProfissionais,
             plano?.LimiteServicos,
-            plano?.LimiteAgendamentos);
+            plano?.LimiteAgendamentos,
+            perfil.LimiteUsuarios,
+            perfil.LimiteAgendamentosPorDia,
+            perfil.PrioridadeListagemPublica);
+    }
 
     private static string? ObterTipoAssinatura(Assinatura? assinatura)
     {

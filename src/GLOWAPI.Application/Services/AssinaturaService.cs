@@ -336,44 +336,22 @@ public class AssinaturaService : IAssinaturaService
 
     private static Estabelecimento CriarEstabelecimento(CriarEstabelecimentoAssinaturaDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Nome))
-        {
-            throw new EstabelecimentoAssinaturaInvalidoException("Nome do estabelecimento e obrigatorio.");
-        }
-
-        if (dto.Nome.Length > 150)
-        {
-            throw new EstabelecimentoAssinaturaInvalidoException("Nome do estabelecimento deve ter no maximo 150 caracteres.");
-        }
+        static Exception CriarExcecao(string mensagem) => new EstabelecimentoAssinaturaInvalidoException(mensagem);
 
         if (dto.Descricao.Length > 500)
         {
             throw new EstabelecimentoAssinaturaInvalidoException("Descricao do estabelecimento deve ter no maximo 500 caracteres.");
         }
 
-        if (dto.Logo.Length > 500)
-        {
-            throw new EstabelecimentoAssinaturaInvalidoException("Logo do estabelecimento deve ter no maximo 500 caracteres.");
-        }
-
-        if (dto.Telefone.Length > 20)
-        {
-            throw new EstabelecimentoAssinaturaInvalidoException("Telefone do estabelecimento deve ter no maximo 20 caracteres.");
-        }
-
-        if (dto.Email.Length > 255)
-        {
-            throw new EstabelecimentoAssinaturaInvalidoException("Email do estabelecimento deve ter no maximo 255 caracteres.");
-        }
-
         return new Estabelecimento
         {
-            Nome = dto.Nome.Trim(),
+            Nome = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Nome, "Nome do estabelecimento", 150, CriarExcecao),
             Descricao = dto.Descricao.Trim(),
-            Logo = dto.Logo.Trim(),
-            Telefone = dto.Telefone.Trim(),
-            Email = dto.Email.Trim(),
-            Ativo = true
+            Logo = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Logo, "Logo do estabelecimento", 500, CriarExcecao),
+            Telefone = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Telefone, "Telefone do estabelecimento", 20, CriarExcecao),
+            Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Email, "Email do estabelecimento", 255, CriarExcecao),
+            Ativo = true,
+            Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao)
         };
     }
 
@@ -388,8 +366,14 @@ public class AssinaturaService : IAssinaturaService
             UsuarioId = userId,
             NomePublico = dto.NomePublico.Trim(),
             Biografia = dto.Biografia.Trim(),
+            Logo = dto.Logo.Trim(),
+            Telefone = dto.Telefone.Trim(),
+            Email = dto.Email.Trim(),
             TipoProfissional = ProfessionalType.Autonomo,
-            Ativo = true
+            Ativo = true,
+            Endereco = OperacaoPerfilValidation.CriarEndereco(
+                dto.Endereco,
+                mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem))
         };
     }
 
@@ -401,9 +385,17 @@ public class AssinaturaService : IAssinaturaService
 
         profissional.NomePublico = dto.NomePublico.Trim();
         profissional.Biografia = dto.Biografia.Trim();
+        profissional.Logo = dto.Logo.Trim();
+        profissional.Telefone = dto.Telefone.Trim();
+        profissional.Email = dto.Email.Trim();
         profissional.TipoProfissional = ProfessionalType.Autonomo;
         profissional.Ativo = true;
         profissional.UpdatedAt = DateTime.UtcNow;
+        OperacaoPerfilValidation.AtualizarEndereco(
+            profissional.Endereco,
+            endereco => profissional.Endereco = endereco,
+            dto.Endereco,
+            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
     }
 
     private static void ValidarPerfilProfissionalAutonomoExistente(Profissional profissional)
@@ -431,6 +423,24 @@ public class AssinaturaService : IAssinaturaService
         {
             throw new ProfissionalAutonomoAssinaturaInvalidoException("Biografia do profissional deve ter no maximo 1000 caracteres.");
         }
+
+        OperacaoPerfilValidation.ValidarTextoObrigatorio(
+            dto.Logo,
+            "Logo do profissional",
+            500,
+            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
+
+        OperacaoPerfilValidation.ValidarTextoObrigatorio(
+            dto.Telefone,
+            "Telefone do profissional",
+            20,
+            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
+
+        OperacaoPerfilValidation.ValidarTextoObrigatorio(
+            dto.Email,
+            "Email do profissional",
+            255,
+            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
     }
 
     private static Assinatura CriarAssinaturaBase(int planoId, GatewayPagamento gateway) =>

@@ -19,4 +19,11 @@ public class ProfissionalRepository : Repository<Profissional>, IProfissionalRep
     {
         return DbSet.FirstOrDefaultAsync(profissional => profissional.UsuarioId == usuarioId, cancellationToken);
     }
+
+    public Task<Profissional?> ObterPorIdComEnderecoAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return DbSet
+            .Include(profissional => profissional.Endereco)
+            .FirstOrDefaultAsync(profissional => profissional.Id == id, cancellationToken);
+    }
 }
