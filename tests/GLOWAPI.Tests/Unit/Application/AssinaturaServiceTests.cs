@@ -568,7 +568,8 @@ public class AssinaturaServiceTests
 
         var response = await service.TrocarPlanoAsync(30, new TrocarPlanoAssinaturaRequestDto
         {
-            NovoPlanoId = 2
+            NovoPlanoId = 2,
+            MetodoPagamento = MetodoPagamentoAssinatura.Pix
         });
 
         Assert.Equal(30, response.Id);
@@ -581,7 +582,7 @@ public class AssinaturaServiceTests
 
         Assert.NotNull(pagamentoCriado);
         Assert.Equal(30, pagamentoCriado!.AssinaturaId);
-        Assert.Equal("TrocaPlano", pagamentoCriado.MetodoPagamento);
+        Assert.Equal("Pix", pagamentoCriado.MetodoPagamento);
         Assert.Equal(PagamentoStatus.Pendente, pagamentoCriado.Status);
         Assert.Equal(2, assinatura.PlanoAlteracaoPendenteId);
         Assert.Equal(1, assinatura.PlanoId);

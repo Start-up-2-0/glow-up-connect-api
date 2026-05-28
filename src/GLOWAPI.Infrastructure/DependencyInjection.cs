@@ -71,6 +71,8 @@ public static class DependencyInjection
         services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
         services.AddScoped<IMensagemNotificacaoRepository, MensagemNotificacaoRepository>();
 
+        services.Configure<MercadoPagoOptions>(configuration.GetSection(MercadoPagoOptions.SectionName));
+
         services.AddHttpClient<ResendClient>();
         services.Configure<ResendClientOptions>(options =>
         {
@@ -80,7 +82,24 @@ public static class DependencyInjection
         services.AddScoped<IProvedorMensagem, ProvedorMensagemEmail>();
         services.AddScoped<IProvedorMensagem, ProvedorMensagemWhatsApp>();
         services.AddScoped<IProvedorMensagem, ProvedorMensagemSms>();
-        services.AddScoped<IGatewayPagamento>(_ => new GatewayPagamentoFake(GLOWAPI.Domain.Enums.GatewayPagamento.MercadoPago));
+
+        var mercadoPagoAccessToken = configuration[$"{MercadoPagoOptions.SectionName}:AccessToken"];
+        if (string.IsNullOrWhiteSpace(mercadoPagoAccessToken))
+        {
+            services.AddScoped<IGatewayPagamento>(_ => new GatewayPagamentoFake(GLOWAPI.Domain.Enums.GatewayPagamento.MercadoPago));
+        }
+        else
+        {
+            services.AddHttpClient<GatewayPagamentoMercadoPago>((_, client) =>
+            {
+                var apiBaseUrl = configuration[$"{MercadoPagoOptions.SectionName}:ApiBaseUrl"]
+                    ?? "https://api.mercadopago.com";
+                client.BaseAddress = new Uri(apiBaseUrl.TrimEnd('/') + "/");
+                client.Timeout = TimeSpan.FromSeconds(30);
+            });
+            services.AddScoped<IGatewayPagamento, GatewayPagamentoMercadoPago>();
+        }
+
         services.AddScoped<IGatewayPagamento>(_ => new GatewayPagamentoFake(GLOWAPI.Domain.Enums.GatewayPagamento.AbacatePay));
 
         return services;

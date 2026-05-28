@@ -6,4 +6,5 @@ public class TrocarPlanoAssinaturaRequestDto
 {
     public int NovoPlanoId { get; set; }
     public GatewayPagamento? Gateway { get; set; }
+    public MetodoPagamentoAssinatura MetodoPagamento { get; set; } = MetodoPagamentoAssinatura.Cartao;
 }

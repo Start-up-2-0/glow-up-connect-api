@@ -47,6 +47,23 @@ public class GatewayPagamentoFake : IGatewayPagamento
             ResponsePayload: responsePayload));
     }
 
+    public Task<ConsultarPagamentoGatewayResponse> ConsultarPagamentoAsync(
+        string gatewayPaymentId,
+        CancellationToken cancellationToken = default)
+    {
+        var responsePayload = JsonSerializer.Serialize(new
+        {
+            id = gatewayPaymentId,
+            status = "approved"
+        }, JsonOptions);
+
+        return Task.FromResult(new ConsultarPagamentoGatewayResponse(
+            Sucesso: true,
+            GatewayPaymentId: gatewayPaymentId,
+            Status: "approved",
+            ResponsePayload: responsePayload));
+    }
+
     private static string SerializarRequest(CriarCobrancaGatewayRequest request) =>
         JsonSerializer.Serialize(new
         {
@@ -55,6 +72,7 @@ public class GatewayPagamentoFake : IGatewayPagamento
             description = request.Descricao,
             amount = request.Valor,
             currency = request.Moeda,
+            paymentMethod = request.MetodoPagamento.ToString(),
             payer = new
             {
                 name = request.PagadorNome,
