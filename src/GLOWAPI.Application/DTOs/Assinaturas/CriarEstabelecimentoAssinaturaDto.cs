@@ -1,5 +1,7 @@
 namespace GLOWAPI.Application.DTOs.Assinaturas;
 
+using GLOWAPI.Application.DTOs.Operacoes;
+
 public class CriarEstabelecimentoAssinaturaDto
 {
     public string Nome { get; set; } = string.Empty;
@@ -7,4 +9,5 @@ public class CriarEstabelecimentoAssinaturaDto
     public string Logo { get; set; } = string.Empty;
     public string Telefone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public EnderecoOperacaoDto Endereco { get; set; } = new();
 }

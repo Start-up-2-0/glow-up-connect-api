@@ -26,6 +26,15 @@ public class ProfissionalConfiguration : IEntityTypeConfiguration<Profissional>
         builder.Property(profissional => profissional.Biografia)
             .HasMaxLength(1000);
 
+        builder.Property(profissional => profissional.Logo)
+            .HasMaxLength(500);
+
+        builder.Property(profissional => profissional.Telefone)
+            .HasMaxLength(20);
+
+        builder.Property(profissional => profissional.Email)
+            .HasMaxLength(255);
+
         builder.Property(profissional => profissional.TipoProfissional)
             .HasConversion(
                 tipo => tipo.ToString(),

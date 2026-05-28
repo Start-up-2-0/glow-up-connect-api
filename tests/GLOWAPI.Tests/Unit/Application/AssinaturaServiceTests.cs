@@ -149,8 +149,15 @@ public class AssinaturaServiceTests
             {
                 Nome = " Studio Glow ",
                 Descricao = " Salao premium ",
+                Logo = "https://cdn.test/logo.png",
                 Telefone = "11999999999",
-                Email = "studio@email.com"
+                Email = "studio@email.com",
+                Endereco = new()
+                {
+                    Cidade = "Sao Paulo",
+                    Estado = "SP",
+                    Local = "Rua Glow"
+                }
             }
         });
 
@@ -161,6 +168,13 @@ public class AssinaturaServiceTests
         Assert.NotNull(estabelecimentoCriado);
         Assert.Equal("Studio Glow", estabelecimentoCriado!.Nome);
         Assert.Equal("Salao premium", estabelecimentoCriado.Descricao);
+        Assert.Equal("https://cdn.test/logo.png", estabelecimentoCriado.Logo);
+        Assert.Equal("11999999999", estabelecimentoCriado.Telefone);
+        Assert.Equal("studio@email.com", estabelecimentoCriado.Email);
+        Assert.NotNull(estabelecimentoCriado.Endereco);
+        Assert.Equal("Sao Paulo", estabelecimentoCriado.Endereco!.Cidade);
+        Assert.Equal("SP", estabelecimentoCriado.Endereco.Estado);
+        Assert.Equal("Rua Glow", estabelecimentoCriado.Endereco.Logradouro);
         Assert.True(estabelecimentoCriado.Ativo);
         Assert.NotEqual(Guid.Empty, estabelecimentoCriado.PublicGuid);
 
@@ -231,7 +245,16 @@ public class AssinaturaServiceTests
             ProfissionalAutonomo = new CriarProfissionalAutonomoAssinaturaDto
             {
                 NomePublico = " Maria Glow ",
-                Biografia = " Especialista em beleza "
+                Biografia = " Especialista em beleza ",
+                Logo = "https://cdn.test/maria.png",
+                Telefone = "11988888888",
+                Email = "maria@email.com",
+                Endereco = new()
+                {
+                    Cidade = "Campinas",
+                    Estado = "SP",
+                    Local = "Sala 12"
+                }
             }
         });
 
@@ -244,6 +267,13 @@ public class AssinaturaServiceTests
         Assert.Equal(10, profissionalCriado!.UsuarioId);
         Assert.Equal("Maria Glow", profissionalCriado.NomePublico);
         Assert.Equal("Especialista em beleza", profissionalCriado.Biografia);
+        Assert.Equal("https://cdn.test/maria.png", profissionalCriado.Logo);
+        Assert.Equal("11988888888", profissionalCriado.Telefone);
+        Assert.Equal("maria@email.com", profissionalCriado.Email);
+        Assert.NotNull(profissionalCriado.Endereco);
+        Assert.Equal("Campinas", profissionalCriado.Endereco!.Cidade);
+        Assert.Equal("SP", profissionalCriado.Endereco.Estado);
+        Assert.Equal("Sala 12", profissionalCriado.Endereco.Logradouro);
         Assert.Equal(ProfessionalType.Autonomo, profissionalCriado.TipoProfissional);
         Assert.True(profissionalCriado.Ativo);
         Assert.NotEqual(Guid.Empty, profissionalCriado.PublicGuid);
@@ -290,13 +320,29 @@ public class AssinaturaServiceTests
             ProfissionalAutonomo = new CriarProfissionalAutonomoAssinaturaDto
             {
                 NomePublico = "Novo nome",
-                Biografia = "Nova bio"
+                Biografia = "Nova bio",
+                Logo = "https://cdn.test/novo.png",
+                Telefone = "11977777777",
+                Email = "novo@email.com",
+                Endereco = new()
+                {
+                    Cidade = "Santos",
+                    Estado = "SP",
+                    Local = "Av Praia"
+                }
             }
         });
 
         Assert.Equal(70, response.ProfissionalAutonomoId);
         Assert.Equal("Novo nome", profissional.NomePublico);
         Assert.Equal("Nova bio", profissional.Biografia);
+        Assert.Equal("https://cdn.test/novo.png", profissional.Logo);
+        Assert.Equal("11977777777", profissional.Telefone);
+        Assert.Equal("novo@email.com", profissional.Email);
+        Assert.NotNull(profissional.Endereco);
+        Assert.Equal("Santos", profissional.Endereco!.Cidade);
+        Assert.Equal("SP", profissional.Endereco.Estado);
+        Assert.Equal("Av Praia", profissional.Endereco.Logradouro);
         Assert.True(profissional.Ativo);
         Assert.NotNull(profissional.UpdatedAt);
 
