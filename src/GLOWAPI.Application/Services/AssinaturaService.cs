@@ -1,4 +1,5 @@
 using GLOWAPI.Application.DTOs.Assinaturas;
+using GLOWAPI.Application.DTOs.Pagamentos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Pagamentos;
@@ -20,6 +21,7 @@ public class AssinaturaService : IAssinaturaService
     private readonly IGatewayPagamentoResolver _gatewayPagamentoResolver;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
+    private readonly IAssinaturaHistoricoService _assinaturaHistoricoService;
 
     public AssinaturaService(
         IAssinaturaRepository assinaturaRepository,
@@ -30,7 +32,8 @@ public class AssinaturaService : IAssinaturaService
         IPagamentoRepository pagamentoRepository,
         IGatewayPagamentoResolver gatewayPagamentoResolver,
         ICurrentUserContext currentUser,
-        IAssinaturaNotificacaoService assinaturaNotificacaoService)
+        IAssinaturaNotificacaoService assinaturaNotificacaoService,
+        IAssinaturaHistoricoService assinaturaHistoricoService)
     {
         _assinaturaRepository = assinaturaRepository;
         _planoRepository = planoRepository;
@@ -41,6 +44,7 @@ public class AssinaturaService : IAssinaturaService
         _gatewayPagamentoResolver = gatewayPagamentoResolver;
         _currentUser = currentUser;
         _assinaturaNotificacaoService = assinaturaNotificacaoService;
+        _assinaturaHistoricoService = assinaturaHistoricoService;
     }
 
     public async Task<AssinaturaResponseDto> IniciarAsync(
@@ -66,8 +70,34 @@ public class AssinaturaService : IAssinaturaService
         var pagamentoInicial = await CriarPagamentoInicialAsync(
             assinatura,
             plano,
-            request.MetodoPagamento,
+            request.Pagamento,
             cancellationToken);
+
+        await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+            assinatura,
+            "AssinaturaIniciada",
+            null,
+            assinatura.Status,
+            pagamentoInicial.Pagamento,
+            "Assinatura criada aguardando pagamento inicial.",
+            cancellationToken: cancellationToken);
+        await _assinaturaHistoricoService.RegistrarPagamentoAsync(
+            pagamentoInicial.Pagamento,
+            "PagamentoInicialCriado",
+            null,
+            pagamentoInicial.Pagamento.Status,
+            "Cobranca inicial criada no gateway.",
+            pagamentoInicial.Pagamento.GatewayPaymentId,
+            cancellationToken);
+        await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
+            assinatura,
+            "RecorrenciaAguardandoPagamento",
+            "AguardandoPagamento",
+            pagamentoInicial.Pagamento,
+            assinatura.Inicio,
+            assinatura.Fim,
+            "Primeiro ciclo aguardando confirmacao de pagamento.",
+            cancellationToken: cancellationToken);
 
         await _assinaturaRepository.AdicionarAsync(assinatura, cancellationToken);
         await _pagamentoRepository.AdicionarAsync(pagamentoInicial.Pagamento, cancellationToken);
@@ -138,11 +168,27 @@ public class AssinaturaService : IAssinaturaService
                 assinatura,
                 novoPlano,
                 request.Gateway ?? assinatura.Gateway,
-                request.MetodoPagamento,
+                request.Pagamento,
                 cancellationToken);
 
             await _pagamentoRepository.AdicionarAsync(pagamentoTroca.Pagamento, cancellationToken);
             _assinaturaRepository.Atualizar(assinatura);
+            await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+                assinatura,
+                "TrocaPlanoSolicitada",
+                AssinaturaStatus.Ativa,
+                assinatura.Status,
+                pagamentoTroca.Pagamento,
+                $"Troca de plano solicitada para o plano {novoPlano.Id}.",
+                cancellationToken: cancellationToken);
+            await _assinaturaHistoricoService.RegistrarPagamentoAsync(
+                pagamentoTroca.Pagamento,
+                "PagamentoTrocaPlanoCriado",
+                null,
+                pagamentoTroca.Pagamento.Status,
+                "Cobranca de troca de plano criada no gateway.",
+                pagamentoTroca.Pagamento.GatewayPaymentId,
+                cancellationToken);
             await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
 
             return AssinaturaResponseDto.From(
@@ -153,6 +199,7 @@ public class AssinaturaService : IAssinaturaService
                     pagamentoTroca.QrCode));
         }
 
+        var planoAnteriorId = assinatura.PlanoId;
         assinatura.PlanoId = novoPlano.Id;
         assinatura.Plano = novoPlano;
         assinatura.PlanoAlteracaoPendenteId = null;
@@ -160,6 +207,13 @@ public class AssinaturaService : IAssinaturaService
         assinatura.UpdatedAt = DateTime.UtcNow;
 
         _assinaturaRepository.Atualizar(assinatura);
+        await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+            assinatura,
+            "TrocaPlanoAplicadaSemCobranca",
+            AssinaturaStatus.Ativa,
+            assinatura.Status,
+            observacao: $"Plano alterado de {planoAnteriorId} para {novoPlano.Id} sem cobranca.",
+            cancellationToken: cancellationToken);
         await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
 
         return AssinaturaResponseDto.From(assinatura);
@@ -183,6 +237,7 @@ public class AssinaturaService : IAssinaturaService
             throw new CancelamentoAssinaturaInvalidoException("Somente assinatura ativa pode ser cancelada pelo usuario.");
         }
 
+        var statusAnterior = assinatura.Status;
         assinatura.Status = AssinaturaStatus.Cancelada;
         assinatura.CanceladoEm = DateTime.UtcNow;
         assinatura.RenovacaoAutomatica = false;
@@ -191,6 +246,21 @@ public class AssinaturaService : IAssinaturaService
         assinatura.UpdatedAt = DateTime.UtcNow;
 
         _assinaturaRepository.Atualizar(assinatura);
+        await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+            assinatura,
+            "AssinaturaCanceladaPeloUsuario",
+            statusAnterior,
+            assinatura.Status,
+            observacao: "Cancelamento solicitado pelo usuario.",
+            cancellationToken: cancellationToken);
+        await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
+            assinatura,
+            "RecorrenciaCancelada",
+            "Cancelada",
+            cicloInicio: assinatura.Inicio,
+            cicloFim: assinatura.Fim,
+            observacao: "Renovacao automatica desativada por cancelamento.",
+            cancellationToken: cancellationToken);
         await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
 
         await _assinaturaNotificacaoService.AssinaturaCanceladaAsync(
@@ -461,7 +531,7 @@ public class AssinaturaService : IAssinaturaService
     private async Task<PagamentoInicial> CriarPagamentoInicialAsync(
         Assinatura assinatura,
         Plano plano,
-        MetodoPagamentoAssinatura metodoPagamento,
+        PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
         CancellationToken cancellationToken)
     {
         var gateway = _gatewayPagamentoResolver.Resolver(assinatura.Gateway);
@@ -477,12 +547,11 @@ public class AssinaturaService : IAssinaturaService
             Metadados: new Dictionary<string, string>
             {
                 ["planoId"] = plano.Id.ToString(),
-                ["metodoPagamento"] = metodoPagamento.ToString(),
                 ["tipo"] = assinatura.EstabelecimentoId.HasValue || assinatura.Estabelecimento is not null
                     ? TipoAssinatura.Estabelecimento.ToString()
                     : TipoAssinatura.ProfissionalAutonomo.ToString()
             },
-            MetodoPagamento: metodoPagamento),
+            PagamentoTransparente: CriarPagamentoTransparenteRequest(assinatura.Gateway, pagamentoTransparente)),
             cancellationToken);
 
         if (!response.Sucesso)
@@ -495,7 +564,7 @@ public class AssinaturaService : IAssinaturaService
             Assinatura = assinatura,
             Gateway = assinatura.Gateway,
             GatewayPaymentId = response.GatewayPaymentId,
-            MetodoPagamento = metodoPagamento.ToString(),
+            MetodoPagamento = response.MetodoPagamento,
             Status = PagamentoStatus.Pendente,
             Valor = plano.Preco,
             Moeda = "BRL"
@@ -508,7 +577,7 @@ public class AssinaturaService : IAssinaturaService
         Assinatura assinatura,
         Plano novoPlano,
         GatewayPagamento gatewayPagamento,
-        MetodoPagamentoAssinatura metodoPagamento,
+        PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
         CancellationToken cancellationToken)
     {
         var gateway = _gatewayPagamentoResolver.Resolver(gatewayPagamento);
@@ -526,10 +595,9 @@ public class AssinaturaService : IAssinaturaService
                 ["assinaturaId"] = assinatura.Id.ToString(),
                 ["planoAtualId"] = assinatura.PlanoId.ToString(),
                 ["novoPlanoId"] = novoPlano.Id.ToString(),
-                ["metodoPagamento"] = metodoPagamento.ToString(),
                 ["acao"] = "TrocaPlano"
             },
-            MetodoPagamento: metodoPagamento),
+            PagamentoTransparente: CriarPagamentoTransparenteRequest(gatewayPagamento, pagamentoTransparente)),
             cancellationToken);
 
         if (!response.Sucesso)
@@ -543,13 +611,42 @@ public class AssinaturaService : IAssinaturaService
             AssinaturaId = assinatura.Id,
             Gateway = gatewayPagamento,
             GatewayPaymentId = response.GatewayPaymentId,
-            MetodoPagamento = metodoPagamento.ToString(),
+            MetodoPagamento = response.MetodoPagamento,
             Status = PagamentoStatus.Pendente,
             Valor = novoPlano.Preco,
             Moeda = "BRL"
         };
 
         return new PagamentoInicial(pagamento, response.CheckoutUrl, response.QrCode);
+    }
+
+    private static PagamentoTransparenteGatewayRequest? CriarPagamentoTransparenteRequest(
+        GatewayPagamento gateway,
+        PagamentoTransparenteMercadoPagoDto? pagamento)
+    {
+        if (gateway != GatewayPagamento.MercadoPago)
+        {
+            return null;
+        }
+
+        if (pagamento is null)
+        {
+            throw new PagamentoAssinaturaInvalidoException(
+                "Dados do Checkout Transparente sao obrigatorios para pagamento via Mercado Pago.");
+        }
+
+        if (string.IsNullOrWhiteSpace(pagamento.PaymentMethodId))
+        {
+            throw new PagamentoAssinaturaInvalidoException("PaymentMethodId do pagamento e obrigatorio.");
+        }
+
+        return new PagamentoTransparenteGatewayRequest(
+            pagamento.PaymentMethodId.Trim(),
+            pagamento.Token,
+            pagamento.IssuerId,
+            pagamento.Installments,
+            pagamento.IdentificationType,
+            pagamento.IdentificationNumber);
     }
 
     private async Task ValidarPermissaoGerenciarAssinaturaAsync(

@@ -12,7 +12,7 @@ namespace GLOWAPI.Tests.Unit.Infrastructure;
 public class GatewayPagamentoMercadoPagoTests
 {
     [Fact]
-    public async Task CriarCobrancaAsync_DeveCriarPreferenciaNoMercadoPago()
+    public async Task CriarCobrancaAsync_DeveCriarPagamentoTransparenteNoMercadoPago()
     {
         HttpRequestMessage? requestMessage = null;
         var handler = new StubHttpMessageHandler(request =>
@@ -23,8 +23,13 @@ public class GatewayPagamentoMercadoPagoTests
                 Content = new StringContent(
                     """
                     {
-                      "id": "pref-123",
-                      "init_point": "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=pref-123"
+                      "id": 123456,
+                      "status": "pending",
+                      "point_of_interaction": {
+                        "transaction_data": {
+                          "qr_code": "000201..."
+                        }
+                      }
                     }
                     """,
                     Encoding.UTF8,
@@ -35,10 +40,7 @@ public class GatewayPagamentoMercadoPagoTests
         {
             AccessToken = "TEST-123",
             ApiBaseUrl = "https://api.mercadopago.com",
-            NotificationUrl = "https://api.glow.test/api/webhooks/pagamentos",
-            SuccessUrl = "https://app.glow.test/assinatura/sucesso",
-            FailureUrl = "https://app.glow.test/assinatura/falha",
-            PendingUrl = "https://app.glow.test/assinatura/pendente"
+            NotificationUrl = "https://api.glow.test/api/webhooks/pagamentos"
         });
 
         var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
@@ -52,51 +54,83 @@ public class GatewayPagamentoMercadoPagoTests
             Metadados: new Dictionary<string, string>
             {
                 ["planoId"] = "3"
-            }));
+            },
+            PagamentoTransparente: new PagamentoTransparenteGatewayRequest(
+                PaymentMethodId: "pix",
+                IdentificationType: "CPF",
+                IdentificationNumber: "12345678909")));
 
         Assert.True(response.Sucesso);
-        Assert.Equal("pref-123", response.GatewayPaymentId);
-        Assert.Equal("https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=pref-123", response.CheckoutUrl);
+        Assert.Equal("123456", response.GatewayPaymentId);
+        Assert.Equal("000201...", response.QrCode);
+        Assert.Equal("pix", response.MetodoPagamento);
         Assert.NotNull(requestMessage);
         Assert.Equal(HttpMethod.Post, requestMessage!.Method);
         Assert.Equal("Bearer", requestMessage.Headers.Authorization?.Scheme);
         Assert.Equal("TEST-123", requestMessage.Headers.Authorization?.Parameter);
-        Assert.Equal("https://api.mercadopago.com/checkout/preferences", requestMessage.RequestUri?.ToString());
+        Assert.Equal("assinatura-abc", requestMessage.Headers.GetValues("X-Idempotency-Key").Single());
+        Assert.Equal("https://api.mercadopago.com/v1/payments", requestMessage.RequestUri?.ToString());
 
         using var json = JsonDocument.Parse(response.RequestPayload);
         var root = json.RootElement;
         Assert.Equal("assinatura-abc", root.GetProperty("external_reference").GetString());
         Assert.Equal("https://api.glow.test/api/webhooks/pagamentos", root.GetProperty("notification_url").GetString());
-        Assert.Equal("approved", root.GetProperty("auto_return").GetString());
+        Assert.Equal("pix", root.GetProperty("payment_method_id").GetString());
         Assert.Equal("maria@email.com", root.GetProperty("payer").GetProperty("email").GetString());
-        Assert.Equal("Premium", root.GetProperty("items")[0].GetProperty("title").GetString()!.Split(' ').Last());
-        Assert.Equal(199.90m, root.GetProperty("items")[0].GetProperty("unit_price").GetDecimal());
-
-        var excludedTypes = root
-            .GetProperty("payment_methods")
-            .GetProperty("excluded_payment_types")
-            .EnumerateArray()
-            .Select(item => item.GetProperty("id").GetString())
-            .ToList();
-        Assert.Contains("pix", excludedTypes);
-        Assert.Contains("ticket", excludedTypes);
-        Assert.DoesNotContain("credit_card", excludedTypes);
+        Assert.Equal(199.90m, root.GetProperty("transaction_amount").GetDecimal());
     }
 
-    [Theory]
-    [InlineData(MetodoPagamentoAssinatura.Pix, "credit_card", "debit_card", "ticket")]
-    [InlineData(MetodoPagamentoAssinatura.Boleto, "credit_card", "debit_card", "pix")]
-    [InlineData(MetodoPagamentoAssinatura.Cartao, "pix", "ticket", null)]
-    public async Task CriarCobrancaAsync_DeveRestringirMetodoDePagamento(
-        MetodoPagamentoAssinatura metodoPagamento,
-        string primeiroExcluido,
-        string segundoExcluido,
-        string? terceiroExcluido)
+    [Fact]
+    public async Task CriarCobrancaAsync_DeveRetornarFalha_QuandoDadosTransparentesNaoForemInformados()
+    {
+        var handler = new StubHttpMessageHandler(_ => throw new InvalidOperationException("Nao deveria chamar HTTP."));
+        var gateway = CriarGateway(handler, new MercadoPagoOptions
+        {
+            AccessToken = "TEST-123",
+            ApiBaseUrl = "https://api.mercadopago.com"
+        });
+
+        var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
+            Gateway: GatewayPagamento.MercadoPago,
+            ReferenciaInterna: "assinatura-abc",
+            Descricao: "Assinatura Premium",
+            Valor: 199.90m,
+            Moeda: "BRL",
+            PagadorNome: "Maria",
+            PagadorEmail: "maria@email.com"));
+
+        Assert.False(response.Sucesso);
+        Assert.Contains("Checkout Transparente", response.MensagemErro);
+    }
+
+    [Fact]
+    public async Task CriarCobrancaAsync_DeveRetornarFalha_QuandoAccessTokenNaoEstiverConfigurado()
+    {
+        var handler = new StubHttpMessageHandler(_ => throw new InvalidOperationException("Nao deveria chamar HTTP."));
+        var gateway = CriarGateway(handler, new MercadoPagoOptions());
+
+        var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
+            Gateway: GatewayPagamento.MercadoPago,
+            ReferenciaInterna: "assinatura-abc",
+            Descricao: "Assinatura Premium",
+            Valor: 199.90m,
+            Moeda: "BRL",
+            PagadorNome: "Maria",
+            PagadorEmail: "maria@email.com",
+            PagamentoTransparente: new PagamentoTransparenteGatewayRequest("pix")));
+
+        Assert.False(response.Sucesso);
+        Assert.Equal(string.Empty, response.GatewayPaymentId);
+        Assert.Contains("Access token do Mercado Pago nao configurado", response.MensagemErro);
+    }
+
+    [Fact]
+    public async Task CriarCobrancaAsync_NaoDeveEnviarNotificationUrl_QuandoConfiguracaoEstiverVazia()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Created)
         {
             Content = new StringContent(
-                """{"id":"pref-123","init_point":"https://checkout.test/pref-123"}""",
+                """{"id":123456,"status":"pending"}""",
                 Encoding.UTF8,
                 "application/json")
         });
@@ -114,42 +148,10 @@ public class GatewayPagamentoMercadoPagoTests
             Moeda: "BRL",
             PagadorNome: "Maria",
             PagadorEmail: "maria@email.com",
-            MetodoPagamento: metodoPagamento));
+            PagamentoTransparente: new PagamentoTransparenteGatewayRequest("pix")));
 
         using var json = JsonDocument.Parse(response.RequestPayload);
-        var excludedTypes = json.RootElement
-            .GetProperty("payment_methods")
-            .GetProperty("excluded_payment_types")
-            .EnumerateArray()
-            .Select(item => item.GetProperty("id").GetString())
-            .ToList();
-
-        Assert.Contains(primeiroExcluido, excludedTypes);
-        Assert.Contains(segundoExcluido, excludedTypes);
-        if (terceiroExcluido is not null)
-        {
-            Assert.Contains(terceiroExcluido, excludedTypes);
-        }
-    }
-
-    [Fact]
-    public async Task CriarCobrancaAsync_DeveRetornarFalha_QuandoAccessTokenNaoEstiverConfigurado()
-    {
-        var handler = new StubHttpMessageHandler(_ => throw new InvalidOperationException("Nao deveria chamar HTTP."));
-        var gateway = CriarGateway(handler, new MercadoPagoOptions());
-
-        var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
-            Gateway: GatewayPagamento.MercadoPago,
-            ReferenciaInterna: "assinatura-abc",
-            Descricao: "Assinatura Premium",
-            Valor: 199.90m,
-            Moeda: "BRL",
-            PagadorNome: "Maria",
-            PagadorEmail: "maria@email.com"));
-
-        Assert.False(response.Sucesso);
-        Assert.Equal(string.Empty, response.GatewayPaymentId);
-        Assert.Contains("Access token do Mercado Pago nao configurado", response.MensagemErro);
+        Assert.False(json.RootElement.TryGetProperty("notification_url", out _));
     }
 
     [Fact]
@@ -172,7 +174,8 @@ public class GatewayPagamentoMercadoPagoTests
             Valor: 199.90m,
             Moeda: "BRL",
             PagadorNome: "Maria",
-            PagadorEmail: "maria@email.com"));
+            PagadorEmail: "maria@email.com",
+            PagamentoTransparente: new PagamentoTransparenteGatewayRequest("pix")));
 
         Assert.False(response.Sucesso);
         Assert.Contains("Mercado Pago retornou 400", response.MensagemErro);
