@@ -38,6 +38,12 @@ public static class HostedConfigurationValidator
             faltando.Add("Auth__FrontendBaseUrl");
         }
 
+        var mercadoPagoAccessToken = configuration[$"{MercadoPagoOptions.SectionName}:AccessToken"];
+        if (string.IsNullOrWhiteSpace(mercadoPagoAccessToken))
+        {
+            faltando.Add("MercadoPago__AccessToken");
+        }
+
         if (faltando.Count > 0)
         {
             throw new InvalidOperationException(

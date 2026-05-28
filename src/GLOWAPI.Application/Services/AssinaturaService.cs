@@ -63,7 +63,11 @@ public class AssinaturaService : IAssinaturaService
             _ => throw new AssinaturaTitularInvalidoException()
         };
 
-        var pagamentoInicial = await CriarPagamentoInicialAsync(assinatura, plano, cancellationToken);
+        var pagamentoInicial = await CriarPagamentoInicialAsync(
+            assinatura,
+            plano,
+            request.MetodoPagamento,
+            cancellationToken);
 
         await _assinaturaRepository.AdicionarAsync(assinatura, cancellationToken);
         await _pagamentoRepository.AdicionarAsync(pagamentoInicial.Pagamento, cancellationToken);
@@ -134,6 +138,7 @@ public class AssinaturaService : IAssinaturaService
                 assinatura,
                 novoPlano,
                 request.Gateway ?? assinatura.Gateway,
+                request.MetodoPagamento,
                 cancellationToken);
 
             await _pagamentoRepository.AdicionarAsync(pagamentoTroca.Pagamento, cancellationToken);
@@ -456,6 +461,7 @@ public class AssinaturaService : IAssinaturaService
     private async Task<PagamentoInicial> CriarPagamentoInicialAsync(
         Assinatura assinatura,
         Plano plano,
+        MetodoPagamentoAssinatura metodoPagamento,
         CancellationToken cancellationToken)
     {
         var gateway = _gatewayPagamentoResolver.Resolver(assinatura.Gateway);
@@ -471,10 +477,12 @@ public class AssinaturaService : IAssinaturaService
             Metadados: new Dictionary<string, string>
             {
                 ["planoId"] = plano.Id.ToString(),
+                ["metodoPagamento"] = metodoPagamento.ToString(),
                 ["tipo"] = assinatura.EstabelecimentoId.HasValue || assinatura.Estabelecimento is not null
                     ? TipoAssinatura.Estabelecimento.ToString()
                     : TipoAssinatura.ProfissionalAutonomo.ToString()
-            }),
+            },
+            MetodoPagamento: metodoPagamento),
             cancellationToken);
 
         if (!response.Sucesso)
@@ -487,7 +495,7 @@ public class AssinaturaService : IAssinaturaService
             Assinatura = assinatura,
             Gateway = assinatura.Gateway,
             GatewayPaymentId = response.GatewayPaymentId,
-            MetodoPagamento = "Checkout",
+            MetodoPagamento = metodoPagamento.ToString(),
             Status = PagamentoStatus.Pendente,
             Valor = plano.Preco,
             Moeda = "BRL"
@@ -500,6 +508,7 @@ public class AssinaturaService : IAssinaturaService
         Assinatura assinatura,
         Plano novoPlano,
         GatewayPagamento gatewayPagamento,
+        MetodoPagamentoAssinatura metodoPagamento,
         CancellationToken cancellationToken)
     {
         var gateway = _gatewayPagamentoResolver.Resolver(gatewayPagamento);
@@ -517,8 +526,10 @@ public class AssinaturaService : IAssinaturaService
                 ["assinaturaId"] = assinatura.Id.ToString(),
                 ["planoAtualId"] = assinatura.PlanoId.ToString(),
                 ["novoPlanoId"] = novoPlano.Id.ToString(),
+                ["metodoPagamento"] = metodoPagamento.ToString(),
                 ["acao"] = "TrocaPlano"
-            }),
+            },
+            MetodoPagamento: metodoPagamento),
             cancellationToken);
 
         if (!response.Sucesso)
@@ -532,7 +543,7 @@ public class AssinaturaService : IAssinaturaService
             AssinaturaId = assinatura.Id,
             Gateway = gatewayPagamento,
             GatewayPaymentId = response.GatewayPaymentId,
-            MetodoPagamento = "TrocaPlano",
+            MetodoPagamento = metodoPagamento.ToString(),
             Status = PagamentoStatus.Pendente,
             Valor = novoPlano.Preco,
             Moeda = "BRL"

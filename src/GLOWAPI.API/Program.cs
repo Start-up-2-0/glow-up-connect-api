@@ -23,6 +23,8 @@ builder.Services.Configure<AvatarOptions>(builder.Configuration.GetSection(Avata
 builder.Services.Configure<MensageriaOptions>(builder.Configuration.GetSection(MensageriaOptions.SectionName));
 builder.Services.Configure<MensageriaEmailOptions>(
     builder.Configuration.GetSection(MensageriaEmailOptions.SectionName));
+builder.Services.Configure<MercadoPagoOptions>(
+    builder.Configuration.GetSection(MercadoPagoOptions.SectionName));
 
 HostedConfigurationValidator.ValidarSeAmbienteHospedado(
     builder.Configuration,

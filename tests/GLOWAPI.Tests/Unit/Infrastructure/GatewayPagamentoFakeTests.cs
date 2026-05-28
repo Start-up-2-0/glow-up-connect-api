@@ -35,6 +35,7 @@ public class GatewayPagamentoFakeTests
         using var json = JsonDocument.Parse(response.RequestPayload);
         Assert.Equal("MercadoPago", json.RootElement.GetProperty("gateway").GetString());
         Assert.Equal("assinatura-1", json.RootElement.GetProperty("reference").GetString());
+        Assert.Equal("Cartao", json.RootElement.GetProperty("paymentMethod").GetString());
         Assert.Equal("maria@email.com", json.RootElement.GetProperty("payer").GetProperty("email").GetString());
     }
 

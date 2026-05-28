@@ -10,4 +10,8 @@ public interface IGatewayPagamento
     Task<CriarCobrancaGatewayResponse> CriarCobrancaAsync(
         CriarCobrancaGatewayRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<ConsultarPagamentoGatewayResponse> ConsultarPagamentoAsync(
+        string gatewayPaymentId,
+        CancellationToken cancellationToken = default);
 }

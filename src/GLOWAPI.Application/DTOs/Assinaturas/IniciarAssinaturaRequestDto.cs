@@ -11,4 +11,5 @@ public class IniciarAssinaturaRequestDto
     public int? ProfissionalAutonomoId { get; set; }
     public CriarProfissionalAutonomoAssinaturaDto? ProfissionalAutonomo { get; set; }
     public GatewayPagamento Gateway { get; set; } = GatewayPagamento.MercadoPago;
+    public MetodoPagamentoAssinatura MetodoPagamento { get; set; } = MetodoPagamentoAssinatura.Cartao;
 }
