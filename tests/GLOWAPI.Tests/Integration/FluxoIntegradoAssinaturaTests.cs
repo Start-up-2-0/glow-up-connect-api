@@ -186,13 +186,13 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
 
         var plano = new Plano
         {
-            Nome = $"Plano Fluxo {Guid.NewGuid():N}",
+            Nome = role == UserRole.DonoEstabelecimento ? "Premium" : "Basic",
             Descricao = "Plano para fluxo integrado",
-            Preco = 99.90m,
+            Preco = role == UserRole.DonoEstabelecimento ? 199.90m : 0m,
             Periodo = PlanoPeriodo.Mensal,
-            LimiteProfissionais = 5,
-            LimiteServicos = 20,
-            LimiteAgendamentos = 200,
+            LimiteProfissionais = role == UserRole.DonoEstabelecimento ? null : 1,
+            LimiteServicos = role == UserRole.DonoEstabelecimento ? null : 10,
+            LimiteAgendamentos = role == UserRole.DonoEstabelecimento ? null : 10,
             Ativo = true
         };
 

@@ -24,7 +24,7 @@ public class ModulosAssinaturaServiceTests
                 Plano = new Plano
                 {
                     Id = 2,
-                    Nome = "Plano Estudio",
+                    Nome = "Premium",
                     LimiteProfissionais = 5,
                     LimiteServicos = 30,
                     LimiteAgendamentos = 500
@@ -38,16 +38,22 @@ public class ModulosAssinaturaServiceTests
         Assert.True(resultado.AssinaturaAtiva);
         Assert.Equal(1, resultado.AssinaturaId);
         Assert.Equal(2, resultado.PlanoId);
-        Assert.Equal("Plano Estudio", resultado.PlanoNome);
+        Assert.Equal("Premium", resultado.PlanoNome);
         Assert.Equal("Ativa", resultado.Status);
         Assert.Equal("Estabelecimento", resultado.TipoAssinatura);
         Assert.Equal(10, resultado.EstabelecimentoId);
         Assert.Contains("Estabelecimento", resultado.Modulos);
         Assert.Contains("Profissionais", resultado.Modulos);
+        Assert.Contains("WhatsApp", resultado.Modulos);
         Assert.Contains("Caixa", resultado.Modulos);
+        Assert.Contains("Financeiro", resultado.Modulos);
+        Assert.Contains("ComissaoProfissionais", resultado.Modulos);
         Assert.Equal(5, resultado.Limites.Profissionais);
         Assert.Equal(30, resultado.Limites.Servicos);
         Assert.Equal(500, resultado.Limites.Agendamentos);
+        Assert.Null(resultado.Limites.Usuarios);
+        Assert.Null(resultado.Limites.AgendamentosPorDia);
+        Assert.True(resultado.Limites.PrioridadeListagemPublica);
     }
 
     [Fact]
@@ -109,7 +115,7 @@ public class ModulosAssinaturaServiceTests
     }
 
     [Fact]
-    public async Task ObterPorProfissionalAutonomoAsync_DeveLiberarModulosDoAutonomo_QuandoAssinaturaAtiva()
+    public async Task ObterPorProfissionalAutonomoAsync_DeveLiberarPlanoBasicDoAutonomo_QuandoAssinaturaAtiva()
     {
         _assinaturaRepository
             .Setup(r => r.ObterAtualPorProfissionalAutonomoAsync(20, It.IsAny<CancellationToken>()))
@@ -122,10 +128,10 @@ public class ModulosAssinaturaServiceTests
                 Plano = new Plano
                 {
                     Id = 4,
-                    Nome = "Plano Solo",
+                    Nome = "Basic",
                     LimiteProfissionais = 1,
                     LimiteServicos = 15,
-                    LimiteAgendamentos = 200
+                    LimiteAgendamentos = 10
                 }
             });
 
@@ -138,10 +144,20 @@ public class ModulosAssinaturaServiceTests
         Assert.Equal(20, resultado.ProfissionalAutonomoId);
         Assert.Contains("ProfissionalAutonomo", resultado.Modulos);
         Assert.Contains("Servicos", resultado.Modulos);
+        Assert.Contains("HorariosAtendimento", resultado.Modulos);
+        Assert.Contains("Notificacoes", resultado.Modulos);
+        Assert.Contains("Email", resultado.Modulos);
+        Assert.DoesNotContain("WhatsApp", resultado.Modulos);
+        Assert.DoesNotContain("Caixa", resultado.Modulos);
+        Assert.DoesNotContain("Financeiro", resultado.Modulos);
+        Assert.DoesNotContain("ComissaoProfissionais", resultado.Modulos);
         Assert.DoesNotContain("Profissionais", resultado.Modulos);
         Assert.Equal(1, resultado.Limites.Profissionais);
         Assert.Equal(15, resultado.Limites.Servicos);
-        Assert.Equal(200, resultado.Limites.Agendamentos);
+        Assert.Equal(10, resultado.Limites.Agendamentos);
+        Assert.Equal(1, resultado.Limites.Usuarios);
+        Assert.Equal(10, resultado.Limites.AgendamentosPorDia);
+        Assert.False(resultado.Limites.PrioridadeListagemPublica);
     }
 
     [Fact]
@@ -154,7 +170,7 @@ public class ModulosAssinaturaServiceTests
                 Id = 3,
                 ProfissionalAutonomoId = 20,
                 Status = AssinaturaStatus.Ativa,
-                Plano = new Plano { Id = 4, Nome = "Plano Solo" }
+                Plano = new Plano { Id = 4, Nome = "Basic" }
             });
 
         var service = CreateService();
@@ -164,6 +180,53 @@ public class ModulosAssinaturaServiceTests
             ModuloAssinatura.Agenda);
 
         Assert.True(possuiModulo);
+    }
+
+    [Fact]
+    public async Task ObterPorEstabelecimentoAsync_DeveLiberarPlanoPlusSemFinanceiro()
+    {
+        _assinaturaRepository
+            .Setup(r => r.ObterAtualPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Assinatura
+            {
+                Id = 1,
+                EstabelecimentoId = 10,
+                Status = AssinaturaStatus.Ativa,
+                Plano = new Plano { Id = 2, Nome = "Plus" }
+            });
+
+        var service = CreateService();
+
+        var resultado = await service.ObterPorEstabelecimentoAsync(10);
+
+        Assert.Contains("Profissionais", resultado.Modulos);
+        Assert.Contains("WhatsApp", resultado.Modulos);
+        Assert.DoesNotContain("Caixa", resultado.Modulos);
+        Assert.DoesNotContain("Financeiro", resultado.Modulos);
+        Assert.DoesNotContain("ComissaoProfissionais", resultado.Modulos);
+        Assert.Null(resultado.Limites.Usuarios);
+        Assert.Null(resultado.Limites.AgendamentosPorDia);
+        Assert.False(resultado.Limites.PrioridadeListagemPublica);
+    }
+
+    [Fact]
+    public async Task PossuiModuloPorEstabelecimentoAsync_DeveRetornarFalse_QuandoPlanoBasicNaoLiberaCaixa()
+    {
+        _assinaturaRepository
+            .Setup(r => r.ObterAtualPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Assinatura
+            {
+                Id = 1,
+                EstabelecimentoId = 10,
+                Status = AssinaturaStatus.Ativa,
+                Plano = new Plano { Id = 2, Nome = "Basic" }
+            });
+
+        var service = CreateService();
+
+        var possuiModulo = await service.PossuiModuloPorEstabelecimentoAsync(10, ModuloAssinatura.Caixa);
+
+        Assert.False(possuiModulo);
     }
 
     [Fact]

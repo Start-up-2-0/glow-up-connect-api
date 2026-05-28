@@ -9,5 +9,11 @@ public enum ModuloAssinatura
     Clientes = 5,
     Caixa = 6,
     Assinatura = 7,
-    ProfissionalAutonomo = 8
+    ProfissionalAutonomo = 8,
+    HorariosAtendimento = 9,
+    Notificacoes = 10,
+    Email = 11,
+    WhatsApp = 12,
+    Financeiro = 13,
+    ComissaoProfissionais = 14
 }
