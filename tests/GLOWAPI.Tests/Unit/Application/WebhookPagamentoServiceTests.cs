@@ -1,6 +1,7 @@
 using GLOWAPI.Application.DTOs.Pagamentos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Models.Pagamentos;
 using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
@@ -15,6 +16,9 @@ public class WebhookPagamentoServiceTests
     private readonly Mock<IPagamentoRepository> _pagamentoRepository = new();
     private readonly Mock<IAssinaturaRepository> _assinaturaRepository = new();
     private readonly Mock<IAssinaturaNotificacaoService> _assinaturaNotificacaoService = new();
+    private readonly Mock<IGatewayPagamentoResolver> _gatewayPagamentoResolver = new();
+    private readonly Mock<IGatewayPagamento> _gatewayPagamento = new();
+    private readonly Mock<IAssinaturaHistoricoService> _assinaturaHistoricoService = new();
 
     [Fact]
     public async Task RegistrarAsync_DeveCriarWebhook_QuandoEventoNaoExiste()
@@ -293,6 +297,67 @@ public class WebhookPagamentoServiceTests
     }
 
     [Fact]
+    public async Task RegistrarAsync_DeveConsultarGateway_QuandoWebhookMercadoPagoEnviarPaymentUpdated()
+    {
+        var assinatura = new Assinatura
+        {
+            Id = 1,
+            PlanoId = 2,
+            Status = AssinaturaStatus.PendentePagamento,
+            Plano = new Plano { Id = 2, Periodo = PlanoPeriodo.Mensal }
+        };
+        var pagamento = new Pagamento
+        {
+            Id = 30,
+            AssinaturaId = 1,
+            Assinatura = assinatura,
+            Gateway = GatewayPagamento.MercadoPago,
+            GatewayPaymentId = "123456",
+            Status = PagamentoStatus.Pendente
+        };
+
+        _repository
+            .Setup(r => r.ObterPorEventoAsync(GatewayPagamento.MercadoPago, "evt-mp-1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((WebhookPagamento?)null);
+        _repository
+            .Setup(r => r.AdicionarAsync(It.IsAny<WebhookPagamento>(), It.IsAny<CancellationToken>()))
+            .Callback<WebhookPagamento, CancellationToken>((webhook, _) => webhook.Id = 15)
+            .Returns(Task.CompletedTask);
+        _gatewayPagamentoResolver
+            .Setup(r => r.Resolver(GatewayPagamento.MercadoPago))
+            .Returns(_gatewayPagamento.Object);
+        _gatewayPagamento
+            .Setup(g => g.ConsultarPagamentoAsync("123456", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ConsultarPagamentoGatewayResponse(
+                Sucesso: true,
+                GatewayPaymentId: "123456",
+                Status: "approved",
+                ResponsePayload: "{}",
+                PagadorEmail: "cliente@email.com"));
+        _pagamentoRepository
+            .Setup(r => r.ObterPorGatewayPaymentIdAsync(GatewayPagamento.MercadoPago, "123456", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagamento);
+
+        var response = await CreateService().RegistrarAsync(new RegistrarWebhookPagamentoRequestDto
+        {
+            Gateway = GatewayPagamento.MercadoPago,
+            EventId = "evt-mp-1",
+            EventType = "payment.updated",
+            Payload = """{"action":"payment.updated","data":{"id":"123456"}}"""
+        });
+
+        Assert.True(response.Processado);
+        Assert.Equal(PagamentoStatus.Pago, pagamento.Status);
+        Assert.Equal(AssinaturaStatus.Ativa, assinatura.Status);
+        _gatewayPagamento.Verify(g => g.ConsultarPagamentoAsync("123456", It.IsAny<CancellationToken>()), Times.Once);
+        _assinaturaNotificacaoService.Verify(n => n.PagamentoConfirmadoAsync(
+            assinatura,
+            pagamento,
+            "cliente@email.com",
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task RegistrarAsync_DeveCancelarAssinatura_QuandoEventoForCancelamento()
     {
         var assinatura = new Assinatura
@@ -391,5 +456,7 @@ public class WebhookPagamentoServiceTests
             _repository.Object,
             _pagamentoRepository.Object,
             _assinaturaRepository.Object,
-            _assinaturaNotificacaoService.Object);
+            _assinaturaNotificacaoService.Object,
+            _gatewayPagamentoResolver.Object,
+            _assinaturaHistoricoService.Object);
 }

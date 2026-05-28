@@ -44,6 +44,24 @@ public class GatewayPagamentoFake : IGatewayPagamento
             CheckoutUrl: $"https://checkout.fake.glowupconnect.local/{gatewayPaymentId}",
             QrCode: string.Empty,
             RequestPayload: requestPayload,
+            ResponsePayload: responsePayload,
+            MetodoPagamento: request.PagamentoTransparente?.PaymentMethodId ?? "fake"));
+    }
+
+    public Task<ConsultarPagamentoGatewayResponse> ConsultarPagamentoAsync(
+        string gatewayPaymentId,
+        CancellationToken cancellationToken = default)
+    {
+        var responsePayload = JsonSerializer.Serialize(new
+        {
+            id = gatewayPaymentId,
+            status = "approved"
+        }, JsonOptions);
+
+        return Task.FromResult(new ConsultarPagamentoGatewayResponse(
+            Sucesso: true,
+            GatewayPaymentId: gatewayPaymentId,
+            Status: "approved",
             ResponsePayload: responsePayload));
     }
 
@@ -55,6 +73,7 @@ public class GatewayPagamentoFake : IGatewayPagamento
             description = request.Descricao,
             amount = request.Valor,
             currency = request.Moeda,
+            paymentMethod = request.PagamentoTransparente?.PaymentMethodId ?? "fake",
             payer = new
             {
                 name = request.PagadorNome,

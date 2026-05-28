@@ -44,7 +44,8 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.Estabelecimento,
-            estabelecimentoId = seed.EstabelecimentoId
+            estabelecimentoId = seed.EstabelecimentoId,
+            pagamento = PagamentoValido()
         });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -80,6 +81,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.Estabelecimento,
+            pagamento = PagamentoValido(),
             estabelecimento = new
             {
                 nome = "Studio Glow",
@@ -145,6 +147,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+            pagamento = PagamentoValido(),
             profissionalAutonomo = new
             {
                 nomePublico = "Maria Glow",
@@ -312,4 +315,9 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         var token = loginBody.GetProperty("data").GetProperty("token").GetString();
         client.DefaultRequestHeaders.Add("x-glow-token", token);
     }
+
+    private static object PagamentoValido() => new
+    {
+        paymentMethodId = "pix"
+    };
 }

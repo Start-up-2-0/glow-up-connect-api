@@ -26,4 +26,6 @@ public class Assinatura
     public Estabelecimento? Estabelecimento { get; set; }
     public Profissional? ProfissionalAutonomo { get; set; }
     public ICollection<Pagamento> Pagamentos { get; set; } = new List<Pagamento>();
+    public ICollection<AssinaturaHistorico> Historicos { get; set; } = new List<AssinaturaHistorico>();
+    public ICollection<AssinaturaRecorrenciaHistorico> RecorrenciasHistorico { get; set; } = new List<AssinaturaRecorrenciaHistorico>();
 }

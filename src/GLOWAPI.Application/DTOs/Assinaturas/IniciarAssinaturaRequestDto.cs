@@ -1,4 +1,5 @@
 using GLOWAPI.Domain.Enums;
+using GLOWAPI.Application.DTOs.Pagamentos;
 
 namespace GLOWAPI.Application.DTOs.Assinaturas;
 
@@ -11,4 +12,5 @@ public class IniciarAssinaturaRequestDto
     public int? ProfissionalAutonomoId { get; set; }
     public CriarProfissionalAutonomoAssinaturaDto? ProfissionalAutonomo { get; set; }
     public GatewayPagamento Gateway { get; set; } = GatewayPagamento.MercadoPago;
+    public PagamentoTransparenteMercadoPagoDto? Pagamento { get; set; }
 }

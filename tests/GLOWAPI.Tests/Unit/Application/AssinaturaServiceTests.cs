@@ -1,4 +1,5 @@
 using GLOWAPI.Application.DTOs.Assinaturas;
+using GLOWAPI.Application.DTOs.Pagamentos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Pagamentos;
@@ -22,6 +23,7 @@ public class AssinaturaServiceTests
     private readonly Mock<IGatewayPagamento> _gatewayPagamento = new();
     private readonly Mock<ICurrentUserContext> _currentUser = new();
     private readonly Mock<IAssinaturaNotificacaoService> _assinaturaNotificacaoService = new();
+    private readonly Mock<IAssinaturaHistoricoService> _assinaturaHistoricoService = new();
 
     public AssinaturaServiceTests()
     {
@@ -85,7 +87,8 @@ public class AssinaturaServiceTests
         {
             PlanoId = 1,
             TipoAssinatura = TipoAssinatura.Estabelecimento,
-            EstabelecimentoId = 20
+            EstabelecimentoId = 20,
+            Pagamento = PagamentoValido()
         });
 
         Assert.Equal(30, response.Id);
@@ -145,6 +148,7 @@ public class AssinaturaServiceTests
         {
             PlanoId = 1,
             TipoAssinatura = TipoAssinatura.Estabelecimento,
+            Pagamento = PagamentoValido(),
             Estabelecimento = new CriarEstabelecimentoAssinaturaDto
             {
                 Nome = " Studio Glow ",
@@ -242,6 +246,7 @@ public class AssinaturaServiceTests
         {
             PlanoId = 1,
             TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+            Pagamento = PagamentoValido(),
             ProfissionalAutonomo = new CriarProfissionalAutonomoAssinaturaDto
             {
                 NomePublico = " Maria Glow ",
@@ -317,6 +322,7 @@ public class AssinaturaServiceTests
         {
             PlanoId = 1,
             TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+            Pagamento = PagamentoValido(),
             ProfissionalAutonomo = new CriarProfissionalAutonomoAssinaturaDto
             {
                 NomePublico = "Novo nome",
@@ -412,9 +418,53 @@ public class AssinaturaServiceTests
             {
                 PlanoId = 1,
                 TipoAssinatura = TipoAssinatura.Estabelecimento,
+                EstabelecimentoId = 20,
+                Pagamento = PagamentoValido()
+            }));
+
+        _assinaturaRepository.Verify(r => r.AdicionarAsync(It.IsAny<Assinatura>(), It.IsAny<CancellationToken>()), Times.Never);
+        _pagamentoRepository.Verify(r => r.AdicionarAsync(It.IsAny<Pagamento>(), It.IsAny<CancellationToken>()), Times.Never);
+        _assinaturaRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task IniciarAsync_DeveLancarExcecao_ENaoChamarGateway_QuandoPagamentoMercadoPagoNaoForInformado()
+    {
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Plano
+            {
+                Id = 1,
+                Nome = "Plano Pro",
+                Preco = 99.90m,
+                Ativo = true
+            });
+
+        _estabelecimentoRepository
+            .Setup(r => r.ObterPorIdAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Estabelecimento { Id = 20, Ativo = true });
+
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+
+        _assinaturaRepository
+            .Setup(r => r.ExisteAtivaOuPendentePorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<PagamentoAssinaturaInvalidoException>(() =>
+            service.IniciarAsync(new IniciarAssinaturaRequestDto
+            {
+                PlanoId = 1,
+                TipoAssinatura = TipoAssinatura.Estabelecimento,
                 EstabelecimentoId = 20
             }));
 
+        _gatewayPagamento.Verify(g => g.CriarCobrancaAsync(
+            It.IsAny<CriarCobrancaGatewayRequest>(),
+            It.IsAny<CancellationToken>()), Times.Never);
         _assinaturaRepository.Verify(r => r.AdicionarAsync(It.IsAny<Assinatura>(), It.IsAny<CancellationToken>()), Times.Never);
         _pagamentoRepository.Verify(r => r.AdicionarAsync(It.IsAny<Pagamento>(), It.IsAny<CancellationToken>()), Times.Never);
         _assinaturaRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -568,7 +618,8 @@ public class AssinaturaServiceTests
 
         var response = await service.TrocarPlanoAsync(30, new TrocarPlanoAssinaturaRequestDto
         {
-            NovoPlanoId = 2
+            NovoPlanoId = 2,
+            Pagamento = PagamentoValido()
         });
 
         Assert.Equal(30, response.Id);
@@ -581,7 +632,7 @@ public class AssinaturaServiceTests
 
         Assert.NotNull(pagamentoCriado);
         Assert.Equal(30, pagamentoCriado!.AssinaturaId);
-        Assert.Equal("TrocaPlano", pagamentoCriado.MetodoPagamento);
+        Assert.Equal("Checkout", pagamentoCriado.MetodoPagamento);
         Assert.Equal(PagamentoStatus.Pendente, pagamentoCriado.Status);
         Assert.Equal(2, assinatura.PlanoAlteracaoPendenteId);
         Assert.Equal(1, assinatura.PlanoId);
@@ -815,5 +866,12 @@ public class AssinaturaServiceTests
             _pagamentoRepository.Object,
             _gatewayPagamentoResolver.Object,
             _currentUser.Object,
-            _assinaturaNotificacaoService.Object);
+            _assinaturaNotificacaoService.Object,
+            _assinaturaHistoricoService.Object);
+
+    private static PagamentoTransparenteMercadoPagoDto PagamentoValido() =>
+        new()
+        {
+            PaymentMethodId = "pix"
+        };
 }

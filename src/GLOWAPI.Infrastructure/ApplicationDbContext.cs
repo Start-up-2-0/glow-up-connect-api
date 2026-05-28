@@ -25,7 +25,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<Caixa> Caixas { get; set; }
     public DbSet<Plano> Planos { get; set; }
     public DbSet<Assinatura> Assinaturas { get; set; }
+    public DbSet<AssinaturaHistorico> AssinaturasHistorico { get; set; }
+    public DbSet<AssinaturaRecorrenciaHistorico> AssinaturasRecorrenciasHistorico { get; set; }
     public DbSet<Pagamento> Pagamentos { get; set; }
+    public DbSet<PagamentoHistorico> PagamentosHistorico { get; set; }
     public DbSet<LancamentoCaixa> LancamentosCaixa { get; set; }
     public DbSet<WebhookPagamento> WebhookPagamentos { get; set; }
     public DbSet<ComissaoProfissional> ComissoesProfissional { get; set; }

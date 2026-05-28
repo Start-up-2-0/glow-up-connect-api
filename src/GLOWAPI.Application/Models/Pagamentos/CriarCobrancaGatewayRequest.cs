@@ -11,4 +11,5 @@ public record CriarCobrancaGatewayRequest(
     string PagadorNome,
     string PagadorEmail,
     DateTime? ExpiraEm = null,
-    IReadOnlyDictionary<string, string>? Metadados = null);
+    IReadOnlyDictionary<string, string>? Metadados = null,
+    PagamentoTransparenteGatewayRequest? PagamentoTransparente = null);

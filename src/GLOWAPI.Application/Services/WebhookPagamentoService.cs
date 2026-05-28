@@ -14,17 +14,23 @@ public class WebhookPagamentoService : IWebhookPagamentoService
     private readonly IPagamentoRepository _pagamentoRepository;
     private readonly IAssinaturaRepository _assinaturaRepository;
     private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
+    private readonly IGatewayPagamentoResolver _gatewayPagamentoResolver;
+    private readonly IAssinaturaHistoricoService _assinaturaHistoricoService;
 
     public WebhookPagamentoService(
         IWebhookPagamentoRepository webhookPagamentoRepository,
         IPagamentoRepository pagamentoRepository,
         IAssinaturaRepository assinaturaRepository,
-        IAssinaturaNotificacaoService assinaturaNotificacaoService)
+        IAssinaturaNotificacaoService assinaturaNotificacaoService,
+        IGatewayPagamentoResolver gatewayPagamentoResolver,
+        IAssinaturaHistoricoService assinaturaHistoricoService)
     {
         _webhookPagamentoRepository = webhookPagamentoRepository;
         _pagamentoRepository = pagamentoRepository;
         _assinaturaRepository = assinaturaRepository;
         _assinaturaNotificacaoService = assinaturaNotificacaoService;
+        _gatewayPagamentoResolver = gatewayPagamentoResolver;
+        _assinaturaHistoricoService = assinaturaHistoricoService;
     }
 
     public async Task<WebhookPagamentoResponseDto> RegistrarAsync(
@@ -116,6 +122,12 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return;
         }
 
+        if (EventoPagamentoParaConsultaNoGateway(webhook.EventType))
+        {
+            await ProcessarPagamentoConsultandoGatewayAsync(webhook, cancellationToken);
+            return;
+        }
+
         if (!EventoPagamentoAprovado(webhook.EventType))
         {
             return;
@@ -146,13 +158,23 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return;
         }
 
+        var statusPagamentoAnterior = pagamento.Status;
         pagamento.Status = PagamentoStatus.Pago;
         pagamento.PagoEm = DateTime.UtcNow;
         pagamento.UpdatedAt = DateTime.UtcNow;
         _pagamentoRepository.Atualizar(pagamento);
+        await _assinaturaHistoricoService.RegistrarPagamentoAsync(
+            pagamento,
+            "PagamentoAprovado",
+            statusPagamentoAnterior,
+            pagamento.Status,
+            "Pagamento aprovado pelo gateway.",
+            webhook.Payload,
+            cancellationToken);
 
         if (pagamento.Assinatura is not null)
         {
+            var statusAssinaturaAnterior = pagamento.Assinatura.Status;
             if (pagamento.Assinatura.PlanoAlteracaoPendenteId.HasValue)
             {
                 pagamento.Assinatura.PlanoId = pagamento.Assinatura.PlanoAlteracaoPendenteId.Value;
@@ -167,6 +189,26 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             pagamento.Assinatura.UltimoPagamentoId = pagamento.Id;
             pagamento.Assinatura.UpdatedAt = DateTime.UtcNow;
 
+            await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+                pagamento.Assinatura,
+                "AssinaturaAtivadaPorPagamento",
+                statusAssinaturaAnterior,
+                pagamento.Assinatura.Status,
+                pagamento,
+                "Assinatura liberada apos pagamento aprovado.",
+                webhook.Payload,
+                cancellationToken);
+            await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
+                pagamento.Assinatura,
+                "RecorrenciaLiberada",
+                "Ativa",
+                pagamento,
+                pagamento.Assinatura.Inicio,
+                pagamento.Assinatura.Fim,
+                "Ciclo liberado apos pagamento aprovado.",
+                webhook.Payload,
+                cancellationToken);
+
             await _assinaturaNotificacaoService.PagamentoConfirmadoAsync(
                 pagamento.Assinatura,
                 pagamento,
@@ -176,6 +218,53 @@ public class WebhookPagamentoService : IWebhookPagamentoService
 
         webhook.Processado = true;
         webhook.ProcessadoEm = DateTime.UtcNow;
+    }
+
+    private async Task ProcessarPagamentoConsultandoGatewayAsync(
+        WebhookPagamento webhook,
+        CancellationToken cancellationToken)
+    {
+        var gatewayPaymentId = ExtrairGatewayPaymentId(webhook.Payload);
+        if (string.IsNullOrWhiteSpace(gatewayPaymentId))
+        {
+            webhook.ErroProcessamento = "Payload nao contem gatewayPaymentId.";
+            return;
+        }
+
+        var gateway = _gatewayPagamentoResolver.Resolver(webhook.Gateway);
+        var consulta = await gateway.ConsultarPagamentoAsync(gatewayPaymentId, cancellationToken);
+        if (!consulta.Sucesso)
+        {
+            webhook.ErroProcessamento = consulta.MensagemErro ?? "Nao foi possivel consultar pagamento no gateway.";
+            return;
+        }
+
+        var eventType = ConverterStatusGatewayParaEvento(consulta.Status);
+        if (eventType is null)
+        {
+            webhook.Processado = true;
+            webhook.ProcessadoEm = DateTime.UtcNow;
+            return;
+        }
+
+        var payloadNormalizado = JsonSerializer.Serialize(new
+        {
+            gatewayPaymentId = consulta.GatewayPaymentId,
+            email = consulta.PagadorEmail
+        });
+        var webhookNormalizado = new WebhookPagamento
+        {
+            Gateway = webhook.Gateway,
+            EventId = webhook.EventId,
+            EventType = eventType,
+            Payload = payloadNormalizado
+        };
+
+        await ProcessarAsync(webhookNormalizado, cancellationToken);
+
+        webhook.Processado = webhookNormalizado.Processado;
+        webhook.ProcessadoEm = webhookNormalizado.ProcessadoEm;
+        webhook.ErroProcessamento = webhookNormalizado.ErroProcessamento;
     }
 
     private async Task ProcessarCancelamentoOuSuspensaoAsync(
@@ -198,6 +287,7 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return;
         }
 
+        var statusAnterior = assinatura.Status;
         assinatura.Status = novoStatus;
         assinatura.RenovacaoAutomatica = false;
         assinatura.PlanoAlteracaoPendenteId = null;
@@ -210,6 +300,23 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         }
 
         _assinaturaRepository.Atualizar(assinatura);
+        await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+            assinatura,
+            novoStatus == AssinaturaStatus.Cancelada ? "AssinaturaCanceladaPorWebhook" : "AssinaturaSuspensaPorWebhook",
+            statusAnterior,
+            assinatura.Status,
+            observacao: "Status alterado por webhook do gateway.",
+            payloadJson: webhook.Payload,
+            cancellationToken: cancellationToken);
+        await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
+            assinatura,
+            novoStatus == AssinaturaStatus.Cancelada ? "RecorrenciaCanceladaPorWebhook" : "RecorrenciaSuspensaPorWebhook",
+            novoStatus.ToString(),
+            cicloInicio: assinatura.Inicio,
+            cicloFim: assinatura.Fim,
+            observacao: "Recorrencia alterada por webhook do gateway.",
+            payloadJson: webhook.Payload,
+            cancellationToken: cancellationToken);
 
         if (novoStatus == AssinaturaStatus.Cancelada)
         {
@@ -252,9 +359,31 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return;
         }
 
+        var statusAnterior = pagamento.Status;
         pagamento.Status = ObterStatusPagamentoNaoAprovado(webhook.EventType);
         pagamento.UpdatedAt = DateTime.UtcNow;
         _pagamentoRepository.Atualizar(pagamento);
+        await _assinaturaHistoricoService.RegistrarPagamentoAsync(
+            pagamento,
+            "PagamentoNaoAprovado",
+            statusAnterior,
+            pagamento.Status,
+            "Pagamento nao aprovado pelo gateway.",
+            webhook.Payload,
+            cancellationToken);
+        if (pagamento.Assinatura is not null)
+        {
+            await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
+                pagamento.Assinatura,
+                "RecorrenciaPagamentoNaoAprovado",
+                pagamento.Status.ToString(),
+                pagamento,
+                pagamento.Assinatura.Inicio,
+                pagamento.Assinatura.Fim,
+                "Ciclo aguardando regularizacao de pagamento.",
+                webhook.Payload,
+                cancellationToken);
+        }
 
         await _assinaturaNotificacaoService.PagamentoRecusadoAsync(
             pagamento,
@@ -313,6 +442,22 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         || eventType.Equals("payment.canceled", StringComparison.OrdinalIgnoreCase)
         || eventType.Equals("payment.expired", StringComparison.OrdinalIgnoreCase);
 
+    private static bool EventoPagamentoParaConsultaNoGateway(string eventType) =>
+        eventType.Equals("payment", StringComparison.OrdinalIgnoreCase)
+        || eventType.Equals("payment.created", StringComparison.OrdinalIgnoreCase)
+        || eventType.Equals("payment.updated", StringComparison.OrdinalIgnoreCase)
+        || eventType.Equals("payment.updated_webhook", StringComparison.OrdinalIgnoreCase);
+
+    private static string? ConverterStatusGatewayParaEvento(string status) =>
+        status.ToLowerInvariant() switch
+        {
+            "approved" or "accredited" => "payment.approved",
+            "rejected" => "payment.rejected",
+            "cancelled" or "canceled" => "payment.canceled",
+            "expired" => "payment.expired",
+            _ => null
+        };
+
     private static PagamentoStatus ObterStatusPagamentoNaoAprovado(string eventType)
     {
         if (eventType.Equals("payment.cancelled", StringComparison.OrdinalIgnoreCase)
@@ -346,16 +491,16 @@ public class WebhookPagamentoService : IWebhookPagamentoService
                 return paymentId;
             }
 
-            if (TryGetString(root, "id", out var id))
-            {
-                return id;
-            }
-
             if (root.TryGetProperty("data", out var data)
                 && data.ValueKind == JsonValueKind.Object
                 && TryGetString(data, "id", out var dataId))
             {
                 return dataId;
+            }
+
+            if (TryGetString(root, "id", out var id))
+            {
+                return id;
             }
         }
         catch (JsonException)
@@ -443,12 +588,17 @@ public class WebhookPagamentoService : IWebhookPagamentoService
     private static bool TryGetString(JsonElement element, string propertyName, out string? value)
     {
         value = null;
-        if (!element.TryGetProperty(propertyName, out var property) || property.ValueKind != JsonValueKind.String)
+        if (!element.TryGetProperty(propertyName, out var property))
         {
             return false;
         }
 
-        value = property.GetString();
+        value = property.ValueKind switch
+        {
+            JsonValueKind.String => property.GetString(),
+            JsonValueKind.Number => property.GetRawText(),
+            _ => null
+        };
         return !string.IsNullOrWhiteSpace(value);
     }
 

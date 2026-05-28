@@ -7,7 +7,8 @@ public record CriarCobrancaGatewayResponse(
     string QrCode,
     string RequestPayload,
     string ResponsePayload,
-    string? MensagemErro = null)
+    string? MensagemErro = null,
+    string MetodoPagamento = "Checkout")
 {
     public static CriarCobrancaGatewayResponse Falha(
         string requestPayload,

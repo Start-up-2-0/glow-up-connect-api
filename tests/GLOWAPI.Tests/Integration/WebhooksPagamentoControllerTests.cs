@@ -95,15 +95,15 @@ public class WebhooksPagamentoControllerTests : IClassFixture<GlowApiWebApplicat
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-        Assert.True(body.GetProperty("data").GetProperty("processado").GetBoolean());
-
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var webhook = db.WebhookPagamentos.Single(item => item.EventId == "evt-aprovado-integracao");
 
         var pagamento = await db.Pagamentos.FindAsync(seed.PagamentoId);
         Assert.NotNull(pagamento);
         Assert.Equal(PagamentoStatus.Pago, pagamento!.Status);
+        Assert.True(webhook.Processado);
         Assert.NotNull(pagamento.PagoEm);
 
         var assinatura = await db.Assinaturas.FindAsync(seed.AssinaturaId);
@@ -111,6 +111,39 @@ public class WebhooksPagamentoControllerTests : IClassFixture<GlowApiWebApplicat
         Assert.Equal(AssinaturaStatus.Ativa, assinatura!.Status);
         Assert.Equal(seed.PagamentoId, assinatura.UltimoPagamentoId);
         Assert.NotNull(assinatura.Fim);
+    }
+
+    [Fact]
+    public async Task RegistrarMercadoPago_DeveAtivarAssinatura_QuandoPagamentoConsultadoForAprovado()
+    {
+        var seed = await SeedPagamentoAssinaturaPendenteAsync();
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/webhooks/pagamentos/mercado-pago", new
+        {
+            id = "evt-mp-integracao",
+            action = "payment.updated",
+            data = new
+            {
+                id = seed.GatewayPaymentId
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var webhook = db.WebhookPagamentos.Single(item => item.EventId == "evt-mp-integracao");
+        Assert.Equal("payment.updated", webhook.EventType);
+        Assert.True(webhook.Processado);
+
+        var pagamento = await db.Pagamentos.FindAsync(seed.PagamentoId);
+        Assert.NotNull(pagamento);
+        Assert.Equal(PagamentoStatus.Pago, pagamento!.Status);
+
+        var assinatura = await db.Assinaturas.FindAsync(seed.AssinaturaId);
+        Assert.NotNull(assinatura);
+        Assert.Equal(AssinaturaStatus.Ativa, assinatura!.Status);
     }
 
     private async Task LimparWebhooksAsync()
