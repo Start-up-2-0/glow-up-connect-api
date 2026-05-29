@@ -155,6 +155,45 @@ public class GatewayPagamentoMercadoPagoTests
     }
 
     [Fact]
+    public async Task CriarCobrancaAsync_DeveRetornarFalha_QuandoMercadoPagoRecusarPagamento()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Created)
+        {
+            Content = new StringContent(
+                """
+                {
+                  "id": 123456,
+                  "status": "rejected",
+                  "status_detail": "cc_rejected_insufficient_amount"
+                }
+                """,
+                Encoding.UTF8,
+                "application/json")
+        });
+        var gateway = CriarGateway(handler, new MercadoPagoOptions
+        {
+            AccessToken = "TEST-123",
+            ApiBaseUrl = "https://api.mercadopago.com"
+        });
+
+        var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
+            Gateway: GatewayPagamento.MercadoPago,
+            ReferenciaInterna: "assinatura-abc",
+            Descricao: "Assinatura Premium",
+            Valor: 199.90m,
+            Moeda: "BRL",
+            PagadorNome: "Maria",
+            PagadorEmail: "maria@email.com",
+            PagamentoTransparente: new PagamentoTransparenteGatewayRequest("master")));
+
+        Assert.False(response.Sucesso);
+        Assert.Equal(string.Empty, response.GatewayPaymentId);
+        Assert.Contains("Pagamento recusado pelo Mercado Pago", response.MensagemErro);
+        Assert.Contains("cc_rejected_insufficient_amount", response.MensagemErro);
+        Assert.Contains("\"status\": \"rejected\"", response.ResponsePayload);
+    }
+
+    [Fact]
     public async Task CriarCobrancaAsync_DeveRetornarFalha_QuandoMercadoPagoRetornarErro()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.BadRequest)
