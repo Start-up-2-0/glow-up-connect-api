@@ -14,12 +14,6 @@ public class ModulosAssinaturaService : IModulosAssinaturaService
         ModuloAssinatura.Assinatura
     ];
 
-    private static readonly IReadOnlyList<ModuloAssinatura> ModulosProfissionalAutonomo =
-    [
-        ModuloAssinatura.ProfissionalAutonomo,
-        ModuloAssinatura.Assinatura
-    ];
-
     private readonly IAssinaturaRepository _assinaturaRepository;
 
     public ModulosAssinaturaService(IAssinaturaRepository assinaturaRepository)
@@ -38,32 +32,12 @@ public class ModulosAssinaturaService : IModulosAssinaturaService
         return CriarResposta(assinatura, ModulosEstabelecimento);
     }
 
-    public async Task<ModulosAssinaturaResponseDto> ObterPorProfissionalAutonomoAsync(
-        int profissionalId,
-        CancellationToken cancellationToken = default)
-    {
-        var assinatura = await _assinaturaRepository.ObterAtualPorProfissionalAutonomoAsync(
-            profissionalId,
-            cancellationToken);
-
-        return CriarResposta(assinatura, ModulosProfissionalAutonomo);
-    }
-
     public async Task<bool> PossuiModuloPorEstabelecimentoAsync(
         int estabelecimentoId,
         ModuloAssinatura modulo,
         CancellationToken cancellationToken = default)
     {
         var modulos = await ObterPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
-        return modulos.AssinaturaAtiva && modulos.Modulos.Contains(modulo.ToString());
-    }
-
-    public async Task<bool> PossuiModuloPorProfissionalAutonomoAsync(
-        int profissionalId,
-        ModuloAssinatura modulo,
-        CancellationToken cancellationToken = default)
-    {
-        var modulos = await ObterPorProfissionalAutonomoAsync(profissionalId, cancellationToken);
         return modulos.AssinaturaAtiva && modulos.Modulos.Contains(modulo.ToString());
     }
 

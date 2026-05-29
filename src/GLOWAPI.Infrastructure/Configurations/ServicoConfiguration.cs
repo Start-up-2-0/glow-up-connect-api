@@ -8,12 +8,7 @@ public class ServicoConfiguration : IEntityTypeConfiguration<Servico>
 {
     public void Configure(EntityTypeBuilder<Servico> builder)
     {
-        builder.ToTable("Servicos", table =>
-        {
-            table.HasCheckConstraint(
-                "CK_Servicos_Titular",
-                """(("EstabelecimentoId" IS NOT NULL AND "ProfissionalAutonomoId" IS NULL) OR ("EstabelecimentoId" IS NULL AND "ProfissionalAutonomoId" IS NOT NULL))""");
-        });
+        builder.ToTable("Servicos");
 
         builder.HasKey(servico => servico.Id);
 
@@ -44,13 +39,6 @@ public class ServicoConfiguration : IEntityTypeConfiguration<Servico>
             .HasForeignKey(servico => servico.EstabelecimentoId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(servico => servico.ProfissionalAutonomo)
-            .WithMany(profissional => profissional.ServicosAutonomo)
-            .HasForeignKey(servico => servico.ProfissionalAutonomoId)
-            .OnDelete(DeleteBehavior.Restrict);
-
         builder.HasIndex(servico => servico.EstabelecimentoId);
-
-        builder.HasIndex(servico => servico.ProfissionalAutonomoId);
     }
 }

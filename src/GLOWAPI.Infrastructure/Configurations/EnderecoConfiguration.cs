@@ -8,12 +8,7 @@ public class EnderecoConfiguration : IEntityTypeConfiguration<Endereco>
 {
     public void Configure(EntityTypeBuilder<Endereco> builder)
     {
-        builder.ToTable("Enderecos", table =>
-        {
-            table.HasCheckConstraint(
-                "CK_Enderecos_Titular",
-                """(("EstabelecimentoId" IS NOT NULL AND "ProfissionalAutonomoId" IS NULL) OR ("EstabelecimentoId" IS NULL AND "ProfissionalAutonomoId" IS NOT NULL))""");
-        });
+        builder.ToTable("Enderecos");
 
         builder.HasKey(endereco => endereco.Id);
 
@@ -54,15 +49,7 @@ public class EnderecoConfiguration : IEntityTypeConfiguration<Endereco>
             .HasForeignKey<Endereco>(endereco => endereco.EstabelecimentoId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(endereco => endereco.ProfissionalAutonomo)
-            .WithOne(profissional => profissional.Endereco)
-            .HasForeignKey<Endereco>(endereco => endereco.ProfissionalAutonomoId)
-            .OnDelete(DeleteBehavior.Restrict);
-
         builder.HasIndex(endereco => endereco.EstabelecimentoId)
-            .IsUnique();
-
-        builder.HasIndex(endereco => endereco.ProfissionalAutonomoId)
             .IsUnique();
     }
 }

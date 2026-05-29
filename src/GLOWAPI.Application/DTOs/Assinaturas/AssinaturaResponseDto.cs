@@ -22,7 +22,7 @@ public record AssinaturaResponseDto(
             assinatura.PlanoId,
             assinatura.PlanoAlteracaoPendenteId,
             assinatura.EstabelecimentoId,
-            assinatura.ProfissionalAutonomoId,
+            null,
             assinatura.Status.ToString(),
             assinatura.Gateway.ToString(),
             assinatura.Inicio,

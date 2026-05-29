@@ -17,6 +17,7 @@ public class AssinaturaService : IAssinaturaService
     private readonly IEstabelecimentoRepository _estabelecimentoRepository;
     private readonly IEstabelecimentoUsuarioRepository _estabelecimentoUsuarioRepository;
     private readonly IProfissionalRepository _profissionalRepository;
+    private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
     private readonly IPagamentoRepository _pagamentoRepository;
     private readonly IGatewayPagamentoResolver _gatewayPagamentoResolver;
     private readonly ICurrentUserContext _currentUser;
@@ -29,6 +30,7 @@ public class AssinaturaService : IAssinaturaService
         IEstabelecimentoRepository estabelecimentoRepository,
         IEstabelecimentoUsuarioRepository estabelecimentoUsuarioRepository,
         IProfissionalRepository profissionalRepository,
+        IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
         IPagamentoRepository pagamentoRepository,
         IGatewayPagamentoResolver gatewayPagamentoResolver,
         ICurrentUserContext currentUser,
@@ -40,6 +42,7 @@ public class AssinaturaService : IAssinaturaService
         _estabelecimentoRepository = estabelecimentoRepository;
         _estabelecimentoUsuarioRepository = estabelecimentoUsuarioRepository;
         _profissionalRepository = profissionalRepository;
+        _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
         _pagamentoRepository = pagamentoRepository;
         _gatewayPagamentoResolver = gatewayPagamentoResolver;
         _currentUser = currentUser;
@@ -106,11 +109,6 @@ public class AssinaturaService : IAssinaturaService
         if (assinatura.Estabelecimento is not null && !assinatura.EstabelecimentoId.HasValue)
         {
             assinatura.EstabelecimentoId = assinatura.Estabelecimento.Id;
-        }
-
-        if (assinatura.ProfissionalAutonomo is not null && !assinatura.ProfissionalAutonomoId.HasValue)
-        {
-            assinatura.ProfissionalAutonomoId = assinatura.ProfissionalAutonomo.Id;
         }
 
         if (!pagamentoInicial.Pagamento.AssinaturaId.HasValue)
@@ -334,7 +332,7 @@ public class AssinaturaService : IAssinaturaService
     {
         if (request.ProfissionalAutonomo is not null)
         {
-            return await CriarParaNovoOuExistenteProfissionalAutonomoAsync(request, userId, cancellationToken);
+            return await CriarTenantParaNovoOuExistenteProfissionalAutonomoAsync(request, userId, cancellationToken);
         }
 
         var profissionalId = request.ProfissionalAutonomoId!.Value;
@@ -349,18 +347,42 @@ public class AssinaturaService : IAssinaturaService
             throw new UsuarioSemPermissaoAssinaturaException();
         }
 
-        if (await _assinaturaRepository.ExisteAtivaOuPendentePorProfissionalAutonomoAsync(profissionalId, cancellationToken))
+        var vinculo = await _profissionalEstabelecimentoRepository.ObterAtivoPorProfissionalAsync(
+            profissionalId,
+            cancellationToken);
+
+        Estabelecimento estabelecimento;
+        if (vinculo?.Estabelecimento is not null)
+        {
+            estabelecimento = vinculo.Estabelecimento;
+        }
+        else
+        {
+            estabelecimento = CriarEstabelecimentoParaProfissionalAutonomo(profissional);
+            await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
+            await CriarVinculosTenantProfissionalAutonomoAsync(
+                estabelecimento,
+                profissional,
+                userId,
+                cancellationToken);
+        }
+
+        if (await _assinaturaRepository.ExisteAtivaOuPendentePorEstabelecimentoAsync(estabelecimento.Id, cancellationToken))
         {
             throw new AssinaturaDuplicadaException();
         }
 
         var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
-        assinatura.ProfissionalAutonomoId = profissionalId;
+        assinatura.Estabelecimento = estabelecimento;
+        if (estabelecimento.Id > 0)
+        {
+            assinatura.EstabelecimentoId = estabelecimento.Id;
+        }
 
         return assinatura;
     }
 
-    private async Task<Assinatura> CriarParaNovoOuExistenteProfissionalAutonomoAsync(
+    private async Task<Assinatura> CriarTenantParaNovoOuExistenteProfissionalAutonomoAsync(
         IniciarAssinaturaRequestDto request,
         int userId,
         CancellationToken cancellationToken)
@@ -374,19 +396,64 @@ public class AssinaturaService : IAssinaturaService
         else
         {
             ValidarPerfilProfissionalAutonomoExistente(profissional);
-            if (await _assinaturaRepository.ExisteAtivaOuPendentePorProfissionalAutonomoAsync(profissional.Id, cancellationToken))
-            {
-                throw new AssinaturaDuplicadaException();
-            }
 
             AtualizarProfissionalAutonomo(profissional, request.ProfissionalAutonomo!);
             _profissionalRepository.Atualizar(profissional);
         }
 
+        var vinculo = await _profissionalEstabelecimentoRepository.ObterAtivoPorProfissionalAsync(
+            profissional.Id,
+            cancellationToken);
+        var estabelecimento = vinculo?.Estabelecimento;
+
+        if (estabelecimento is not null)
+        {
+            if (await _assinaturaRepository.ExisteAtivaOuPendentePorEstabelecimentoAsync(estabelecimento.Id, cancellationToken))
+            {
+                throw new AssinaturaDuplicadaException();
+            }
+
+            AtualizarEstabelecimentoAutonomo(estabelecimento, request.ProfissionalAutonomo!);
+            _estabelecimentoRepository.Atualizar(estabelecimento);
+        }
+        else
+        {
+            estabelecimento = CriarEstabelecimentoParaProfissionalAutonomo(request.ProfissionalAutonomo!);
+            await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
+            await CriarVinculosTenantProfissionalAutonomoAsync(
+                estabelecimento,
+                profissional,
+                userId,
+                cancellationToken);
+        }
+
         var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
-        assinatura.ProfissionalAutonomo = profissional;
+        assinatura.Estabelecimento = estabelecimento;
 
         return assinatura;
+    }
+
+    private async Task CriarVinculosTenantProfissionalAutonomoAsync(
+        Estabelecimento estabelecimento,
+        Profissional profissional,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        await _estabelecimentoUsuarioRepository.AdicionarAsync(new EstabelecimentoUsuario
+        {
+            Estabelecimento = estabelecimento,
+            UsuarioId = userId,
+            RoleNoEstabelecimento = EstablishmentUserRole.Owner,
+            Ativo = true
+        }, cancellationToken);
+
+        await _profissionalEstabelecimentoRepository.AdicionarAsync(new ProfissionalEstabelecimento
+        {
+            Estabelecimento = estabelecimento,
+            Profissional = profissional,
+            Ativo = true,
+            PodeReceberAgendamento = true
+        }, cancellationToken);
     }
 
     private static void ValidarTitular(IniciarAssinaturaRequestDto request)
@@ -430,6 +497,63 @@ public class AssinaturaService : IAssinaturaService
         };
     }
 
+    private static Estabelecimento CriarEstabelecimentoParaProfissionalAutonomo(
+        CriarProfissionalAutonomoAssinaturaDto dto)
+    {
+        ValidarProfissionalAutonomo(dto);
+
+        return new Estabelecimento
+        {
+            Nome = dto.NomePublico.Trim(),
+            Descricao = dto.Biografia.Trim(),
+            Logo = dto.Logo.Trim(),
+            Telefone = dto.Telefone.Trim(),
+            Email = dto.Email.Trim(),
+            Ativo = true,
+            Endereco = OperacaoPerfilValidation.CriarEndereco(
+                dto.Endereco,
+                mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem)),
+            Caixa = new Caixa()
+        };
+    }
+
+    private static Estabelecimento CriarEstabelecimentoParaProfissionalAutonomo(Profissional profissional)
+    {
+        return new Estabelecimento
+        {
+            Nome = profissional.NomePublico.Trim(),
+            Descricao = profissional.Biografia.Trim(),
+            Logo = profissional.Logo.Trim(),
+            Telefone = profissional.Telefone.Trim(),
+            Email = profissional.Email.Trim(),
+            Ativo = true,
+            Caixa = new Caixa()
+        };
+    }
+
+    private static void AtualizarEstabelecimentoAutonomo(
+        Estabelecimento estabelecimento,
+        CriarProfissionalAutonomoAssinaturaDto dto)
+    {
+        ValidarProfissionalAutonomo(dto);
+
+        estabelecimento.Nome = dto.NomePublico.Trim();
+        estabelecimento.Descricao = dto.Biografia.Trim();
+        estabelecimento.Logo = dto.Logo.Trim();
+        estabelecimento.Telefone = dto.Telefone.Trim();
+        estabelecimento.Email = dto.Email.Trim();
+        estabelecimento.Ativo = true;
+        estabelecimento.UpdatedAt = DateTime.UtcNow;
+
+        OperacaoPerfilValidation.AtualizarEndereco(
+            estabelecimento.Endereco,
+            endereco => estabelecimento.Endereco = endereco,
+            dto.Endereco,
+            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
+
+        estabelecimento.Caixa ??= new Caixa();
+    }
+
     private static Profissional CriarProfissionalAutonomo(
         CriarProfissionalAutonomoAssinaturaDto dto,
         int userId)
@@ -445,10 +569,7 @@ public class AssinaturaService : IAssinaturaService
             Telefone = dto.Telefone.Trim(),
             Email = dto.Email.Trim(),
             TipoProfissional = ProfessionalType.Autonomo,
-            Ativo = true,
-            Endereco = OperacaoPerfilValidation.CriarEndereco(
-                dto.Endereco,
-                mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem))
+            Ativo = true
         };
     }
 
@@ -466,11 +587,6 @@ public class AssinaturaService : IAssinaturaService
         profissional.TipoProfissional = ProfessionalType.Autonomo;
         profissional.Ativo = true;
         profissional.UpdatedAt = DateTime.UtcNow;
-        OperacaoPerfilValidation.AtualizarEndereco(
-            profissional.Endereco,
-            endereco => profissional.Endereco = endereco,
-            dto.Endereco,
-            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
     }
 
     private static void ValidarPerfilProfissionalAutonomoExistente(Profissional profissional)
@@ -662,20 +778,6 @@ public class AssinaturaService : IAssinaturaService
                 cancellationToken);
 
             if (vinculo is null)
-            {
-                throw new UsuarioSemPermissaoAssinaturaException();
-            }
-
-            return;
-        }
-
-        if (assinatura.ProfissionalAutonomoId.HasValue)
-        {
-            var profissional = await _profissionalRepository.ObterPorIdAsync(
-                assinatura.ProfissionalAutonomoId.Value,
-                cancellationToken);
-
-            if (profissional is null || profissional.UsuarioId != userId)
             {
                 throw new UsuarioSemPermissaoAssinaturaException();
             }

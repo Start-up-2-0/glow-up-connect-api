@@ -18,6 +18,7 @@ public class AssinaturaServiceTests
     private readonly Mock<IEstabelecimentoRepository> _estabelecimentoRepository = new();
     private readonly Mock<IEstabelecimentoUsuarioRepository> _estabelecimentoUsuarioRepository = new();
     private readonly Mock<IProfissionalRepository> _profissionalRepository = new();
+    private readonly Mock<IProfissionalEstabelecimentoRepository> _profissionalEstabelecimentoRepository = new();
     private readonly Mock<IPagamentoRepository> _pagamentoRepository = new();
     private readonly Mock<IGatewayPagamentoResolver> _gatewayPagamentoResolver = new();
     private readonly Mock<IGatewayPagamento> _gatewayPagamento = new();
@@ -226,6 +227,10 @@ public class AssinaturaServiceTests
             .ReturnsAsync((Profissional?)null);
 
         Profissional? profissionalCriado = null;
+        Estabelecimento? estabelecimentoCriado = null;
+        ProfissionalEstabelecimento? vinculoProfissionalCriado = null;
+        EstabelecimentoUsuario? vinculoOwnerCriado = null;
+
         _profissionalRepository
             .Setup(r => r.AdicionarAsync(It.IsAny<Profissional>(), It.IsAny<CancellationToken>()))
             .Callback<Profissional, CancellationToken>((profissional, _) =>
@@ -233,6 +238,25 @@ public class AssinaturaServiceTests
                 profissional.Id = 70;
                 profissionalCriado = profissional;
             })
+            .Returns(Task.CompletedTask);
+
+        _estabelecimentoRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Estabelecimento>(), It.IsAny<CancellationToken>()))
+            .Callback<Estabelecimento, CancellationToken>((estabelecimento, _) =>
+            {
+                estabelecimento.Id = 71;
+                estabelecimentoCriado = estabelecimento;
+            })
+            .Returns(Task.CompletedTask);
+
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<EstabelecimentoUsuario>(), It.IsAny<CancellationToken>()))
+            .Callback<EstabelecimentoUsuario, CancellationToken>((vinculo, _) => vinculoOwnerCriado = vinculo)
+            .Returns(Task.CompletedTask);
+
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<ProfissionalEstabelecimento>(), It.IsAny<CancellationToken>()))
+            .Callback<ProfissionalEstabelecimento, CancellationToken>((vinculo, _) => vinculoProfissionalCriado = vinculo)
             .Returns(Task.CompletedTask);
 
         _assinaturaRepository
@@ -264,8 +288,8 @@ public class AssinaturaServiceTests
         });
 
         Assert.Equal(80, response.Id);
-        Assert.Equal(70, response.ProfissionalAutonomoId);
-        Assert.Null(response.EstabelecimentoId);
+        Assert.Null(response.ProfissionalAutonomoId);
+        Assert.Equal(71, response.EstabelecimentoId);
         Assert.Equal("PendentePagamento", response.Status);
 
         Assert.NotNull(profissionalCriado);
@@ -275,15 +299,31 @@ public class AssinaturaServiceTests
         Assert.Equal("https://cdn.test/maria.png", profissionalCriado.Logo);
         Assert.Equal("11988888888", profissionalCriado.Telefone);
         Assert.Equal("maria@email.com", profissionalCriado.Email);
-        Assert.NotNull(profissionalCriado.Endereco);
-        Assert.Equal("Campinas", profissionalCriado.Endereco!.Cidade);
-        Assert.Equal("SP", profissionalCriado.Endereco.Estado);
-        Assert.Equal("Sala 12", profissionalCriado.Endereco.Logradouro);
         Assert.Equal(ProfessionalType.Autonomo, profissionalCriado.TipoProfissional);
         Assert.True(profissionalCriado.Ativo);
         Assert.NotEqual(Guid.Empty, profissionalCriado.PublicGuid);
 
+        Assert.NotNull(estabelecimentoCriado);
+        Assert.Equal("Maria Glow", estabelecimentoCriado!.Nome);
+        Assert.Equal("Especialista em beleza", estabelecimentoCriado.Descricao);
+        Assert.NotNull(estabelecimentoCriado.Endereco);
+        Assert.Equal("Campinas", estabelecimentoCriado.Endereco!.Cidade);
+        Assert.Equal("SP", estabelecimentoCriado.Endereco.Estado);
+        Assert.Equal("Sala 12", estabelecimentoCriado.Endereco.Logradouro);
+        Assert.NotNull(estabelecimentoCriado.Caixa);
+
+        Assert.NotNull(vinculoOwnerCriado);
+        Assert.Same(estabelecimentoCriado, vinculoOwnerCriado!.Estabelecimento);
+        Assert.Equal(10, vinculoOwnerCriado.UsuarioId);
+        Assert.Equal(EstablishmentUserRole.Owner, vinculoOwnerCriado.RoleNoEstabelecimento);
+
+        Assert.NotNull(vinculoProfissionalCriado);
+        Assert.Same(estabelecimentoCriado, vinculoProfissionalCriado!.Estabelecimento);
+        Assert.Same(profissionalCriado, vinculoProfissionalCriado.Profissional);
+
         _profissionalRepository.Verify(r => r.AdicionarAsync(It.IsAny<Profissional>(), It.IsAny<CancellationToken>()), Times.Once);
+        _estabelecimentoRepository.Verify(r => r.AdicionarAsync(It.IsAny<Estabelecimento>(), It.IsAny<CancellationToken>()), Times.Once);
+        _profissionalEstabelecimentoRepository.Verify(r => r.AdicionarAsync(It.IsAny<ProfissionalEstabelecimento>(), It.IsAny<CancellationToken>()), Times.Once);
         _assinaturaRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -307,9 +347,15 @@ public class AssinaturaServiceTests
             .Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(profissional);
 
-        _assinaturaRepository
-            .Setup(r => r.ExisteAtivaOuPendentePorProfissionalAutonomoAsync(70, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+        Estabelecimento? estabelecimentoCriado = null;
+        _estabelecimentoRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Estabelecimento>(), It.IsAny<CancellationToken>()))
+            .Callback<Estabelecimento, CancellationToken>((estabelecimento, _) =>
+            {
+                estabelecimento.Id = 71;
+                estabelecimentoCriado = estabelecimento;
+            })
+            .Returns(Task.CompletedTask);
 
         _assinaturaRepository
             .Setup(r => r.AdicionarAsync(It.IsAny<Assinatura>(), It.IsAny<CancellationToken>()))
@@ -339,18 +385,19 @@ public class AssinaturaServiceTests
             }
         });
 
-        Assert.Equal(70, response.ProfissionalAutonomoId);
+        Assert.Null(response.ProfissionalAutonomoId);
+        Assert.Equal(71, response.EstabelecimentoId);
         Assert.Equal("Novo nome", profissional.NomePublico);
         Assert.Equal("Nova bio", profissional.Biografia);
         Assert.Equal("https://cdn.test/novo.png", profissional.Logo);
         Assert.Equal("11977777777", profissional.Telefone);
         Assert.Equal("novo@email.com", profissional.Email);
-        Assert.NotNull(profissional.Endereco);
-        Assert.Equal("Santos", profissional.Endereco!.Cidade);
-        Assert.Equal("SP", profissional.Endereco.Estado);
-        Assert.Equal("Av Praia", profissional.Endereco.Logradouro);
         Assert.True(profissional.Ativo);
         Assert.NotNull(profissional.UpdatedAt);
+        Assert.NotNull(estabelecimentoCriado);
+        Assert.Equal("Santos", estabelecimentoCriado!.Endereco!.Cidade);
+        Assert.Equal("SP", estabelecimentoCriado.Endereco.Estado);
+        Assert.Equal("Av Praia", estabelecimentoCriado.Endereco.Logradouro);
 
         _profissionalRepository.Verify(r => r.Atualizar(profissional), Times.Once);
     }
@@ -648,7 +695,7 @@ public class AssinaturaServiceTests
         {
             Id = 30,
             PlanoId = 1,
-            ProfissionalAutonomoId = 70,
+            EstabelecimentoId = 20,
             Status = AssinaturaStatus.Ativa,
             Gateway = GatewayPagamento.MercadoPago,
             Plano = new Plano
@@ -673,15 +720,9 @@ public class AssinaturaServiceTests
             .Setup(r => r.ObterPorIdComPlanoAsync(30, It.IsAny<CancellationToken>()))
             .ReturnsAsync(assinatura);
 
-        _profissionalRepository
-            .Setup(r => r.ObterPorIdAsync(70, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Profissional
-            {
-                Id = 70,
-                UsuarioId = 10,
-                TipoProfissional = ProfessionalType.Autonomo,
-                Ativo = true
-            });
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
 
         _planoRepository
             .Setup(r => r.ObterPorIdAsync(2, It.IsAny<CancellationToken>()))
@@ -812,20 +853,14 @@ public class AssinaturaServiceTests
             .ReturnsAsync(new Assinatura
             {
                 Id = 30,
-                ProfissionalAutonomoId = 70,
+                EstabelecimentoId = 20,
                 Status = AssinaturaStatus.Suspensa,
                 Plano = new Plano { Id = 1 }
             });
 
-        _profissionalRepository
-            .Setup(r => r.ObterPorIdAsync(70, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Profissional
-            {
-                Id = 70,
-                UsuarioId = 10,
-                TipoProfissional = ProfessionalType.Autonomo,
-                Ativo = true
-            });
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
 
         var service = CreateService();
 
@@ -863,6 +898,7 @@ public class AssinaturaServiceTests
             _estabelecimentoRepository.Object,
             _estabelecimentoUsuarioRepository.Object,
             _profissionalRepository.Object,
+            _profissionalEstabelecimentoRepository.Object,
             _pagamentoRepository.Object,
             _gatewayPagamentoResolver.Object,
             _currentUser.Object,

@@ -180,7 +180,7 @@ public class WebhooksPagamentoControllerTests : IClassFixture<GlowApiWebApplicat
             Status = AssinaturaStatus.PendentePagamento,
             Inicio = DateTime.UtcNow,
             Gateway = GatewayPagamento.MercadoPago,
-            ProfissionalAutonomoId = await CriarProfissionalAutonomoAsync(db)
+            EstabelecimentoId = await CriarTenantAutonomoAsync(db)
         };
 
         var gatewayPaymentId = $"pay-webhook-{Guid.NewGuid():N}";
@@ -203,7 +203,7 @@ public class WebhooksPagamentoControllerTests : IClassFixture<GlowApiWebApplicat
         return (assinatura.Id, pagamento.Id, gatewayPaymentId);
     }
 
-    private static async Task<int> CriarProfissionalAutonomoAsync(ApplicationDbContext db)
+    private static async Task<int> CriarTenantAutonomoAsync(ApplicationDbContext db)
     {
         var usuario = new Usuario
         {
@@ -222,11 +222,32 @@ public class WebhooksPagamentoControllerTests : IClassFixture<GlowApiWebApplicat
             TipoProfissional = ProfessionalType.Autonomo,
             Ativo = true
         };
+        var estabelecimento = new Estabelecimento
+        {
+            Nome = "Webhook Profissional",
+            Ativo = true
+        };
 
         db.Usuarios.Add(usuario);
         db.Profissionais.Add(profissional);
+        db.Estabelecimentos.Add(estabelecimento);
         await db.SaveChangesAsync();
 
-        return profissional.Id;
+        db.EstabelecimentoUsuarios.Add(new EstabelecimentoUsuario
+        {
+            EstabelecimentoId = estabelecimento.Id,
+            UsuarioId = usuario.Id,
+            RoleNoEstabelecimento = EstablishmentUserRole.Owner,
+            Ativo = true
+        });
+        db.ProfissionalEstabelecimentos.Add(new ProfissionalEstabelecimento
+        {
+            EstabelecimentoId = estabelecimento.Id,
+            ProfissionalId = profissional.Id,
+            Ativo = true
+        });
+        await db.SaveChangesAsync();
+
+        return estabelecimento.Id;
     }
 }

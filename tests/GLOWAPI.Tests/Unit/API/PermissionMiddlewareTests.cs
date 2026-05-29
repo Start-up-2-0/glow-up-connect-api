@@ -126,11 +126,11 @@ public class PermissionMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_ComModuloLiberadoParaProfissionalAutonomo_DeveContinuarPipeline()
+    public async Task InvokeAsync_ComModuloLiberadoParaTipoAutonomo_DeveValidarComoEstabelecimento()
     {
         _currentUserContext.Setup(c => c.IsAuthenticated).Returns(true);
         _modulosAssinaturaService
-            .Setup(s => s.PossuiModuloPorProfissionalAutonomoAsync(
+            .Setup(s => s.PossuiModuloPorEstabelecimentoAsync(
                 20,
                 ModuloAssinatura.Servicos,
                 It.IsAny<CancellationToken>()))

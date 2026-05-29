@@ -9,12 +9,7 @@ public class AgendamentoConfiguration : IEntityTypeConfiguration<Agendamento>
 {
     public void Configure(EntityTypeBuilder<Agendamento> builder)
     {
-        builder.ToTable("Agendamentos", table =>
-        {
-            table.HasCheckConstraint(
-                "CK_Agendamentos_Titular",
-                """(("EstabelecimentoId" IS NOT NULL AND "ProfissionalAutonomoId" IS NULL) OR ("EstabelecimentoId" IS NULL AND "ProfissionalAutonomoId" IS NOT NULL))""");
-        });
+        builder.ToTable("Agendamentos");
 
         builder.HasKey(agendamento => agendamento.Id);
 
@@ -49,15 +44,8 @@ public class AgendamentoConfiguration : IEntityTypeConfiguration<Agendamento>
             .HasForeignKey(agendamento => agendamento.EstabelecimentoId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(agendamento => agendamento.ProfissionalAutonomo)
-            .WithMany(profissional => profissional.AgendamentosAutonomo)
-            .HasForeignKey(agendamento => agendamento.ProfissionalAutonomoId)
-            .OnDelete(DeleteBehavior.Restrict);
-
         builder.HasIndex(agendamento => agendamento.UsuarioClienteId);
 
         builder.HasIndex(agendamento => agendamento.EstabelecimentoId);
-
-        builder.HasIndex(agendamento => agendamento.ProfissionalAutonomoId);
     }
 }

@@ -115,15 +115,15 @@ public class ModulosAssinaturaServiceTests
     }
 
     [Fact]
-    public async Task ObterPorProfissionalAutonomoAsync_DeveLiberarPlanoBasicDoAutonomo_QuandoAssinaturaAtiva()
+    public async Task ObterPorEstabelecimentoAsync_DeveLiberarPlanoBasicParaTenantAutonomo_QuandoAssinaturaAtiva()
     {
         _assinaturaRepository
-            .Setup(r => r.ObterAtualPorProfissionalAutonomoAsync(20, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterAtualPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Assinatura
             {
                 Id = 3,
                 PlanoId = 4,
-                ProfissionalAutonomoId = 20,
+                EstabelecimentoId = 20,
                 Status = AssinaturaStatus.Ativa,
                 Plano = new Plano
                 {
@@ -137,12 +137,13 @@ public class ModulosAssinaturaServiceTests
 
         var service = CreateService();
 
-        var resultado = await service.ObterPorProfissionalAutonomoAsync(20);
+        var resultado = await service.ObterPorEstabelecimentoAsync(20);
 
         Assert.True(resultado.AssinaturaAtiva);
-        Assert.Equal("ProfissionalAutonomo", resultado.TipoAssinatura);
-        Assert.Equal(20, resultado.ProfissionalAutonomoId);
-        Assert.Contains("ProfissionalAutonomo", resultado.Modulos);
+        Assert.Equal("Estabelecimento", resultado.TipoAssinatura);
+        Assert.Equal(20, resultado.EstabelecimentoId);
+        Assert.Null(resultado.ProfissionalAutonomoId);
+        Assert.Contains("Estabelecimento", resultado.Modulos);
         Assert.Contains("Servicos", resultado.Modulos);
         Assert.Contains("HorariosAtendimento", resultado.Modulos);
         Assert.Contains("Notificacoes", resultado.Modulos);
@@ -161,21 +162,21 @@ public class ModulosAssinaturaServiceTests
     }
 
     [Fact]
-    public async Task PossuiModuloPorProfissionalAutonomoAsync_DeveRetornarTrue_QuandoModuloEstaLiberado()
+    public async Task PossuiModuloPorEstabelecimentoAsync_DeveRetornarTrue_ParaTenantAutonomoQuandoModuloEstaLiberado()
     {
         _assinaturaRepository
-            .Setup(r => r.ObterAtualPorProfissionalAutonomoAsync(20, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterAtualPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Assinatura
             {
                 Id = 3,
-                ProfissionalAutonomoId = 20,
+                EstabelecimentoId = 20,
                 Status = AssinaturaStatus.Ativa,
                 Plano = new Plano { Id = 4, Nome = "Basic" }
             });
 
         var service = CreateService();
 
-        var possuiModulo = await service.PossuiModuloPorProfissionalAutonomoAsync(
+        var possuiModulo = await service.PossuiModuloPorEstabelecimentoAsync(
             20,
             ModuloAssinatura.Agenda);
 
@@ -230,15 +231,15 @@ public class ModulosAssinaturaServiceTests
     }
 
     [Fact]
-    public async Task ObterPorProfissionalAutonomoAsync_DeveRetornarBloqueado_QuandoNaoExistirAssinatura()
+    public async Task ObterPorEstabelecimentoAsync_DeveRetornarBloqueado_QuandoNaoExistirAssinatura()
     {
         _assinaturaRepository
-            .Setup(r => r.ObterAtualPorProfissionalAutonomoAsync(20, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterAtualPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Assinatura?)null);
 
         var service = CreateService();
 
-        var resultado = await service.ObterPorProfissionalAutonomoAsync(20);
+        var resultado = await service.ObterPorEstabelecimentoAsync(20);
 
         Assert.False(resultado.AssinaturaAtiva);
         Assert.Null(resultado.AssinaturaId);
