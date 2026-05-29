@@ -9,12 +9,7 @@ public class AssinaturaConfiguration : IEntityTypeConfiguration<Assinatura>
 {
     public void Configure(EntityTypeBuilder<Assinatura> builder)
     {
-        builder.ToTable("Assinaturas", table =>
-        {
-            table.HasCheckConstraint(
-                "CK_Assinaturas_Titular",
-                """(("EstabelecimentoId" IS NOT NULL AND "ProfissionalAutonomoId" IS NULL) OR ("EstabelecimentoId" IS NULL AND "ProfissionalAutonomoId" IS NOT NULL))""");
-        });
+        builder.ToTable("Assinaturas");
 
         builder.HasKey(assinatura => assinatura.Id);
 
@@ -63,14 +58,8 @@ public class AssinaturaConfiguration : IEntityTypeConfiguration<Assinatura>
             .HasForeignKey(assinatura => assinatura.EstabelecimentoId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(assinatura => assinatura.ProfissionalAutonomo)
-            .WithMany(profissional => profissional.AssinaturasAutonomo)
-            .HasForeignKey(assinatura => assinatura.ProfissionalAutonomoId)
-            .OnDelete(DeleteBehavior.Restrict);
-
         builder.HasIndex(assinatura => assinatura.PlanoId);
         builder.HasIndex(assinatura => assinatura.PlanoAlteracaoPendenteId);
         builder.HasIndex(assinatura => assinatura.EstabelecimentoId);
-        builder.HasIndex(assinatura => assinatura.ProfissionalAutonomoId);
     }
 }

@@ -19,14 +19,8 @@ public class Profissional
 
     public Usuario? Usuario { get; set; }
     public ICollection<ProfissionalEstabelecimento> Estabelecimentos { get; set; } = new List<ProfissionalEstabelecimento>();
-    public ICollection<Servico> ServicosAutonomo { get; set; } = new List<Servico>();
     public ICollection<ProfissionalServico> Servicos { get; set; } = new List<ProfissionalServico>();
     public ICollection<HorarioAtendimentoProfissional> HorariosAtendimento { get; set; } = new List<HorarioAtendimentoProfissional>();
-    public ICollection<Agendamento> AgendamentosAutonomo { get; set; } = new List<Agendamento>();
     public ICollection<AgendamentoItem> AgendamentoItens { get; set; } = new List<AgendamentoItem>();
     public ICollection<AgendamentoItem> AgendamentoItensRepassados { get; set; } = new List<AgendamentoItem>();
-    public ICollection<Assinatura> AssinaturasAutonomo { get; set; } = new List<Assinatura>();
-    public ICollection<LancamentoCaixa> LancamentosCaixa { get; set; } = new List<LancamentoCaixa>();
-    public Endereco? Endereco { get; set; }
-    public Caixa? Caixa { get; set; }
 }

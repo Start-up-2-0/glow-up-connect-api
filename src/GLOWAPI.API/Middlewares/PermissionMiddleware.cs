@@ -60,7 +60,7 @@ public class PermissionMiddleware
                     requisito.Modulo,
                     context.RequestAborted),
 
-                TipoAssinatura.ProfissionalAutonomo => await modulosAssinaturaService.PossuiModuloPorProfissionalAutonomoAsync(
+                TipoAssinatura.ProfissionalAutonomo => await modulosAssinaturaService.PossuiModuloPorEstabelecimentoAsync(
                     titularId.Value,
                     requisito.Modulo,
                     context.RequestAborted),

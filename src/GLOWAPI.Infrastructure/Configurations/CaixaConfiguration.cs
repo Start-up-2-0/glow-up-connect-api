@@ -8,12 +8,7 @@ public class CaixaConfiguration : IEntityTypeConfiguration<Caixa>
 {
     public void Configure(EntityTypeBuilder<Caixa> builder)
     {
-        builder.ToTable("Caixas", table =>
-        {
-            table.HasCheckConstraint(
-                "CK_Caixas_Titular",
-                """(("EstabelecimentoId" IS NOT NULL AND "ProfissionalAutonomoId" IS NULL) OR ("EstabelecimentoId" IS NULL AND "ProfissionalAutonomoId" IS NOT NULL))""");
-        });
+        builder.ToTable("Caixas");
 
         builder.HasKey(caixa => caixa.Id);
 
@@ -39,15 +34,7 @@ public class CaixaConfiguration : IEntityTypeConfiguration<Caixa>
             .HasForeignKey<Caixa>(caixa => caixa.EstabelecimentoId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(caixa => caixa.ProfissionalAutonomo)
-            .WithOne(profissional => profissional.Caixa)
-            .HasForeignKey<Caixa>(caixa => caixa.ProfissionalAutonomoId)
-            .OnDelete(DeleteBehavior.Restrict);
-
         builder.HasIndex(caixa => caixa.EstabelecimentoId)
-            .IsUnique();
-
-        builder.HasIndex(caixa => caixa.ProfissionalAutonomoId)
             .IsUnique();
     }
 }

@@ -10,13 +10,19 @@ namespace GLOWAPI.Application.Services;
 public class ProfissionalAutonomoPerfilService : IProfissionalAutonomoPerfilService
 {
     private readonly IProfissionalRepository _profissionalRepository;
+    private readonly IEstabelecimentoRepository _estabelecimentoRepository;
+    private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
     private readonly ICurrentUserContext _currentUser;
 
     public ProfissionalAutonomoPerfilService(
         IProfissionalRepository profissionalRepository,
+        IEstabelecimentoRepository estabelecimentoRepository,
+        IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
         ICurrentUserContext currentUser)
     {
         _profissionalRepository = profissionalRepository;
+        _estabelecimentoRepository = estabelecimentoRepository;
+        _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
         _currentUser = currentUser;
     }
 
@@ -26,7 +32,7 @@ public class ProfissionalAutonomoPerfilService : IProfissionalAutonomoPerfilServ
         CancellationToken cancellationToken = default)
     {
         var userId = ObterUserIdAutenticado();
-        var profissional = await _profissionalRepository.ObterPorIdComEnderecoAsync(profissionalId, cancellationToken);
+        var profissional = await _profissionalRepository.ObterPorIdAsync(profissionalId, cancellationToken);
         if (profissional is null || !profissional.Ativo || profissional.TipoProfissional != ProfessionalType.Autonomo)
         {
             throw new TitularAssinaturaNaoEncontradoException();
@@ -45,16 +51,32 @@ public class ProfissionalAutonomoPerfilService : IProfissionalAutonomoPerfilServ
         profissional.Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Email, "Email do profissional", 255, CriarExcecao);
         profissional.UpdatedAt = DateTime.UtcNow;
 
-        OperacaoPerfilValidation.AtualizarEndereco(
-            profissional.Endereco,
-            endereco => profissional.Endereco = endereco,
-            request.Endereco,
-            CriarExcecao);
+        var vinculo = await _profissionalEstabelecimentoRepository.ObterAtivoPorProfissionalAsync(
+            profissional.Id,
+            cancellationToken);
+
+        if (vinculo?.Estabelecimento is not null)
+        {
+            var estabelecimento = vinculo.Estabelecimento;
+            estabelecimento.Nome = profissional.NomePublico;
+            estabelecimento.Logo = profissional.Logo;
+            estabelecimento.Telefone = profissional.Telefone;
+            estabelecimento.Email = profissional.Email;
+            estabelecimento.UpdatedAt = DateTime.UtcNow;
+
+            OperacaoPerfilValidation.AtualizarEndereco(
+                estabelecimento.Endereco,
+                endereco => estabelecimento.Endereco = endereco,
+                request.Endereco,
+                CriarExcecao);
+
+            _estabelecimentoRepository.Atualizar(estabelecimento);
+        }
 
         _profissionalRepository.Atualizar(profissional);
         await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
 
-        return ProfissionalAutonomoPerfilResponseDto.From(profissional);
+        return ProfissionalAutonomoPerfilResponseDto.From(profissional, vinculo?.Estabelecimento);
     }
 
     private int ObterUserIdAutenticado()

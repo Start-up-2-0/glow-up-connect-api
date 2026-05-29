@@ -44,7 +44,7 @@ public class LancamentoCaixaConfiguration : IEntityTypeConfiguration<LancamentoC
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(lancamento => lancamento.Profissional)
-            .WithMany(profissional => profissional.LancamentosCaixa)
+            .WithMany()
             .HasForeignKey(lancamento => lancamento.ProfissionalId)
             .OnDelete(DeleteBehavior.Restrict);
 

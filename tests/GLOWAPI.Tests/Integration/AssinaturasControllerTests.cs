@@ -169,17 +169,18 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
         var data = body.GetProperty("data");
         var assinaturaId = data.GetProperty("id").GetInt32();
-        var profissionalId = data.GetProperty("profissionalAutonomoId").GetInt32();
+        var estabelecimentoId = data.GetProperty("estabelecimentoId").GetInt32();
 
         Assert.Equal(seed.PlanoId, data.GetProperty("planoId").GetInt32());
         Assert.Equal("PendentePagamento", data.GetProperty("status").GetString());
-        Assert.True(profissionalId > 0);
+        Assert.True(estabelecimentoId > 0);
+        Assert.True(data.GetProperty("profissionalAutonomoId").ValueKind == JsonValueKind.Null);
         Assert.Equal("Pendente", data.GetProperty("pagamentoInicial").GetProperty("status").GetString());
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-        var profissional = await db.Profissionais.FindAsync(profissionalId);
+        var profissional = db.Profissionais.SingleOrDefault(item => item.UsuarioId == seed.UsuarioId);
         Assert.NotNull(profissional);
         Assert.Equal(seed.UsuarioId, profissional!.UsuarioId);
         Assert.Equal("Maria Glow", profissional.NomePublico);
@@ -190,8 +191,17 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         Assert.True(profissional.Ativo);
         Assert.NotEqual(Guid.Empty, profissional.PublicGuid);
 
+        Assert.Contains(db.EstabelecimentoUsuarios, vinculo =>
+            vinculo.EstabelecimentoId == estabelecimentoId
+            && vinculo.UsuarioId == seed.UsuarioId
+            && vinculo.RoleNoEstabelecimento == EstablishmentUserRole.Owner
+            && vinculo.Ativo);
+        Assert.Contains(db.ProfissionalEstabelecimentos, vinculo =>
+            vinculo.EstabelecimentoId == estabelecimentoId
+            && vinculo.ProfissionalId == profissional.Id
+            && vinculo.Ativo);
         Assert.Contains(db.Assinaturas, assinatura =>
-            assinatura.ProfissionalAutonomoId == profissionalId
+            assinatura.EstabelecimentoId == estabelecimentoId
             && assinatura.PlanoId == seed.PlanoId
             && assinatura.Status == AssinaturaStatus.PendentePagamento);
         Assert.Contains(db.Pagamentos, pagamento =>
@@ -209,6 +219,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         var hasher = scope.ServiceProvider.GetRequiredService<GLOWAPI.Application.Interfaces.Services.IPasswordHasher>();
 
         db.Assinaturas.RemoveRange(db.Assinaturas);
+        db.ProfissionalEstabelecimentos.RemoveRange(db.ProfissionalEstabelecimentos);
         db.EstabelecimentoUsuarios.RemoveRange(db.EstabelecimentoUsuarios);
         db.Estabelecimentos.RemoveRange(db.Estabelecimentos);
         db.Planos.RemoveRange(db.Planos);
@@ -272,6 +283,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         var hasher = scope.ServiceProvider.GetRequiredService<GLOWAPI.Application.Interfaces.Services.IPasswordHasher>();
 
         db.Assinaturas.RemoveRange(db.Assinaturas);
+        db.ProfissionalEstabelecimentos.RemoveRange(db.ProfissionalEstabelecimentos);
         db.EstabelecimentoUsuarios.RemoveRange(db.EstabelecimentoUsuarios);
         db.Estabelecimentos.RemoveRange(db.Estabelecimentos);
         db.Planos.RemoveRange(db.Planos);

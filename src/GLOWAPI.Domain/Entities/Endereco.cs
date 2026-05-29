@@ -4,7 +4,6 @@ public class Endereco
 {
     public int Id { get; set; }
     public int? EstabelecimentoId { get; set; }
-    public int? ProfissionalAutonomoId { get; set; }
     public string Cep { get; set; } = string.Empty;
     public string Logradouro { get; set; } = string.Empty;
     public string Numero { get; set; } = string.Empty;
@@ -16,5 +15,4 @@ public class Endereco
     public DateTime? UpdatedAt { get; set; }
 
     public Estabelecimento? Estabelecimento { get; set; }
-    public Profissional? ProfissionalAutonomo { get; set; }
 }

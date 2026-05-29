@@ -12,7 +12,9 @@ public record ProfissionalAutonomoPerfilResponseDto(
     string Email,
     EnderecoOperacaoResponseDto Endereco)
 {
-    public static ProfissionalAutonomoPerfilResponseDto From(Profissional profissional) =>
+    public static ProfissionalAutonomoPerfilResponseDto From(
+        Profissional profissional,
+        Estabelecimento? estabelecimento = null) =>
         new(
             profissional.Id,
             profissional.PublicGuid,
@@ -20,5 +22,5 @@ public record ProfissionalAutonomoPerfilResponseDto(
             profissional.Logo,
             profissional.Telefone,
             profissional.Email,
-            EnderecoOperacaoResponseDto.From(profissional.Endereco));
+            EnderecoOperacaoResponseDto.From(estabelecimento?.Endereco));
 }
