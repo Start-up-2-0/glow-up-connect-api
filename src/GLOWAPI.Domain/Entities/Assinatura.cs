@@ -8,7 +8,6 @@ public class Assinatura
     public int PlanoId { get; set; }
     public int? PlanoAlteracaoPendenteId { get; set; }
     public int? EstabelecimentoId { get; set; }
-    public int? ProfissionalAutonomoId { get; set; }
     public AssinaturaStatus Status { get; set; } = AssinaturaStatus.PendentePagamento;
     public DateTime Inicio { get; set; }
     public DateTime? Fim { get; set; }
@@ -24,7 +23,6 @@ public class Assinatura
     public Plano? Plano { get; set; }
     public Plano? PlanoAlteracaoPendente { get; set; }
     public Estabelecimento? Estabelecimento { get; set; }
-    public Profissional? ProfissionalAutonomo { get; set; }
     public ICollection<Pagamento> Pagamentos { get; set; } = new List<Pagamento>();
     public ICollection<AssinaturaHistorico> Historicos { get; set; } = new List<AssinaturaHistorico>();
     public ICollection<AssinaturaRecorrenciaHistorico> RecorrenciasHistorico { get; set; } = new List<AssinaturaRecorrenciaHistorico>();

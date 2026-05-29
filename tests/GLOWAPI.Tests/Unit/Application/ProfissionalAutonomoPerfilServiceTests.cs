@@ -12,6 +12,8 @@ namespace GLOWAPI.Tests.Unit.Application;
 public class ProfissionalAutonomoPerfilServiceTests
 {
     private readonly Mock<IProfissionalRepository> _profissionalRepository = new();
+    private readonly Mock<IEstabelecimentoRepository> _estabelecimentoRepository = new();
+    private readonly Mock<IProfissionalEstabelecimentoRepository> _profissionalEstabelecimentoRepository = new();
     private readonly Mock<ICurrentUserContext> _currentUser = new();
 
     public ProfissionalAutonomoPerfilServiceTests()
@@ -28,7 +30,12 @@ public class ProfissionalAutonomoPerfilServiceTests
             UsuarioId = 10,
             NomePublico = "Antigo",
             TipoProfissional = ProfessionalType.Autonomo,
-            Ativo = true,
+            Ativo = true
+        };
+        var estabelecimento = new Estabelecimento
+        {
+            Id = 40,
+            Nome = "Antigo",
             Endereco = new Endereco
             {
                 Cidade = "Cidade antiga",
@@ -41,8 +48,18 @@ public class ProfissionalAutonomoPerfilServiceTests
         };
 
         _profissionalRepository
-            .Setup(r => r.ObterPorIdComEnderecoAsync(30, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterPorIdAsync(30, It.IsAny<CancellationToken>()))
             .ReturnsAsync(profissional);
+
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ObterAtivoPorProfissionalAsync(30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfissionalEstabelecimento
+            {
+                ProfissionalId = 30,
+                EstabelecimentoId = 40,
+                Estabelecimento = estabelecimento,
+                Ativo = true
+            });
 
         var service = CreateService();
 
@@ -67,8 +84,11 @@ public class ProfissionalAutonomoPerfilServiceTests
         Assert.Equal("Campinas", response.Endereco.Cidade);
         Assert.Equal("SP", response.Endereco.Estado);
         Assert.Equal("Sala 12", response.Endereco.Local);
+        Assert.Equal("Maria Nova", estabelecimento.Nome);
+        Assert.Equal("Campinas", estabelecimento.Endereco!.Cidade);
 
         _profissionalRepository.Verify(r => r.Atualizar(profissional), Times.Once);
+        _estabelecimentoRepository.Verify(r => r.Atualizar(estabelecimento), Times.Once);
         _profissionalRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -76,7 +96,7 @@ public class ProfissionalAutonomoPerfilServiceTests
     public async Task AtualizarAsync_DeveLancarExcecao_QuandoPerfilNaoPertenceAoUsuario()
     {
         _profissionalRepository
-            .Setup(r => r.ObterPorIdComEnderecoAsync(30, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterPorIdAsync(30, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Profissional
             {
                 Id = 30,
@@ -99,5 +119,9 @@ public class ProfissionalAutonomoPerfilServiceTests
     }
 
     private ProfissionalAutonomoPerfilService CreateService() =>
-        new(_profissionalRepository.Object, _currentUser.Object);
+        new(
+            _profissionalRepository.Object,
+            _estabelecimentoRepository.Object,
+            _profissionalEstabelecimentoRepository.Object,
+            _currentUser.Object);
 }

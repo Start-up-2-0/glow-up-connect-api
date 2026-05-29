@@ -133,14 +133,15 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
         var iniciarBody = await iniciarResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
         var assinaturaData = iniciarBody.GetProperty("data");
         var assinaturaId = assinaturaData.GetProperty("id").GetInt32();
-        var profissionalId = assinaturaData.GetProperty("profissionalAutonomoId").GetInt32();
+        var estabelecimentoId = assinaturaData.GetProperty("estabelecimentoId").GetInt32();
         var gatewayPaymentId = assinaturaData
             .GetProperty("pagamentoInicial")
             .GetProperty("gatewayPaymentId")
             .GetString();
 
         Assert.Equal("PendentePagamento", assinaturaData.GetProperty("status").GetString());
-        Assert.False(await PossuiModuloProfissionalAsync(profissionalId, ModuloAssinatura.Servicos));
+        Assert.True(estabelecimentoId > 0);
+        Assert.False(await PossuiModuloEstabelecimentoAsync(estabelecimentoId, ModuloAssinatura.Servicos));
 
         var webhookResponse = await client.PostAsJsonAsync("/api/webhooks/pagamentos", new
         {
@@ -161,15 +162,21 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
         var assinatura = await db.Assinaturas.FindAsync(assinaturaId);
         Assert.NotNull(assinatura);
         Assert.Equal(AssinaturaStatus.Ativa, assinatura!.Status);
-        Assert.Equal(profissionalId, assinatura.ProfissionalAutonomoId);
+        Assert.Equal(estabelecimentoId, assinatura.EstabelecimentoId);
+
+        var profissional = db.Profissionais.Single(item => item.UsuarioId == seed.UsuarioId);
+        Assert.Contains(db.ProfissionalEstabelecimentos, vinculo =>
+            vinculo.EstabelecimentoId == estabelecimentoId
+            && vinculo.ProfissionalId == profissional.Id
+            && vinculo.Ativo);
 
         Assert.Contains(db.MensagensNotificacao, mensagem =>
             mensagem.Destinatario == seed.Email
             && mensagem.Assunto == "Pagamento confirmado");
 
-        Assert.True(await PossuiModuloProfissionalAsync(profissionalId, ModuloAssinatura.Servicos));
-        Assert.True(await PossuiModuloProfissionalAsync(profissionalId, ModuloAssinatura.Agenda));
-        Assert.False(await PossuiModuloProfissionalAsync(profissionalId, ModuloAssinatura.Profissionais));
+        Assert.True(await PossuiModuloEstabelecimentoAsync(estabelecimentoId, ModuloAssinatura.Servicos));
+        Assert.True(await PossuiModuloEstabelecimentoAsync(estabelecimentoId, ModuloAssinatura.Agenda));
+        Assert.False(await PossuiModuloEstabelecimentoAsync(estabelecimentoId, ModuloAssinatura.Profissionais));
     }
 
     private async Task<(string Email, string Senha, int UsuarioId, int PlanoId)> SeedUsuarioEPlanoAsync(
@@ -186,6 +193,7 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
         db.WebhookPagamentos.RemoveRange(db.WebhookPagamentos);
         db.Pagamentos.RemoveRange(db.Pagamentos);
         db.Assinaturas.RemoveRange(db.Assinaturas);
+        db.ProfissionalEstabelecimentos.RemoveRange(db.ProfissionalEstabelecimentos);
         db.EstabelecimentoUsuarios.RemoveRange(db.EstabelecimentoUsuarios);
         db.Estabelecimentos.RemoveRange(db.Estabelecimentos);
         db.Profissionais.RemoveRange(db.Profissionais);
@@ -236,13 +244,6 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
         using var scope = _factory.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<IModulosAssinaturaService>();
         return await service.PossuiModuloPorEstabelecimentoAsync(estabelecimentoId, modulo);
-    }
-
-    private async Task<bool> PossuiModuloProfissionalAsync(int profissionalId, ModuloAssinatura modulo)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var service = scope.ServiceProvider.GetRequiredService<IModulosAssinaturaService>();
-        return await service.PossuiModuloPorProfissionalAutonomoAsync(profissionalId, modulo);
     }
 
     private static object PagamentoValido() => new

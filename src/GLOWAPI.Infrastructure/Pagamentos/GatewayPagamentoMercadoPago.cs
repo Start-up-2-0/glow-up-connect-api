@@ -82,6 +82,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         using var document = JsonDocument.Parse(responsePayload);
         var root = document.RootElement;
         var paymentId = ObterString(root, "id");
+        var status = ObterString(root, "status");
         var checkoutUrl = ObterString(root, "transaction_details.external_resource_url")
             ?? ObterString(root, "point_of_interaction.transaction_data.ticket_url")
             ?? string.Empty;
@@ -95,6 +96,19 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
                 requestPayload,
                 responsePayload,
                 "Mercado Pago nao retornou id do pagamento.");
+        }
+
+        if (string.Equals(status, "rejected", StringComparison.OrdinalIgnoreCase))
+        {
+            var statusDetail = ObterString(root, "status_detail");
+            var mensagemErro = string.IsNullOrWhiteSpace(statusDetail)
+                ? "Pagamento recusado pelo Mercado Pago."
+                : $"Pagamento recusado pelo Mercado Pago: {statusDetail}.";
+
+            return CriarCobrancaGatewayResponse.Falha(
+                requestPayload,
+                responsePayload,
+                mensagemErro);
         }
 
         return new CriarCobrancaGatewayResponse(

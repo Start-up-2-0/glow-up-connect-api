@@ -28,16 +28,6 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
                 cancellationToken);
     }
 
-    public Task<Assinatura?> ObterAtivaPorProfissionalAutonomoAsync(int profissionalId, CancellationToken cancellationToken = default)
-    {
-        return DbSet
-            .Include(assinatura => assinatura.Plano)
-            .FirstOrDefaultAsync(
-                assinatura => assinatura.ProfissionalAutonomoId == profissionalId
-                    && assinatura.Status == AssinaturaStatus.Ativa,
-                cancellationToken);
-    }
-
     public Task<Assinatura?> ObterPorIdComPlanoAsync(int assinaturaId, CancellationToken cancellationToken = default)
     {
         return DbSet
@@ -56,16 +46,6 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public Task<Assinatura?> ObterAtualPorProfissionalAutonomoAsync(int profissionalId, CancellationToken cancellationToken = default)
-    {
-        return DbSet
-            .Include(assinatura => assinatura.Plano)
-            .Where(assinatura => assinatura.ProfissionalAutonomoId == profissionalId)
-            .OrderByDescending(assinatura => assinatura.CreateAd)
-            .ThenByDescending(assinatura => assinatura.Id)
-            .FirstOrDefaultAsync(cancellationToken);
-    }
-
     public Task<bool> ExisteAtivaOuPendentePorEstabelecimentoAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default)
@@ -76,13 +56,4 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
             cancellationToken);
     }
 
-    public Task<bool> ExisteAtivaOuPendentePorProfissionalAutonomoAsync(
-        int profissionalId,
-        CancellationToken cancellationToken = default)
-    {
-        return DbSet.AnyAsync(
-            assinatura => assinatura.ProfissionalAutonomoId == profissionalId
-                && StatusBloqueadosParaNovaAssinatura.Contains(assinatura.Status),
-            cancellationToken);
-    }
 }

@@ -25,7 +25,7 @@ public record ModulosAssinaturaResponseDto(
             Status: assinatura?.Status.ToString(),
             TipoAssinatura: ObterTipoAssinatura(assinatura),
             EstabelecimentoId: assinatura?.EstabelecimentoId,
-            ProfissionalAutonomoId: assinatura?.ProfissionalAutonomoId,
+            ProfissionalAutonomoId: null,
             Modulos: Array.Empty<string>(),
             Limites: CriarLimites(assinatura?.Plano));
 
@@ -40,7 +40,7 @@ public record ModulosAssinaturaResponseDto(
             Status: assinatura.Status.ToString(),
             TipoAssinatura: ObterTipoAssinatura(assinatura),
             EstabelecimentoId: assinatura.EstabelecimentoId,
-            ProfissionalAutonomoId: assinatura.ProfissionalAutonomoId,
+            ProfissionalAutonomoId: null,
             Modulos: modulos.Select(modulo => modulo.ToString()).ToList(),
             Limites: CriarLimites(assinatura.Plano));
 
@@ -64,8 +64,6 @@ public record ModulosAssinaturaResponseDto(
             return null;
         }
 
-        return assinatura.EstabelecimentoId.HasValue
-            ? GLOWAPI.Domain.Enums.TipoAssinatura.Estabelecimento.ToString()
-            : GLOWAPI.Domain.Enums.TipoAssinatura.ProfissionalAutonomo.ToString();
+        return GLOWAPI.Domain.Enums.TipoAssinatura.Estabelecimento.ToString();
     }
 }
