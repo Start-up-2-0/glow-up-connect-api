@@ -4,6 +4,7 @@ using GLOWAPI.Application.DTOs.Agenda;
 using GLOWAPI.Application.DTOs.Caixa;
 using GLOWAPI.Application.DTOs.Equipe;
 using GLOWAPI.Application.DTOs.Estabelecimentos;
+using GLOWAPI.Application.DTOs.Servicos;
 using GLOWAPI.Application.DTOs.Horarios;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Domain.Enums;
@@ -22,6 +23,7 @@ public class EstabelecimentosController : ControllerBase
     private readonly ICaixaNegocioService _caixaNegocioService;
     private readonly IProfissionalServicoNegocioService _profissionalServicoNegocioService;
     private readonly IHorarioFuncionamentoNegocioService _horarioFuncionamentoNegocioService;
+    private readonly IServicoNegocioService _servicoNegocioService;
     private readonly IHorarioProfissionalNegocioService _horarioProfissionalNegocioService;
     private readonly IDisponibilidadeAgendaService _disponibilidadeAgendaService;
 
@@ -33,6 +35,7 @@ public class EstabelecimentosController : ControllerBase
         ICaixaNegocioService caixaNegocioService,
         IProfissionalServicoNegocioService profissionalServicoNegocioService,
         IHorarioFuncionamentoNegocioService horarioFuncionamentoNegocioService,
+        IServicoNegocioService servicoNegocioService,
         IHorarioProfissionalNegocioService horarioProfissionalNegocioService,
         IDisponibilidadeAgendaService disponibilidadeAgendaService)
     {
@@ -43,6 +46,7 @@ public class EstabelecimentosController : ControllerBase
         _caixaNegocioService = caixaNegocioService;
         _profissionalServicoNegocioService = profissionalServicoNegocioService;
         _horarioFuncionamentoNegocioService = horarioFuncionamentoNegocioService;
+        _servicoNegocioService = servicoNegocioService;
         _horarioProfissionalNegocioService = horarioProfissionalNegocioService;
         _disponibilidadeAgendaService = disponibilidadeAgendaService;
     }
@@ -268,6 +272,126 @@ public class EstabelecimentosController : ControllerBase
         return Ok(ApiSuccessResponse<IReadOnlyList<LancamentoCaixaResponseDto>>.From(
             "Lancamentos do caixa listados com sucesso.",
             lancamentos));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/servicos")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Servicos, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ServicoVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarServicos(
+        int estabelecimentoId,
+        [FromQuery] ServicoFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var servicos = await _servicoNegocioService.ListarAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<ServicoResponseDto>>.From(
+            "Servicos listados com sucesso.",
+            servicos));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/servicos")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Servicos, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ServicoGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> CriarServico(
+        int estabelecimentoId,
+        [FromBody] CriarServicoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var servico = await _servicoNegocioService.CriarAsync(
+            estabelecimentoId,
+            request,
+            cancellationToken);
+
+        return StatusCode(
+            StatusCodes.Status201Created,
+            ApiSuccessResponse<ServicoResponseDto>.From(
+                "Servico criado com sucesso.",
+                servico));
+    }
+
+    [HttpPut("{estabelecimentoId:int}/servicos/{servicoId:int}")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Servicos, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ServicoGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> AtualizarServico(
+        int estabelecimentoId,
+        int servicoId,
+        [FromBody] AtualizarServicoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var servico = await _servicoNegocioService.AtualizarAsync(
+            estabelecimentoId,
+            servicoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ServicoResponseDto>.From(
+            "Servico atualizado com sucesso.",
+            servico));
+    }
+
+    [HttpPatch("{estabelecimentoId:int}/servicos/{servicoId:int}/status")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Servicos, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ServicoGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> AtualizarStatusServico(
+        int estabelecimentoId,
+        int servicoId,
+        [FromBody] AtualizarStatusServicoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var servico = await _servicoNegocioService.AtualizarStatusAsync(
+            estabelecimentoId,
+            servicoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ServicoResponseDto>.From(
+            "Status do servico atualizado com sucesso.",
+            servico));
+    }
+
+    [HttpPut("{estabelecimentoId:int}/servicos/{servicoId:int}/profissionais/{profissionalId:int}")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Servicos, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ServicoGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> AtualizarVinculoServicoProfissional(
+        int estabelecimentoId,
+        int servicoId,
+        int profissionalId,
+        [FromBody] AtualizarProfissionalServicoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var vinculo = await _profissionalServicoNegocioService.AtualizarAsync(
+            estabelecimentoId,
+            profissionalId,
+            servicoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ProfissionalServicoResponseDto>.From(
+            "Vinculo do servico com o profissional atualizado com sucesso.",
+            vinculo));
+    }
+
+    [HttpPatch("{estabelecimentoId:int}/servicos/{servicoId:int}/profissionais/{profissionalId:int}/status")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Servicos, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ServicoGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> DesvincularServicoProfissional(
+        int estabelecimentoId,
+        int servicoId,
+        int profissionalId,
+        CancellationToken cancellationToken)
+    {
+        var vinculo = await _profissionalServicoNegocioService.DesvincularAsync(
+            estabelecimentoId,
+            profissionalId,
+            servicoId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ProfissionalServicoResponseDto>.From(
+            "Profissional desvinculado do servico com sucesso.",
+            vinculo));
     }
 
     [HttpPost("{estabelecimentoId:int}/servicos/{servicoId:int}/profissionais/{profissionalId:int}")]

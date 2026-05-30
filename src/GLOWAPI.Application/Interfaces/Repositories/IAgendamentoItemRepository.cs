@@ -1,6 +1,6 @@
 using GLOWAPI.Application.DTOs.Horarios;
-using GLOWAPI.Domain.Entities;
 using GLOWAPI.Application.Models.Agenda;
+using GLOWAPI.Domain.Entities;
 
 namespace GLOWAPI.Application.Interfaces.Repositories;
 
@@ -55,5 +55,10 @@ public interface IAgendamentoItemRepository : IRepository<AgendamentoItem>
         int? profissionalId,
         DateTime inicio,
         DateTime fim,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> ExisteFuturoConfirmadoAsync(
+        int profissionalId,
+        int servicoId,
         CancellationToken cancellationToken = default);
 }
