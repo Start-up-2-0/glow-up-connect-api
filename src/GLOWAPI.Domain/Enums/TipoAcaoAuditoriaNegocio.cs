@@ -9,5 +9,11 @@ public enum TipoAcaoAuditoriaNegocio
     ProfissionalStatusAlterado = 5,
     CaixaResumoConsultado = 6,
     CaixaLancamentosConsultados = 7,
-    AgendamentoCancelado = 8
+    AgendamentoCancelado = 8,
+    HorarioFuncionamentoCriado = 9,
+    HorarioFuncionamentoAlterado = 10,
+    HorarioFuncionamentoStatusAlterado = 11,
+    HorarioProfissionalCriado = 12,
+    HorarioProfissionalAlterado = 13,
+    HorarioProfissionalStatusAlterado = 14
 }
