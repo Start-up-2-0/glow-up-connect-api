@@ -207,6 +207,7 @@ public class ServicoNegocioService : IServicoNegocioService
 
     public async Task<IReadOnlyList<ServicoPublicoResponseDto>> ListarPublicosPorEstabelecimentoAsync(
         Guid publicGuid,
+        Guid? profissionalPublicGuid = null,
         CancellationToken cancellationToken = default)
     {
         var estabelecimento = await _estabelecimentoRepository.ObterPorPublicGuidAsync(publicGuid, cancellationToken);
@@ -215,21 +216,50 @@ public class ServicoNegocioService : IServicoNegocioService
             throw new NegocioNaoEncontradoException();
         }
 
-        var servicos = await _servicoRepository.ListarPublicosPorEstabelecimentoAsync(
-            estabelecimento.Id,
-            cancellationToken);
+        int? profissionalId = null;
+        if (profissionalPublicGuid.HasValue)
+        {
+            var profissional = await _profissionalRepository.ObterPorPublicGuidAsync(
+                profissionalPublicGuid.Value,
+                cancellationToken);
+            if (profissional is null || !profissional.Ativo)
+            {
+                throw new RecursoProfissionalNaoEncontradoException();
+            }
+
+            profissionalId = profissional.Id;
+        }
+
+        var servicos = profissionalId.HasValue
+            ? await _servicoRepository.ListarPorEstabelecimentoAsync(
+                estabelecimento.Id,
+                ativo: true,
+                profissionalId,
+                nome: null,
+                cancellationToken)
+            : await _servicoRepository.ListarPublicosPorEstabelecimentoAsync(
+                estabelecimento.Id,
+                cancellationToken);
 
         return servicos.Select(ServicoPublicoResponseDto.From).ToList();
     }
 
-    public async Task<IReadOnlyList<ServicoPublicoResponseDto>> ListarPublicosPorProfissionalAutonomoAsync(
+    public Task<IReadOnlyList<ServicoPublicoResponseDto>> ListarPublicosPorProfissionalAsync(
         Guid publicGuid,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        ListarPublicosPorProfissionalInternoAsync(publicGuid, cancellationToken);
+
+    public Task<IReadOnlyList<ServicoPublicoResponseDto>> ListarPublicosPorProfissionalAutonomoAsync(
+        Guid publicGuid,
+        CancellationToken cancellationToken = default) =>
+        ListarPublicosPorProfissionalInternoAsync(publicGuid, cancellationToken);
+
+    private async Task<IReadOnlyList<ServicoPublicoResponseDto>> ListarPublicosPorProfissionalInternoAsync(
+        Guid publicGuid,
+        CancellationToken cancellationToken)
     {
         var profissional = await _profissionalRepository.ObterPorPublicGuidAsync(publicGuid, cancellationToken);
-        if (profissional is null
-            || !profissional.Ativo
-            || profissional.TipoProfissional != ProfessionalType.Autonomo)
+        if (profissional is null || !profissional.Ativo)
         {
             throw new RecursoProfissionalNaoEncontradoException();
         }
@@ -237,13 +267,16 @@ public class ServicoNegocioService : IServicoNegocioService
         var vinculo = await _profissionalEstabelecimentoRepository.ObterAtivoPorProfissionalAsync(
             profissional.Id,
             cancellationToken);
-        if (vinculo?.EstabelecimentoId is null)
+        if (vinculo?.EstabelecimentoId is null || !vinculo.Ativo || !vinculo.PodeReceberAgendamento)
         {
             throw new ProfissionalSemVinculoNegocioException();
         }
 
-        var servicos = await _servicoRepository.ListarPublicosPorEstabelecimentoAsync(
+        var servicos = await _servicoRepository.ListarPorEstabelecimentoAsync(
             vinculo.EstabelecimentoId,
+            ativo: true,
+            profissional.Id,
+            nome: null,
             cancellationToken);
 
         return servicos.Select(ServicoPublicoResponseDto.From).ToList();
