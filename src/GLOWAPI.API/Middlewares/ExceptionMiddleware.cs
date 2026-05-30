@@ -71,7 +71,10 @@ public class ExceptionMiddleware
                     or UltimoOwnerNegocioException
                     or ConviteNegocioInvalidoException
                     or LimiteUsuariosNegocioExcedidoException
-                    or LimiteProfissionaisNegocioExcedidoException => HttpStatusCode.BadRequest,
+                    or LimiteProfissionaisNegocioExcedidoException
+                    or LimiteServicosNegocioExcedidoException
+                    or ServicoNegocioInvalidoException
+                    or ProfissionalServicoComAgendamentoFuturoException => HttpStatusCode.BadRequest,
                 UsuarioSemPermissaoAssinaturaException
                     or UsuarioSemPermissaoNegocioException
                     or UsuarioSemVinculoNegocioException
