@@ -67,6 +67,7 @@ public class ExceptionMiddleware
                     or AtendimentoStatusInvalidoException
                     or ProfissionalServicoInvalidoException
                     or HorarioAtendimentoInvalidoException
+                    or HorarioAlteracaoImpactaAgendamentosFuturosException
                     or UltimoOwnerNegocioException
                     or ConviteNegocioInvalidoException
                     or LimiteUsuariosNegocioExcedidoException
@@ -86,12 +87,17 @@ public class ExceptionMiddleware
                     or CaixaNegocioNaoEncontradoException
                     or ServicoNegocioNaoEncontradoException
                     or HorarioAtendimentoNaoEncontradoException
+                    or HorarioFuncionamentoNaoEncontradoException
                     or ProfissionalNegocioNaoEncontradoException
                     or ConviteNegocioNaoEncontradoException => HttpStatusCode.NotFound,
                 _ => HttpStatusCode.NotFound
             };
 
-            await WriteErrorAsync(context, (int)statusCode, ex.Message, ex.Code);
+            var details = ex is HorarioAlteracaoImpactaAgendamentosFuturosException impacto
+                ? impacto.AgendamentosImpactados
+                : null;
+
+            await WriteErrorAsync(context, (int)statusCode, ex.Message, ex.Code, details);
             _logger.LogWarning(ex, "Regra de negócio violada: {Code}", ex.Code);
         }
         catch (KeyNotFoundException ex)
@@ -111,7 +117,12 @@ public class ExceptionMiddleware
         }
     }
 
-    private static async Task WriteErrorAsync(HttpContext context, int statusCode, string message, string code)
+    private static async Task WriteErrorAsync(
+        HttpContext context,
+        int statusCode,
+        string message,
+        string code,
+        object? details = null)
     {
         if (context.Response.HasStarted)
         {
@@ -120,7 +131,7 @@ public class ExceptionMiddleware
 
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/json";
-        await context.Response.WriteAsJsonAsync(ApiErrorResponse.From(message, code));
+        await context.Response.WriteAsJsonAsync(ApiErrorResponse.From(message, code, details));
     }
 
     private static async Task WriteLegacyErrorAsync(HttpContext context, int statusCode, string message)
