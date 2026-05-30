@@ -15,5 +15,11 @@ public enum TipoAcaoAuditoriaNegocio
     HorarioFuncionamentoStatusAlterado = 11,
     HorarioProfissionalCriado = 12,
     HorarioProfissionalAlterado = 13,
-    HorarioProfissionalStatusAlterado = 14
+    HorarioProfissionalStatusAlterado = 14,
+    ServicoCriado = 15,
+    ServicoAlterado = 16,
+    ServicoStatusAlterado = 17,
+    ProfissionalServicoVinculado = 18,
+    ProfissionalServicoAlterado = 19,
+    ProfissionalServicoDesvinculado = 20
 }
