@@ -1,9 +1,9 @@
 namespace GLOWAPI.API.Models;
 
-public record ApiErrorResponse(bool Success, string Message, string Code)
+public record ApiErrorResponse(bool Success, string Message, string Code, object? Details = null)
 {
-    public static ApiErrorResponse From(string message, string code) =>
-        new(false, message, code);
+    public static ApiErrorResponse From(string message, string code, object? details = null) =>
+        new(false, message, code, details);
 }
 
 public record ApiSuccessResponse<T>(bool Success, string Message, T? Data)

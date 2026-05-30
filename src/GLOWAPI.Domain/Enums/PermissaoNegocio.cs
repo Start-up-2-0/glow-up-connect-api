@@ -22,5 +22,8 @@ public enum PermissaoNegocio
     ClienteVisualizarProprio = 18,
     CaixaVisualizar = 19,
     CaixaGerenciar = 20,
-    ComissaoVisualizarPropria = 21
+    ComissaoVisualizarPropria = 21,
+    HorarioVisualizar = 22,
+    HorarioGerenciar = 23,
+    HorarioGerenciarProprio = 24
 }

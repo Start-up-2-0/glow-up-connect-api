@@ -13,4 +13,8 @@ public interface IProfissionalServicoRepository : IRepository<ProfissionalServic
         int profissionalId,
         int servicoId,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<int>> ListarProfissionaisAtivosPorServicoAsync(
+        int servicoId,
+        CancellationToken cancellationToken = default);
 }

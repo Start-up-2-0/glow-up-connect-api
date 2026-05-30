@@ -55,7 +55,9 @@ public class ProfissionalEstabelecimentoRepository : Repository<ProfissionalEsta
         int estabelecimentoId,
         CancellationToken cancellationToken = default)
     {
-        return DbSet.FirstOrDefaultAsync(
+        return DbSet
+            .Include(vinculo => vinculo.Profissional)
+            .FirstOrDefaultAsync(
             vinculo => vinculo.ProfissionalId == profissionalId
                 && vinculo.EstabelecimentoId == estabelecimentoId,
             cancellationToken);
