@@ -323,14 +323,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             agendamento.Origem,
             dadosVisitante,
             agendamento.UsuarioClienteId,
-            cancellationToken);
-
-        await _agendamentoValidador.ValidarConflitoAsync(
-            estabelecimentoId,
-            profissionalId,
-            preparacao.Inicio,
-            preparacao.Fim,
-            agendamento.Id,
+            agendamentoIgnorarId: agendamento.Id,
             cancellationToken);
 
         var statusAnterior = agendamento.Status;
@@ -479,6 +472,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             origem,
             usuarioClienteId.HasValue ? null : request,
             usuarioClienteId,
+            agendamentoIgnorarId: null,
             cancellationToken);
 
         await _agendamentoValidador.ValidarConflitoAsync(

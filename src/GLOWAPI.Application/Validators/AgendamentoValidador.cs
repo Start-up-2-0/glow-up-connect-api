@@ -52,6 +52,7 @@ public class AgendamentoValidador : IAgendamentoValidador
         OrigemAgendamento origem,
         CriarAgendamentoRequestDto? dadosVisitante,
         int? usuarioClienteId,
+        int? agendamentoIgnorarId = null,
         CancellationToken cancellationToken = default)
     {
         if (servicoIds.Length == 0)
@@ -187,6 +188,7 @@ public class AgendamentoValidador : IAgendamentoValidador
             profissionalId,
             inicio,
             fim,
+            exigirFuncionamentoEstabelecimento: profissional.TipoProfissional != ProfessionalType.Autonomo,
             cancellationToken);
 
         await ValidarConflitoAsync(
@@ -194,7 +196,7 @@ public class AgendamentoValidador : IAgendamentoValidador
             profissionalId,
             inicio,
             fim,
-            agendamentoIgnorarId: null,
+            agendamentoIgnorarId,
             cancellationToken);
 
         return new AgendamentoPreparacaoResultado
@@ -244,20 +246,12 @@ public class AgendamentoValidador : IAgendamentoValidador
         int profissionalId,
         DateTime inicio,
         DateTime fim,
+        bool exigirFuncionamentoEstabelecimento,
         CancellationToken cancellationToken)
     {
         var diaSemana = inicio.DayOfWeek;
         var horaInicio = TimeOnly.FromDateTime(inicio);
         var horaFim = TimeOnly.FromDateTime(fim);
-
-        var funcionamentos = await _horarioFuncionamentoRepository.ListarAtivosPorEstabelecimentoEDiaAsync(
-            estabelecimentoId,
-            diaSemana,
-            cancellationToken);
-        if (funcionamentos.Count == 0)
-        {
-            throw new HorarioIndisponivelException("Estabelecimento fechado neste dia.");
-        }
 
         var horariosProfissional = await _horarioAtendimentoProfissionalRepository.ListarPorEstabelecimentoAsync(
             estabelecimentoId,
@@ -268,6 +262,28 @@ public class AgendamentoValidador : IAgendamentoValidador
         if (horariosProfissional.Count == 0)
         {
             throw new HorarioIndisponivelException("Profissional nao atende neste dia.");
+        }
+
+        if (!exigirFuncionamentoEstabelecimento)
+        {
+            var cabeNoAtendimento = horariosProfissional.Any(horario =>
+                horaInicio >= horario.HoraInicio && horaFim <= horario.HoraFim);
+
+            if (!cabeNoAtendimento)
+            {
+                throw new HorarioIndisponivelException("Horario fora do atendimento do profissional.");
+            }
+
+            return;
+        }
+
+        var funcionamentos = await _horarioFuncionamentoRepository.ListarAtivosPorEstabelecimentoEDiaAsync(
+            estabelecimentoId,
+            diaSemana,
+            cancellationToken);
+        if (funcionamentos.Count == 0)
+        {
+            throw new HorarioIndisponivelException("Estabelecimento fechado neste dia.");
         }
 
         var cabeNaAgenda = false;

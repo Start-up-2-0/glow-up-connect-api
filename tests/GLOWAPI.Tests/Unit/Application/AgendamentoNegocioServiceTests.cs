@@ -40,6 +40,63 @@ public class AgendamentoNegocioServiceTests
     }
 
     [Fact]
+    public async Task RemarcarAsync_DevePassarAgendamentoIgnorarIdParaPreparar()
+    {
+        var agendamento = CriarAgendamentoPendente();
+        var item = agendamento.Itens.First();
+        item.ServicoId = 5;
+        item.Inicio = DateTime.UtcNow.AddDays(3);
+        item.Fim = item.Inicio.AddMinutes(60);
+
+        _agendamentoRepository
+            .Setup(r => r.ObterPorIdEEstabelecimentoComItensAsync(10, 1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(agendamento);
+
+        var preparacao = CriarPreparacao(
+            agendamento.Estabelecimento!,
+            item.Profissional!);
+
+        _agendamentoValidador
+            .Setup(v => v.PrepararAsync(
+                1,
+                2,
+                It.IsAny<int[]>(),
+                It.IsAny<DateOnly>(),
+                It.IsAny<TimeOnly>(),
+                It.IsAny<OrigemAgendamento>(),
+                It.IsAny<CriarAgendamentoRequestDto>(),
+                null,
+                10,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(preparacao);
+
+        var service = CreateService();
+        await service.RemarcarAsync(
+            1,
+            10,
+            new RemarcarAgendamentoRequestDto
+            {
+                Data = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(3)),
+                HorarioInicio = new TimeOnly(10, 0),
+                Motivo = "Cliente pediu mesmo horario"
+            });
+
+        _agendamentoValidador.Verify(
+            v => v.PrepararAsync(
+                1,
+                2,
+                It.IsAny<int[]>(),
+                It.IsAny<DateOnly>(),
+                It.IsAny<TimeOnly>(),
+                It.IsAny<OrigemAgendamento>(),
+                It.IsAny<CriarAgendamentoRequestDto>(),
+                null,
+                10,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task CancelarAsync_DeveExigirMotivo()
     {
         var service = CreateService();
@@ -74,6 +131,7 @@ public class AgendamentoNegocioServiceTests
                 OrigemAgendamento.PublicoLoja,
                 It.IsAny<CriarAgendamentoRequestDto>(),
                 null,
+                It.IsAny<int?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(CriarPreparacao(estabelecimento, profissional));
 
