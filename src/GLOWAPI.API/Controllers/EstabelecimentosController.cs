@@ -1,5 +1,6 @@
 using GLOWAPI.API.Attributes;
 using GLOWAPI.API.Models;
+using GLOWAPI.Application.DTOs.Agendamento;
 using GLOWAPI.Application.DTOs.Agenda;
 using GLOWAPI.Application.DTOs.Caixa;
 using GLOWAPI.Application.DTOs.Equipe;
@@ -26,6 +27,7 @@ public class EstabelecimentosController : ControllerBase
     private readonly IServicoNegocioService _servicoNegocioService;
     private readonly IHorarioProfissionalNegocioService _horarioProfissionalNegocioService;
     private readonly IDisponibilidadeAgendaService _disponibilidadeAgendaService;
+    private readonly IAgendamentoNegocioService _agendamentoNegocioService;
 
     public EstabelecimentosController(
         IEstabelecimentoPerfilService estabelecimentoPerfilService,
@@ -37,7 +39,8 @@ public class EstabelecimentosController : ControllerBase
         IHorarioFuncionamentoNegocioService horarioFuncionamentoNegocioService,
         IServicoNegocioService servicoNegocioService,
         IHorarioProfissionalNegocioService horarioProfissionalNegocioService,
-        IDisponibilidadeAgendaService disponibilidadeAgendaService)
+        IDisponibilidadeAgendaService disponibilidadeAgendaService,
+        IAgendamentoNegocioService agendamentoNegocioService)
     {
         _estabelecimentoPerfilService = estabelecimentoPerfilService;
         _equipeNegocioService = equipeNegocioService;
@@ -49,6 +52,7 @@ public class EstabelecimentosController : ControllerBase
         _servicoNegocioService = servicoNegocioService;
         _horarioProfissionalNegocioService = horarioProfissionalNegocioService;
         _disponibilidadeAgendaService = disponibilidadeAgendaService;
+        _agendamentoNegocioService = agendamentoNegocioService;
     }
 
     [HttpPut("{estabelecimentoId:int}/perfil")]
@@ -589,5 +593,99 @@ public class EstabelecimentosController : ControllerBase
         return Ok(ApiSuccessResponse<DisponibilidadeAgendaResponseDto>.From(
             "Disponibilidade consultada com sucesso.",
             disponibilidade));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/agendamentos/{agendamentoId:int}/confirmar")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Agenda, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.AgendaCriar, "estabelecimentoId")]
+    public async Task<IActionResult> ConfirmarAgendamento(
+        int estabelecimentoId,
+        int agendamentoId,
+        CancellationToken cancellationToken)
+    {
+        var agendamento = await _agendamentoNegocioService.ConfirmarAsync(
+            estabelecimentoId,
+            agendamentoId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<AgendamentoCriadoResponseDto>.From(
+            "Agendamento confirmado com sucesso.",
+            agendamento));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/agendamentos/{agendamentoId:int}/cancelar")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Agenda, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.AgendaCancelar, "estabelecimentoId")]
+    public async Task<IActionResult> CancelarAgendamento(
+        int estabelecimentoId,
+        int agendamentoId,
+        [FromBody] CancelarAgendamentoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var agendamento = await _agendamentoNegocioService.CancelarAsync(
+            estabelecimentoId,
+            agendamentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<AgendamentoCriadoResponseDto>.From(
+            "Agendamento cancelado com sucesso.",
+            agendamento));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/agendamentos/{agendamentoId:int}/remarcar")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Agenda, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.AgendaReagendar, "estabelecimentoId")]
+    public async Task<IActionResult> RemarcarAgendamento(
+        int estabelecimentoId,
+        int agendamentoId,
+        [FromBody] RemarcarAgendamentoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var agendamento = await _agendamentoNegocioService.RemarcarAsync(
+            estabelecimentoId,
+            agendamentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<AgendamentoCriadoResponseDto>.From(
+            "Agendamento remarcado com sucesso.",
+            agendamento));
+    }
+
+    [HttpPatch("{estabelecimentoId:int}/agendamentos/{agendamentoId:int}/nao-compareceu")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Agenda, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.AgendaCancelar, "estabelecimentoId")]
+    public async Task<IActionResult> MarcarNaoCompareceu(
+        int estabelecimentoId,
+        int agendamentoId,
+        CancellationToken cancellationToken)
+    {
+        var agendamento = await _agendamentoNegocioService.MarcarNaoCompareceuAsync(
+            estabelecimentoId,
+            agendamentoId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<AgendamentoCriadoResponseDto>.From(
+            "Agendamento marcado como nao compareceu.",
+            agendamento));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/agendamentos/{agendamentoId:int}/historico")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Agenda, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.AgendaVisualizarGeral, "estabelecimentoId")]
+    public async Task<IActionResult> ObterHistoricoAgendamento(
+        int estabelecimentoId,
+        int agendamentoId,
+        CancellationToken cancellationToken)
+    {
+        var historico = await _agendamentoNegocioService.ObterHistoricoAsync(
+            estabelecimentoId,
+            agendamentoId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<AgendamentoHistoricoResponseDto>>.From(
+            "Historico do agendamento listado com sucesso.",
+            historico));
     }
 }
