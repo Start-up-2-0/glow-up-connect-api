@@ -5,5 +5,6 @@ public enum EstablishmentUserRole
     Owner = 1,
     Admin = 2,
     Manager = 3,
-    Receptionist = 4
+    Receptionist = 4,
+    Profissional = 5
 }
