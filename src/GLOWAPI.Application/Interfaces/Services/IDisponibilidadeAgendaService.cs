@@ -14,6 +14,11 @@ public interface IDisponibilidadeAgendaService
         ConsultarDisponibilidadeAgendaDto request,
         CancellationToken cancellationToken = default);
 
+    Task<DisponibilidadeAgendaResponseDto> ConsultarPublicoPorProfissionalAsync(
+        Guid publicGuid,
+        ConsultarDisponibilidadeAgendaDto request,
+        CancellationToken cancellationToken = default);
+
     Task<DisponibilidadeAgendaResponseDto> ConsultarPublicoPorProfissionalAutonomoAsync(
         Guid publicGuid,
         ConsultarDisponibilidadeAgendaDto request,

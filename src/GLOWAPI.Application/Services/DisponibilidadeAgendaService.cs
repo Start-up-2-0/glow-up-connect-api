@@ -80,15 +80,19 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             cancellationToken);
     }
 
-    public async Task<DisponibilidadeAgendaResponseDto> ConsultarPublicoPorProfissionalAutonomoAsync(
+    public Task<DisponibilidadeAgendaResponseDto> ConsultarPublicoPorProfissionalAutonomoAsync(
+        Guid publicGuid,
+        ConsultarDisponibilidadeAgendaDto request,
+        CancellationToken cancellationToken = default) =>
+        ConsultarPublicoPorProfissionalAsync(publicGuid, request, cancellationToken);
+
+    public async Task<DisponibilidadeAgendaResponseDto> ConsultarPublicoPorProfissionalAsync(
         Guid publicGuid,
         ConsultarDisponibilidadeAgendaDto request,
         CancellationToken cancellationToken = default)
     {
         var profissional = await _profissionalRepository.ObterPorPublicGuidAsync(publicGuid, cancellationToken);
-        if (profissional is null
-            || !profissional.Ativo
-            || profissional.TipoProfissional != ProfessionalType.Autonomo)
+        if (profissional is null || !profissional.Ativo)
         {
             throw new RecursoProfissionalNaoEncontradoException();
         }
@@ -106,7 +110,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
         return await ConsultarInternoAsync(
             vinculo.EstabelecimentoId,
             request,
-            exigirFuncionamentoEstabelecimento: false,
+            exigirFuncionamentoEstabelecimento: profissional.TipoProfissional != ProfessionalType.Autonomo,
             cancellationToken);
     }
 
@@ -118,38 +122,49 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
     {
         ValidarPeriodo(request.DataInicio, request.DataFim);
 
-        var servico = await _servicoRepository.ObterPorIdEEstabelecimentoAsync(
-            request.ServicoId,
-            estabelecimentoId,
-            cancellationToken);
-        if (servico is null)
+        var servicoIds = request.ObterServicoIdsEfetivos();
+        if (servicoIds.Length == 0)
         {
             throw new ServicoNegocioNaoEncontradoException();
         }
 
+        var servicos = new List<Servico>();
+        foreach (var servicoId in servicoIds.Distinct())
+        {
+            var servico = await _servicoRepository.ObterPorIdEEstabelecimentoAsync(
+                servicoId,
+                estabelecimentoId,
+                cancellationToken);
+            if (servico is null || !servico.Ativo)
+            {
+                throw new ServicoNegocioNaoEncontradoException();
+            }
+
+            servicos.Add(servico);
+        }
+
         var profissionais = await ResolverProfissionaisAsync(
             request.ProfissionalId,
-            servico,
-            estabelecimentoId,
+            servicos,
             cancellationToken);
 
         if (profissionais.Count == 0)
         {
             return new DisponibilidadeAgendaResponseDto
             {
-                ServicoId = servico.Id,
-                DuracaoMinutos = servico.DuracaoMinutos,
+                ServicoId = servicos[0].Id,
+                ServicoIds = servicoIds,
+                DuracaoMinutos = servicos.Sum(servico => servico.DuracaoMinutos),
                 MensagemIndisponibilidade = "Servico indisponivel por falta de profissional executor.",
                 Slots = []
             };
         }
 
-        var vinculosPorProfissional = await CarregarVinculosAtivosAsync(servico.Id, profissionais, cancellationToken);
+        var vinculosPorProfissional = await CarregarVinculosAtivosAsync(servicos, profissionais, cancellationToken);
         var duracaoResposta = request.ProfissionalId.HasValue
-            ? ServicoPrecificacaoHelper.ObterDuracaoEfetiva(
-                servico,
-                vinculosPorProfissional.GetValueOrDefault(request.ProfissionalId.Value))
-            : servico.DuracaoMinutos;
+            && vinculosPorProfissional.TryGetValue(request.ProfissionalId.Value, out var vinculosProfissional)
+            ? ObterDuracaoTotal(servicos, vinculosProfissional)
+            : servicos.Sum(servico => servico.DuracaoMinutos);
 
         var inicioUtc = request.DataInicio.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var fimUtc = request.DataFim.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
@@ -194,9 +209,9 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
 
                     foreach (var (janelaInicio, janelaFim) in janelas)
                     {
-                        var duracaoEfetiva = ServicoPrecificacaoHelper.ObterDuracaoEfetiva(
-                            servico,
-                            vinculosPorProfissional.GetValueOrDefault(profissionalId));
+                        var duracaoEfetiva = vinculosPorProfissional.TryGetValue(profissionalId, out var vinculosDoProfissional)
+                            ? ObterDuracaoTotal(servicos, vinculosDoProfissional)
+                            : servicos.Sum(servico => servico.DuracaoMinutos);
 
                         foreach (var (inicioSlot, fimSlot) in GeradorSlotsDisponibilidade.Gerar(
                                      data,
@@ -229,7 +244,8 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
 
         return new DisponibilidadeAgendaResponseDto
         {
-            ServicoId = servico.Id,
+            ServicoId = servicos[0].Id,
+            ServicoIds = servicoIds,
             DuracaoMinutos = duracaoResposta,
             Slots = slots
                 .OrderBy(slot => slot.Inicio)
@@ -240,49 +256,98 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
 
     private async Task<IReadOnlyList<int>> ResolverProfissionaisAsync(
         int? profissionalId,
-        Servico servico,
-        int estabelecimentoId,
+        IReadOnlyList<Servico> servicos,
         CancellationToken cancellationToken)
     {
         if (profissionalId.HasValue)
         {
-            if (!await _profissionalServicoRepository.ExisteAtivoAsync(
-                    profissionalId.Value,
-                    servico.Id,
-                    cancellationToken))
+            foreach (var servico in servicos)
             {
-                return [];
+                if (!await _profissionalServicoRepository.ExisteAtivoAsync(
+                        profissionalId.Value,
+                        servico.Id,
+                        cancellationToken))
+                {
+                    return [];
+                }
             }
 
             return [profissionalId.Value];
         }
 
-        return await _profissionalServicoRepository.ListarProfissionaisAtivosPorServicoAsync(
-            servico.Id,
+        var candidatos = await _profissionalServicoRepository.ListarProfissionaisAtivosPorServicoAsync(
+            servicos[0].Id,
             cancellationToken);
+
+        var profissionaisValidos = new List<int>();
+        foreach (var candidato in candidatos)
+        {
+            var executaTodos = true;
+            foreach (var servico in servicos)
+            {
+                if (!await _profissionalServicoRepository.ExisteAtivoAsync(candidato, servico.Id, cancellationToken))
+                {
+                    executaTodos = false;
+                    break;
+                }
+            }
+
+            if (executaTodos)
+            {
+                profissionaisValidos.Add(candidato);
+            }
+        }
+
+        return profissionaisValidos;
     }
 
-    private async Task<Dictionary<int, ProfissionalServico>> CarregarVinculosAtivosAsync(
-        int servicoId,
+    private async Task<Dictionary<int, Dictionary<int, ProfissionalServico>>> CarregarVinculosAtivosAsync(
+        IReadOnlyList<Servico> servicos,
         IReadOnlyList<int> profissionais,
         CancellationToken cancellationToken)
     {
-        var vinculos = new Dictionary<int, ProfissionalServico>();
+        var vinculos = new Dictionary<int, Dictionary<int, ProfissionalServico>>();
 
         foreach (var profissionalId in profissionais)
         {
-            var vinculo = await _profissionalServicoRepository.ObterPorProfissionalEServicoAsync(
-                profissionalId,
-                servicoId,
-                cancellationToken);
+            var vinculosProfissional = new Dictionary<int, ProfissionalServico>();
 
-            if (vinculo?.Ativo == true)
+            foreach (var servico in servicos)
             {
-                vinculos[profissionalId] = vinculo;
+                var vinculo = await _profissionalServicoRepository.ObterPorProfissionalEServicoAsync(
+                    profissionalId,
+                    servico.Id,
+                    cancellationToken);
+
+                if (vinculo?.Ativo == true)
+                {
+                    vinculosProfissional[servico.Id] = vinculo;
+                }
+            }
+
+            if (vinculosProfissional.Count == servicos.Count)
+            {
+                vinculos[profissionalId] = vinculosProfissional;
             }
         }
 
         return vinculos;
+    }
+
+    private static int ObterDuracaoTotal(
+        IReadOnlyList<Servico> servicos,
+        Dictionary<int, ProfissionalServico>? vinculosPorServico)
+    {
+        var total = 0;
+
+        foreach (var servico in servicos)
+        {
+            ProfissionalServico? vinculo = null;
+            vinculosPorServico?.TryGetValue(servico.Id, out vinculo);
+            total += ServicoPrecificacaoHelper.ObterDuracaoEfetiva(servico, vinculo);
+        }
+
+        return total;
     }
 
     private async Task<bool> ProfissionalPodeAtenderAsync(
