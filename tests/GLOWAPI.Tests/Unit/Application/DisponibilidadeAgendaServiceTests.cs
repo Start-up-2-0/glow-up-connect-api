@@ -62,6 +62,38 @@ public class DisponibilidadeAgendaServiceTests
                 }));
     }
 
+    [Fact]
+    public async Task ConsultarPorEstabelecimentoAsync_DeveUsarDuracaoEfetivaDoVinculo()
+    {
+        var segunda = ObterProximaSegunda();
+        ConfigurarCenarioBasico(segunda);
+
+        _profissionalServicoRepository
+            .Setup(r => r.ObterPorProfissionalEServicoAsync(40, 5, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfissionalServico
+            {
+                ProfissionalId = 40,
+                ServicoId = 5,
+                DuracaoMinutos = 30,
+                Preco = 100,
+                Ativo = true
+            });
+
+        var service = CreateService();
+        var response = await service.ConsultarPorEstabelecimentoAsync(
+            20,
+            new ConsultarDisponibilidadeAgendaDto
+            {
+                DataInicio = segunda,
+                DataFim = segunda,
+                ServicoId = 5,
+                ProfissionalId = 40
+            });
+
+        Assert.Equal(30, response.DuracaoMinutos);
+        Assert.NotEmpty(response.Slots);
+    }
+
     private void ConfigurarCenarioBasico(DateOnly segunda)
     {
         _autorizacaoNegocioService
