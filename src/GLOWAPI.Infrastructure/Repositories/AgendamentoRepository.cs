@@ -47,4 +47,38 @@ public class AgendamentoRepository : Repository<Agendamento>, IAgendamentoReposi
             .ThenBy(agendamento => agendamento.Id)
             .ToListAsync(cancellationToken);
     }
+
+    public Task<Agendamento?> ObterPorIdEEstabelecimentoComItensAsync(
+        int agendamentoId,
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet
+            .Include(agendamento => agendamento.Estabelecimento)
+            .Include(agendamento => agendamento.Itens)
+                .ThenInclude(item => item.Servico)
+            .Include(agendamento => agendamento.Itens)
+                .ThenInclude(item => item.Profissional)
+            .Include(agendamento => agendamento.UsuarioCliente)
+            .FirstOrDefaultAsync(
+                agendamento => agendamento.Id == agendamentoId
+                    && agendamento.EstabelecimentoId == estabelecimentoId,
+                cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Agendamento>> ListarPorUsuarioClienteAsync(
+        int usuarioClienteId,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Include(agendamento => agendamento.Itens)
+                .ThenInclude(item => item.Servico)
+            .Include(agendamento => agendamento.Itens)
+                .ThenInclude(item => item.Profissional)
+            .Include(agendamento => agendamento.Estabelecimento)
+            .Where(agendamento => agendamento.UsuarioClienteId == usuarioClienteId)
+            .OrderByDescending(agendamento => agendamento.CreateAd)
+            .ToListAsync(cancellationToken);
+    }
 }

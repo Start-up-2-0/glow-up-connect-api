@@ -1,21 +1,26 @@
 using GLOWAPI.Domain.Entities;
+using AgendamentoEntity = GLOWAPI.Domain.Entities.Agendamento;
 
 namespace GLOWAPI.Application.DTOs.Agenda;
 
 public record AgendaGeralResponseDto(
     int Id,
-    int UsuarioClienteId,
+    int? UsuarioClienteId,
     string ClienteNome,
+    string? ClienteEmail,
+    string? ClienteTelefone,
     string Status,
     decimal ValorTotal,
     string Observacao,
     IReadOnlyList<AgendaGeralItemResponseDto> Itens)
 {
-    public static AgendaGeralResponseDto From(Agendamento agendamento) =>
+    public static AgendaGeralResponseDto From(AgendamentoEntity agendamento) =>
         new(
             agendamento.Id,
             agendamento.UsuarioClienteId,
-            agendamento.UsuarioCliente?.Nome ?? string.Empty,
+            agendamento.UsuarioCliente?.Nome ?? agendamento.ClienteNome ?? string.Empty,
+            agendamento.UsuarioCliente?.Email ?? agendamento.ClienteEmail,
+            agendamento.UsuarioCliente?.Telefone ?? agendamento.ClienteTelefone,
             agendamento.Status.ToString(),
             agendamento.ValorTotal,
             agendamento.Observacao,

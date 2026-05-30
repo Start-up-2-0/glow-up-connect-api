@@ -8,5 +8,8 @@ public enum AgendamentoStatus
     Concluido = 4,
     Cancelado = 5,
     Expirado = 6,
-    Reembolsado = 7
+    Reembolsado = 7,
+    PendenteConfirmacao = 8,
+    Remarcado = 9,
+    NaoCompareceu = 10
 }

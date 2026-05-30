@@ -28,6 +28,11 @@ public interface IServicoNegocioService
 
     Task<IReadOnlyList<ServicoPublicoResponseDto>> ListarPublicosPorEstabelecimentoAsync(
         Guid publicGuid,
+        Guid? profissionalPublicGuid = null,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ServicoPublicoResponseDto>> ListarPublicosPorProfissionalAsync(
+        Guid publicGuid,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<ServicoPublicoResponseDto>> ListarPublicosPorProfissionalAutonomoAsync(

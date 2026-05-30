@@ -5,10 +5,14 @@ namespace GLOWAPI.Domain.Entities;
 public class Agendamento
 {
     public int Id { get; set; }
-    public int UsuarioClienteId { get; set; }
+    public int? UsuarioClienteId { get; set; }
     public int? EstabelecimentoId { get; set; }
-    public AgendamentoStatus Status { get; set; } = AgendamentoStatus.PendentePagamento;
+    public AgendamentoStatus Status { get; set; } = AgendamentoStatus.PendenteConfirmacao;
+    public OrigemAgendamento Origem { get; set; }
     public decimal ValorTotal { get; set; }
+    public string? ClienteNome { get; set; }
+    public string? ClienteEmail { get; set; }
+    public string? ClienteTelefone { get; set; }
     public string Observacao { get; set; } = string.Empty;
     public DateTime CreateAd { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
@@ -17,6 +21,7 @@ public class Agendamento
     public Usuario? UsuarioCliente { get; set; }
     public Estabelecimento? Estabelecimento { get; set; }
     public ICollection<AgendamentoItem> Itens { get; set; } = new List<AgendamentoItem>();
+    public ICollection<AgendamentoHistorico> Historico { get; set; } = new List<AgendamentoHistorico>();
     public ICollection<Pagamento> Pagamentos { get; set; } = new List<Pagamento>();
     public ICollection<LancamentoCaixa> LancamentosCaixa { get; set; } = new List<LancamentoCaixa>();
 }

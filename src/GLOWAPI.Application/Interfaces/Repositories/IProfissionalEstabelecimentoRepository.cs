@@ -31,4 +31,8 @@ public interface IProfissionalEstabelecimentoRepository : IRepository<Profission
     Task<int> ContarAtivosPorEstabelecimentoAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ProfissionalEstabelecimento>> ListarAtivosComAgendamentoPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default);
 }
