@@ -4,6 +4,7 @@ using GLOWAPI.Domain.Exceptions;
 using GLOWAPI.Domain.Exceptions.Assinatura;
 using GLOWAPI.Domain.Exceptions.Auth;
 using GLOWAPI.Domain.Exceptions.Mensageria;
+using GLOWAPI.Domain.Exceptions.Negocios;
 using GLOWAPI.Domain.Exceptions.Pagamentos;
 using GLOWAPI.Domain.Exceptions.Usuario;
 
@@ -47,6 +48,11 @@ public class ExceptionMiddleware
                     or MensagemNotificacaoJaEnviadaException
                     or MensagemNotificacaoNaoCancelavelException
                     or AssinaturaDuplicadaException
+                    or UsuarioEquipeNegocioDuplicadoException
+                    or ProfissionalNegocioDuplicadoException
+                    or ProfissionalServicoDuplicadoException
+                    or HorarioAtendimentoConflitanteException
+                    or ConviteNegocioDuplicadoException
                     => HttpStatusCode.Conflict,
                 GatewayPagamentoException => HttpStatusCode.BadGateway,
                 ConfirmacaoEmailInvalidaException
@@ -57,12 +63,31 @@ public class ExceptionMiddleware
                     or PagamentoAssinaturaInvalidoException
                     or ProfissionalAutonomoAssinaturaInvalidoException
                     or TrocaPlanoAssinaturaInvalidaException
-                    or WebhookPagamentoInvalidoException => HttpStatusCode.BadRequest,
-                UsuarioSemPermissaoAssinaturaException => HttpStatusCode.Forbidden,
+                    or WebhookPagamentoInvalidoException
+                    or AtendimentoStatusInvalidoException
+                    or ProfissionalServicoInvalidoException
+                    or HorarioAtendimentoInvalidoException
+                    or UltimoOwnerNegocioException
+                    or ConviteNegocioInvalidoException
+                    or LimiteUsuariosNegocioExcedidoException
+                    or LimiteProfissionaisNegocioExcedidoException => HttpStatusCode.BadRequest,
+                UsuarioSemPermissaoAssinaturaException
+                    or UsuarioSemPermissaoNegocioException
+                    or UsuarioSemVinculoNegocioException
+                    or ProfissionalSemVinculoNegocioException
+                    or RecursoForaEscopoProfissionalException => HttpStatusCode.Forbidden,
                 MensagemNotificacaoNaoEncontradaException
                     or PlanoNaoEncontradoException
                     or AssinaturaNaoEncontradaException
-                    or TitularAssinaturaNaoEncontradoException => HttpStatusCode.NotFound,
+                    or TitularAssinaturaNaoEncontradoException
+                    or NegocioNaoEncontradoException
+                    or UsuarioEquipeNegocioNaoEncontradoException
+                    or RecursoProfissionalNaoEncontradoException
+                    or CaixaNegocioNaoEncontradoException
+                    or ServicoNegocioNaoEncontradoException
+                    or HorarioAtendimentoNaoEncontradoException
+                    or ProfissionalNegocioNaoEncontradoException
+                    or ConviteNegocioNaoEncontradoException => HttpStatusCode.NotFound,
                 _ => HttpStatusCode.NotFound
             };
 

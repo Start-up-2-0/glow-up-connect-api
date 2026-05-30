@@ -10,10 +10,14 @@ namespace GLOWAPI.API.Controllers;
 public class UsuarioController : ControllerBase
 {
     private readonly IUsuarioService _usuarioService;
+    private readonly IUsuarioNegocioContextoService _usuarioNegocioContextoService;
 
-    public UsuarioController(IUsuarioService usuarioService)
+    public UsuarioController(
+        IUsuarioService usuarioService,
+        IUsuarioNegocioContextoService usuarioNegocioContextoService)
     {
         _usuarioService = usuarioService;
+        _usuarioNegocioContextoService = usuarioNegocioContextoService;
     }
 
     [AllowAnonymous]
@@ -29,6 +33,13 @@ public class UsuarioController : ControllerBase
     {
         var usuario = await _usuarioService.ObterPerfilAtualAsync(cancellationToken);
         return Ok(UsuarioResponseDto.From(usuario));
+    }
+
+    [HttpGet("me/estabelecimentos")]
+    public async Task<IActionResult> ListarEstabelecimentos(CancellationToken cancellationToken)
+    {
+        var estabelecimentos = await _usuarioNegocioContextoService.ListarEstabelecimentosAsync(cancellationToken);
+        return Ok(estabelecimentos);
     }
 
     [HttpPut("me")]

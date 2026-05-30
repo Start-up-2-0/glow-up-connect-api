@@ -2,6 +2,8 @@ using GLOWAPI.API.Attributes;
 using GLOWAPI.API.Models;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Domain.Enums;
+using GLOWAPI.Domain.Exceptions;
+using GLOWAPI.Domain.Exceptions.Negocios;
 
 namespace GLOWAPI.API.Middlewares;
 
@@ -20,11 +22,14 @@ public class PermissionMiddleware
     public async Task InvokeAsync(
         HttpContext context,
         ICurrentUserContext currentUserContext,
-        IModulosAssinaturaService modulosAssinaturaService)
+        IModulosAssinaturaService modulosAssinaturaService,
+        IAutorizacaoNegocioService autorizacaoNegocioService)
     {
         var endpoint = context.GetEndpoint();
-        var requisitos = endpoint?.Metadata.GetOrderedMetadata<RequerModuloAssinaturaAttribute>();
-        if (requisitos is null || requisitos.Count == 0)
+        var requisitosModulo = endpoint?.Metadata.GetOrderedMetadata<RequerModuloAssinaturaAttribute>();
+        var requisitosPermissao = endpoint?.Metadata.GetOrderedMetadata<RequerPermissaoNegocioAttribute>();
+        if ((requisitosModulo is null || requisitosModulo.Count == 0)
+            && (requisitosPermissao is null || requisitosPermissao.Count == 0))
         {
             await _next(context);
             return;
@@ -40,7 +45,7 @@ public class PermissionMiddleware
             return;
         }
 
-        foreach (var requisito in requisitos)
+        foreach (var requisito in requisitosModulo ?? Array.Empty<RequerModuloAssinaturaAttribute>())
         {
             var titularId = ObterParametroId(context, requisito.ParametroId);
             if (!titularId.HasValue)
@@ -79,6 +84,54 @@ public class PermissionMiddleware
             }
         }
 
+        foreach (var requisito in requisitosPermissao ?? Array.Empty<RequerPermissaoNegocioAttribute>())
+        {
+            if (requisito.ParametroEhPublicGuid)
+            {
+                var publicGuid = ObterParametroGuid(context, requisito.ParametroId);
+                if (!publicGuid.HasValue)
+                {
+                    await WriteErrorAsync(
+                        context,
+                        StatusCodes.Status400BadRequest,
+                        "Identificador do negocio nao foi informado ou e invalido.",
+                        "INVALID_BUSINESS_SCOPE");
+                    return;
+                }
+
+                if (!await AutorizarPorPublicGuidAsync(
+                        context,
+                        autorizacaoNegocioService,
+                        publicGuid.Value,
+                        requisito.Permissao))
+                {
+                    return;
+                }
+
+                continue;
+            }
+
+            var estabelecimentoId = ObterParametroId(context, requisito.ParametroId);
+            if (!estabelecimentoId.HasValue)
+            {
+                await WriteErrorAsync(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    "Identificador do negocio nao foi informado ou e invalido.",
+                    "INVALID_BUSINESS_SCOPE");
+                return;
+            }
+
+            if (!await AutorizarPorIdAsync(
+                    context,
+                    autorizacaoNegocioService,
+                    estabelecimentoId.Value,
+                    requisito.Permissao))
+            {
+                return;
+            }
+        }
+
         await _next(context);
     }
 
@@ -97,6 +150,75 @@ public class PermissionMiddleware
         }
 
         return null;
+    }
+
+    private static Guid? ObterParametroGuid(HttpContext context, string parametroId)
+    {
+        if (context.Request.RouteValues.TryGetValue(parametroId, out var routeValue) &&
+            Guid.TryParse(routeValue?.ToString(), out var routeGuid))
+        {
+            return routeGuid;
+        }
+
+        if (context.Request.Query.TryGetValue(parametroId, out var queryValue) &&
+            Guid.TryParse(queryValue.FirstOrDefault(), out var queryGuid))
+        {
+            return queryGuid;
+        }
+
+        return null;
+    }
+
+    private static async Task<bool> AutorizarPorIdAsync(
+        HttpContext context,
+        IAutorizacaoNegocioService autorizacaoNegocioService,
+        int estabelecimentoId,
+        PermissaoNegocio permissao)
+    {
+        try
+        {
+            await autorizacaoNegocioService.AutorizarAsync(
+                estabelecimentoId,
+                permissao,
+                context.RequestAborted);
+            return true;
+        }
+        catch (DomainException ex) when (ex is UsuarioSemPermissaoNegocioException or UsuarioSemVinculoNegocioException)
+        {
+            await WriteErrorAsync(context, StatusCodes.Status403Forbidden, ex.Message, ex.Code);
+            return false;
+        }
+        catch (NegocioNaoEncontradoException ex)
+        {
+            await WriteErrorAsync(context, StatusCodes.Status404NotFound, ex.Message, ex.Code);
+            return false;
+        }
+    }
+
+    private static async Task<bool> AutorizarPorPublicGuidAsync(
+        HttpContext context,
+        IAutorizacaoNegocioService autorizacaoNegocioService,
+        Guid publicGuid,
+        PermissaoNegocio permissao)
+    {
+        try
+        {
+            await autorizacaoNegocioService.AutorizarPorPublicGuidAsync(
+                publicGuid,
+                permissao,
+                context.RequestAborted);
+            return true;
+        }
+        catch (DomainException ex) when (ex is UsuarioSemPermissaoNegocioException or UsuarioSemVinculoNegocioException)
+        {
+            await WriteErrorAsync(context, StatusCodes.Status403Forbidden, ex.Message, ex.Code);
+            return false;
+        }
+        catch (NegocioNaoEncontradoException ex)
+        {
+            await WriteErrorAsync(context, StatusCodes.Status404NotFound, ex.Message, ex.Code);
+            return false;
+        }
     }
 
     private static async Task WriteErrorAsync(HttpContext context, int statusCode, string message, string code)
