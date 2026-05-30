@@ -21,7 +21,9 @@ public class EstabelecimentosController : ControllerBase
     private readonly IAtendimentoProfissionalService _atendimentoProfissionalService;
     private readonly ICaixaNegocioService _caixaNegocioService;
     private readonly IProfissionalServicoNegocioService _profissionalServicoNegocioService;
+    private readonly IHorarioFuncionamentoNegocioService _horarioFuncionamentoNegocioService;
     private readonly IHorarioProfissionalNegocioService _horarioProfissionalNegocioService;
+    private readonly IDisponibilidadeAgendaService _disponibilidadeAgendaService;
 
     public EstabelecimentosController(
         IEstabelecimentoPerfilService estabelecimentoPerfilService,
@@ -30,7 +32,9 @@ public class EstabelecimentosController : ControllerBase
         IAtendimentoProfissionalService atendimentoProfissionalService,
         ICaixaNegocioService caixaNegocioService,
         IProfissionalServicoNegocioService profissionalServicoNegocioService,
-        IHorarioProfissionalNegocioService horarioProfissionalNegocioService)
+        IHorarioFuncionamentoNegocioService horarioFuncionamentoNegocioService,
+        IHorarioProfissionalNegocioService horarioProfissionalNegocioService,
+        IDisponibilidadeAgendaService disponibilidadeAgendaService)
     {
         _estabelecimentoPerfilService = estabelecimentoPerfilService;
         _equipeNegocioService = equipeNegocioService;
@@ -38,7 +42,9 @@ public class EstabelecimentosController : ControllerBase
         _atendimentoProfissionalService = atendimentoProfissionalService;
         _caixaNegocioService = caixaNegocioService;
         _profissionalServicoNegocioService = profissionalServicoNegocioService;
+        _horarioFuncionamentoNegocioService = horarioFuncionamentoNegocioService;
         _horarioProfissionalNegocioService = horarioProfissionalNegocioService;
+        _disponibilidadeAgendaService = disponibilidadeAgendaService;
     }
 
     [HttpPut("{estabelecimentoId:int}/perfil")]
@@ -288,9 +294,86 @@ public class EstabelecimentosController : ControllerBase
                 vinculo));
     }
 
+    [HttpGet("{estabelecimentoId:int}/horarios-funcionamento")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.HorarioVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarHorariosFuncionamento(
+        int estabelecimentoId,
+        [FromQuery] HorarioFuncionamentoFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var horarios = await _horarioFuncionamentoNegocioService.ListarAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<HorarioFuncionamentoResponseDto>>.From(
+            "Horarios de funcionamento listados com sucesso.",
+            horarios));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/horarios-funcionamento")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.HorarioGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> CriarHorarioFuncionamento(
+        int estabelecimentoId,
+        [FromBody] CriarHorarioFuncionamentoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var horario = await _horarioFuncionamentoNegocioService.CriarAsync(
+            estabelecimentoId,
+            request,
+            cancellationToken);
+
+        return StatusCode(
+            StatusCodes.Status201Created,
+            ApiSuccessResponse<HorarioFuncionamentoResponseDto>.From(
+                "Horario de funcionamento criado com sucesso.",
+                horario));
+    }
+
+    [HttpPut("{estabelecimentoId:int}/horarios-funcionamento/{horarioId:int}")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.HorarioGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> AtualizarHorarioFuncionamento(
+        int estabelecimentoId,
+        int horarioId,
+        [FromBody] AtualizarHorarioFuncionamentoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var horario = await _horarioFuncionamentoNegocioService.AtualizarAsync(
+            estabelecimentoId,
+            horarioId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<HorarioFuncionamentoResponseDto>.From(
+            "Horario de funcionamento atualizado com sucesso.",
+            horario));
+    }
+
+    [HttpPatch("{estabelecimentoId:int}/horarios-funcionamento/{horarioId:int}/status")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.HorarioGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> AtualizarStatusHorarioFuncionamento(
+        int estabelecimentoId,
+        int horarioId,
+        [FromBody] AtualizarStatusHorarioFuncionamentoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var horario = await _horarioFuncionamentoNegocioService.AtualizarStatusAsync(
+            estabelecimentoId,
+            horarioId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<HorarioFuncionamentoResponseDto>.From(
+            "Status do horario de funcionamento atualizado com sucesso.",
+            horario));
+    }
+
     [HttpPost("{estabelecimentoId:int}/profissionais/{profissionalId:int}/horarios")]
     [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
-    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
     public async Task<IActionResult> CriarHorarioProfissional(
         int estabelecimentoId,
         int profissionalId,
@@ -310,9 +393,45 @@ public class EstabelecimentosController : ControllerBase
                 horario));
     }
 
+    [HttpGet("{estabelecimentoId:int}/profissionais/horarios")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.HorarioVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarHorariosProfissionais(
+        int estabelecimentoId,
+        [FromQuery] HorarioProfissionalFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var horarios = await _horarioProfissionalNegocioService.ListarAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<HorarioProfissionalResponseDto>>.From(
+            "Horarios dos profissionais listados com sucesso.",
+            horarios));
+    }
+
+    [HttpPut("{estabelecimentoId:int}/profissionais/horarios/{horarioId:int}")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
+    public async Task<IActionResult> AtualizarHorarioProfissional(
+        int estabelecimentoId,
+        int horarioId,
+        [FromBody] AtualizarHorarioProfissionalRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var horario = await _horarioProfissionalNegocioService.AtualizarAsync(
+            estabelecimentoId,
+            horarioId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<HorarioProfissionalResponseDto>.From(
+            "Horario do profissional atualizado com sucesso.",
+            horario));
+    }
+
     [HttpPatch("{estabelecimentoId:int}/profissionais/horarios/{horarioId:int}/status")]
     [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
-    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
     public async Task<IActionResult> AtualizarStatusHorarioProfissional(
         int estabelecimentoId,
         int horarioId,
@@ -328,5 +447,23 @@ public class EstabelecimentosController : ControllerBase
         return Ok(ApiSuccessResponse<HorarioProfissionalResponseDto>.From(
             "Status do horario do profissional atualizado com sucesso.",
             horario));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/disponibilidade")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.AgendaCriar, "estabelecimentoId")]
+    public async Task<IActionResult> ConsultarDisponibilidade(
+        int estabelecimentoId,
+        [FromQuery] ConsultarDisponibilidadeAgendaDto request,
+        CancellationToken cancellationToken)
+    {
+        var disponibilidade = await _disponibilidadeAgendaService.ConsultarPorEstabelecimentoAsync(
+            estabelecimentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<DisponibilidadeAgendaResponseDto>.From(
+            "Disponibilidade consultada com sucesso.",
+            disponibilidade));
     }
 }

@@ -147,7 +147,7 @@ public class EstabelecimentosControllerAcessoTests
     }
 
     [Fact]
-    public void CriarHorarioProfissional_DeveExigirModuloHorariosEPermissaoGerenciarProfissional()
+    public void CriarHorarioProfissional_DeveExigirApenasModuloHorarios()
     {
         var method = typeof(EstabelecimentosController).GetMethod(nameof(EstabelecimentosController.CriarHorarioProfissional));
 
@@ -156,8 +156,24 @@ public class EstabelecimentosControllerAcessoTests
         var modulo = method!.GetCustomAttributes<RequerModuloAssinaturaAttribute>()
             .SingleOrDefault();
 
+        Assert.Null(permissao);
+        Assert.NotNull(modulo);
+        Assert.Equal(ModuloAssinatura.HorariosAtendimento, modulo!.Modulo);
+        Assert.Equal("estabelecimentoId", modulo.ParametroId);
+    }
+
+    [Fact]
+    public void ListarHorariosProfissionais_DeveExigirModuloHorariosEPermissaoVisualizarHorario()
+    {
+        var method = typeof(EstabelecimentosController).GetMethod(nameof(EstabelecimentosController.ListarHorariosProfissionais));
+
+        var permissao = method!.GetCustomAttributes<RequerPermissaoNegocioAttribute>()
+            .SingleOrDefault();
+        var modulo = method!.GetCustomAttributes<RequerModuloAssinaturaAttribute>()
+            .SingleOrDefault();
+
         Assert.NotNull(permissao);
-        Assert.Equal(PermissaoNegocio.ProfissionalGerenciar, permissao!.Permissao);
+        Assert.Equal(PermissaoNegocio.HorarioVisualizar, permissao!.Permissao);
         Assert.Equal("estabelecimentoId", permissao.ParametroId);
         Assert.NotNull(modulo);
         Assert.Equal(ModuloAssinatura.HorariosAtendimento, modulo!.Modulo);
@@ -165,7 +181,95 @@ public class EstabelecimentosControllerAcessoTests
     }
 
     [Fact]
-    public void AtualizarStatusHorarioProfissional_DeveExigirModuloHorariosEPermissaoGerenciarProfissional()
+    public void AtualizarHorarioProfissional_DeveExigirApenasModuloHorarios()
+    {
+        var method = typeof(EstabelecimentosController).GetMethod(nameof(EstabelecimentosController.AtualizarHorarioProfissional));
+
+        var permissao = method!.GetCustomAttributes<RequerPermissaoNegocioAttribute>()
+            .SingleOrDefault();
+        var modulo = method!.GetCustomAttributes<RequerModuloAssinaturaAttribute>()
+            .SingleOrDefault();
+
+        Assert.Null(permissao);
+        Assert.NotNull(modulo);
+        Assert.Equal(ModuloAssinatura.HorariosAtendimento, modulo!.Modulo);
+        Assert.Equal("estabelecimentoId", modulo.ParametroId);
+    }
+
+    [Fact]
+    public void CriarHorarioFuncionamento_DeveExigirModuloHorariosEPermissaoGerenciarHorario()
+    {
+        var method = typeof(EstabelecimentosController).GetMethod(nameof(EstabelecimentosController.CriarHorarioFuncionamento));
+
+        var permissao = method!.GetCustomAttributes<RequerPermissaoNegocioAttribute>()
+            .SingleOrDefault();
+        var modulo = method!.GetCustomAttributes<RequerModuloAssinaturaAttribute>()
+            .SingleOrDefault();
+
+        Assert.NotNull(permissao);
+        Assert.Equal(PermissaoNegocio.HorarioGerenciar, permissao!.Permissao);
+        Assert.Equal("estabelecimentoId", permissao.ParametroId);
+        Assert.NotNull(modulo);
+        Assert.Equal(ModuloAssinatura.HorariosAtendimento, modulo!.Modulo);
+        Assert.Equal("estabelecimentoId", modulo.ParametroId);
+    }
+
+    [Fact]
+    public void ListarHorariosFuncionamento_DeveExigirModuloHorariosEPermissaoVisualizarHorario()
+    {
+        var method = typeof(EstabelecimentosController).GetMethod(nameof(EstabelecimentosController.ListarHorariosFuncionamento));
+
+        var permissao = method!.GetCustomAttributes<RequerPermissaoNegocioAttribute>()
+            .SingleOrDefault();
+        var modulo = method!.GetCustomAttributes<RequerModuloAssinaturaAttribute>()
+            .SingleOrDefault();
+
+        Assert.NotNull(permissao);
+        Assert.Equal(PermissaoNegocio.HorarioVisualizar, permissao!.Permissao);
+        Assert.Equal("estabelecimentoId", permissao.ParametroId);
+        Assert.NotNull(modulo);
+        Assert.Equal(ModuloAssinatura.HorariosAtendimento, modulo!.Modulo);
+        Assert.Equal("estabelecimentoId", modulo.ParametroId);
+    }
+
+    [Fact]
+    public void AtualizarHorarioFuncionamento_DeveExigirModuloHorariosEPermissaoEditarNegocio()
+    {
+        var method = typeof(EstabelecimentosController).GetMethod(nameof(EstabelecimentosController.AtualizarHorarioFuncionamento));
+
+        var permissao = method!.GetCustomAttributes<RequerPermissaoNegocioAttribute>()
+            .SingleOrDefault();
+        var modulo = method!.GetCustomAttributes<RequerModuloAssinaturaAttribute>()
+            .SingleOrDefault();
+
+        Assert.NotNull(permissao);
+        Assert.Equal(PermissaoNegocio.HorarioGerenciar, permissao!.Permissao);
+        Assert.Equal("estabelecimentoId", permissao.ParametroId);
+        Assert.NotNull(modulo);
+        Assert.Equal(ModuloAssinatura.HorariosAtendimento, modulo!.Modulo);
+        Assert.Equal("estabelecimentoId", modulo.ParametroId);
+    }
+
+    [Fact]
+    public void AtualizarStatusHorarioFuncionamento_DeveExigirModuloHorariosEPermissaoEditarNegocio()
+    {
+        var method = typeof(EstabelecimentosController).GetMethod(nameof(EstabelecimentosController.AtualizarStatusHorarioFuncionamento));
+
+        var permissao = method!.GetCustomAttributes<RequerPermissaoNegocioAttribute>()
+            .SingleOrDefault();
+        var modulo = method!.GetCustomAttributes<RequerModuloAssinaturaAttribute>()
+            .SingleOrDefault();
+
+        Assert.NotNull(permissao);
+        Assert.Equal(PermissaoNegocio.HorarioGerenciar, permissao!.Permissao);
+        Assert.Equal("estabelecimentoId", permissao.ParametroId);
+        Assert.NotNull(modulo);
+        Assert.Equal(ModuloAssinatura.HorariosAtendimento, modulo!.Modulo);
+        Assert.Equal("estabelecimentoId", modulo.ParametroId);
+    }
+
+    [Fact]
+    public void AtualizarStatusHorarioProfissional_DeveExigirApenasModuloHorarios()
     {
         var method = typeof(EstabelecimentosController).GetMethod(nameof(EstabelecimentosController.AtualizarStatusHorarioProfissional));
 
@@ -174,8 +278,7 @@ public class EstabelecimentosControllerAcessoTests
         var modulo = method!.GetCustomAttributes<RequerModuloAssinaturaAttribute>()
             .SingleOrDefault();
 
-        Assert.NotNull(permissao);
-        Assert.Equal(PermissaoNegocio.ProfissionalGerenciar, permissao!.Permissao);
+        Assert.Null(permissao);
         Assert.NotNull(modulo);
         Assert.Equal(ModuloAssinatura.HorariosAtendimento, modulo!.Modulo);
     }
