@@ -309,6 +309,53 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.ToTable("AssinaturasRecorrenciasHistorico", (string)null);
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.AuditoriaNegocio", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Entidade")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int?>("EntidadeId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EstabelecimentoId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("TipoAcao")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int?>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CriadoEm");
+
+                    b.HasIndex("EstabelecimentoId");
+
+                    b.HasIndex("TipoAcao");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("AuditoriasNegocio", (string)null);
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Caixa", b =>
                 {
                     b.Property<int>("Id")
@@ -392,6 +439,87 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.HasIndex("ProfissionalEstabelecimentoId");
 
                     b.ToTable("ComissoesProfissional", (string)null);
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.ConviteNegocio", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AceitoPorUsuarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CriadoPorUsuarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<int>("EstabelecimentoId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("ExpiraEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("NomePublico")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<bool>("PodeReceberAgendamento")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("RespondidoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RoleSugerida")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Telefone")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("TipoConvite")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AceitoPorUsuarioId");
+
+                    b.HasIndex("CriadoPorUsuarioId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("EstabelecimentoId", "Email", "TipoConvite", "Status");
+
+                    b.ToTable("ConvitesNegocio", (string)null);
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Endereco", b =>
@@ -1634,6 +1762,24 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Navigation("Pagamento");
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.AuditoriaNegocio", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
+                        .WithMany()
+                        .HasForeignKey("EstabelecimentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Estabelecimento");
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Caixa", b =>
                 {
                     b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
@@ -1653,6 +1799,32 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("ProfissionalEstabelecimento");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.ConviteNegocio", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Usuario", "AceitoPorUsuario")
+                        .WithMany()
+                        .HasForeignKey("AceitoPorUsuarioId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Usuario", "CriadoPorUsuario")
+                        .WithMany()
+                        .HasForeignKey("CriadoPorUsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
+                        .WithMany()
+                        .HasForeignKey("EstabelecimentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AceitoPorUsuario");
+
+                    b.Navigation("CriadoPorUsuario");
+
+                    b.Navigation("Estabelecimento");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Endereco", b =>

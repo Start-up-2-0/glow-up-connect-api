@@ -55,6 +55,7 @@ public static class DependencyInjection
         services.AddScoped<IProfissionalServicoRepository, ProfissionalServicoRepository>();
         services.AddScoped<IHorarioFuncionamentoEstabelecimentoRepository, HorarioFuncionamentoEstabelecimentoRepository>();
         services.AddScoped<IHorarioAtendimentoProfissionalRepository, HorarioAtendimentoProfissionalRepository>();
+        services.AddScoped<IConviteNegocioRepository, ConviteNegocioRepository>();
         services.AddScoped<IAgendamentoRepository, AgendamentoRepository>();
         services.AddScoped<IAgendamentoItemRepository, AgendamentoItemRepository>();
         services.AddScoped<ICaixaRepository, CaixaRepository>();
