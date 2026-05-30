@@ -25,6 +25,15 @@ builder.Services.Configure<MensageriaEmailOptions>(
     builder.Configuration.GetSection(MensageriaEmailOptions.SectionName));
 builder.Services.Configure<MercadoPagoOptions>(
     builder.Configuration.GetSection(MercadoPagoOptions.SectionName));
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+    {
+        policy.AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 
 HostedConfigurationValidator.ValidarSeAmbienteHospedado(
     builder.Configuration,
@@ -74,6 +83,8 @@ if (app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
+
+app.UseCors("Frontend");
 
 app.UseMiddleware<GlowTokenAuthenticationMiddleware>();
 app.UseMiddleware<PermissionMiddleware>();
