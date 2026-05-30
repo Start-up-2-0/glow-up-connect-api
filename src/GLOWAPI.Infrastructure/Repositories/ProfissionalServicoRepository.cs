@@ -32,4 +32,16 @@ public class ProfissionalServicoRepository : Repository<ProfissionalServico>, IP
                 && ps.Ativo,
             cancellationToken);
     }
+
+    public async Task<IReadOnlyList<int>> ListarProfissionaisAtivosPorServicoAsync(
+        int servicoId,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Where(ps => ps.ServicoId == servicoId && ps.Ativo)
+            .Select(ps => ps.ProfissionalId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+    }
 }
