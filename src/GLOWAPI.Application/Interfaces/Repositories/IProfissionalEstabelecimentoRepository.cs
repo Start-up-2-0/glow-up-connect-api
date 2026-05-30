@@ -8,8 +8,27 @@ public interface IProfissionalEstabelecimentoRepository : IRepository<Profission
         int profissionalId,
         CancellationToken cancellationToken = default);
 
+    Task<ProfissionalEstabelecimento?> ObterAtivoPorUsuarioAsync(
+        int usuarioId,
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default);
+
     Task<bool> ExisteAtivoAsync(
         int profissionalId,
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default);
+
+    Task<ProfissionalEstabelecimento?> ObterPorProfissionalAsync(
+        int profissionalId,
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> ExisteAtivoPorUsuarioAsync(
+        int usuarioId,
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default);
+
+    Task<int> ContarAtivosPorEstabelecimentoAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default);
 }

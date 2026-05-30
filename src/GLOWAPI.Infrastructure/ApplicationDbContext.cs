@@ -37,6 +37,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<LogAutenticacao> LogsAutenticacao { get; set; }
     public DbSet<MensagemNotificacao> MensagensNotificacao { get; set; }
     public DbSet<MensagemNotificacaoLog> MensagensNotificacaoLogs { get; set; }
+    public DbSet<AuditoriaNegocio> AuditoriasNegocio { get; set; }
+    public DbSet<ConviteNegocio> ConvitesNegocio { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

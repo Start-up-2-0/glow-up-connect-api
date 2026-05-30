@@ -4,4 +4,13 @@ namespace GLOWAPI.Application.Interfaces.Repositories;
 
 public interface IProfissionalServicoRepository : IRepository<ProfissionalServico>
 {
+    Task<ProfissionalServico?> ObterPorProfissionalEServicoAsync(
+        int profissionalId,
+        int servicoId,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> ExisteAtivoAsync(
+        int profissionalId,
+        int servicoId,
+        CancellationToken cancellationToken = default);
 }

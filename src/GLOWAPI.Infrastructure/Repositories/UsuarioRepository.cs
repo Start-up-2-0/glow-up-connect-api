@@ -15,6 +15,11 @@ public class UsuarioRepository : Repository<Usuario>, IUsuarioRepository
         return DbSet.FirstOrDefaultAsync(usuario => usuario.Email == email, cancellationToken);
     }
 
+    public Task<Usuario?> ObterPorTelefoneAsync(string telefone, CancellationToken cancellationToken = default)
+    {
+        return DbSet.FirstOrDefaultAsync(usuario => usuario.Telefone == telefone, cancellationToken);
+    }
+
     public Task<Usuario?> ObterPorConfirmacaoTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default)
     {
         return DbSet.FirstOrDefaultAsync(usuario => usuario.ConfirmacaoTokenHash == tokenHash, cancellationToken);

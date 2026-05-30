@@ -1,25 +1,22 @@
 using GLOWAPI.Application.DTOs.Estabelecimentos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
-using GLOWAPI.Domain.Exceptions.Auth;
 
 namespace GLOWAPI.Application.Services;
 
 public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
 {
     private readonly IEstabelecimentoRepository _estabelecimentoRepository;
-    private readonly IEstabelecimentoUsuarioRepository _estabelecimentoUsuarioRepository;
-    private readonly ICurrentUserContext _currentUser;
+    private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
 
     public EstabelecimentoPerfilService(
         IEstabelecimentoRepository estabelecimentoRepository,
-        IEstabelecimentoUsuarioRepository estabelecimentoUsuarioRepository,
-        ICurrentUserContext currentUser)
+        IAutorizacaoNegocioService autorizacaoNegocioService)
     {
         _estabelecimentoRepository = estabelecimentoRepository;
-        _estabelecimentoUsuarioRepository = estabelecimentoUsuarioRepository;
-        _currentUser = currentUser;
+        _autorizacaoNegocioService = autorizacaoNegocioService;
     }
 
     public async Task<EstabelecimentoPerfilResponseDto> AtualizarAsync(
@@ -27,22 +24,16 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
         AtualizarEstabelecimentoPerfilDto request,
         CancellationToken cancellationToken = default)
     {
-        var userId = ObterUserIdAutenticado();
         var estabelecimento = await _estabelecimentoRepository.ObterPorIdComEnderecoAsync(estabelecimentoId, cancellationToken);
         if (estabelecimento is null || !estabelecimento.Ativo)
         {
             throw new TitularAssinaturaNaoEncontradoException();
         }
 
-        var vinculo = await _estabelecimentoUsuarioRepository.ObterAtivoAsync(
+        await _autorizacaoNegocioService.AutorizarAsync(
             estabelecimentoId,
-            userId,
+            PermissaoNegocio.NegocioEditar,
             cancellationToken);
-
-        if (vinculo is null)
-        {
-            throw new UsuarioSemPermissaoAssinaturaException();
-        }
 
         static Exception CriarExcecao(string mensagem) => new EstabelecimentoAssinaturaInvalidoException(mensagem);
 
@@ -62,15 +53,5 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
         await _estabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
 
         return EstabelecimentoPerfilResponseDto.From(estabelecimento);
-    }
-
-    private int ObterUserIdAutenticado()
-    {
-        if (!_currentUser.UserId.HasValue)
-        {
-            throw new UnauthorizedException();
-        }
-
-        return _currentUser.UserId.Value;
     }
 }

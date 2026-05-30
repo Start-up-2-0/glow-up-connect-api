@@ -22,6 +22,22 @@ public class ProfissionalEstabelecimentoRepository : Repository<ProfissionalEsta
                 cancellationToken);
     }
 
+    public Task<ProfissionalEstabelecimento?> ObterAtivoPorUsuarioAsync(
+        int usuarioId,
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet
+            .Include(vinculo => vinculo.Profissional)
+            .FirstOrDefaultAsync(
+                vinculo => vinculo.EstabelecimentoId == estabelecimentoId
+                    && vinculo.Ativo
+                    && vinculo.Profissional != null
+                    && vinculo.Profissional.UsuarioId == usuarioId
+                    && vinculo.Profissional.Ativo,
+                cancellationToken);
+    }
+
     public Task<bool> ExisteAtivoAsync(
         int profissionalId,
         int estabelecimentoId,
@@ -31,6 +47,40 @@ public class ProfissionalEstabelecimentoRepository : Repository<ProfissionalEsta
             vinculo => vinculo.ProfissionalId == profissionalId
                 && vinculo.EstabelecimentoId == estabelecimentoId
                 && vinculo.Ativo,
+            cancellationToken);
+    }
+
+    public Task<ProfissionalEstabelecimento?> ObterPorProfissionalAsync(
+        int profissionalId,
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet.FirstOrDefaultAsync(
+            vinculo => vinculo.ProfissionalId == profissionalId
+                && vinculo.EstabelecimentoId == estabelecimentoId,
+            cancellationToken);
+    }
+
+    public Task<bool> ExisteAtivoPorUsuarioAsync(
+        int usuarioId,
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet.AnyAsync(
+            vinculo => vinculo.EstabelecimentoId == estabelecimentoId
+                && vinculo.Ativo
+                && vinculo.Profissional != null
+                && vinculo.Profissional.UsuarioId == usuarioId
+                && vinculo.Profissional.Ativo,
+            cancellationToken);
+    }
+
+    public Task<int> ContarAtivosPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet.CountAsync(
+            vinculo => vinculo.EstabelecimentoId == estabelecimentoId && vinculo.Ativo,
             cancellationToken);
     }
 }
