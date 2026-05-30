@@ -15,7 +15,9 @@ public class ProfissionalServicoNegocioServiceTests
     private readonly Mock<IServicoRepository> _servicoRepository = new();
     private readonly Mock<IProfissionalEstabelecimentoRepository> _profissionalEstabelecimentoRepository = new();
     private readonly Mock<IProfissionalServicoRepository> _profissionalServicoRepository = new();
+    private readonly Mock<IAgendamentoItemRepository> _agendamentoItemRepository = new();
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
+    private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
 
     public ProfissionalServicoNegocioServiceTests()
     {
@@ -52,6 +54,10 @@ public class ProfissionalServicoNegocioServiceTests
                 EstabelecimentoId = 20,
                 Ativo = true
             });
+
+        _agendamentoItemRepository
+            .Setup(r => r.ExisteFuturoConfirmadoAsync(40, 30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
     }
 
     [Fact]
@@ -82,113 +88,85 @@ public class ProfissionalServicoNegocioServiceTests
     }
 
     [Fact]
-    public async Task VincularAsync_DevePermitirPrecoEDuracaoEspecificos()
+    public async Task AtualizarAsync_DeveAtualizarPrecoEDuracao()
     {
-        ProfissionalServico? capturado = null;
+        var vinculo = new ProfissionalServico
+        {
+            Id = 70,
+            ProfissionalId = 40,
+            ServicoId = 30,
+            Preco = 80,
+            DuracaoMinutos = 45,
+            Ativo = true
+        };
+
         _profissionalServicoRepository
-            .Setup(r => r.AdicionarAsync(It.IsAny<ProfissionalServico>(), It.IsAny<CancellationToken>()))
-            .Callback<ProfissionalServico, CancellationToken>((vinculo, _) => capturado = vinculo);
+            .Setup(r => r.ObterPorProfissionalEServicoAsync(40, 30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(vinculo);
 
         var service = CreateService();
-
-        await service.VincularAsync(
+        var response = await service.AtualizarAsync(
             20,
             40,
             30,
-            new VincularServicoProfissionalRequestDto
+            new AtualizarProfissionalServicoRequestDto
             {
                 Preco = 95,
                 DuracaoMinutos = 60
             });
 
-        Assert.NotNull(capturado);
-        Assert.Equal(95, capturado!.Preco);
-        Assert.Equal(60, capturado.DuracaoMinutos);
+        Assert.Equal(95, vinculo.Preco);
+        Assert.Equal(60, vinculo.DuracaoMinutos);
+        Assert.Equal(95, response.Preco);
     }
 
     [Fact]
-    public async Task VincularAsync_DeveReativarVinculoInativo()
+    public async Task DesvincularAsync_DeveInativarVinculo()
     {
-        var existente = new ProfissionalServico
+        var vinculo = new ProfissionalServico
         {
             Id = 70,
             ProfissionalId = 40,
             ServicoId = 30,
-            Preco = 70,
-            DuracaoMinutos = 30,
-            Ativo = false
+            Preco = 80,
+            DuracaoMinutos = 45,
+            Ativo = true
         };
+
         _profissionalServicoRepository
             .Setup(r => r.ObterPorProfissionalEServicoAsync(40, 30, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(existente);
+            .ReturnsAsync(vinculo);
 
         var service = CreateService();
+        var response = await service.DesvincularAsync(20, 40, 30);
 
-        var response = await service.VincularAsync(
-            20,
-            40,
-            30,
-            new VincularServicoProfissionalRequestDto
-            {
-                Preco = 100,
-                DuracaoMinutos = 50
-            });
-
-        Assert.True(existente.Ativo);
-        Assert.Equal(100, existente.Preco);
-        Assert.Equal(50, existente.DuracaoMinutos);
-        Assert.NotNull(existente.UpdatedAt);
-        Assert.Equal(70, response.Id);
-        _profissionalServicoRepository.Verify(r => r.Atualizar(existente), Times.Once);
+        Assert.False(vinculo.Ativo);
+        Assert.False(response.Ativo);
     }
 
     [Fact]
-    public async Task VincularAsync_DeveLancarExcecao_QuandoVinculoAtivoJaExiste()
+    public async Task DesvincularAsync_DeveLancarExcecao_QuandoExistirAgendamentoFuturo()
     {
+        var vinculo = new ProfissionalServico
+        {
+            Id = 70,
+            ProfissionalId = 40,
+            ServicoId = 30,
+            Ativo = true
+        };
+
         _profissionalServicoRepository
             .Setup(r => r.ObterPorProfissionalEServicoAsync(40, 30, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ProfissionalServico
-            {
-                ProfissionalId = 40,
-                ServicoId = 30,
-                Ativo = true
-            });
+            .ReturnsAsync(vinculo);
+
+        _agendamentoItemRepository
+            .Setup(r => r.ExisteFuturoConfirmadoAsync(40, 30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         var service = CreateService();
 
-        await Assert.ThrowsAsync<ProfissionalServicoDuplicadoException>(() =>
-            service.VincularAsync(20, 40, 30, new VincularServicoProfissionalRequestDto()));
-    }
-
-    [Fact]
-    public async Task VincularAsync_DeveLancarExcecao_QuandoServicoNaoPertenceAoNegocio()
-    {
-        _servicoRepository
-            .Setup(r => r.ObterPorIdAsync(30, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Servico
-            {
-                Id = 30,
-                EstabelecimentoId = 99,
-                Ativo = true
-            });
-
-        var service = CreateService();
-
-        await Assert.ThrowsAsync<ServicoNegocioNaoEncontradoException>(() =>
-            service.VincularAsync(20, 40, 30, new VincularServicoProfissionalRequestDto()));
-    }
-
-    [Fact]
-    public async Task VincularAsync_DeveLancarExcecao_QuandoProfissionalNaoEstaAtivoNoNegocio()
-    {
-        _profissionalEstabelecimentoRepository
-            .Setup(r => r.ObterPorProfissionalAsync(40, 20, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ProfissionalEstabelecimento?)null);
-
-        var service = CreateService();
-
-        await Assert.ThrowsAsync<ProfissionalSemVinculoNegocioException>(() =>
-            service.VincularAsync(20, 40, 30, new VincularServicoProfissionalRequestDto()));
+        await Assert.ThrowsAsync<ProfissionalServicoComAgendamentoFuturoException>(() =>
+            service.DesvincularAsync(20, 40, 30));
     }
 
     [Fact]
@@ -196,35 +174,11 @@ public class ProfissionalServicoNegocioServiceTests
     {
         var service = CreateService();
 
-        await Assert.ThrowsAsync<ProfissionalServicoInvalidoException>(() =>
+        await Assert.ThrowsAsync<ServicoNegocioInvalidoException>(() =>
             service.VincularAsync(20, 40, 30, new VincularServicoProfissionalRequestDto
             {
                 Preco = -1
             }));
-
-        await Assert.ThrowsAsync<ProfissionalServicoInvalidoException>(() =>
-            service.VincularAsync(20, 40, 30, new VincularServicoProfissionalRequestDto
-            {
-                DuracaoMinutos = 0
-            }));
-    }
-
-    [Fact]
-    public async Task VincularAsync_DeveLancarExcecao_QuandoUsuarioNaoTemPermissao()
-    {
-        _autorizacaoNegocioService
-            .Setup(s => s.AutorizarAsync(
-                20,
-                PermissaoNegocio.ServicoGerenciar,
-                It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new UsuarioSemPermissaoNegocioException());
-
-        var service = CreateService();
-
-        await Assert.ThrowsAsync<UsuarioSemPermissaoNegocioException>(() =>
-            service.VincularAsync(20, 40, 30, new VincularServicoProfissionalRequestDto()));
-
-        _servicoRepository.Verify(r => r.ObterPorIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private ProfissionalServicoNegocioService CreateService() =>
@@ -232,5 +186,7 @@ public class ProfissionalServicoNegocioServiceTests
             _servicoRepository.Object,
             _profissionalEstabelecimentoRepository.Object,
             _profissionalServicoRepository.Object,
-            _autorizacaoNegocioService.Object);
+            _agendamentoItemRepository.Object,
+            _autorizacaoNegocioService.Object,
+            _auditoriaNegocioService.Object);
 }

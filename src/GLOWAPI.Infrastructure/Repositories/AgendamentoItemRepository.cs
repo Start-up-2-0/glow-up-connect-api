@@ -173,6 +173,26 @@ public class AgendamentoItemRepository : Repository<AgendamentoItem>, IAgendamen
             .ToListAsync(cancellationToken);
     }
 
+    public Task<bool> ExisteFuturoConfirmadoAsync(
+        int profissionalId,
+        int servicoId,
+        CancellationToken cancellationToken = default)
+    {
+        var agora = DateTime.UtcNow;
+
+        return DbSet.AnyAsync(
+            item => item.ProfissionalId == profissionalId
+                && item.ServicoId == servicoId
+                && item.Inicio >= agora
+                && (item.Status == AgendamentoItemStatus.Confirmado
+                    || item.Status == AgendamentoItemStatus.EmAtendimento)
+                && item.Agendamento != null
+                && item.Agendamento.Status != AgendamentoStatus.Cancelado
+                && item.Agendamento.Status != AgendamentoStatus.Expirado
+                && item.Agendamento.Status != AgendamentoStatus.Reembolsado,
+            cancellationToken);
+    }
+
     private async Task<List<AgendamentoItem>> ListarItensFuturosAtivosAsync(
         int estabelecimentoId,
         int profissionalId,

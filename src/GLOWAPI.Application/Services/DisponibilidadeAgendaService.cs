@@ -139,9 +139,17 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             {
                 ServicoId = servico.Id,
                 DuracaoMinutos = servico.DuracaoMinutos,
+                MensagemIndisponibilidade = "Servico indisponivel por falta de profissional executor.",
                 Slots = []
             };
         }
+
+        var vinculosPorProfissional = await CarregarVinculosAtivosAsync(servico.Id, profissionais, cancellationToken);
+        var duracaoResposta = request.ProfissionalId.HasValue
+            ? ServicoPrecificacaoHelper.ObterDuracaoEfetiva(
+                servico,
+                vinculosPorProfissional.GetValueOrDefault(request.ProfissionalId.Value))
+            : servico.DuracaoMinutos;
 
         var inicioUtc = request.DataInicio.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var fimUtc = request.DataFim.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
@@ -186,11 +194,15 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
 
                     foreach (var (janelaInicio, janelaFim) in janelas)
                     {
+                        var duracaoEfetiva = ServicoPrecificacaoHelper.ObterDuracaoEfetiva(
+                            servico,
+                            vinculosPorProfissional.GetValueOrDefault(profissionalId));
+
                         foreach (var (inicioSlot, fimSlot) in GeradorSlotsDisponibilidade.Gerar(
                                      data,
                                      janelaInicio,
                                      janelaFim,
-                                     servico.DuracaoMinutos,
+                                     duracaoEfetiva,
                                      IntervaloEntreSlotsMinutos))
                         {
                             if (inicioSlot < DateTime.UtcNow)
@@ -218,7 +230,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
         return new DisponibilidadeAgendaResponseDto
         {
             ServicoId = servico.Id,
-            DuracaoMinutos = servico.DuracaoMinutos,
+            DuracaoMinutos = duracaoResposta,
             Slots = slots
                 .OrderBy(slot => slot.Inicio)
                 .ThenBy(slot => slot.ProfissionalId)
@@ -248,6 +260,29 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
         return await _profissionalServicoRepository.ListarProfissionaisAtivosPorServicoAsync(
             servico.Id,
             cancellationToken);
+    }
+
+    private async Task<Dictionary<int, ProfissionalServico>> CarregarVinculosAtivosAsync(
+        int servicoId,
+        IReadOnlyList<int> profissionais,
+        CancellationToken cancellationToken)
+    {
+        var vinculos = new Dictionary<int, ProfissionalServico>();
+
+        foreach (var profissionalId in profissionais)
+        {
+            var vinculo = await _profissionalServicoRepository.ObterPorProfissionalEServicoAsync(
+                profissionalId,
+                servicoId,
+                cancellationToken);
+
+            if (vinculo?.Ativo == true)
+            {
+                vinculos[profissionalId] = vinculo;
+            }
+        }
+
+        return vinculos;
     }
 
     private async Task<bool> ProfissionalPodeAtenderAsync(

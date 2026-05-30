@@ -147,6 +147,34 @@ public class EstabelecimentosControllerAcessoTests
     }
 
     [Fact]
+    public void ListarServicos_DeveExigirModuloServicosEPermissaoVisualizarServico()
+    {
+        var method = typeof(EstabelecimentosController).GetMethod(nameof(EstabelecimentosController.ListarServicos));
+
+        var permissao = method!.GetCustomAttributes<RequerPermissaoNegocioAttribute>().SingleOrDefault();
+        var modulo = method!.GetCustomAttributes<RequerModuloAssinaturaAttribute>().SingleOrDefault();
+
+        Assert.NotNull(permissao);
+        Assert.Equal(PermissaoNegocio.ServicoVisualizar, permissao!.Permissao);
+        Assert.NotNull(modulo);
+        Assert.Equal(ModuloAssinatura.Servicos, modulo!.Modulo);
+    }
+
+    [Fact]
+    public void CriarServico_DeveExigirModuloServicosEPermissaoGerenciarServico()
+    {
+        var method = typeof(EstabelecimentosController).GetMethod(nameof(EstabelecimentosController.CriarServico));
+
+        var permissao = method!.GetCustomAttributes<RequerPermissaoNegocioAttribute>().SingleOrDefault();
+        var modulo = method!.GetCustomAttributes<RequerModuloAssinaturaAttribute>().SingleOrDefault();
+
+        Assert.NotNull(permissao);
+        Assert.Equal(PermissaoNegocio.ServicoGerenciar, permissao!.Permissao);
+        Assert.NotNull(modulo);
+        Assert.Equal(ModuloAssinatura.Servicos, modulo!.Modulo);
+    }
+
+    [Fact]
     public void CriarHorarioProfissional_DeveExigirApenasModuloHorarios()
     {
         var method = typeof(EstabelecimentosController).GetMethod(nameof(EstabelecimentosController.CriarHorarioProfissional));
