@@ -34,22 +34,12 @@ public class AgendamentoRepository : Repository<Agendamento>, IAgendamentoReposi
             query = query.Where(agendamento => agendamento.Status == filtro.Status.Value);
         }
 
-        if (filtro.ProfissionalId.HasValue)
+        if (filtro.ProfissionalId.HasValue || filtro.Inicio.HasValue || filtro.Fim.HasValue)
         {
-            query = query.Where(agendamento =>
-                agendamento.Itens.Any(item => item.ProfissionalId == filtro.ProfissionalId.Value));
-        }
-
-        if (filtro.Inicio.HasValue)
-        {
-            query = query.Where(agendamento =>
-                agendamento.Itens.Any(item => item.Inicio >= filtro.Inicio.Value));
-        }
-
-        if (filtro.Fim.HasValue)
-        {
-            query = query.Where(agendamento =>
-                agendamento.Itens.Any(item => item.Inicio < filtro.Fim.Value));
+            query = query.Where(agendamento => agendamento.Itens.Any(item =>
+                (!filtro.ProfissionalId.HasValue || item.ProfissionalId == filtro.ProfissionalId.Value)
+                && (!filtro.Inicio.HasValue || item.Inicio >= filtro.Inicio.Value)
+                && (!filtro.Fim.HasValue || item.Inicio < filtro.Fim.Value)));
         }
 
         return await query
