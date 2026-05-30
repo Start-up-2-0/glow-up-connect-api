@@ -1,4 +1,5 @@
 using GLOWAPI.Application.DTOs.Convites;
+using GLOWAPI.Application.DTOs.Assinaturas;
 using GLOWAPI.Application.DTOs.Mensageria;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
@@ -21,6 +22,7 @@ public class ConviteNegocioServiceTests
     private readonly Mock<IEstabelecimentoUsuarioRepository> _estabelecimentoUsuarioRepository = new();
     private readonly Mock<IProfissionalEstabelecimentoRepository> _profissionalEstabelecimentoRepository = new();
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
+    private readonly Mock<IModulosAssinaturaService> _modulosAssinaturaService = new();
     private readonly Mock<IMensagemNotificacaoService> _mensagemNotificacaoService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
     private readonly Mock<IGlowTokenService> _tokenService = new();
@@ -41,6 +43,18 @@ public class ConviteNegocioServiceTests
         _tokenService.Setup(s => s.GerarRefreshToken()).Returns("token-plano");
         _tokenService.Setup(s => s.HashToken("token-plano")).Returns("hash-token");
         _tokenService.Setup(s => s.HashToken("token")).Returns("hash-token");
+        _modulosAssinaturaService
+            .Setup(s => s.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ModulosAssinaturaResponseDto.Liberado(
+                new Assinatura
+                {
+                    Id = 1,
+                    EstabelecimentoId = 20,
+                    PlanoId = 2,
+                    Status = AssinaturaStatus.Ativa,
+                    Plano = new Plano { Id = 2, Nome = "Plus" }
+                },
+                [ModuloAssinatura.Profissionais]));
     }
 
     [Fact]
@@ -147,6 +161,134 @@ public class ConviteNegocioServiceTests
     }
 
     [Fact]
+    public async Task AceitarAsync_DeveResetarRoleAoReativarVinculoUsuarioInativo()
+    {
+        var usuario = CriarUsuario();
+        var vinculoUsuario = new EstabelecimentoUsuario
+        {
+            EstabelecimentoId = 20,
+            UsuarioId = 10,
+            RoleNoEstabelecimento = EstablishmentUserRole.Admin,
+            Ativo = false
+        };
+
+        _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(usuario);
+        _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CriarConvite());
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterPorUsuarioAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(vinculoUsuario);
+        _profissionalRepository.Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Profissional { Id = 70, UsuarioId = 10, Email = usuario.Email, Telefone = usuario.Telefone, NomePublico = usuario.Nome });
+
+        var service = CreateService();
+
+        await service.AceitarAsync("token");
+
+        Assert.True(vinculoUsuario.Ativo);
+        Assert.Equal(EstablishmentUserRole.Profissional, vinculoUsuario.RoleNoEstabelecimento);
+    }
+
+    [Fact]
+    public async Task AceitarAsync_DeveReativarPerfilProfissionalInativo()
+    {
+        var usuario = CriarUsuario();
+        var profissional = new Profissional
+        {
+            Id = 70,
+            UsuarioId = 10,
+            Email = usuario.Email,
+            Telefone = usuario.Telefone,
+            NomePublico = usuario.Nome,
+            Ativo = false,
+            TipoProfissional = ProfessionalType.Autonomo
+        };
+
+        _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(usuario);
+        _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CriarConvite());
+        _profissionalRepository.Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profissional);
+
+        var service = CreateService();
+
+        await service.AceitarAsync("token");
+
+        Assert.True(profissional.Ativo);
+        Assert.Equal(ProfessionalType.VinculadoEstabelecimento, profissional.TipoProfissional);
+        Assert.NotNull(profissional.UpdatedAt);
+        _profissionalRepository.Verify(r => r.Atualizar(profissional), Times.Once);
+    }
+
+    [Fact]
+    public async Task AceitarAsync_DeveValidarLimiteAntesDeCriarVinculos()
+    {
+        _modulosAssinaturaService
+            .Setup(s => s.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ModulosAssinaturaResponseDto.Liberado(
+                new Assinatura
+                {
+                    Id = 1,
+                    EstabelecimentoId = 20,
+                    PlanoId = 2,
+                    Status = AssinaturaStatus.Ativa,
+                    Plano = new Plano { Id = 2, Nome = "Basic" }
+                },
+                [ModuloAssinatura.Profissionais]));
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ContarAtivosAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(CriarUsuario());
+        _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CriarConvite());
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<LimiteUsuariosNegocioExcedidoException>(() =>
+            service.AceitarAsync("token"));
+    }
+
+    [Fact]
+    public async Task AceitarAsync_DeveValidarLimiteProfissionaisAntesDeCriarVinculoProfissional()
+    {
+        var usuario = CriarUsuario();
+        _modulosAssinaturaService
+            .Setup(s => s.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ModulosAssinaturaResponseDto.Liberado(
+                new Assinatura
+                {
+                    Id = 1,
+                    EstabelecimentoId = 20,
+                    PlanoId = 2,
+                    Status = AssinaturaStatus.Ativa,
+                    Plano = new Plano { Id = 2, Nome = "Limitado", LimiteProfissionais = 1 }
+                },
+                [ModuloAssinatura.Profissionais]));
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterPorUsuarioAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario
+            {
+                EstabelecimentoId = 20,
+                UsuarioId = 10,
+                RoleNoEstabelecimento = EstablishmentUserRole.Profissional,
+                Ativo = true
+            });
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ContarAtivosPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(usuario);
+        _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CriarConvite());
+        _profissionalRepository.Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Profissional { Id = 70, UsuarioId = 10, Email = usuario.Email, Telefone = usuario.Telefone, NomePublico = usuario.Nome });
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<LimiteProfissionaisNegocioExcedidoException>(() =>
+            service.AceitarAsync("token"));
+    }
+
+    [Fact]
     public async Task AceitarAsync_DeveBloquearDestinatarioDiferente()
     {
         _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>()))
@@ -186,6 +328,7 @@ public class ConviteNegocioServiceTests
             _estabelecimentoUsuarioRepository.Object,
             _profissionalEstabelecimentoRepository.Object,
             _autorizacaoNegocioService.Object,
+            _modulosAssinaturaService.Object,
             _mensagemNotificacaoService.Object,
             _auditoriaNegocioService.Object,
             _tokenService.Object,

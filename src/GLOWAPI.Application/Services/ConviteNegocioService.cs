@@ -19,6 +19,7 @@ public class ConviteNegocioService : IConviteNegocioService
     private readonly IEstabelecimentoUsuarioRepository _estabelecimentoUsuarioRepository;
     private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
     private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
+    private readonly IModulosAssinaturaService _modulosAssinaturaService;
     private readonly IMensagemNotificacaoService _mensagemNotificacaoService;
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
     private readonly IGlowTokenService _tokenService;
@@ -32,6 +33,7 @@ public class ConviteNegocioService : IConviteNegocioService
         IEstabelecimentoUsuarioRepository estabelecimentoUsuarioRepository,
         IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
         IAutorizacaoNegocioService autorizacaoNegocioService,
+        IModulosAssinaturaService modulosAssinaturaService,
         IMensagemNotificacaoService mensagemNotificacaoService,
         IAuditoriaNegocioService auditoriaNegocioService,
         IGlowTokenService tokenService,
@@ -44,6 +46,7 @@ public class ConviteNegocioService : IConviteNegocioService
         _estabelecimentoUsuarioRepository = estabelecimentoUsuarioRepository;
         _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
         _autorizacaoNegocioService = autorizacaoNegocioService;
+        _modulosAssinaturaService = modulosAssinaturaService;
         _mensagemNotificacaoService = mensagemNotificacaoService;
         _auditoriaNegocioService = auditoriaNegocioService;
         _tokenService = tokenService;
@@ -217,6 +220,7 @@ public class ConviteNegocioService : IConviteNegocioService
 
         if (vinculoUsuario is null)
         {
+            await ValidarLimiteUsuariosAsync(convite.EstabelecimentoId, cancellationToken);
             await _estabelecimentoUsuarioRepository.AdicionarAsync(new EstabelecimentoUsuario
             {
                 EstabelecimentoId = convite.EstabelecimentoId,
@@ -227,14 +231,24 @@ public class ConviteNegocioService : IConviteNegocioService
         }
         else
         {
+            if (!vinculoUsuario.Ativo)
+            {
+                await ValidarLimiteUsuariosAsync(convite.EstabelecimentoId, cancellationToken);
+                vinculoUsuario.RoleNoEstabelecimento = convite.RoleSugerida;
+            }
+
             vinculoUsuario.Ativo = true;
             vinculoUsuario.UpdatedAt = DateTime.UtcNow;
             _estabelecimentoUsuarioRepository.Atualizar(vinculoUsuario);
         }
 
         var profissional = await _profissionalRepository.ObterPorUsuarioIdAsync(usuario.Id, cancellationToken);
+        var limiteProfissionalValidado = false;
         if (profissional is null)
         {
+            await ValidarLimiteProfissionaisAsync(convite.EstabelecimentoId, cancellationToken);
+            limiteProfissionalValidado = true;
+
             profissional = new Profissional
             {
                 UsuarioId = usuario.Id,
@@ -248,6 +262,13 @@ public class ConviteNegocioService : IConviteNegocioService
             await _profissionalRepository.AdicionarAsync(profissional, cancellationToken);
             await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
         }
+        else if (!profissional.Ativo)
+        {
+            profissional.Ativo = true;
+            profissional.TipoProfissional = ProfessionalType.VinculadoEstabelecimento;
+            profissional.UpdatedAt = DateTime.UtcNow;
+            _profissionalRepository.Atualizar(profissional);
+        }
 
         var vinculoProfissional = await _profissionalEstabelecimentoRepository.ObterPorProfissionalAsync(
             profissional.Id,
@@ -255,6 +276,11 @@ public class ConviteNegocioService : IConviteNegocioService
             cancellationToken);
         if (vinculoProfissional is null)
         {
+            if (!limiteProfissionalValidado)
+            {
+                await ValidarLimiteProfissionaisAsync(convite.EstabelecimentoId, cancellationToken);
+            }
+
             await _profissionalEstabelecimentoRepository.AdicionarAsync(new ProfissionalEstabelecimento
             {
                 EstabelecimentoId = convite.EstabelecimentoId,
@@ -265,11 +291,64 @@ public class ConviteNegocioService : IConviteNegocioService
         }
         else
         {
+            if (!vinculoProfissional.Ativo)
+            {
+                await ValidarLimiteProfissionaisAsync(convite.EstabelecimentoId, cancellationToken);
+            }
+
             vinculoProfissional.Ativo = true;
             vinculoProfissional.PodeReceberAgendamento = convite.PodeReceberAgendamento;
             vinculoProfissional.DataSaida = null;
             vinculoProfissional.UpdatedAt = DateTime.UtcNow;
             _profissionalEstabelecimentoRepository.Atualizar(vinculoProfissional);
+        }
+    }
+
+    private async Task ValidarLimiteUsuariosAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var modulos = await _modulosAssinaturaService.ObterPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        var limiteUsuarios = modulos.Limites.Usuarios;
+        if (!limiteUsuarios.HasValue)
+        {
+            return;
+        }
+
+        var usuariosAtivos = await _estabelecimentoUsuarioRepository.ContarAtivosAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        if (usuariosAtivos >= limiteUsuarios.Value)
+        {
+            throw new LimiteUsuariosNegocioExcedidoException();
+        }
+    }
+
+    private async Task ValidarLimiteProfissionaisAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var modulos = await _modulosAssinaturaService.ObterPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        var limiteProfissionais = modulos.Limites.Profissionais;
+        if (!limiteProfissionais.HasValue)
+        {
+            return;
+        }
+
+        var profissionaisAtivos = await _profissionalEstabelecimentoRepository.ContarAtivosPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        if (profissionaisAtivos >= limiteProfissionais.Value)
+        {
+            throw new LimiteProfissionaisNegocioExcedidoException();
         }
     }
 
