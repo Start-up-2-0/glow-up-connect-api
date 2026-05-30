@@ -74,7 +74,11 @@ public class ExceptionMiddleware
                     or LimiteProfissionaisNegocioExcedidoException
                     or LimiteServicosNegocioExcedidoException
                     or ServicoNegocioInvalidoException
-                    or ProfissionalServicoComAgendamentoFuturoException => HttpStatusCode.BadRequest,
+                    or ProfissionalServicoComAgendamentoFuturoException
+                    or AgendamentoDadosClienteInvalidosException
+                    or AgendamentoStatusInvalidoException
+                    or AgendamentoServicosInvalidosException => HttpStatusCode.BadRequest,
+                HorarioIndisponivelException => HttpStatusCode.Conflict,
                 UsuarioSemPermissaoAssinaturaException
                     or UsuarioSemPermissaoNegocioException
                     or UsuarioSemVinculoNegocioException
@@ -92,7 +96,8 @@ public class ExceptionMiddleware
                     or HorarioAtendimentoNaoEncontradoException
                     or HorarioFuncionamentoNaoEncontradoException
                     or ProfissionalNegocioNaoEncontradoException
-                    or ConviteNegocioNaoEncontradoException => HttpStatusCode.NotFound,
+                    or ConviteNegocioNaoEncontradoException
+                    or AgendamentoNaoEncontradoException => HttpStatusCode.NotFound,
                 _ => HttpStatusCode.NotFound
             };
 

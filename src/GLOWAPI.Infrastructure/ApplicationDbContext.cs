@@ -22,6 +22,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<HorarioAtendimentoProfissional> HorariosAtendimentoProfissional { get; set; }
     public DbSet<Agendamento> Agendamentos { get; set; }
     public DbSet<AgendamentoItem> AgendamentoItens { get; set; }
+    public DbSet<AgendamentoHistorico> AgendamentosHistorico { get; set; }
     public DbSet<Caixa> Caixas { get; set; }
     public DbSet<Plano> Planos { get; set; }
     public DbSet<Assinatura> Assinaturas { get; set; }

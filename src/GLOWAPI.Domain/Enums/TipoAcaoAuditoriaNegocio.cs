@@ -21,5 +21,10 @@ public enum TipoAcaoAuditoriaNegocio
     ServicoStatusAlterado = 17,
     ProfissionalServicoVinculado = 18,
     ProfissionalServicoAlterado = 19,
-    ProfissionalServicoDesvinculado = 20
+    ProfissionalServicoDesvinculado = 20,
+    AgendamentoCriado = 21,
+    AgendamentoConfirmado = 22,
+    AgendamentoRemarcado = 23,
+    AgendamentoConcluido = 24,
+    AgendamentoNaoCompareceu = 25
 }

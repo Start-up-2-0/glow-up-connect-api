@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Application.Services;
+using GLOWAPI.Application.Validators;
 
 
 namespace GLOWAPI.Application;
@@ -41,6 +42,9 @@ public static class DependencyInjection
         services.AddScoped<IHorarioProfissionalNegocioService, HorarioProfissionalNegocioService>();
         services.AddScoped<IHorarioProfissionalAutonomoService, HorarioProfissionalAutonomoService>();
         services.AddScoped<IDisponibilidadeAgendaService, DisponibilidadeAgendaService>();
+        services.AddScoped<IAgendamentoValidador, AgendamentoValidador>();
+        services.AddScoped<IAgendamentoNegocioService, AgendamentoNegocioService>();
+        services.AddScoped<IAgendamentoNotificacaoService, AgendamentoNotificacaoService>();
         services.AddScoped<IAuditoriaNegocioService, AuditoriaNegocioService>();
         services.AddScoped<IEquipeNotificacaoService, EquipeNotificacaoService>();
         services.AddScoped<IUsuarioNegocioContextoService, UsuarioNegocioContextoService>();
