@@ -20,9 +20,25 @@ public class AgendamentoConfiguration : IEntityTypeConfiguration<Agendamento>
             .IsRequired()
             .HasMaxLength(50);
 
+        builder.Property(agendamento => agendamento.Origem)
+            .HasConversion(
+                origem => origem.ToString(),
+                origem => Enum.Parse<OrigemAgendamento>(origem))
+            .IsRequired()
+            .HasMaxLength(50);
+
         builder.Property(agendamento => agendamento.ValorTotal)
             .HasPrecision(12, 2)
             .IsRequired();
+
+        builder.Property(agendamento => agendamento.ClienteNome)
+            .HasMaxLength(200);
+
+        builder.Property(agendamento => agendamento.ClienteEmail)
+            .HasMaxLength(255);
+
+        builder.Property(agendamento => agendamento.ClienteTelefone)
+            .HasMaxLength(30);
 
         builder.Property(agendamento => agendamento.Observacao)
             .HasMaxLength(500);

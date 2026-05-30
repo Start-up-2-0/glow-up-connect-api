@@ -161,7 +161,8 @@ public class AgendamentoItemRepository : Repository<AgendamentoItem>, IAgendamen
                 && item.Agendamento.EstabelecimentoId == estabelecimentoId
                 && item.Agendamento.Status != AgendamentoStatus.Cancelado
                 && item.Agendamento.Status != AgendamentoStatus.Expirado
-                && item.Agendamento.Status != AgendamentoStatus.Reembolsado);
+                && item.Agendamento.Status != AgendamentoStatus.Reembolsado
+                && item.Agendamento.Status != AgendamentoStatus.NaoCompareceu);
 
         if (profissionalId.HasValue)
         {
@@ -184,7 +185,8 @@ public class AgendamentoItemRepository : Repository<AgendamentoItem>, IAgendamen
             item => item.ProfissionalId == profissionalId
                 && item.ServicoId == servicoId
                 && item.Inicio >= agora
-                && (item.Status == AgendamentoItemStatus.Confirmado
+                && (item.Status == AgendamentoItemStatus.Pendente
+                    || item.Status == AgendamentoItemStatus.Confirmado
                     || item.Status == AgendamentoItemStatus.EmAtendimento)
                 && item.Agendamento != null
                 && item.Agendamento.Status != AgendamentoStatus.Cancelado
