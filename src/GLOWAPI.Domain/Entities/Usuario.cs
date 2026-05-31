@@ -17,6 +17,11 @@ public class Usuario
     public string? ConfirmacaoTokenHash { get; set; }
     public string? ConfirmacaoCodigoHash { get; set; }
     public DateTime? ConfirmacaoExpiraEm { get; set; }
+    public DateTime? WhatsAppConfirmadoEm { get; set; }
+    public string? WhatsAppConfirmacaoTokenHash { get; set; }
+    public string? WhatsAppConfirmacaoCodigoHash { get; set; }
+    public DateTime? WhatsAppConfirmacaoExpiraEm { get; set; }
+    public bool WhatsAppOptIn { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
@@ -58,4 +63,19 @@ public class Usuario
         ConfirmacaoCodigoHash = null;
         ConfirmacaoExpiraEm = null;
     }
+
+    public bool PendenteConfirmacaoWhatsApp() =>
+        !string.IsNullOrEmpty(WhatsAppConfirmacaoTokenHash) || !string.IsNullOrEmpty(WhatsAppConfirmacaoCodigoHash);
+
+    public void LimparConfirmacaoWhatsApp()
+    {
+        WhatsAppConfirmacaoTokenHash = null;
+        WhatsAppConfirmacaoCodigoHash = null;
+        WhatsAppConfirmacaoExpiraEm = null;
+    }
+
+    public bool PodeReceberAlertasWhatsApp() =>
+        WhatsAppConfirmadoEm.HasValue
+        && WhatsAppOptIn
+        && !string.IsNullOrWhiteSpace(Telefone);
 }

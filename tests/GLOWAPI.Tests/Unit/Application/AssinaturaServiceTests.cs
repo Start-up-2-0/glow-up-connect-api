@@ -7,6 +7,7 @@ using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
+using GLOWAPI.Tests.Helpers;
 using Moq;
 
 namespace GLOWAPI.Tests.Unit.Application;
@@ -25,11 +26,15 @@ public class AssinaturaServiceTests
     private readonly Mock<ICurrentUserContext> _currentUser = new();
     private readonly Mock<IAssinaturaNotificacaoService> _assinaturaNotificacaoService = new();
     private readonly Mock<IAssinaturaHistoricoService> _assinaturaHistoricoService = new();
+    private readonly Mock<IEnderecoGeocodificacaoService> _enderecoGeocodificacaoService = new();
 
     public AssinaturaServiceTests()
     {
         _currentUser.Setup(c => c.UserId).Returns(10);
         _currentUser.Setup(c => c.Email).Returns("usuario@email.com");
+        _enderecoGeocodificacaoService
+            .Setup(s => s.TentarGeocodificarAsync(It.IsAny<Endereco>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         _gatewayPagamento.Setup(g => g.GatewaySuportado).Returns(GatewayPagamento.MercadoPago);
         _gatewayPagamento
             .Setup(g => g.CriarCobrancaAsync(
@@ -157,12 +162,7 @@ public class AssinaturaServiceTests
                 Logo = "https://cdn.test/logo.png",
                 Telefone = "11999999999",
                 Email = "studio@email.com",
-                Endereco = new()
-                {
-                    Cidade = "Sao Paulo",
-                    Estado = "SP",
-                    Local = "Rua Glow"
-                }
+                Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Sao Paulo", logradouro: "Rua Glow")
             }
         });
 
@@ -278,12 +278,7 @@ public class AssinaturaServiceTests
                 Logo = "https://cdn.test/maria.png",
                 Telefone = "11988888888",
                 Email = "maria@email.com",
-                Endereco = new()
-                {
-                    Cidade = "Campinas",
-                    Estado = "SP",
-                    Local = "Sala 12"
-                }
+                Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Campinas", logradouro: "Sala 12", numero: "12", bairro: "Centro")
             }
         });
 
@@ -376,12 +371,7 @@ public class AssinaturaServiceTests
                 Logo = "https://cdn.test/novo.png",
                 Telefone = "11977777777",
                 Email = "novo@email.com",
-                Endereco = new()
-                {
-                    Cidade = "Santos",
-                    Estado = "SP",
-                    Local = "Av Praia"
-                }
+                Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Santos", logradouro: "Av Praia")
             }
         });
 
@@ -903,7 +893,8 @@ public class AssinaturaServiceTests
             _gatewayPagamentoResolver.Object,
             _currentUser.Object,
             _assinaturaNotificacaoService.Object,
-            _assinaturaHistoricoService.Object);
+            _assinaturaHistoricoService.Object,
+            _enderecoGeocodificacaoService.Object);
 
     private static PagamentoTransparenteMercadoPagoDto PagamentoValido() =>
         new()

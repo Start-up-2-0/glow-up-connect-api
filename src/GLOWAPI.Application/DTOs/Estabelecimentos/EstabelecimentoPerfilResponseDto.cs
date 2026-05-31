@@ -10,6 +10,9 @@ public record EstabelecimentoPerfilResponseDto(
     string Logo,
     string Telefone,
     string Email,
+    bool WhatsAppConfirmado,
+    bool WhatsAppOptIn,
+    bool WhatsAppPendenteConfirmacao,
     EnderecoOperacaoResponseDto Endereco)
 {
     public static EstabelecimentoPerfilResponseDto From(Estabelecimento estabelecimento) =>
@@ -20,5 +23,8 @@ public record EstabelecimentoPerfilResponseDto(
             estabelecimento.Logo,
             estabelecimento.Telefone,
             estabelecimento.Email,
+            estabelecimento.WhatsAppConfirmadoEm.HasValue,
+            estabelecimento.WhatsAppOptIn,
+            estabelecimento.PendenteConfirmacaoWhatsApp(),
             EnderecoOperacaoResponseDto.From(estabelecimento.Endereco));
 }

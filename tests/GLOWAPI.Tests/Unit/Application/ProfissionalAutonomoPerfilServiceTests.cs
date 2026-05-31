@@ -5,6 +5,7 @@ using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
+using GLOWAPI.Tests.Helpers;
 using Moq;
 
 namespace GLOWAPI.Tests.Unit.Application;
@@ -15,10 +16,17 @@ public class ProfissionalAutonomoPerfilServiceTests
     private readonly Mock<IEstabelecimentoRepository> _estabelecimentoRepository = new();
     private readonly Mock<IProfissionalEstabelecimentoRepository> _profissionalEstabelecimentoRepository = new();
     private readonly Mock<ICurrentUserContext> _currentUser = new();
+    private readonly Mock<IEnderecoGeocodificacaoService> _enderecoGeocodificacaoService = new();
+    private readonly Mock<IUsuarioRepository> _usuarioRepository = new();
+    private readonly Mock<IConfirmacaoWhatsAppService> _confirmacaoWhatsAppService = new();
+    private readonly Mock<IConfirmacaoWhatsAppEstabelecimentoService> _confirmacaoWhatsAppEstabelecimentoService = new();
 
     public ProfissionalAutonomoPerfilServiceTests()
     {
         _currentUser.Setup(c => c.UserId).Returns(10);
+        _enderecoGeocodificacaoService
+            .Setup(s => s.TentarGeocodificarAsync(It.IsAny<Endereco>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
     }
 
     [Fact]
@@ -51,6 +59,10 @@ public class ProfissionalAutonomoPerfilServiceTests
             .Setup(r => r.ObterPorIdAsync(30, It.IsAny<CancellationToken>()))
             .ReturnsAsync(profissional);
 
+        _usuarioRepository
+            .Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Usuario { Id = 10, Telefone = "11977777777" });
+
         _profissionalEstabelecimentoRepository
             .Setup(r => r.ObterAtivoPorProfissionalAsync(30, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ProfissionalEstabelecimento
@@ -69,12 +81,11 @@ public class ProfissionalAutonomoPerfilServiceTests
             Logo = " https://cdn.test/maria.png ",
             Telefone = "11988888888",
             Email = "maria@email.com",
-            Endereco = new()
-            {
-                Cidade = "Campinas",
-                Estado = "SP",
-                Local = "Sala 12"
-            }
+            Endereco = EnderecoOperacaoDtoBuilder.Criar(
+                cidade: "Campinas",
+                logradouro: "Rua das Palmeiras",
+                numero: "12",
+                bairro: "Centro")
         });
 
         Assert.Equal("Maria Nova", response.NomePublico);
@@ -83,7 +94,7 @@ public class ProfissionalAutonomoPerfilServiceTests
         Assert.Equal("maria@email.com", response.Email);
         Assert.Equal("Campinas", response.Endereco.Cidade);
         Assert.Equal("SP", response.Endereco.Estado);
-        Assert.Equal("Sala 12", response.Endereco.Local);
+        Assert.Equal("Rua das Palmeiras", response.Endereco.Logradouro);
         Assert.Equal("Maria Nova", estabelecimento.Nome);
         Assert.Equal("Campinas", estabelecimento.Endereco!.Cidade);
 
@@ -114,7 +125,7 @@ public class ProfissionalAutonomoPerfilServiceTests
                 Logo = "https://cdn.test/maria.png",
                 Telefone = "11988888888",
                 Email = "maria@email.com",
-                Endereco = new() { Cidade = "Campinas", Estado = "SP", Local = "Sala 12" }
+                Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Campinas", logradouro: "Rua A")
             }));
     }
 
@@ -123,5 +134,9 @@ public class ProfissionalAutonomoPerfilServiceTests
             _profissionalRepository.Object,
             _estabelecimentoRepository.Object,
             _profissionalEstabelecimentoRepository.Object,
-            _currentUser.Object);
+            _usuarioRepository.Object,
+            _currentUser.Object,
+            _enderecoGeocodificacaoService.Object,
+            _confirmacaoWhatsAppService.Object,
+            _confirmacaoWhatsAppEstabelecimentoService.Object);
 }

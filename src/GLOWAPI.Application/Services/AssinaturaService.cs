@@ -23,6 +23,7 @@ public class AssinaturaService : IAssinaturaService
     private readonly ICurrentUserContext _currentUser;
     private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
     private readonly IAssinaturaHistoricoService _assinaturaHistoricoService;
+    private readonly IEnderecoGeocodificacaoService _enderecoGeocodificacaoService;
 
     public AssinaturaService(
         IAssinaturaRepository assinaturaRepository,
@@ -35,7 +36,8 @@ public class AssinaturaService : IAssinaturaService
         IGatewayPagamentoResolver gatewayPagamentoResolver,
         ICurrentUserContext currentUser,
         IAssinaturaNotificacaoService assinaturaNotificacaoService,
-        IAssinaturaHistoricoService assinaturaHistoricoService)
+        IAssinaturaHistoricoService assinaturaHistoricoService,
+        IEnderecoGeocodificacaoService enderecoGeocodificacaoService)
     {
         _assinaturaRepository = assinaturaRepository;
         _planoRepository = planoRepository;
@@ -48,6 +50,7 @@ public class AssinaturaService : IAssinaturaService
         _currentUser = currentUser;
         _assinaturaNotificacaoService = assinaturaNotificacaoService;
         _assinaturaHistoricoService = assinaturaHistoricoService;
+        _enderecoGeocodificacaoService = enderecoGeocodificacaoService;
     }
 
     public async Task<AssinaturaResponseDto> IniciarAsync(
@@ -309,6 +312,7 @@ public class AssinaturaService : IAssinaturaService
         CancellationToken cancellationToken)
     {
         var estabelecimento = CriarEstabelecimento(request.Estabelecimento!);
+        await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
         await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
 
         await _estabelecimentoUsuarioRepository.AdicionarAsync(new EstabelecimentoUsuario
@@ -359,6 +363,7 @@ public class AssinaturaService : IAssinaturaService
         else
         {
             estabelecimento = CriarEstabelecimentoParaProfissionalAutonomo(profissional);
+            await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
             await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
             await CriarVinculosTenantProfissionalAutonomoAsync(
                 estabelecimento,
@@ -414,11 +419,13 @@ public class AssinaturaService : IAssinaturaService
             }
 
             AtualizarEstabelecimentoAutonomo(estabelecimento, request.ProfissionalAutonomo!);
+            await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
             _estabelecimentoRepository.Atualizar(estabelecimento);
         }
         else
         {
             estabelecimento = CriarEstabelecimentoParaProfissionalAutonomo(request.ProfissionalAutonomo!);
+            await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
             await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
             await CriarVinculosTenantProfissionalAutonomoAsync(
                 estabelecimento,
@@ -809,6 +816,18 @@ public class AssinaturaService : IAssinaturaService
         }
 
         return planoAtual.Preco != novoPlano.Preco || planoAtual.Periodo != novoPlano.Periodo;
+    }
+
+    private async Task TentarGeocodificarEstabelecimentoAsync(
+        Estabelecimento estabelecimento,
+        CancellationToken cancellationToken)
+    {
+        if (estabelecimento.Endereco is null)
+        {
+            return;
+        }
+
+        await _enderecoGeocodificacaoService.TentarGeocodificarAsync(estabelecimento.Endereco, cancellationToken);
     }
 
     private int ObterUserIdAutenticado()

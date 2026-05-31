@@ -19,11 +19,26 @@ public interface IAgendamentoNegocioService
         CriarAgendamentoRequestDto request,
         CancellationToken cancellationToken = default);
 
-    Task<AgendamentoCriadoResponseDto> CriarLogadoAsync(
+    Task<AgendamentoClienteResponseDto> CriarLogadoAsync(
         CriarAgendamentoLogadoRequestDto request,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<AgendamentoCriadoResponseDto>> ListarMeusAgendamentosAsync(
+    Task<AgendamentosClientePaginadoResponseDto> ListarMeusAgendamentosAsync(
+        AgendamentoClienteFiltroDto filtro,
+        CancellationToken cancellationToken = default);
+
+    Task<AgendamentoClienteResponseDto> ObterMeuAgendamentoAsync(
+        int agendamentoId,
+        CancellationToken cancellationToken = default);
+
+    Task<AgendamentoClienteResponseDto> CancelarMeuAgendamentoAsync(
+        int agendamentoId,
+        CancelarAgendamentoRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    Task<AgendamentoClienteResponseDto> RemarcarMeuAgendamentoAsync(
+        int agendamentoId,
+        RemarcarAgendamentoRequestDto request,
         CancellationToken cancellationToken = default);
 
     Task<AgendamentoCriadoResponseDto> ConfirmarAsync(

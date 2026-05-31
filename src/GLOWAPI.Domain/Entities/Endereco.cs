@@ -11,6 +11,9 @@ public class Endereco
     public string Bairro { get; set; } = string.Empty;
     public string Cidade { get; set; } = string.Empty;
     public string Estado { get; set; } = string.Empty;
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+    public DateTime? GeocodificadoEm { get; set; }
     public DateTime CreateAd { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 

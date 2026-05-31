@@ -40,9 +40,12 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
                 email = "studio-fluxo@email.com",
                 endereco = new
                 {
+                    cep = "01310100",
+                    logradouro = "Rua Fluxo",
+                    numero = "100",
+                    bairro = "Centro",
                     cidade = "Sao Paulo",
-                    estado = "SP",
-                    local = "Rua Fluxo"
+                    estado = "SP"
                 }
             }
         });
@@ -121,9 +124,12 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
                 email = "autonomo-fluxo@email.com",
                 endereco = new
                 {
+                    cep = "13010000",
+                    logradouro = "Sala Fluxo",
+                    numero = "12",
+                    bairro = "Centro",
                     cidade = "Campinas",
-                    estado = "SP",
-                    local = "Sala Fluxo"
+                    estado = "SP"
                 }
             }
         });

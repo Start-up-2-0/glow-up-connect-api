@@ -6,6 +6,7 @@ using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
 using GLOWAPI.Domain.Exceptions.Negocios;
+using GLOWAPI.Tests.Helpers;
 using Moq;
 
 namespace GLOWAPI.Tests.Unit.Application;
@@ -14,9 +15,17 @@ public class EstabelecimentoPerfilServiceTests
 {
     private readonly Mock<IEstabelecimentoRepository> _estabelecimentoRepository = new();
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
+    private readonly Mock<IEnderecoGeocodificacaoService> _enderecoGeocodificacaoService = new();
+    private readonly Mock<IConfirmacaoWhatsAppEstabelecimentoService> _confirmacaoWhatsAppEstabelecimentoService = new();
+    private readonly Mock<IUsuarioRepository> _usuarioRepository = new();
+    private readonly Mock<ICurrentUserContext> _currentUser = new();
 
     public EstabelecimentoPerfilServiceTests()
     {
+        _currentUser.Setup(c => c.UserId).Returns(10);
+        _usuarioRepository
+            .Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Usuario { Id = 10, Email = "owner@email.com" });
         _autorizacaoNegocioService
             .Setup(s => s.AutorizarAsync(
                 20,
@@ -28,6 +37,10 @@ public class EstabelecimentoPerfilServiceTests
                 EstablishmentUserRole.Owner,
                 false,
                 new HashSet<PermissaoNegocio> { PermissaoNegocio.NegocioEditar }));
+
+        _enderecoGeocodificacaoService
+            .Setup(s => s.TentarGeocodificarAsync(It.IsAny<Endereco>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
     }
 
     [Fact]
@@ -64,12 +77,12 @@ public class EstabelecimentoPerfilServiceTests
             Logo = " https://cdn.test/novo.png ",
             Telefone = "11999999999",
             Email = "novo@email.com",
-            Endereco = new()
-            {
-                Cidade = "Sao Paulo",
-                Estado = "SP",
-                Local = "Rua Nova"
-            }
+            Endereco = EnderecoOperacaoDtoBuilder.Criar(
+                cidade: "Sao Paulo",
+                logradouro: "Rua Nova",
+                cep: "01310100",
+                numero: "200",
+                bairro: "Bela Vista")
         });
 
         Assert.Equal("Studio Novo", response.Nome);
@@ -78,12 +91,15 @@ public class EstabelecimentoPerfilServiceTests
         Assert.Equal("novo@email.com", response.Email);
         Assert.Equal("Sao Paulo", response.Endereco.Cidade);
         Assert.Equal("SP", response.Endereco.Estado);
-        Assert.Equal("Rua Nova", response.Endereco.Local);
+        Assert.Equal("Rua Nova", response.Endereco.Logradouro);
         Assert.NotNull(estabelecimento.UpdatedAt);
         Assert.NotNull(estabelecimento.Endereco!.UpdatedAt);
 
         _estabelecimentoRepository.Verify(r => r.Atualizar(estabelecimento), Times.Once);
         _estabelecimentoRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _enderecoGeocodificacaoService.Verify(s => s.TentarGeocodificarAsync(
+            estabelecimento.Endereco,
+            It.IsAny<CancellationToken>()), Times.Once);
         _autorizacaoNegocioService.Verify(s => s.AutorizarAsync(
             20,
             PermissaoNegocio.NegocioEditar,
@@ -106,7 +122,7 @@ public class EstabelecimentoPerfilServiceTests
                 Logo = " ",
                 Telefone = "11999999999",
                 Email = "studio@email.com",
-                Endereco = new() { Cidade = "Sao Paulo", Estado = "SP", Local = "Rua Glow" }
+                Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Sao Paulo", logradouro: "Rua Glow")
             }));
     }
 
@@ -132,7 +148,7 @@ public class EstabelecimentoPerfilServiceTests
                 Logo = "logo",
                 Telefone = "11999999999",
                 Email = "studio@email.com",
-                Endereco = new() { Cidade = "Sao Paulo", Estado = "SP", Local = "Rua Glow" }
+                Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Sao Paulo", logradouro: "Rua Glow")
             }));
 
         _estabelecimentoRepository.Verify(r => r.Atualizar(It.IsAny<Estabelecimento>()), Times.Never);
@@ -141,5 +157,9 @@ public class EstabelecimentoPerfilServiceTests
     private EstabelecimentoPerfilService CreateService() =>
         new(
             _estabelecimentoRepository.Object,
-            _autorizacaoNegocioService.Object);
+            _autorizacaoNegocioService.Object,
+            _enderecoGeocodificacaoService.Object,
+            _confirmacaoWhatsAppEstabelecimentoService.Object,
+            _usuarioRepository.Object,
+            _currentUser.Object);
 }

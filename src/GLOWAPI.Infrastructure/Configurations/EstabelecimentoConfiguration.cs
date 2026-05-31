@@ -37,6 +37,23 @@ public class EstabelecimentoConfiguration : IEntityTypeConfiguration<Estabelecim
         builder.Property(estabelecimento => estabelecimento.Ativo)
             .HasDefaultValue(true);
 
+        builder.Property(estabelecimento => estabelecimento.WhatsAppConfirmadoEm);
+
+        builder.Property(estabelecimento => estabelecimento.WhatsAppConfirmacaoTokenHash)
+            .HasMaxLength(128);
+
+        builder.HasIndex(estabelecimento => estabelecimento.WhatsAppConfirmacaoTokenHash);
+
+        builder.Property(estabelecimento => estabelecimento.WhatsAppConfirmacaoCodigoHash)
+            .HasMaxLength(128);
+
+        builder.HasIndex(estabelecimento => estabelecimento.WhatsAppConfirmacaoCodigoHash);
+
+        builder.Property(estabelecimento => estabelecimento.WhatsAppConfirmacaoExpiraEm);
+
+        builder.Property(estabelecimento => estabelecimento.WhatsAppOptIn)
+            .HasDefaultValue(false);
+
         builder.Property(estabelecimento => estabelecimento.CreateAd)
             .IsRequired();
 

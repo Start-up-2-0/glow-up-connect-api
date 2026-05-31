@@ -1,6 +1,8 @@
+using GLOWAPI.Application.DTOs.Mensageria;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.DTOs.Usuario;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Auth;
@@ -15,6 +17,7 @@ public class UsuarioService : IUsuarioService
     private readonly ICurrentUserContext _currentUser;
     private readonly IAuthSessionService _authSessionService;
     private readonly IConfirmacaoEmailService _confirmacaoEmailService;
+    private readonly IConfirmacaoWhatsAppService _confirmacaoWhatsAppService;
     private readonly IAvatarBase64Decoder _avatarDecoder;
 
     public UsuarioService(
@@ -23,6 +26,7 @@ public class UsuarioService : IUsuarioService
         ICurrentUserContext currentUser,
         IAuthSessionService authSessionService,
         IConfirmacaoEmailService confirmacaoEmailService,
+        IConfirmacaoWhatsAppService confirmacaoWhatsAppService,
         IAvatarBase64Decoder avatarDecoder)
     {
         _usuarioRepository = usuarioRepository;
@@ -30,6 +34,7 @@ public class UsuarioService : IUsuarioService
         _currentUser = currentUser;
         _authSessionService = authSessionService;
         _confirmacaoEmailService = confirmacaoEmailService;
+        _confirmacaoWhatsAppService = confirmacaoWhatsAppService;
         _avatarDecoder = avatarDecoder;
     }
 
@@ -93,9 +98,56 @@ public class UsuarioService : IUsuarioService
     {
         var userId = ObterUserIdAutenticado();
         var usuario = await ObterUsuarioAtivoAsync(userId, cancellationToken);
+        var telefoneAnterior = usuario.Telefone;
 
         usuario.Nome = dto.Nome;
-        usuario.Telefone = dto.Telefone;
+        usuario.Telefone = dto.Telefone.Trim();
+        usuario.UpdatedAt = DateTime.UtcNow;
+
+        WhatsAppConfirmacaoEntidade.ResetarAoAlterarTelefone(
+            telefoneAnterior,
+            usuario.Telefone,
+            () =>
+            {
+                usuario.WhatsAppConfirmadoEm = null;
+                usuario.WhatsAppOptIn = false;
+                usuario.LimparConfirmacaoWhatsApp();
+            });
+
+        _usuarioRepository.Atualizar(usuario);
+        await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        if (!string.Equals(telefoneAnterior, usuario.Telefone, StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(usuario.Telefone))
+        {
+            await _confirmacaoWhatsAppService.IniciarConfirmacaoAsync(usuario, cancellationToken);
+        }
+    }
+
+    public async Task<WhatsAppConfirmacaoInstrucoesDto> SolicitarConfirmacaoWhatsAppAtualAsync(CancellationToken cancellationToken = default)
+    {
+        var userId = ObterUserIdAutenticado();
+        var usuario = await ObterUsuarioAtivoAsync(userId, cancellationToken);
+
+        if (usuario.WhatsAppConfirmadoEm.HasValue)
+        {
+            throw new ConfirmacaoWhatsAppInvalidaException();
+        }
+
+        return await _confirmacaoWhatsAppService.IniciarConfirmacaoAsync(usuario, cancellationToken);
+    }
+
+    public async Task AtualizarWhatsAppOptInAtualAsync(bool optIn, CancellationToken cancellationToken = default)
+    {
+        var userId = ObterUserIdAutenticado();
+        var usuario = await ObterUsuarioAtivoAsync(userId, cancellationToken);
+
+        if (!usuario.WhatsAppConfirmadoEm.HasValue)
+        {
+            throw new ConfirmacaoWhatsAppInvalidaException();
+        }
+
+        usuario.WhatsAppOptIn = optIn;
         usuario.UpdatedAt = DateTime.UtcNow;
 
         _usuarioRepository.Atualizar(usuario);

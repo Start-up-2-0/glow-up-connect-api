@@ -624,10 +624,21 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<DateTime?>("GeocodificadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("numeric(9,6)");
+
                     b.Property<string>("Logradouro")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("numeric(9,6)");
 
                     b.Property<string>("Numero")
                         .IsRequired()
@@ -641,6 +652,8 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.HasIndex("EstabelecimentoId")
                         .IsUnique();
+
+                    b.HasIndex("Cidade", "Estado");
 
                     b.ToTable("Enderecos", (string)null);
                 });
@@ -692,10 +705,33 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("WhatsAppConfirmacaoCodigoHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime?>("WhatsAppConfirmacaoExpiraEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WhatsAppConfirmacaoTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime?>("WhatsAppConfirmadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("WhatsAppOptIn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.HasKey("Id");
 
                     b.HasIndex("PublicGuid")
                         .IsUnique();
+
+                    b.HasIndex("WhatsAppConfirmacaoCodigoHash");
+
+                    b.HasIndex("WhatsAppConfirmacaoTokenHash");
 
                     b.ToTable("Estabelecimentos", (string)null);
                 });
@@ -1649,6 +1685,25 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("WhatsAppConfirmacaoCodigoHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime?>("WhatsAppConfirmacaoExpiraEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WhatsAppConfirmacaoTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime?>("WhatsAppConfirmadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("WhatsAppOptIn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.HasKey("Id");
 
                     b.HasIndex("ConfirmacaoCodigoHash");
@@ -1657,6 +1712,10 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("WhatsAppConfirmacaoCodigoHash");
+
+                    b.HasIndex("WhatsAppConfirmacaoTokenHash");
 
                     b.ToTable("Usuarios", (string)null);
                 });
