@@ -14,6 +14,7 @@ public class AuthOptions
     public string TokenSalt { get; set; } = string.Empty;
     public string TokenHeaderName { get; set; } = "x-glow-token";
     public int ConfirmacaoEmailHoras { get; set; } = 24;
+    public int ConfirmacaoWhatsAppHoras { get; set; } = 24;
     public int ConfirmacaoCodigoDigitos { get; set; } = 6;
     public string FrontendBaseUrl { get; set; } = "http://localhost:3000";
 }
