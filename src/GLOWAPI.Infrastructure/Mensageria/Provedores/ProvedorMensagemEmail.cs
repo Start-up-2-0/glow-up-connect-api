@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Mensageria;
 using GLOWAPI.Application.Models.Mensageria;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Entities;
@@ -85,13 +86,15 @@ public class ProvedorMensagemEmail : IProvedorMensagem
 
         try
         {
+            var htmlBody = EmailConteudoHtml.ConteudoParaHtml(mensagem.Conteudo);
             var emailMessage = new EmailMessage
             {
                 From = _options.From,
                 Subject = mensagem.Assunto,
-                HtmlBody = EmailConteudoHtml.ConteudoParaHtml(mensagem.Conteudo)
+                HtmlBody = htmlBody
             };
             emailMessage.To.Add(mensagem.Destinatario);
+            AnexarImagensInline(emailMessage, htmlBody);
 
             var idempotencyKey = mensagem.Guid.ToString("N");
             var resposta = await _resend.EmailSendAsync(idempotencyKey, emailMessage, cancellationToken);
@@ -143,4 +146,26 @@ public class ProvedorMensagemEmail : IProvedorMensagem
                 TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
         }
     }
+
+    private static void AnexarImagensInline(EmailMessage emailMessage, string htmlBody)
+    {
+        var anexos = EmailTemplateInlineAssets.ResolverReferenciados(htmlBody);
+        if (anexos.Count == 0)
+        {
+            return;
+        }
+
+        emailMessage.Attachments = anexos
+            .Select(CriarAnexoInline)
+            .ToList();
+    }
+
+    private static EmailAttachment CriarAnexoInline(EmailAnexoInline anexo) =>
+        new()
+        {
+            Filename = anexo.Filename,
+            Content = anexo.Content,
+            ContentType = anexo.ContentType,
+            ContentId = anexo.ContentId
+        };
 }

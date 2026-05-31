@@ -18,7 +18,8 @@ public class ConfirmacaoEmailTemplateTests
         html.Should().Contain("GlowUp Connect");
         html.Should().Contain("#ffbf00");
         html.Should().Contain("Confirmar e-mail");
-        html.Should().Contain("Confirmar e-mail");
+        html.Should().Contain($"cid:{EmailTemplateInlineAssets.LogoContentId}");
+        html.Should().NotContain("data:image");
         html.Should().Contain("482913");
         html.Should().Contain("class=\"confirm-code\"");
         html.Should().Contain("@media only screen and (max-width: 620px)");

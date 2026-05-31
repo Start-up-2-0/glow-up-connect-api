@@ -1,5 +1,6 @@
 using System.Net;
 using FluentAssertions;
+using GLOWAPI.Application.Mensageria;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
@@ -84,6 +85,53 @@ public class ProvedorMensagemEmailTests
                     && m.HtmlBody.Contains("<br/>")),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task EnviarAsync_DeveAnexarImagensInline_QuandoHtmlReferenciaCid()
+    {
+        var html = ConfirmacaoEmailTemplate.Criar(
+            "Maria",
+            "https://app.test/confirmar-email?token=abc",
+            "123456",
+            24);
+
+        var mensagem = new MensagemNotificacao
+        {
+            Guid = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+            Canal = CanalMensagemNotificacao.Email,
+            Destinatario = "cliente@example.com",
+            Assunto = "Confirmacao",
+            Conteudo = html
+        };
+
+        var emailId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+        var resend = new Mock<IResend>();
+        EmailMessage? mensagemEnviada = null;
+        resend
+            .Setup(r => r.EmailSendAsync(
+                It.IsAny<string>(),
+                It.IsAny<EmailMessage>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<string, EmailMessage, CancellationToken>((_, message, _) => mensagemEnviada = message)
+            .ReturnsAsync(new ResendResponse<Guid>(emailId, null!));
+
+        var provedor = CriarProvedor(resend, new MensageriaEmailOptions
+        {
+            Habilitado = true,
+            From = "noreply@example.com",
+            Provedor = "resend"
+        });
+
+        var resultado = await provedor.EnviarAsync(mensagem);
+
+        resultado.Sucesso.Should().BeTrue();
+        mensagemEnviada.Should().NotBeNull();
+        mensagemEnviada!.Attachments.Should().NotBeNull();
+        mensagemEnviada.Attachments!.Should().HaveCount(3);
+        mensagemEnviada.Attachments.Should().Contain(a =>
+            a.ContentId == EmailTemplateInlineAssets.LogoContentId
+            && a.Filename == "email-logo-sm.png");
     }
 
     [Fact]

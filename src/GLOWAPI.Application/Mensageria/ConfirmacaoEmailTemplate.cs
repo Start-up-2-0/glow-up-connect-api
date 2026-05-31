@@ -32,8 +32,8 @@ public static class ConfirmacaoEmailTemplate
         var codigoSeguro = Html(codigo);
         var validadeTexto = validadeHoras == 1 ? "1 hora" : $"{validadeHoras} horas";
         var estadoVisual = ObterEstadoVisual(estado, validadeTexto);
-        var logoDataUri = EmailTemplateAssets.LogoDataUri;
-        var warningDataUri = EmailTemplateAssets.WarningDataUri;
+        var logoSrc = EmailTemplateInlineAssets.LogoSrc;
+        var warningSrc = EmailTemplateInlineAssets.WarningSrc;
         var anoAtual = DateTime.UtcNow.Year;
 
         return $$"""
@@ -74,7 +74,7 @@ public static class ConfirmacaoEmailTemplate
                                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                                   <tr>
                                     <td width="130" valign="middle" style="padding:12px 0 12px 8px;">
-                                      <img class="header-logo" src="{{logoDataUri}}" alt="GlowUp Connect" width="120" height="120" style="display:block; width:120px; height:120px; border:0;">
+                                      <img class="header-logo" src="{{logoSrc}}" alt="GlowUp Connect" width="120" height="120" style="display:block; width:120px; height:120px; border:0;">
                                     </td>
                                     <td align="right" valign="middle" style="padding:24px 28px 24px 12px;">
                                       <p style="margin:0; color:#ffffff; font-family:'Montserrat', Arial, Helvetica, sans-serif; font-size:32px; line-height:35px; font-weight:500;">GlowUp</p>
@@ -151,7 +151,7 @@ public static class ConfirmacaoEmailTemplate
                                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                                               <tr>
                                                 <td width="28" valign="top" style="padding-top:2px;">
-                                                  <img src="{{warningDataUri}}" alt="" width="16" height="16" style="display:block; width:16px; height:16px; border:0;">
+                                                  <img src="{{warningSrc}}" alt="" width="16" height="16" style="display:block; width:16px; height:16px; border:0;">
                                                 </td>
                                                 <td valign="top">
                                                   <p style="margin:0; color:{{CorSeguranca}}; font-size:14px; line-height:20px; font-weight:700;">Aviso de seguranca</p>
@@ -237,9 +237,9 @@ public static class ConfirmacaoEmailTemplate
         bool incluirIconeRelogio = false,
         bool apenasMensagemPrincipal = false)
     {
-        var clockDataUri = EmailTemplateAssets.ClockDataUri;
+        var clockSrc = EmailTemplateInlineAssets.ClockSrc;
         var icone = incluirIconeRelogio
-            ? $"""<img src="{clockDataUri}" alt="" width="20" height="20" style="display:block; width:20px; height:20px; border:0;">"""
+            ? $"""<img src="{clockSrc}" alt="" width="20" height="20" style="display:block; width:20px; height:20px; border:0;">"""
             : string.Empty;
 
         var descricaoHtml = string.IsNullOrEmpty(descricao)
