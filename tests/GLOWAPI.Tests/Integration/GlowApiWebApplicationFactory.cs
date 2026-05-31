@@ -41,7 +41,13 @@ public class GlowApiWebApplicationFactory : WebApplicationFactory<Program>
 
             services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseInMemoryDatabase(_databaseName));
+
+            ConfigureTestServices(services);
         });
+    }
+
+    protected virtual void ConfigureTestServices(IServiceCollection services)
+    {
     }
 
     public async Task SeedUsuarioAsync(string email, string senha, int tentativas = 0, bool ativo = true)
