@@ -1,3 +1,4 @@
+using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Usuario;
 using GLOWAPI.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -46,6 +47,24 @@ public class UsuarioController : ControllerBase
     public async Task<IActionResult> AtualizarUsuario([FromBody] AtualizarUsuarioDto request, CancellationToken cancellationToken)
     {
         await _usuarioService.AtualizarPerfilAtualAsync(request, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("me/whatsapp/solicitar-confirmacao")]
+    public async Task<IActionResult> SolicitarConfirmacaoWhatsApp(CancellationToken cancellationToken)
+    {
+        var instrucoes = await _usuarioService.SolicitarConfirmacaoWhatsAppAtualAsync(cancellationToken);
+        return Ok(ApiSuccessResponse<object>.From(
+            "Verifique seu e-mail para confirmar o WhatsApp.",
+            instrucoes));
+    }
+
+    [HttpPost("me/whatsapp/opt-in")]
+    public async Task<IActionResult> AtualizarWhatsAppOptIn(
+        [FromBody] WhatsAppOptInRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        await _usuarioService.AtualizarWhatsAppOptInAtualAsync(request.OptIn, cancellationToken);
         return NoContent();
     }
 
