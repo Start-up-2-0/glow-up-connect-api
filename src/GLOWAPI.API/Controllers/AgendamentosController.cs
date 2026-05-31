@@ -25,18 +25,56 @@ public class AgendamentosController : ControllerBase
 
         return StatusCode(
             StatusCodes.Status201Created,
-            ApiSuccessResponse<AgendamentoCriadoResponseDto>.From(
+            ApiSuccessResponse<AgendamentoClienteResponseDto>.From(
                 "Agendamento criado com sucesso.",
                 agendamento));
     }
 
     [HttpGet("me")]
-    public async Task<IActionResult> ListarMeusAgendamentos(CancellationToken cancellationToken)
+    public async Task<IActionResult> ListarMeusAgendamentos(
+        [FromQuery] AgendamentoClienteFiltroDto filtro,
+        CancellationToken cancellationToken)
     {
-        var agendamentos = await _agendamentoNegocioService.ListarMeusAgendamentosAsync(cancellationToken);
+        var agendamentos = await _agendamentoNegocioService.ListarMeusAgendamentosAsync(filtro, cancellationToken);
 
-        return Ok(ApiSuccessResponse<IReadOnlyList<AgendamentoCriadoResponseDto>>.From(
+        return Ok(ApiSuccessResponse<AgendamentosClientePaginadoResponseDto>.From(
             "Agendamentos do cliente listados com sucesso.",
             agendamentos));
+    }
+
+    [HttpGet("me/{id:int}")]
+    public async Task<IActionResult> ObterMeuAgendamento(int id, CancellationToken cancellationToken)
+    {
+        var agendamento = await _agendamentoNegocioService.ObterMeuAgendamentoAsync(id, cancellationToken);
+
+        return Ok(ApiSuccessResponse<AgendamentoClienteResponseDto>.From(
+            "Agendamento obtido com sucesso.",
+            agendamento));
+    }
+
+    [HttpPost("me/{id:int}/cancelar")]
+    public async Task<IActionResult> CancelarMeuAgendamento(
+        int id,
+        [FromBody] CancelarAgendamentoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var agendamento = await _agendamentoNegocioService.CancelarMeuAgendamentoAsync(id, request, cancellationToken);
+
+        return Ok(ApiSuccessResponse<AgendamentoClienteResponseDto>.From(
+            "Agendamento cancelado com sucesso.",
+            agendamento));
+    }
+
+    [HttpPost("me/{id:int}/remarcar")]
+    public async Task<IActionResult> RemarcarMeuAgendamento(
+        int id,
+        [FromBody] RemarcarAgendamentoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var agendamento = await _agendamentoNegocioService.RemarcarMeuAgendamentoAsync(id, request, cancellationToken);
+
+        return Ok(ApiSuccessResponse<AgendamentoClienteResponseDto>.From(
+            "Agendamento remarcado com sucesso.",
+            agendamento));
     }
 }
