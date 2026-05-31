@@ -61,6 +61,23 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
 
         builder.Property(usuario => usuario.ConfirmacaoExpiraEm);
 
+        builder.Property(usuario => usuario.WhatsAppConfirmadoEm);
+
+        builder.Property(usuario => usuario.WhatsAppConfirmacaoTokenHash)
+            .HasMaxLength(128);
+
+        builder.HasIndex(usuario => usuario.WhatsAppConfirmacaoTokenHash);
+
+        builder.Property(usuario => usuario.WhatsAppConfirmacaoCodigoHash)
+            .HasMaxLength(128);
+
+        builder.HasIndex(usuario => usuario.WhatsAppConfirmacaoCodigoHash);
+
+        builder.Property(usuario => usuario.WhatsAppConfirmacaoExpiraEm);
+
+        builder.Property(usuario => usuario.WhatsAppOptIn)
+            .HasDefaultValue(false);
+
         builder.Property(usuario => usuario.CreatedAt)
             .IsRequired();
 

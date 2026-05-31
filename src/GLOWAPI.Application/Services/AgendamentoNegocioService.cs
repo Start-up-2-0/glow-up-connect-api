@@ -120,14 +120,11 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             cancellationToken);
     }
 
-    public async Task<AgendamentoCriadoResponseDto> CriarLogadoAsync(
+    public async Task<AgendamentoClienteResponseDto> CriarLogadoAsync(
         CriarAgendamentoLogadoRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        if (!_currentUserContext.IsAuthenticated || !_currentUserContext.UserId.HasValue)
-        {
-            throw new UnauthorizedException();
-        }
+        var userId = ObterUserIdAutenticado();
 
         var requestPublico = new CriarAgendamentoRequestDto
         {
@@ -138,28 +135,86 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             Observacao = request.Observacao
         };
 
-        return await CriarPublicoInternoAsync(
+        var criado = await CriarPublicoInternoAsync(
             request.EstabelecimentoPublicGuid,
             request.ProfissionalPublicGuid,
             requestPublico,
             OrigemAgendamento.Logado,
-            _currentUserContext.UserId.Value,
+            userId,
             cancellationToken);
+
+        var agendamento = await _agendamentoRepository.ObterPorIdEUsuarioClienteAsync(
+            criado.Id,
+            userId,
+            cancellationToken);
+
+        return AgendamentoClienteResponseDto.From(agendamento!);
     }
 
-    public async Task<IReadOnlyList<AgendamentoCriadoResponseDto>> ListarMeusAgendamentosAsync(
+    public async Task<AgendamentosClientePaginadoResponseDto> ListarMeusAgendamentosAsync(
+        AgendamentoClienteFiltroDto filtroDto,
         CancellationToken cancellationToken = default)
     {
-        if (!_currentUserContext.IsAuthenticated || !_currentUserContext.UserId.HasValue)
-        {
-            throw new UnauthorizedException();
-        }
+        var userId = ObterUserIdAutenticado();
+        var filtro = await MontarFiltroClienteAsync(userId, filtroDto, cancellationToken);
 
-        var agendamentos = await _agendamentoRepository.ListarPorUsuarioClienteAsync(
-            _currentUserContext.UserId.Value,
+        var (agendamentos, total) = await _agendamentoRepository.ListarPorUsuarioClienteComFiltroAsync(
+            filtro,
             cancellationToken);
 
-        return agendamentos.Select(AgendamentoCriadoResponseDto.From).ToList();
+        return new AgendamentosClientePaginadoResponseDto(
+            total,
+            filtro.Pagina,
+            filtro.TamanhoPagina,
+            agendamentos.Select(AgendamentoClienteResponseDto.From).ToList());
+    }
+
+    public async Task<AgendamentoClienteResponseDto> ObterMeuAgendamentoAsync(
+        int agendamentoId,
+        CancellationToken cancellationToken = default)
+    {
+        var agendamento = await ObterMeuAgendamentoEntidadeAsync(agendamentoId, cancellationToken);
+        return AgendamentoClienteResponseDto.From(agendamento);
+    }
+
+    public async Task<AgendamentoClienteResponseDto> CancelarMeuAgendamentoAsync(
+        int agendamentoId,
+        CancelarAgendamentoRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Motivo))
+        {
+            throw new AgendamentoStatusInvalidoException("Motivo do cancelamento e obrigatorio.");
+        }
+
+        var agendamento = await ObterMeuAgendamentoEntidadeAsync(agendamentoId, cancellationToken);
+        await ExecutarCancelamentoAsync(
+            agendamento,
+            request.Motivo.Trim(),
+            registrarAuditoriaEstabelecimento: true,
+            cancellationToken);
+
+        return AgendamentoClienteResponseDto.From(agendamento);
+    }
+
+    public async Task<AgendamentoClienteResponseDto> RemarcarMeuAgendamentoAsync(
+        int agendamentoId,
+        RemarcarAgendamentoRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Motivo))
+        {
+            throw new AgendamentoStatusInvalidoException("Motivo da remarcacao e obrigatorio.");
+        }
+
+        var agendamento = await ObterMeuAgendamentoEntidadeAsync(agendamentoId, cancellationToken);
+        await ExecutarRemarcacaoAsync(
+            agendamento,
+            request,
+            registrarAuditoriaEstabelecimento: true,
+            cancellationToken);
+
+        return AgendamentoClienteResponseDto.From(agendamento);
     }
 
     public async Task<AgendamentoCriadoResponseDto> ConfirmarAsync(
@@ -233,46 +288,10 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         }
 
         var agendamento = await ObterAgendamentoEstabelecimentoAsync(agendamentoId, estabelecimentoId, cancellationToken);
-        if (!StatusAtivos.Contains(agendamento.Status))
-        {
-            throw new AgendamentoStatusInvalidoException("Agendamento nao pode ser cancelado no status atual.");
-        }
-
-        var statusAnterior = agendamento.Status;
-        agendamento.Status = AgendamentoStatus.Cancelado;
-        agendamento.CanceladoEm = DateTime.UtcNow;
-        agendamento.UpdatedAt = agendamento.CanceladoEm;
-
-        foreach (var item in agendamento.Itens)
-        {
-            item.Status = AgendamentoItemStatus.Cancelado;
-            item.UpdatedAt = agendamento.UpdatedAt;
-        }
-
-        await RegistrarHistoricoAsync(
+        await ExecutarCancelamentoAsync(
             agendamento,
-            statusAnterior,
-            agendamento.Status,
             request.Motivo.Trim(),
-            cancellationToken);
-
-        _agendamentoRepository.Atualizar(agendamento);
-        await _agendamentoRepository.SalvarAlteracoesAsync(cancellationToken);
-
-        await _auditoriaNegocioService.RegistrarAsync(
-            estabelecimentoId,
-            TipoAcaoAuditoriaNegocio.AgendamentoCancelado,
-            nameof(Agendamento),
-            agendamento.Id,
-            new { motivo = request.Motivo.Trim() },
-            cancellationToken);
-
-        var contexto = ObterContextoNotificacao(agendamento);
-        await _agendamentoNotificacaoService.AgendamentoCanceladoAsync(
-            agendamento,
-            contexto.Estabelecimento,
-            contexto.Profissional,
-            request.Motivo.Trim(),
+            registrarAuditoriaEstabelecimento: true,
             cancellationToken);
 
         return AgendamentoCriadoResponseDto.From(agendamento);
@@ -295,84 +314,10 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         }
 
         var agendamento = await ObterAgendamentoEstabelecimentoAsync(agendamentoId, estabelecimentoId, cancellationToken);
-        if (agendamento.Status is not (
-            AgendamentoStatus.PendenteConfirmacao
-            or AgendamentoStatus.Confirmado
-            or AgendamentoStatus.Remarcado))
-        {
-            throw new AgendamentoStatusInvalidoException("Agendamento nao pode ser remarcado no status atual.");
-        }
-
-        var profissionalId = agendamento.Itens.First().ProfissionalId;
-        var servicoIds = agendamento.Itens.OrderBy(item => item.Inicio).Select(item => item.ServicoId).ToArray();
-        var dadosVisitante = agendamento.UsuarioClienteId.HasValue
-            ? null
-            : new CriarAgendamentoRequestDto
-            {
-                ClienteNome = agendamento.ClienteNome,
-                ClienteEmail = agendamento.ClienteEmail,
-                ClienteTelefone = agendamento.ClienteTelefone
-            };
-
-        var preparacao = await _agendamentoValidador.PrepararAsync(
-            estabelecimentoId,
-            profissionalId,
-            servicoIds,
-            request.Data,
-            request.HorarioInicio,
-            agendamento.Origem,
-            dadosVisitante,
-            agendamento.UsuarioClienteId,
-            agendamentoIgnorarId: agendamento.Id,
-            cancellationToken);
-
-        var statusAnterior = agendamento.Status;
-        agendamento.Status = AgendamentoStatus.Remarcado;
-        agendamento.ValorTotal = preparacao.ValorTotal;
-        agendamento.UpdatedAt = DateTime.UtcNow;
-
-        _agendamentoRepository.Atualizar(agendamento);
-
-        var itensExistentes = agendamento.Itens.OrderBy(item => item.Inicio).ToList();
-        for (var index = 0; index < itensExistentes.Count; index++)
-        {
-            var itemExistente = itensExistentes[index];
-            var itemPreparado = preparacao.Itens[index];
-            itemExistente.Inicio = itemPreparado.Inicio;
-            itemExistente.Fim = itemPreparado.Fim;
-            itemExistente.Valor = itemPreparado.Valor;
-            itemExistente.UpdatedAt = agendamento.UpdatedAt;
-            itemExistente.Status = AgendamentoItemStatus.Pendente;
-        }
-
-        await RegistrarHistoricoAsync(
+        await ExecutarRemarcacaoAsync(
             agendamento,
-            statusAnterior,
-            agendamento.Status,
-            request.Motivo.Trim(),
-            cancellationToken);
-
-        await _agendamentoRepository.SalvarAlteracoesAsync(cancellationToken);
-
-        await _auditoriaNegocioService.RegistrarAsync(
-            estabelecimentoId,
-            TipoAcaoAuditoriaNegocio.AgendamentoRemarcado,
-            nameof(Agendamento),
-            agendamento.Id,
-            new
-            {
-                motivo = request.Motivo.Trim(),
-                inicio = preparacao.Inicio,
-                fim = preparacao.Fim
-            },
-            cancellationToken);
-
-        var contexto = ObterContextoNotificacao(agendamento);
-        await _agendamentoNotificacaoService.AgendamentoRemarcadoAsync(
-            agendamento,
-            contexto.Estabelecimento,
-            contexto.Profissional,
-            request.Motivo.Trim(),
+            request,
+            registrarAuditoriaEstabelecimento: true,
             cancellationToken);
 
         return AgendamentoCriadoResponseDto.From(agendamento);
@@ -650,5 +595,212 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             ?? throw new AgendamentoStatusInvalidoException("Estabelecimento do agendamento nao encontrado.");
 
         return (estabelecimento, profissional);
+    }
+
+    private int ObterUserIdAutenticado()
+    {
+        if (!_currentUserContext.IsAuthenticated || !_currentUserContext.UserId.HasValue)
+        {
+            throw new UnauthorizedException();
+        }
+
+        return _currentUserContext.UserId.Value;
+    }
+
+    private async Task<Agendamento> ObterMeuAgendamentoEntidadeAsync(
+        int agendamentoId,
+        CancellationToken cancellationToken)
+    {
+        var userId = ObterUserIdAutenticado();
+        var agendamento = await _agendamentoRepository.ObterPorIdEUsuarioClienteAsync(
+            agendamentoId,
+            userId,
+            cancellationToken);
+
+        if (agendamento is null)
+        {
+            throw new AgendamentoNaoEncontradoException();
+        }
+
+        return agendamento;
+    }
+
+    private async Task<AgendamentoClienteFiltro> MontarFiltroClienteAsync(
+        int userId,
+        AgendamentoClienteFiltroDto filtroDto,
+        CancellationToken cancellationToken)
+    {
+        int? estabelecimentoId = null;
+        if (filtroDto.EstabelecimentoPublicGuid.HasValue)
+        {
+            var estabelecimento = await _estabelecimentoRepository.ObterPorPublicGuidAsync(
+                filtroDto.EstabelecimentoPublicGuid.Value,
+                cancellationToken);
+            if (estabelecimento is not null)
+            {
+                estabelecimentoId = estabelecimento.Id;
+            }
+        }
+
+        var ordenacao = filtroDto.Ordenacao?.Trim().ToLowerInvariant();
+        var ordenarPorProximos = ordenacao != "recentes";
+
+        return new AgendamentoClienteFiltro(
+            userId,
+            filtroDto.Status,
+            filtroDto.DataInicio,
+            filtroDto.DataFim,
+            estabelecimentoId,
+            Math.Max(1, filtroDto.Pagina),
+            Math.Clamp(filtroDto.TamanhoPagina, 1, 50),
+            ordenarPorProximos);
+    }
+
+    private async Task ExecutarCancelamentoAsync(
+        Agendamento agendamento,
+        string motivo,
+        bool registrarAuditoriaEstabelecimento,
+        CancellationToken cancellationToken)
+    {
+        if (!StatusAtivos.Contains(agendamento.Status))
+        {
+            throw new AgendamentoStatusInvalidoException("Agendamento nao pode ser cancelado no status atual.");
+        }
+
+        var statusAnterior = agendamento.Status;
+        agendamento.Status = AgendamentoStatus.Cancelado;
+        agendamento.CanceladoEm = DateTime.UtcNow;
+        agendamento.UpdatedAt = agendamento.CanceladoEm;
+
+        foreach (var item in agendamento.Itens)
+        {
+            item.Status = AgendamentoItemStatus.Cancelado;
+            item.UpdatedAt = agendamento.UpdatedAt;
+        }
+
+        await RegistrarHistoricoAsync(
+            agendamento,
+            statusAnterior,
+            agendamento.Status,
+            motivo,
+            cancellationToken);
+
+        _agendamentoRepository.Atualizar(agendamento);
+        await _agendamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        if (registrarAuditoriaEstabelecimento && agendamento.EstabelecimentoId.HasValue)
+        {
+            await _auditoriaNegocioService.RegistrarAsync(
+                agendamento.EstabelecimentoId.Value,
+                TipoAcaoAuditoriaNegocio.AgendamentoCancelado,
+                nameof(Agendamento),
+                agendamento.Id,
+                new { motivo },
+                cancellationToken);
+        }
+
+        var contexto = ObterContextoNotificacao(agendamento);
+        await _agendamentoNotificacaoService.AgendamentoCanceladoAsync(
+            agendamento,
+            contexto.Estabelecimento,
+            contexto.Profissional,
+            motivo,
+            cancellationToken);
+    }
+
+    private async Task ExecutarRemarcacaoAsync(
+        Agendamento agendamento,
+        RemarcarAgendamentoRequestDto request,
+        bool registrarAuditoriaEstabelecimento,
+        CancellationToken cancellationToken)
+    {
+        if (agendamento.Status is not (
+            AgendamentoStatus.PendenteConfirmacao
+            or AgendamentoStatus.Confirmado
+            or AgendamentoStatus.Remarcado))
+        {
+            throw new AgendamentoStatusInvalidoException("Agendamento nao pode ser remarcado no status atual.");
+        }
+
+        if (!agendamento.EstabelecimentoId.HasValue)
+        {
+            throw new AgendamentoStatusInvalidoException("Estabelecimento do agendamento nao encontrado.");
+        }
+
+        var estabelecimentoId = agendamento.EstabelecimentoId.Value;
+        var profissionalId = agendamento.Itens.First().ProfissionalId;
+        var servicoIds = agendamento.Itens.OrderBy(item => item.Inicio).Select(item => item.ServicoId).ToArray();
+        var dadosVisitante = agendamento.UsuarioClienteId.HasValue
+            ? null
+            : new CriarAgendamentoRequestDto
+            {
+                ClienteNome = agendamento.ClienteNome,
+                ClienteEmail = agendamento.ClienteEmail,
+                ClienteTelefone = agendamento.ClienteTelefone
+            };
+
+        var preparacao = await _agendamentoValidador.PrepararAsync(
+            estabelecimentoId,
+            profissionalId,
+            servicoIds,
+            request.Data,
+            request.HorarioInicio,
+            agendamento.Origem,
+            dadosVisitante,
+            agendamento.UsuarioClienteId,
+            agendamentoIgnorarId: agendamento.Id,
+            cancellationToken);
+
+        var statusAnterior = agendamento.Status;
+        agendamento.Status = AgendamentoStatus.Remarcado;
+        agendamento.ValorTotal = preparacao.ValorTotal;
+        agendamento.UpdatedAt = DateTime.UtcNow;
+
+        _agendamentoRepository.Atualizar(agendamento);
+
+        var itensExistentes = agendamento.Itens.OrderBy(item => item.Inicio).ToList();
+        for (var index = 0; index < itensExistentes.Count; index++)
+        {
+            var itemExistente = itensExistentes[index];
+            var itemPreparado = preparacao.Itens[index];
+            itemExistente.Inicio = itemPreparado.Inicio;
+            itemExistente.Fim = itemPreparado.Fim;
+            itemExistente.Valor = itemPreparado.Valor;
+            itemExistente.UpdatedAt = agendamento.UpdatedAt;
+            itemExistente.Status = AgendamentoItemStatus.Pendente;
+        }
+
+        await RegistrarHistoricoAsync(
+            agendamento,
+            statusAnterior,
+            agendamento.Status,
+            request.Motivo.Trim(),
+            cancellationToken);
+
+        await _agendamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        if (registrarAuditoriaEstabelecimento)
+        {
+            await _auditoriaNegocioService.RegistrarAsync(
+                estabelecimentoId,
+                TipoAcaoAuditoriaNegocio.AgendamentoRemarcado,
+                nameof(Agendamento),
+                agendamento.Id,
+                new
+                {
+                    motivo = request.Motivo.Trim(),
+                    inicio = preparacao.Inicio,
+                    fim = preparacao.Fim
+                },
+                cancellationToken);
+        }
+
+        var contexto = ObterContextoNotificacao(agendamento);
+        await _agendamentoNotificacaoService.AgendamentoRemarcadoAsync(
+            agendamento,
+            contexto.Estabelecimento,
+            contexto.Profissional,
+            request.Motivo.Trim(),
+            cancellationToken);
     }
 }

@@ -39,6 +39,14 @@ public class EnderecoConfiguration : IEntityTypeConfiguration<Endereco>
             .IsRequired()
             .HasMaxLength(50);
 
+        builder.Property(endereco => endereco.Latitude)
+            .HasPrecision(9, 6);
+
+        builder.Property(endereco => endereco.Longitude)
+            .HasPrecision(9, 6);
+
+        builder.Property(endereco => endereco.GeocodificadoEm);
+
         builder.Property(endereco => endereco.CreateAd)
             .IsRequired();
 
@@ -51,5 +59,7 @@ public class EnderecoConfiguration : IEntityTypeConfiguration<Endereco>
 
         builder.HasIndex(endereco => endereco.EstabelecimentoId)
             .IsUnique();
+
+        builder.HasIndex(endereco => new { endereco.Cidade, endereco.Estado });
     }
 }

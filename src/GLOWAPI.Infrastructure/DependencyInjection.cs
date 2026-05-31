@@ -1,6 +1,7 @@
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Options;
+using GLOWAPI.Infrastructure.Geolocalizacao;
 using GLOWAPI.Infrastructure.Mensageria.Provedores;
 using GLOWAPI.Infrastructure.Pagamentos;
 using GLOWAPI.Infrastructure.Repositories;
@@ -74,6 +75,7 @@ public static class DependencyInjection
         services.AddScoped<IMensagemNotificacaoRepository, MensagemNotificacaoRepository>();
 
         services.Configure<MercadoPagoOptions>(configuration.GetSection(MercadoPagoOptions.SectionName));
+        services.Configure<GeocodificacaoOptions>(configuration.GetSection(GeocodificacaoOptions.SectionName));
 
         services.AddHttpClient<ResendClient>();
         services.Configure<ResendClientOptions>(options =>
@@ -81,8 +83,10 @@ public static class DependencyInjection
             options.ApiToken = configuration["RESEND_APITOKEN"] ?? string.Empty;
         });
         services.AddTransient<IResend, ResendClient>();
+        services.Configure<MensageriaWhatsAppOptions>(configuration.GetSection(MensageriaWhatsAppOptions.SectionName));
+        services.AddHttpClient<ProvedorMensagemWhatsApp>();
         services.AddScoped<IProvedorMensagem, ProvedorMensagemEmail>();
-        services.AddScoped<IProvedorMensagem, ProvedorMensagemWhatsApp>();
+        services.AddScoped<IProvedorMensagem>(sp => sp.GetRequiredService<ProvedorMensagemWhatsApp>());
         services.AddScoped<IProvedorMensagem, ProvedorMensagemSms>();
 
         var mercadoPagoAccessToken = configuration[$"{MercadoPagoOptions.SectionName}:AccessToken"];
@@ -103,6 +107,14 @@ public static class DependencyInjection
         }
 
         services.AddScoped<IGatewayPagamento>(_ => new GatewayPagamentoFake(GLOWAPI.Domain.Enums.GatewayPagamento.AbacatePay));
+
+        services.AddHttpClient<IGeocodificadorService, NominatimGeocodificadorClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<GeocodificacaoOptions>>().Value;
+            client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSegundos);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(options.UserAgent);
+        });
 
         return services;
     }

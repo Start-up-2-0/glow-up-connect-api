@@ -44,6 +44,25 @@ public static class HostedConfigurationValidator
             faltando.Add("MercadoPago__AccessToken");
         }
 
+        var whatsAppHabilitado = configuration.GetValue<bool>($"{MensageriaWhatsAppOptions.SectionName}:Habilitado");
+        if (whatsAppHabilitado)
+        {
+            if (string.IsNullOrWhiteSpace(configuration[$"{MensageriaWhatsAppOptions.SectionName}:ApiUrl"]))
+            {
+                faltando.Add("Mensageria__WhatsApp__ApiUrl");
+            }
+
+            if (string.IsNullOrWhiteSpace(configuration[$"{MensageriaWhatsAppOptions.SectionName}:ApiKey"]))
+            {
+                faltando.Add("Mensageria__WhatsApp__ApiKey");
+            }
+
+            if (string.IsNullOrWhiteSpace(configuration[$"{MensageriaWhatsAppOptions.SectionName}:InstanceName"]))
+            {
+                faltando.Add("Mensageria__WhatsApp__InstanceName");
+            }
+        }
+
         if (faltando.Count > 0)
         {
             throw new InvalidOperationException(

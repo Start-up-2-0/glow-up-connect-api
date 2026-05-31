@@ -14,6 +14,8 @@ public static class DependencyInjection
     {
         services.AddScoped<IUsuarioService, UsuarioService>();
         services.AddScoped<IConfirmacaoEmailService, ConfirmacaoEmailService>();
+        services.AddScoped<IConfirmacaoWhatsAppService, ConfirmacaoWhatsAppService>();
+        services.AddScoped<IConfirmacaoWhatsAppEstabelecimentoService, ConfirmacaoWhatsAppEstabelecimentoService>();
         services.AddScoped<IAvatarBase64Decoder, AvatarBase64Decoder>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IAuthSessionService, AuthSessionService>();
@@ -52,6 +54,9 @@ public static class DependencyInjection
         services.AddScoped<IAssinaturaNotificacaoService, AssinaturaNotificacaoService>();
         services.AddScoped<IGatewayPagamentoResolver, GatewayPagamentoResolver>();
         services.AddScoped<IWebhookPagamentoService, WebhookPagamentoService>();
+        services.AddScoped<IWebhookWhatsAppService, WebhookWhatsAppService>();
+        services.AddScoped<IEnderecoGeocodificacaoService, EnderecoGeocodificacaoService>();
+        services.AddScoped<IEstabelecimentoDescobertaService, EstabelecimentoDescobertaService>();
 
         return services;
     }

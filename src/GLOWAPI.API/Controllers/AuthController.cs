@@ -15,15 +15,18 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly IConfirmacaoEmailService _confirmacaoEmailService;
+    private readonly IConfirmacaoWhatsAppService _confirmacaoWhatsAppService;
     private readonly AuthOptions _authOptions;
 
     public AuthController(
         IAuthService authService,
         IConfirmacaoEmailService confirmacaoEmailService,
+        IConfirmacaoWhatsAppService confirmacaoWhatsAppService,
         IOptions<AuthOptions> authOptions)
     {
         _authService = authService;
         _confirmacaoEmailService = confirmacaoEmailService;
+        _confirmacaoWhatsAppService = confirmacaoWhatsAppService;
         _authOptions = authOptions.Value;
     }
 
@@ -95,6 +98,55 @@ public class AuthController : ControllerBase
         await _confirmacaoEmailService.ReenviarConfirmacaoAsync(request.Email, cancellationToken);
         return Ok(ApiSuccessResponse.From(
             "Se o e-mail estiver cadastrado e pendente de confirmacao, enviaremos um novo link e codigo."));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("confirmar-whatsapp")]
+    public async Task<IActionResult> ConfirmarWhatsApp(
+        [FromBody] ConfirmarWhatsAppRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var temToken = !string.IsNullOrWhiteSpace(request.Token);
+        var temCodigo = !string.IsNullOrWhiteSpace(request.Codigo);
+
+        if (temToken == temCodigo)
+        {
+            return BadRequest(ApiErrorResponse.From(
+                "Informe exatamente token ou codigo.",
+                "CONFIRMACAO_WHATSAPP_INVALIDA"));
+        }
+
+        if (temToken)
+        {
+            await _confirmacaoWhatsAppService.ConfirmarPorTokenAsync(request.Token!, cancellationToken);
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(request.Telefone))
+            {
+                return BadRequest(ApiErrorResponse.From(
+                    "Telefone e obrigatorio para confirmacao por codigo.",
+                    "CONFIRMACAO_WHATSAPP_INVALIDA"));
+            }
+
+            await _confirmacaoWhatsAppService.ConfirmarPorCodigoAsync(
+                request.Telefone,
+                request.Codigo!,
+                cancellationToken);
+        }
+
+        return Ok(ApiSuccessResponse.From("WhatsApp confirmado com sucesso."));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("reenviar-confirmacao-whatsapp")]
+    public async Task<IActionResult> ReenviarConfirmacaoWhatsApp(
+        [FromBody] ReenviarConfirmacaoWhatsAppRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        await _confirmacaoWhatsAppService.ReenviarConfirmacaoAsync(request.Email, cancellationToken);
+        return Ok(ApiSuccessResponse.From(
+            "Se o e-mail estiver cadastrado e pendente de confirmacao WhatsApp, enviaremos um novo codigo."));
     }
 
     [AllowAnonymous]

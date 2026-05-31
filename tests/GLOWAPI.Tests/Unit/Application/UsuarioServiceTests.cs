@@ -15,6 +15,7 @@ public class UsuarioServiceTests
     private readonly Mock<ICurrentUserContext> _currentUser = new();
     private readonly Mock<IAuthSessionService> _authSessionService = new();
     private readonly Mock<IConfirmacaoEmailService> _confirmacaoEmailService = new();
+    private readonly Mock<IConfirmacaoWhatsAppService> _confirmacaoWhatsAppService = new();
     private readonly Mock<IAvatarBase64Decoder> _avatarDecoder = new();
 
     public UsuarioServiceTests()
@@ -162,5 +163,6 @@ public class UsuarioServiceTests
             _currentUser.Object,
             _authSessionService.Object,
             _confirmacaoEmailService.Object,
+            _confirmacaoWhatsAppService.Object,
             _avatarDecoder.Object);
 }

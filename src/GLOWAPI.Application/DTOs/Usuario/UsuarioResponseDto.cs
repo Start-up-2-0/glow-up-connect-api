@@ -12,6 +12,9 @@ public class UsuarioResponseDto
     public UserRole Role { get; set; }
     public bool Ativo { get; set; }
     public string? AvatarBase64 { get; set; }
+    public bool WhatsAppConfirmado { get; set; }
+    public bool WhatsAppOptIn { get; set; }
+    public bool WhatsAppPendenteConfirmacao { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
@@ -24,6 +27,9 @@ public class UsuarioResponseDto
         Role = usuario.Role,
         Ativo = usuario.Ativo,
         AvatarBase64 = usuario.AvatarBase64,
+        WhatsAppConfirmado = usuario.WhatsAppConfirmadoEm.HasValue,
+        WhatsAppOptIn = usuario.WhatsAppOptIn,
+        WhatsAppPendenteConfirmacao = usuario.PendenteConfirmacaoWhatsApp(),
         CreatedAt = usuario.CreatedAt,
         UpdatedAt = usuario.UpdatedAt
     };

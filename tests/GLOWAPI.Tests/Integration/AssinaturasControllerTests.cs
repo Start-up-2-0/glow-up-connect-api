@@ -91,9 +91,12 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
                 email = "studio@email.com",
                 endereco = new
                 {
+                    cep = "01310100",
+                    logradouro = "Rua Glow",
+                    numero = "100",
+                    bairro = "Centro",
                     cidade = "Sao Paulo",
-                    estado = "SP",
-                    local = "Rua Glow"
+                    estado = "SP"
                 }
             }
         });
@@ -157,9 +160,12 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
                 email = "maria@email.com",
                 endereco = new
                 {
+                    cep = "13010000",
+                    logradouro = "Sala 12",
+                    numero = "12",
+                    bairro = "Centro",
                     cidade = "Campinas",
-                    estado = "SP",
-                    local = "Sala 12"
+                    estado = "SP"
                 }
             }
         });

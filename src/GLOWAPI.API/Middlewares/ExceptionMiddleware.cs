@@ -56,6 +56,7 @@ public class ExceptionMiddleware
                     => HttpStatusCode.Conflict,
                 GatewayPagamentoException => HttpStatusCode.BadGateway,
                 ConfirmacaoEmailInvalidaException
+                    or ConfirmacaoWhatsAppInvalidaException
                     or AvatarInvalidoException
                     or AssinaturaTitularInvalidoException
                     or CancelamentoAssinaturaInvalidoException
@@ -77,7 +78,9 @@ public class ExceptionMiddleware
                     or ProfissionalServicoComAgendamentoFuturoException
                     or AgendamentoDadosClienteInvalidosException
                     or AgendamentoStatusInvalidoException
-                    or AgendamentoServicosInvalidosException => HttpStatusCode.BadRequest,
+                    or AgendamentoServicosInvalidosException
+                    or EnderecoOperacaoInvalidoException
+                    or LocalizacaoClienteInvalidaException => HttpStatusCode.BadRequest,
                 HorarioIndisponivelException => HttpStatusCode.Conflict,
                 UsuarioSemPermissaoAssinaturaException
                     or UsuarioSemPermissaoNegocioException

@@ -1,5 +1,6 @@
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Models.Agenda;
+using GLOWAPI.Application.Models.Agendamento;
 using GLOWAPI.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -59,6 +60,7 @@ public class AgendamentoRepository : Repository<Agendamento>, IAgendamentoReposi
                 .ThenInclude(item => item.Servico)
             .Include(agendamento => agendamento.Itens)
                 .ThenInclude(item => item.Profissional)
+                    .ThenInclude(profissional => profissional!.Usuario)
             .Include(agendamento => agendamento.UsuarioCliente)
             .FirstOrDefaultAsync(
                 agendamento => agendamento.Id == agendamentoId
@@ -77,8 +79,77 @@ public class AgendamentoRepository : Repository<Agendamento>, IAgendamentoReposi
             .Include(agendamento => agendamento.Itens)
                 .ThenInclude(item => item.Profissional)
             .Include(agendamento => agendamento.Estabelecimento)
+                .ThenInclude(estabelecimento => estabelecimento!.Endereco)
             .Where(agendamento => agendamento.UsuarioClienteId == usuarioClienteId)
             .OrderByDescending(agendamento => agendamento.CreateAd)
             .ToListAsync(cancellationToken);
+    }
+
+    public Task<Agendamento?> ObterPorIdEUsuarioClienteAsync(
+        int agendamentoId,
+        int usuarioClienteId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet
+            .Include(agendamento => agendamento.Itens)
+                .ThenInclude(item => item.Servico)
+            .Include(agendamento => agendamento.Itens)
+                .ThenInclude(item => item.Profissional)
+            .Include(agendamento => agendamento.Estabelecimento)
+                .ThenInclude(estabelecimento => estabelecimento!.Endereco)
+            .Include(agendamento => agendamento.UsuarioCliente)
+            .FirstOrDefaultAsync(
+                agendamento => agendamento.Id == agendamentoId
+                    && agendamento.UsuarioClienteId == usuarioClienteId,
+                cancellationToken);
+    }
+
+    public async Task<(IReadOnlyList<Agendamento> Itens, int Total)> ListarPorUsuarioClienteComFiltroAsync(
+        AgendamentoClienteFiltro filtro,
+        CancellationToken cancellationToken = default)
+    {
+        var query = DbSet
+            .AsNoTracking()
+            .Include(agendamento => agendamento.Itens)
+                .ThenInclude(item => item.Servico)
+            .Include(agendamento => agendamento.Itens)
+                .ThenInclude(item => item.Profissional)
+            .Include(agendamento => agendamento.Estabelecimento)
+                .ThenInclude(estabelecimento => estabelecimento!.Endereco)
+            .Where(agendamento => agendamento.UsuarioClienteId == filtro.UsuarioClienteId);
+
+        if (filtro.Status.HasValue)
+        {
+            query = query.Where(agendamento => agendamento.Status == filtro.Status.Value);
+        }
+
+        if (filtro.EstabelecimentoId.HasValue)
+        {
+            query = query.Where(agendamento => agendamento.EstabelecimentoId == filtro.EstabelecimentoId.Value);
+        }
+
+        if (filtro.DataInicio.HasValue || filtro.DataFim.HasValue)
+        {
+            query = query.Where(agendamento => agendamento.Itens.Any(item =>
+                (!filtro.DataInicio.HasValue || item.Inicio >= filtro.DataInicio.Value)
+                && (!filtro.DataFim.HasValue || item.Inicio < filtro.DataFim.Value)));
+        }
+
+        var total = await query.CountAsync(cancellationToken);
+
+        query = filtro.OrdenarPorProximos
+            ? query.OrderBy(agendamento => agendamento.Itens.Min(item => item.Inicio))
+            : query.OrderByDescending(agendamento => agendamento.CreateAd);
+
+        var pagina = Math.Max(1, filtro.Pagina);
+        var tamanhoPagina = Math.Clamp(filtro.TamanhoPagina, 1, 50);
+        var skip = (pagina - 1) * tamanhoPagina;
+
+        var itens = await query
+            .Skip(skip)
+            .Take(tamanhoPagina)
+            .ToListAsync(cancellationToken);
+
+        return (itens, total);
     }
 }
