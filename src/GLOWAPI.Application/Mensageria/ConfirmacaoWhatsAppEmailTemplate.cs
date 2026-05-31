@@ -4,6 +4,15 @@ namespace GLOWAPI.Application.Mensageria;
 
 public static class ConfirmacaoWhatsAppEmailTemplate
 {
+    private const string CorAmarela = "#ffbf00";
+    private const string CorEscura = "#282828";
+    private const string CorTextoSuave = "rgba(40,40,40,0.6)";
+    private const string CorWhatsApp = "#25d366";
+    private const string CorLink = "#524cbc";
+    private const string CorAlerta = "#cf3f3f";
+    private const string CorSeguranca = "#71976c";
+    private const string CorBordaSeguranca = "rgba(57,136,47,0.6)";
+
     public static string Criar(
         string nome,
         string telefonePerfil,
@@ -18,6 +27,10 @@ public static class ConfirmacaoWhatsAppEmailTemplate
         var codigoSeguro = Html(codigo);
         var mensagemSegura = Html(mensagemSugerida);
         var validadeTexto = validadeHoras == 1 ? "1 hora" : $"{validadeHoras} horas";
+        var logoDataUri = EmailTemplateAssets.LogoDataUri;
+        var clockDataUri = EmailTemplateAssets.ClockDataUri;
+        var warningDataUri = EmailTemplateAssets.WarningDataUri;
+        var anoAtual = DateTime.UtcNow.Year;
 
         return $$"""
             <!doctype html>
@@ -26,87 +39,176 @@ public static class ConfirmacaoWhatsAppEmailTemplate
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width, initial-scale=1">
               <meta name="x-apple-disable-message-reformatting">
-              <title>Confirme seu WhatsApp no Glow Up Connect</title>
+              <title>Confirme seu WhatsApp - GlowUp Connect</title>
               <style>
                 @media only screen and (max-width: 620px) {
                   .email-shell { width: 100% !important; }
                   .email-card { width: 100% !important; border-radius: 0 !important; }
-                  .content-pad { padding: 28px 22px !important; }
-                  .title { font-size: 24px !important; line-height: 31px !important; }
-                  .confirm-code { font-size: 30px !important; letter-spacing: 8px !important; }
+                  .content-pad { padding: 24px 20px !important; }
+                  .title { font-size: 32px !important; line-height: 38px !important; }
+                  .confirm-code { font-size: 28px !important; letter-spacing: 6px !important; }
                   .button { display: block !important; width: 100% !important; box-sizing: border-box !important; }
-                }
-                .button:hover {
-                  background-color: #128c7e !important;
+                  .header-logo { width: 96px !important; height: 96px !important; }
                 }
               </style>
             </head>
-            <body style="margin:0; padding:0; background-color:#f4f1fb; font-family:Arial, Helvetica, sans-serif; color:#241f2f;">
+            <body style="margin:0; padding:0; background-color:#ffffff; font-family:'Poppins', Arial, Helvetica, sans-serif; color:{{CorEscura}};">
               <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
-                Confirme seu WhatsApp no Glow Up Connect. Codigo {{codigoSeguro}}.
+                Confirme seu WhatsApp no GlowUp Connect. Codigo {{codigoSeguro}}.
               </div>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f1fb; margin:0; padding:32px 12px;">
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff; margin:0; padding:24px 12px;">
                 <tr>
                   <td align="center">
                     <table role="presentation" class="email-shell" width="600" cellspacing="0" cellpadding="0" border="0" style="width:600px; max-width:600px;">
                       <tr>
-                        <td align="center" style="padding:0 0 16px;">
-                          <div style="display:inline-block; padding:10px 16px; background:#25d366; border-radius:14px; color:#ffffff; font-size:14px; font-weight:800;">
-                            WhatsApp
-                          </div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td class="email-card" style="background:#ffffff; border:1px solid #e8e1f7; border-radius:20px; overflow:hidden; box-shadow:0 20px 50px rgba(57, 43, 92, .12);">
+                        <td class="email-card" style="background:#ffffff; border:1px solid rgba(40,40,40,0.4); border-radius:20px; overflow:hidden;">
                           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                             <tr>
-                              <td class="content-pad" style="padding:42px 46px 28px;">
-                                <h1 class="title" style="margin:0; color:#1e1829; font-size:28px; line-height:36px; font-weight:800; text-align:center;">
-                                  Confirme seu WhatsApp
-                                </h1>
-                                <p style="margin:12px 0 0; color:#6e667b; font-size:15px; line-height:24px; text-align:center;">
-                                  Ola {{nomeSeguro}}, confirme o numero <strong>{{telefoneSeguro}}</strong> para receber alertas de agendamento.
-                                </p>
-                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:28px;">
+                              <td style="background-color:{{CorAmarela}}; padding:0;">
+                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                                   <tr>
-                                    <td style="padding:22px; border:1px solid #eee8fa; border-radius:16px; background:#fbf9ff;">
-                                      <p style="margin:0 0 16px; color:#3d3549; font-size:15px; line-height:24px; text-align:center;">
-                                        Toque no botao abaixo para abrir o WhatsApp da plataforma com a mensagem pronta. Envie usando o numero cadastrado no perfil.
-                                      </p>
-                                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                        <tr>
-                                          <td align="center" style="padding:4px 0 22px;">
-                                            <a class="button" href="{{linkSeguro}}" target="_blank" style="display:inline-block; background:#25d366; color:#ffffff; text-decoration:none; font-size:15px; font-weight:700; padding:14px 24px; border-radius:10px;">
-                                              Confirmar no WhatsApp
-                                            </a>
-                                          </td>
-                                        </tr>
-                                      </table>
-                                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                        <tr>
-                                          <td align="center" style="padding:18px 12px; background:#ffffff; border:1px dashed #cfc4f6; border-radius:14px;">
-                                            <div style="color:#887f96; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;">
-                                              Codigo de confirmacao
-                                            </div>
-                                            <div class="confirm-code" style="margin-top:8px; color:#241f2f; font-size:36px; line-height:44px; font-weight:800; letter-spacing:10px; font-family:'Courier New', Courier, monospace;">
-                                              {{codigoSeguro}}
-                                            </div>
-                                          </td>
-                                        </tr>
-                                      </table>
-                                      <p style="margin:18px 0 0; color:#7b7288; font-size:13px; line-height:20px; text-align:center;">
-                                        Mensagem sugerida: <strong>{{mensagemSegura}}</strong><br>
-                                        Valido por {{validadeTexto}}.
-                                      </p>
-                                      <p style="margin:14px 0 0; color:#7b7288; font-size:12px; line-height:19px; text-align:center;">
-                                        Se o botao nao funcionar, copie a mensagem e envie manualmente para o WhatsApp da plataforma.
-                                      </p>
+                                    <td width="130" valign="middle" style="padding:12px 0 12px 8px;">
+                                      <img class="header-logo" src="{{logoDataUri}}" alt="GlowUp Connect" width="120" height="120" style="display:block; width:120px; height:120px; border:0;">
+                                    </td>
+                                    <td align="right" valign="middle" style="padding:24px 28px 24px 12px;">
+                                      <p style="margin:0; color:#ffffff; font-family:'Montserrat', Arial, Helvetica, sans-serif; font-size:32px; line-height:35px; font-weight:500;">GlowUp</p>
+                                      <p style="margin:0; color:#ffffff; font-family:'Montserrat', Arial, Helvetica, sans-serif; font-size:36px; line-height:39px; font-weight:500;">Connect</p>
                                     </td>
                                   </tr>
                                 </table>
                               </td>
                             </tr>
+
+                            <tr>
+                              <td class="content-pad" style="padding:32px 40px 12px;">
+                                <h1 class="title" style="margin:0; color:{{CorEscura}}; font-family:'Montserrat', Arial, Helvetica, sans-serif; font-size:48px; line-height:52px; font-weight:300; text-align:center;">
+                                  Confirme seu WhatsApp
+                                </h1>
+                                <p style="margin:16px 0 0; color:{{CorTextoSuave}}; font-size:18px; line-height:26px; text-align:center;">
+                                  Ola {{nomeSeguro}} &#128075;, confirme o numero <strong>{{telefoneSeguro}}</strong> para receber alertas de agendamento.
+                                </p>
+                              </td>
+                            </tr>
+
+                            <tr>
+                              <td class="content-pad" style="padding:12px 32px 32px;">
+                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:rgba(255,255,255,0.6); border:0.5px solid rgba(40,40,40,0.6); border-radius:20px;">
+                                  <tr>
+                                    <td style="padding:32px 28px;">
+                                      <p style="margin:0 0 24px; color:{{CorEscura}}; font-size:18px; line-height:26px; text-align:center;">
+                                        Toque no botao abaixo para abrir o WhatsApp da plataforma com a mensagem pronta. Envie usando o numero cadastrado no perfil.
+                                      </p>
+
+                                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                        <tr>
+                                          <td align="center" style="padding:0 0 20px;">
+                                            <a class="button" href="{{linkSeguro}}" target="_blank" style="display:inline-block; background:{{CorWhatsApp}}; color:#ffffff; text-decoration:none; font-size:18px; font-weight:700; padding:14px 32px; border-radius:12px; min-width:220px; text-align:center;">
+                                              Confirmar no WhatsApp
+                                            </a>
+                                          </td>
+                                        </tr>
+                                      </table>
+
+                                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
+                                        <tr>
+                                          <td width="42%" style="border-top:1px solid rgba(40,40,40,0.25); font-size:0; line-height:0;">&nbsp;</td>
+                                          <td align="center" style="padding:0 12px; color:{{CorTextoSuave}}; font-size:18px; line-height:18px; opacity:0.4; white-space:nowrap;">ou</td>
+                                          <td width="42%" style="border-top:1px solid rgba(40,40,40,0.25); font-size:0; line-height:0;">&nbsp;</td>
+                                        </tr>
+                                      </table>
+
+                                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:20px;">
+                                        <tr>
+                                          <td align="center" style="padding:22px 16px; background:{{CorEscura}}; border:2px dashed {{CorAmarela}}; border-radius:20px;">
+                                            <div style="color:{{CorAmarela}}; font-size:14px; font-weight:300; letter-spacing:0.04em; text-transform:uppercase;">
+                                              Codigo de confirmacao
+                                            </div>
+                                            <div class="confirm-code" style="margin-top:10px; color:{{CorAmarela}}; font-size:32px; line-height:40px; font-weight:500; letter-spacing:7px;">
+                                              {{codigoSeguro}}
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      </table>
+
+                                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:20px;">
+                                        <tr>
+                                          <td style="padding:12px 14px; border:0.5px solid {{CorAlerta}}; border-radius:12px;">
+                                            <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                                              <tr>
+                                                <td width="30" valign="middle">
+                                                  <img src="{{clockDataUri}}" alt="" width="20" height="20" style="display:block; width:20px; height:20px; border:0;">
+                                                </td>
+                                                <td valign="middle">
+                                                  <p style="margin:0; color:{{CorAlerta}}; font-size:12px; line-height:18px;">
+                                                    Este codigo expira em <strong>{{validadeTexto}}</strong>
+                                                  </p>
+                                                </td>
+                                              </tr>
+                                            </table>
+                                          </td>
+                                        </tr>
+                                      </table>
+
+                                      <p style="margin:0 0 8px; color:{{CorTextoSuave}}; font-size:14px; line-height:22px; text-align:center;">
+                                        Mensagem sugerida: <strong>{{mensagemSegura}}</strong>
+                                      </p>
+                                      <p style="margin:0; color:{{CorTextoSuave}}; font-size:12px; line-height:19px; text-align:center;">
+                                        Se o botao nao funcionar, copie a mensagem e envie manualmente para o WhatsApp da plataforma.
+                                      </p>
+
+                                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:24px;">
+                                        <tr>
+                                          <td style="padding:16px 18px; border:0.5px solid {{CorBordaSeguranca}}; border-radius:12px;">
+                                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                              <tr>
+                                                <td width="28" valign="top" style="padding-top:2px;">
+                                                  <img src="{{warningDataUri}}" alt="" width="16" height="16" style="display:block; width:16px; height:16px; border:0;">
+                                                </td>
+                                                <td valign="top">
+                                                  <p style="margin:0; color:{{CorSeguranca}}; font-size:14px; line-height:20px; font-weight:700;">Aviso de seguranca</p>
+                                                  <p style="margin:6px 0 0; color:{{CorSeguranca}}; font-size:12px; line-height:18px; font-weight:300;">
+                                                    Nunca compartilhe este e-mail, link ou codigo. A equipe GlowUp Connect nunca pedira a sua senha.
+                                                  </p>
+                                                </td>
+                                              </tr>
+                                            </table>
+                                          </td>
+                                        </tr>
+                                      </table>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+
+                            <tr>
+                              <td style="height:1px; background:rgba(40,40,40,0.15);"></td>
+                            </tr>
+
+                            <tr>
+                              <td class="content-pad" style="padding:28px 40px 36px;">
+                                <p style="margin:0 0 12px; color:{{CorEscura}}; font-size:18px; line-height:24px; font-weight:600;">Precisa de ajuda?</p>
+                                <p style="margin:0 0 12px; color:{{CorTextoSuave}}; font-size:12px; line-height:20px;">
+                                  Nosso suporte pode ajudar com cadastro, acesso e confirmacao de conta.
+                                </p>
+                                <p style="margin:0 0 8px; color:{{CorTextoSuave}}; font-size:12px; line-height:20px;">
+                                  E-mail: <a href="mailto:suporte@glowupconnect.com" style="color:{{CorLink}}; text-decoration:none;">suporte@glowupconnect.com</a>
+                                </p>
+                                <p style="margin:0; color:{{CorTextoSuave}}; font-size:12px; line-height:20px;">
+                                  Atendimento: segunda a sexta, das 9h as 18h.
+                                </p>
+                              </td>
+                            </tr>
                           </table>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td align="center" style="padding:18px 20px 0;">
+                          <p style="margin:0; color:{{CorTextoSuave}}; font-size:11px; line-height:18px;">
+                            (c) {{anoAtual}} GlowUp Connect. Todos os direitos reservados.
+                          </p>
                         </td>
                       </tr>
                     </table>
