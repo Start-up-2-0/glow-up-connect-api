@@ -12,6 +12,14 @@ public enum ConfirmacaoEmailEstado
 
 public static class ConfirmacaoEmailTemplate
 {
+    private const string CorAmarela = "#ffbf00";
+    private const string CorEscura = "#282828";
+    private const string CorTextoSuave = "rgba(40,40,40,0.6)";
+    private const string CorLink = "#524cbc";
+    private const string CorAlerta = "#cf3f3f";
+    private const string CorSeguranca = "#71976c";
+    private const string CorBordaSeguranca = "rgba(57,136,47,0.6)";
+
     public static string Criar(
         string nome,
         string linkConfirmacao,
@@ -24,6 +32,9 @@ public static class ConfirmacaoEmailTemplate
         var codigoSeguro = Html(codigo);
         var validadeTexto = validadeHoras == 1 ? "1 hora" : $"{validadeHoras} horas";
         var estadoVisual = ObterEstadoVisual(estado, validadeTexto);
+        var logoDataUri = EmailTemplateAssets.LogoDataUri;
+        var warningDataUri = EmailTemplateAssets.WarningDataUri;
+        var anoAtual = DateTime.UtcNow.Year;
 
         return $$"""
             <!doctype html>
@@ -32,93 +43,93 @@ public static class ConfirmacaoEmailTemplate
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width, initial-scale=1">
               <meta name="x-apple-disable-message-reformatting">
-              <title>Confirme seu cadastro no Glow Up Connect</title>
+              <title>Confirme seu e-mail - GlowUp Connect</title>
               <style>
                 @media only screen and (max-width: 620px) {
                   .email-shell { width: 100% !important; }
                   .email-card { width: 100% !important; border-radius: 0 !important; }
-                  .content-pad { padding: 28px 22px !important; }
-                  .title { font-size: 24px !important; line-height: 31px !important; }
-                  .confirm-code { font-size: 30px !important; letter-spacing: 8px !important; }
+                  .content-pad { padding: 24px 20px !important; }
+                  .title { font-size: 32px !important; line-height: 38px !important; }
+                  .confirm-code { font-size: 28px !important; letter-spacing: 6px !important; }
                   .button { display: block !important; width: 100% !important; box-sizing: border-box !important; }
-                  .footer-pad { padding-left: 22px !important; padding-right: 22px !important; }
-                }
-
-                .button:hover {
-                  background-color: #5244d9 !important;
-                  box-shadow: 0 12px 24px rgba(111, 90, 240, .26) !important;
+                  .header-logo { width: 96px !important; height: 96px !important; }
+                  .header-banner { height: auto !important; min-height: 120px !important; }
                 }
               </style>
             </head>
-            <body style="margin:0; padding:0; background-color:#f4f1fb; font-family:Arial, Helvetica, sans-serif; color:#241f2f;">
+            <body style="margin:0; padding:0; background-color:#ffffff; font-family:'Poppins', Arial, Helvetica, sans-serif; color:{{CorEscura}};">
               <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
-                Confirme seu cadastro no Glow Up Connect com o codigo {{codigoSeguro}}.
+                Confirme seu cadastro no GlowUp Connect com o codigo {{codigoSeguro}}.
               </div>
 
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f1fb; margin:0; padding:32px 12px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff; margin:0; padding:24px 12px;">
                 <tr>
                   <td align="center">
                     <table role="presentation" class="email-shell" width="600" cellspacing="0" cellpadding="0" border="0" style="width:600px; max-width:600px;">
                       <tr>
-                        <td align="center" style="padding:0 0 16px;">
-                          <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-                            <tr>
-                              <td width="44" height="44" align="center" style="background:#6f5af0; border-radius:14px; color:#ffffff; font-size:20px; font-weight:800; letter-spacing:-1px;">
-                                GLOW
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-
-                      <tr>
-                        <td class="email-card" style="background:#ffffff; border:1px solid #e8e1f7; border-radius:20px; overflow:hidden; box-shadow:0 20px 50px rgba(57, 43, 92, .12);">
+                        <td class="email-card" style="background:#ffffff; border:1px solid rgba(40,40,40,0.4); border-radius:20px; overflow:hidden;">
                           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                             <tr>
-                              <td class="content-pad" style="padding:42px 46px 28px;">
+                              <td class="header-banner" style="background-color:{{CorAmarela}}; padding:0; position:relative;">
                                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                                   <tr>
-                                    <td align="center" style="padding-bottom:22px;">
-                                      <div style="display:inline-block; padding:7px 12px; border-radius:999px; background:#f0ecff; color:#6f5af0; font-size:12px; font-weight:700; letter-spacing:.03em; text-transform:uppercase;">
-                                        Verificacao segura
-                                      </div>
+                                    <td width="130" valign="middle" style="padding:12px 0 12px 8px;">
+                                      <img class="header-logo" src="{{logoDataUri}}" alt="GlowUp Connect" width="120" height="120" style="display:block; width:120px; height:120px; border:0;">
                                     </td>
-                                  </tr>
-                                  <tr>
-                                    <td align="center">
-                                      <h1 class="title" style="margin:0; color:#1e1829; font-size:30px; line-height:38px; font-weight:800;">
-                                        Confirme seu e-mail
-                                      </h1>
-                                      <p style="margin:12px 0 0; color:#6e667b; font-size:15px; line-height:24px;">
-                                        Ola {{nomeSeguro}}, finalize seu cadastro no Glow Up Connect para acessar sua conta com seguranca.
-                                      </p>
+                                    <td align="right" valign="middle" style="padding:24px 28px 24px 12px;">
+                                      <p style="margin:0; color:#ffffff; font-family:'Montserrat', Arial, Helvetica, sans-serif; font-size:32px; line-height:35px; font-weight:500;">GlowUp</p>
+                                      <p style="margin:0; color:#ffffff; font-family:'Montserrat', Arial, Helvetica, sans-serif; font-size:36px; line-height:39px; font-weight:500;">Connect</p>
                                     </td>
                                   </tr>
                                 </table>
+                              </td>
+                            </tr>
 
-                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:28px;">
+                            <tr>
+                              <td class="content-pad" style="padding:32px 40px 12px;">
+                                <h1 class="title" style="margin:0; color:{{CorEscura}}; font-family:'Montserrat', Arial, Helvetica, sans-serif; font-size:48px; line-height:52px; font-weight:300; text-align:center;">
+                                  Confirme seu e-mail
+                                </h1>
+                                <p style="margin:16px 0 0; color:{{CorTextoSuave}}; font-size:18px; line-height:26px; text-align:center;">
+                                  Ola {{nomeSeguro}} &#128075;, finalize o seu cadastro no GlowUp Connect para acessar sua conta com seguranca.
+                                </p>
+                              </td>
+                            </tr>
+
+                            <tr>
+                              <td class="content-pad" style="padding:12px 32px 32px;">
+                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:rgba(255,255,255,0.6); border:0.5px solid rgba(40,40,40,0.6); border-radius:20px;">
                                   <tr>
-                                    <td style="padding:22px; border:1px solid #eee8fa; border-radius:16px; background:#fbf9ff;">
-                                      <p style="margin:0 0 16px; color:#3d3549; font-size:15px; line-height:24px;">
+                                    <td style="padding:32px 28px;">
+                                      <p style="margin:0 0 24px; color:{{CorEscura}}; font-size:18px; line-height:26px; text-align:center;">
                                         Use o botao abaixo para confirmar automaticamente ou copie o codigo de confirmacao.
                                       </p>
+
                                       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                                         <tr>
-                                          <td align="center" style="padding:4px 0 22px;">
-                                            <a class="button" href="{{linkSeguro}}" target="_blank" style="display:inline-block; background:#6f5af0; color:#ffffff; text-decoration:none; font-size:15px; font-weight:700; padding:14px 24px; border-radius:10px; box-shadow:0 10px 22px rgba(111, 90, 240, .22);">
+                                          <td align="center" style="padding:0 0 20px;">
+                                            <a class="button" href="{{linkSeguro}}" target="_blank" style="display:inline-block; background:{{CorEscura}}; color:{{CorAmarela}}; text-decoration:none; font-size:18px; font-weight:700; padding:14px 32px; border-radius:12px; min-width:220px; text-align:center;">
                                               Confirmar e-mail
                                             </a>
                                           </td>
                                         </tr>
                                       </table>
 
-                                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px;">
                                         <tr>
-                                          <td align="center" style="padding:18px 12px; background:#ffffff; border:1px dashed #cfc4f6; border-radius:14px;">
-                                            <div style="color:#887f96; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;">
+                                          <td width="42%" style="border-top:1px solid rgba(40,40,40,0.25); font-size:0; line-height:0;">&nbsp;</td>
+                                          <td align="center" style="padding:0 12px; color:{{CorTextoSuave}}; font-size:18px; line-height:18px; opacity:0.4; white-space:nowrap;">ou</td>
+                                          <td width="42%" style="border-top:1px solid rgba(40,40,40,0.25); font-size:0; line-height:0;">&nbsp;</td>
+                                        </tr>
+                                      </table>
+
+                                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:20px;">
+                                        <tr>
+                                          <td align="center" style="padding:22px 16px; background:{{CorEscura}}; border:2px dashed {{CorAmarela}}; border-radius:20px;">
+                                            <div style="color:{{CorAmarela}}; font-size:14px; font-weight:300; letter-spacing:0.04em; text-transform:uppercase;">
                                               Codigo de confirmacao
                                             </div>
-                                            <div class="confirm-code" style="margin-top:8px; color:#241f2f; font-size:36px; line-height:44px; font-weight:800; letter-spacing:10px; font-family:'Courier New', Courier, monospace;">
+                                            <div class="confirm-code" style="margin-top:10px; color:{{CorAmarela}}; font-size:32px; line-height:40px; font-weight:500; letter-spacing:7px;">
                                               {{codigoSeguro}}
                                             </div>
                                           </td>
@@ -127,27 +138,29 @@ public static class ConfirmacaoEmailTemplate
 
                                       {{estadoVisual}}
 
-                                      <p style="margin:18px 0 0; color:#7b7288; font-size:12px; line-height:19px; text-align:center;">
-                                        Se o botao nao funcionar, copie e cole este link no navegador:<br>
-                                        <a href="{{linkSeguro}}" target="_blank" style="color:#6f5af0; text-decoration:underline; word-break:break-all;">{{linkSeguro}}</a>
+                                      <p style="margin:20px 0 8px; color:{{CorTextoSuave}}; font-size:14px; line-height:22px; text-align:center;">
+                                        Se o botao nao funcionar, copie e cole este link no navegador:
                                       </p>
-                                    </td>
-                                  </tr>
-                                </table>
+                                      <p style="margin:0; text-align:center;">
+                                        <a href="{{linkSeguro}}" target="_blank" style="color:{{CorLink}}; font-size:14px; line-height:22px; text-decoration:underline; word-break:break-all;">{{linkSeguro}}</a>
+                                      </p>
 
-                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:24px;">
-                                  <tr>
-                                    <td style="padding:16px 18px; background:#f8fbf9; border:1px solid #dfeee6; border-radius:14px;">
-                                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:24px;">
                                         <tr>
-                                          <td width="32" valign="top">
-                                            <div style="width:24px; height:24px; border-radius:50%; background:#1f9d63; color:#ffffff; font-size:13px; line-height:24px; text-align:center; font-weight:700;">i</div>
-                                          </td>
-                                          <td valign="top">
-                                            <p style="margin:0; color:#29513c; font-size:13px; line-height:20px; font-weight:700;">Aviso de seguranca</p>
-                                            <p style="margin:4px 0 0; color:#4b6a5a; font-size:12px; line-height:19px;">
-                                              Nunca compartilhe este e-mail, link ou codigo. A equipe Glow Up Connect nunca pedira sua senha.
-                                            </p>
+                                          <td style="padding:16px 18px; border:0.5px solid {{CorBordaSeguranca}}; border-radius:12px;">
+                                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                              <tr>
+                                                <td width="28" valign="top" style="padding-top:2px;">
+                                                  <img src="{{warningDataUri}}" alt="" width="16" height="16" style="display:block; width:16px; height:16px; border:0;">
+                                                </td>
+                                                <td valign="top">
+                                                  <p style="margin:0; color:{{CorSeguranca}}; font-size:14px; line-height:20px; font-weight:700;">Aviso de seguranca</p>
+                                                  <p style="margin:6px 0 0; color:{{CorSeguranca}}; font-size:12px; line-height:18px; font-weight:300;">
+                                                    Nunca compartilhe este e-mail, link ou codigo. A equipe GlowUp Connect nunca pedira a sua senha.
+                                                  </p>
+                                                </td>
+                                              </tr>
+                                            </table>
                                           </td>
                                         </tr>
                                       </table>
@@ -158,18 +171,20 @@ public static class ConfirmacaoEmailTemplate
                             </tr>
 
                             <tr>
-                              <td style="height:1px; background:#eee8f6;"></td>
+                              <td style="height:1px; background:rgba(40,40,40,0.15); margin:0 32px;"></td>
                             </tr>
 
                             <tr>
-                              <td class="content-pad" style="padding:28px 46px;">
-                                <p style="margin:0 0 12px; color:#241f2f; font-size:15px; line-height:22px; font-weight:800;">Precisa de ajuda?</p>
-                                <p style="margin:0 0 12px; color:#6e667b; font-size:13px; line-height:21px;">
+                              <td class="content-pad" style="padding:28px 40px 36px;">
+                                <p style="margin:0 0 12px; color:{{CorEscura}}; font-size:18px; line-height:24px; font-weight:600;">Precisa de ajuda?</p>
+                                <p style="margin:0 0 12px; color:{{CorTextoSuave}}; font-size:12px; line-height:20px;">
                                   Nosso suporte pode ajudar com cadastro, acesso e confirmacao de conta.
                                 </p>
-                                <p style="margin:0; color:#6e667b; font-size:13px; line-height:23px;">
-                                  E-mail: <a href="mailto:suporte@glowupconnect.com" style="color:#6f5af0; text-decoration:none;">suporte@glowupconnect.com</a><br>
-                                  Atendimento: segunda a sexta, 9h as 18h
+                                <p style="margin:0 0 8px; color:{{CorTextoSuave}}; font-size:12px; line-height:20px;">
+                                  E-mail: <a href="mailto:suporte@glowupconnect.com" style="color:{{CorLink}}; text-decoration:none;">suporte@glowupconnect.com</a>
+                                </p>
+                                <p style="margin:0; color:{{CorTextoSuave}}; font-size:12px; line-height:20px;">
+                                  Atendimento: segunda a sexta, das 9h as 18h.
                                 </p>
                               </td>
                             </tr>
@@ -178,13 +193,9 @@ public static class ConfirmacaoEmailTemplate
                       </tr>
 
                       <tr>
-                        <td class="footer-pad" align="center" style="padding:22px 34px 0;">
-                          <p style="margin:0; color:#8b8398; font-size:12px; line-height:20px;">
-                            Glow Up Connect<br>
-                            Plataforma de agendamentos para profissionais e estabelecimentos de beleza.
-                          </p>
-                          <p style="margin:12px 0 0; color:#9a92a6; font-size:11px; line-height:18px;">
-                            (c) {{DateTime.UtcNow.Year}} Glow Up Connect. Todos os direitos reservados.
+                        <td align="center" style="padding:18px 20px 0;">
+                          <p style="margin:0; color:{{CorTextoSuave}}; font-size:11px; line-height:18px;">
+                            (c) {{anoAtual}} GlowUp Connect. Todos os direitos reservados.
                           </p>
                         </td>
                       </tr>
@@ -200,63 +211,70 @@ public static class ConfirmacaoEmailTemplate
     private static string ObterEstadoVisual(ConfirmacaoEmailEstado estado, string validadeTexto) =>
         estado switch
         {
-            ConfirmacaoEmailEstado.CodigoExpirado => CriarEstado(
+            ConfirmacaoEmailEstado.CodigoExpirado => CriarEstadoExpiracao(
                 "codigo-expirado",
-                "#fff7ed",
-                "#fed7aa",
-                "#9a3412",
-                "!",
                 "Codigo expirado",
                 "Solicite um novo codigo para concluir sua confirmacao com seguranca."),
-            ConfirmacaoEmailEstado.CodigoInvalido => CriarEstado(
+            ConfirmacaoEmailEstado.CodigoInvalido => CriarEstadoExpiracao(
                 "codigo-invalido",
-                "#fef2f2",
-                "#fecaca",
-                "#991b1b",
-                "!",
                 "Codigo invalido",
                 "Confira os numeros digitados ou use o botao de confirmacao deste e-mail."),
-            ConfirmacaoEmailEstado.ConfirmacaoRealizada => CriarEstado(
-                "confirmacao-realizada",
-                "#f0fdf4",
-                "#bbf7d0",
-                "#166534",
-                "OK",
+            ConfirmacaoEmailEstado.ConfirmacaoRealizada => CriarEstadoSucesso(
                 "Confirmacao realizada com sucesso",
                 "Seu e-mail foi confirmado. Agora voce ja pode acessar sua conta."),
-            _ => CriarEstado(
+            _ => CriarEstadoExpiracao(
                 "codigo-ativo",
-                "#f5f3ff",
-                "#ddd6fe",
-                "#5b21b6",
-                "24",
-                "Codigo ativo",
-                $"Este codigo expira em {validadeTexto}.")
+                $"Este codigo expira em <strong>{Html(validadeTexto)}</strong>",
+                string.Empty,
+                incluirIconeRelogio: true,
+                apenasMensagemPrincipal: true)
         };
 
-    private static string CriarEstado(
-        string id,
-        string background,
-        string border,
-        string color,
-        string icon,
-        string title,
-        string description) =>
-        $"""
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" data-confirmation-state="{id}" style="margin-top:16px;">
+    private static string CriarEstadoExpiracao(
+        string estadoId,
+        string titulo,
+        string descricao,
+        bool incluirIconeRelogio = false,
+        bool apenasMensagemPrincipal = false)
+    {
+        var clockDataUri = EmailTemplateAssets.ClockDataUri;
+        var icone = incluirIconeRelogio
+            ? $"""<img src="{clockDataUri}" alt="" width="20" height="20" style="display:block; width:20px; height:20px; border:0;">"""
+            : string.Empty;
+
+        var descricaoHtml = string.IsNullOrEmpty(descricao)
+            ? string.Empty
+            : $"""<p style="margin:4px 0 0; color:{CorAlerta}; font-size:12px; line-height:18px;">{Html(descricao)}</p>""";
+
+        var tituloHtml = apenasMensagemPrincipal
+            ? $"""<p style="margin:0; color:{CorAlerta}; font-size:12px; line-height:18px;">{titulo}</p>"""
+            : $"""<p style="margin:0; color:{CorAlerta}; font-size:12px; line-height:18px; font-weight:700;">{Html(titulo)}</p>{descricaoHtml}""";
+
+        return $"""
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" data-confirmation-state="{estadoId}" style="margin-bottom:20px;">
           <tr>
-            <td style="padding:13px 14px; background:{background}; border:1px solid {border}; border-radius:12px;">
+            <td style="padding:12px 14px; border:0.5px solid {CorAlerta}; border-radius:12px;">
               <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                 <tr>
-                  <td width="30" valign="top">
-                    <div style="width:22px; height:22px; border-radius:50%; background:{color}; color:#ffffff; font-size:10px; line-height:22px; text-align:center; font-weight:800;">{Html(icon)}</div>
-                  </td>
-                  <td valign="top">
-                    <p style="margin:0; color:{color}; font-size:13px; line-height:19px; font-weight:800;">{Html(title)}</p>
-                    <p style="margin:3px 0 0; color:{color}; font-size:12px; line-height:18px;">{Html(description)}</p>
+                  {(incluirIconeRelogio ? $"""<td width="30" valign="middle">{icone}</td>""" : string.Empty)}
+                  <td valign="middle">
+                    {tituloHtml}
                   </td>
                 </tr>
               </table>
+            </td>
+          </tr>
+        </table>
+        """;
+    }
+
+    private static string CriarEstadoSucesso(string titulo, string descricao) =>
+        $"""
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" data-confirmation-state="confirmacao-realizada" style="margin-bottom:20px;">
+          <tr>
+            <td style="padding:12px 14px; border:0.5px solid {CorBordaSeguranca}; border-radius:12px;">
+              <p style="margin:0; color:{CorSeguranca}; font-size:12px; line-height:18px; font-weight:700;">{Html(titulo)}</p>
+              <p style="margin:4px 0 0; color:{CorSeguranca}; font-size:12px; line-height:18px;">{Html(descricao)}</p>
             </td>
           </tr>
         </table>
