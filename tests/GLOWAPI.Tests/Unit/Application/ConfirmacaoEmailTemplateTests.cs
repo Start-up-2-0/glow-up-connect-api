@@ -15,7 +15,9 @@ public class ConfirmacaoEmailTemplateTests
             24);
 
         html.Should().Contain("<!doctype html>");
-        html.Should().Contain("Glow Up Connect");
+        html.Should().Contain("GlowUp Connect");
+        html.Should().Contain("#ffbf00");
+        html.Should().Contain("Confirmar e-mail");
         html.Should().Contain("Confirmar e-mail");
         html.Should().Contain("482913");
         html.Should().Contain("class=\"confirm-code\"");

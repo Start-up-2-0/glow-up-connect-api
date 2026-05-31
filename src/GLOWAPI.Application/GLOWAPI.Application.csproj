@@ -22,4 +22,10 @@
     <InternalsVisibleTo Include="GLOWAPI.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Mensageria\Assets\email-logo-sm.png" />
+    <EmbeddedResource Include="Mensageria\Assets\icon-clock.png" />
+    <EmbeddedResource Include="Mensageria\Assets\icon-warning.png" />
+  </ItemGroup>
+
 </Project>
