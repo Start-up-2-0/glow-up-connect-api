@@ -59,10 +59,13 @@ public static class EvolutionWebhookParser
             }
         }
 
-        if (!payload.TryGetProperty("data", out _)
-            && payload.TryGetProperty("sender", out var sender))
+        if (payload.TryGetProperty("sender", out var sender))
         {
-            return NormalizarJid(sender.GetString());
+            var telefoneSender = NormalizarJid(sender.GetString());
+            if (!string.IsNullOrWhiteSpace(telefoneSender))
+            {
+                return telefoneSender;
+            }
         }
 
         return string.Empty;
