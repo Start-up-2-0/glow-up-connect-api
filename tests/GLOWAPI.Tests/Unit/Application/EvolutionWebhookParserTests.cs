@@ -65,14 +65,40 @@ public class EvolutionWebhookParserTests
     }
 
     [Fact]
-    public void ExtrairTelefoneRemetente_LidSemAlternativa_DeveUsarSenderDoPayload()
+    public void ExtrairTelefoneRemetente_LidFromMeFalse_NaoDeveUsarSenderDaInstancia()
+    {
+        var payload = JsonDocument.Parse("""
+            {
+              "data": {
+                "key": {
+                  "remoteJid": "60348602310753@lid",
+                  "fromMe": false
+                },
+                "message": {
+                  "extendedTextMessage": {
+                    "text": "GLOW 691617"
+                  }
+                }
+              },
+              "sender": "557991917634@s.whatsapp.net"
+            }
+            """).RootElement;
+
+        var telefone = EvolutionWebhookParser.ExtrairTelefoneRemetente(payload);
+
+        Assert.Equal(string.Empty, telefone);
+        Assert.False(EvolutionWebhookParser.IsMensagemInboundDoUsuario(payload));
+    }
+
+    [Fact]
+    public void ExtrairTelefoneRemetente_LidFromMeTrue_DeveUsarSenderDoPayload()
     {
         var payload = JsonDocument.Parse("""
             {
               "data": {
                 "key": {
                   "remoteJid": "69385314111689@lid",
-                  "fromMe": false
+                  "fromMe": true
                 }
               },
               "sender": "5579991917634@s.whatsapp.net"
