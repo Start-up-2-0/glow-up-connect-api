@@ -209,7 +209,7 @@ Em dev com e-mail desabilitado, use `linkWhatsApp` da resposta JSON para testar 
 | Log | Significado |
 |-----|-------------|
 | `payload bruto Evolution` | JSON completo enviado pela Evolution (truncado em 8k chars) |
-| `messages-upsert recebido` | Request chegou ao service (sempre em `Information`) |
+| `messages-upsert recebido` | Request chegou ao service; inclui `RemoteJid`, `EhLid`, `SenderInstancia` (numero da instancia Evolution, **nao** o cliente), `MotivoTelefoneVazio` |
 | `messages-upsert ignorado: nao inbound` | Payload sem `data`, sem telefone extraivel e sem `GLOW` no texto (`Motivo=sem_campo_data` / `telefone_nao_extraido`) |
 | `messages-upsert ignorado: mensagem sem GLOW` | Self-chat ou chat comum sem tentativa de confirmacao — nenhuma resposta automatica |
 | `WhatsApp confirmado via webhook inbound` | Confirmacao gravada com sucesso |
@@ -224,7 +224,7 @@ Em dev com e-mail desabilitado, use `linkWhatsApp` da resposta JSON para testar 
 
 1. **Codigo antigo** — cada `solicitar-confirmacao` gera codigo novo; use sempre o ultimo e-mail.
 2. **Telefone diferente do perfil** — a mensagem deve sair do numero cadastrado em `Usuario.Telefone` (equivalencia BR com/sem 9o digito e aceita).
-3. **Payload `@lid`** — a API resolve `remoteJidAlt`, `senderPn` e, se `fromMe=true` (self-chat), `sender` no root. Com `fromMe=false` e `@lid` sem alternativa, confirma **somente pelo codigo** e responde na **mesma conversa** (`remoteJid` `@lid`), nao no telefone cadastrado. Fallback manual: `POST /api/auth/confirmar-whatsapp`.
+3. **Payload `@lid` e `sender` da instancia** — no staging Evolution v1.7, `data.key.remoteJid` as vezes vem como `@lid` **sem** `remoteJidAlt`/`senderPn`. O campo root `sender` e o **numero conectado na instancia** (chip da plataforma), **nao** o telefone de quem mandou a mensagem — a API **ignora** `sender` quando `fromMe=false`. Nesse cenario a confirmacao inbound funciona **somente pelo codigo** (`GLOW {codigo}`); as respostas automaticas vao para o **telefone cadastrado** no perfil. Mitigacao infra: atualizar Evolution/WhatsApp Web ou `WPP_LID_MODE=false`. Fallback manual: `POST /api/auth/confirmar-whatsapp`.
 4. **Self-chat sem `GLOW`** — mensagens como `"mande dnv o codigo"` ou figurinhas no proprio numero da instancia sao ignoradas (sem `ja confirmado` nem outras respostas automaticas).
 ### Isolar parser vs regra de negocio
 
