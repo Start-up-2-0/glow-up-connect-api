@@ -65,7 +65,7 @@ public class EvolutionWebhookParserTests
     }
 
     [Fact]
-    public void ExtrairTelefoneRemetente_LidSemAlternativa_DeveRetornarVazio()
+    public void ExtrairTelefoneRemetente_LidSemAlternativa_DeveUsarSenderDoPayload()
     {
         var payload = JsonDocument.Parse("""
             {
@@ -75,13 +75,40 @@ public class EvolutionWebhookParserTests
                   "fromMe": false
                 }
               },
-              "sender": "5579991917634"
+              "sender": "5579991917634@s.whatsapp.net"
             }
             """).RootElement;
 
         var telefone = EvolutionWebhookParser.ExtrairTelefoneRemetente(payload);
 
-        Assert.Equal(string.Empty, telefone);
+        Assert.Equal("5579991917634", telefone);
+    }
+
+    [Fact]
+    public void ExtrairTelefoneRemetente_LidComSenderEvolutionStaging_DeveExtrairTelefone()
+    {
+        var payload = JsonDocument.Parse("""
+            {
+              "event": "messages.upsert",
+              "instance": "glowuphml",
+              "data": {
+                "key": {
+                  "remoteJid": "67268163698795@lid",
+                  "fromMe": true
+                },
+                "message": {
+                  "conversation": "GLOW 484571"
+                }
+              },
+              "sender": "557991917634@s.whatsapp.net"
+            }
+            """).RootElement;
+
+        var telefone = EvolutionWebhookParser.ExtrairTelefoneRemetente(payload);
+
+        Assert.Equal("557991917634", telefone);
+        Assert.True(EvolutionWebhookParser.IsMensagemInboundDoUsuario(payload));
+        Assert.Equal("GLOW 484571", EvolutionWebhookParser.ExtrairTextoMensagem(payload));
     }
 
     [Fact]
