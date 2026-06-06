@@ -7,6 +7,7 @@ using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Usuario;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 
@@ -198,6 +199,45 @@ public class ConfirmacaoWhatsAppServiceTests
     }
 
     [Fact]
+    public async Task TentarConfirmarPorMensagemInboundAsync_DeveConfirmarPorCodigo_QuandoTelefoneWebhookEInstancia()
+    {
+        var usuario = CriarUsuarioPendenteWhatsApp();
+        usuario.Telefone = "79998755111";
+        _usuarioRepository
+            .Setup(r => r.ObterPorWhatsAppConfirmacaoCodigoHashAsync("hash-482913", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usuario);
+        _usuarioRepository
+            .Setup(r => r.ObterPorTelefoneNormalizadoAsync("557991917634", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Usuario?)null);
+
+        var service = CreateService();
+        var resultado = await service.TentarConfirmarPorMensagemInboundAsync(
+            "557991917634",
+            "GLOW 482913");
+
+        Assert.True(resultado.Confirmado);
+        Assert.Equal("5579998755111", resultado.TelefoneResposta);
+        Assert.NotNull(usuario.WhatsAppConfirmadoEm);
+    }
+
+    [Fact]
+    public async Task ResolverDestinoRespostaInboundAsync_DevePreferirTelefoneCadastradoDoCodigo_SobreTelefoneWebhook()
+    {
+        var usuario = CriarUsuarioPendenteWhatsApp();
+        usuario.Telefone = "79998755111";
+        _usuarioRepository
+            .Setup(r => r.ObterPorWhatsAppConfirmacaoCodigoHashAsync("hash-482913", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usuario);
+
+        var service = CreateService();
+        var destino = await service.ResolverDestinoRespostaInboundAsync("557991917634", "GLOW 482913");
+
+        Assert.NotNull(destino);
+        Assert.Equal("5579998755111", destino!.Telefone);
+        Assert.Equal("Maria", destino.Nome);
+    }
+
+    [Fact]
     public async Task ReenviarConfirmacaoAsync_DeveBuscarPorEmail()
     {
         var usuario = new Usuario
@@ -233,7 +273,8 @@ public class ConfirmacaoWhatsAppServiceTests
             {
                 NumeroPlataforma = "5511999999999"
             }),
-            Options.Create(_authOptions));
+            Options.Create(_authOptions),
+            NullLogger<ConfirmacaoWhatsAppService>.Instance);
 
     private static Usuario CriarUsuarioPendenteWhatsApp() =>
         new()
