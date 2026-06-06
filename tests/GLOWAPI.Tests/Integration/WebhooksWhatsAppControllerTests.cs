@@ -19,7 +19,7 @@ public class WebhooksWhatsAppControllerTests : IClassFixture<GlowApiWebApplicati
     {
         var client = _factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/webhooks/whatsapp/evolution/message_upsert", new
+        var response = await client.PostAsJsonAsync("/api/webhooks/whatsapp/evolution/messages-upsert", new
         {
             data = new
             {
@@ -46,7 +46,7 @@ public class WebhooksWhatsAppControllerTests : IClassFixture<GlowApiWebApplicati
     {
         var client = _factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/webhooks/whatsapp/evolution/send_message", new
+        var response = await client.PostAsJsonAsync("/api/webhooks/whatsapp/evolution/send-message", new
         {
             data = new
             {

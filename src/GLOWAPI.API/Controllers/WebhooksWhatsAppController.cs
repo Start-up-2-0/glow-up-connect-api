@@ -18,7 +18,7 @@ public class WebhooksWhatsAppController : ControllerBase
     }
 
     [AllowAnonymous]
-    [HttpPost("evolution/message_upsert")]
+    [HttpPost("evolution/messages-upsert")]
     public async Task<IActionResult> MensagemRecebida(
         [FromBody] JsonElement payload,
         CancellationToken cancellationToken)
@@ -28,7 +28,7 @@ public class WebhooksWhatsAppController : ControllerBase
     }
 
     [AllowAnonymous]
-    [HttpPost("evolution/send_message")]
+    [HttpPost("evolution/send-message")]
     public async Task<IActionResult> MensagemEnviada(
         [FromBody] JsonElement payload,
         CancellationToken cancellationToken)
