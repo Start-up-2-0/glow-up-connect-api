@@ -14,7 +14,7 @@ public class ProvedorMensagemWhatsAppTests
     [Fact]
     public async Task EnviarAsync_DeveRetornarStub_QuandoDesabilitado()
     {
-        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var handler = new RecordingHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var client = new HttpClient(handler);
         var provedor = CriarProvedor(client, habilitado: false);
 
@@ -29,9 +29,13 @@ public class ProvedorMensagemWhatsAppTests
     public async Task EnviarAsync_DeveChamarEvolution_QuandoHabilitado()
     {
         HttpRequestMessage? requestCapturado = null;
-        var handler = new RecordingHandler(message =>
+        string? bodyCapturado = null;
+        var handler = new RecordingHandler(async message =>
         {
             requestCapturado = message;
+            bodyCapturado = message.Content is null
+                ? null
+                : await message.Content.ReadAsStringAsync();
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent("""{"status":"sent"}""")
@@ -48,15 +52,18 @@ public class ProvedorMensagemWhatsAppTests
         Assert.NotNull(requestCapturado);
         Assert.Equal(HttpMethod.Post, requestCapturado!.Method);
         Assert.Contains("/message/sendText/instancia-teste", requestCapturado.RequestUri!.ToString());
+
+        Assert.Contains("textMessage", bodyCapturado);
+        Assert.Contains("Mensagem teste", bodyCapturado);
     }
 
     [Fact]
     public async Task EnviarAsync_DeveRetornarFalha_QuandoEvolutionRetornaErro()
     {
-        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.BadRequest)
+        var handler = new RecordingHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest)
         {
             Content = new StringContent("invalid number")
-        });
+        }));
 
         var client = new HttpClient(handler) { BaseAddress = new Uri("https://evolution.test/") };
         var provedor = CriarProvedor(client, habilitado: true);
@@ -91,19 +98,19 @@ public class ProvedorMensagemWhatsAppTests
 
     private sealed class RecordingHandler : HttpMessageHandler
     {
-        private readonly Func<HttpRequestMessage, HttpResponseMessage> _factory;
+        private readonly Func<HttpRequestMessage, Task<HttpResponseMessage>> _factory;
 
-        public RecordingHandler(Func<HttpRequestMessage, HttpResponseMessage> factory) =>
+        public RecordingHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> factory) =>
             _factory = factory;
 
         public int CallCount { get; private set; }
 
-        protected override Task<HttpResponseMessage> SendAsync(
+        protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
             CallCount++;
-            return Task.FromResult(_factory(request));
+            return await _factory(request);
         }
     }
 }
