@@ -208,6 +208,7 @@ Em dev com e-mail desabilitado, use `linkWhatsApp` da resposta JSON para testar 
 
 | Log | Significado |
 |-----|-------------|
+| `payload bruto Evolution` | JSON completo enviado pela Evolution (truncado em 8k chars) |
 | `messages-upsert recebido` | Request chegou ao service (sempre em `Information`) |
 | `messages-upsert ignorado: nao inbound` | Payload sem `data` ou telefone extraivel (`Motivo=sem_campo_data` / `telefone_nao_extraido`) |
 | `WhatsApp confirmado via webhook inbound` | Confirmacao gravada com sucesso |
