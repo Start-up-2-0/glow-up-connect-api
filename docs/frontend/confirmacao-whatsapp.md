@@ -138,6 +138,17 @@ SEND_MESSAGE    → https://api-staging-61ce.up.railway.app/api/webhooks/whatsap
 - `messages-upsert`: confirma codigo WhatsApp inbound (inclui `fromMe: true`, ex.: mesmo chip plataforma/perfil em staging)
 - `send-message`: recebido e registrado em log (sem efeito colateral hoje)
 
+### Respostas automaticas ao usuario (WhatsApp)
+
+Quando a mensagem contem `GLOW` (tentativa de confirmacao), a API enfileira:
+
+| Momento | Canal | Mensagem |
+|---------|-------|----------|
+| Ao receber | WhatsApp | Estamos processando sua confirmacao |
+| Sucesso | WhatsApp | Confirmacao aprovada |
+| Ja confirmado | WhatsApp | Seu WhatsApp ja esta confirmado |
+| Falha (codigo/telefone) | WhatsApp + e-mail (se houver) | Nao conseguimos confirmar seu numero |
+
 ---
 
 ## Fallback manual (opcional)
