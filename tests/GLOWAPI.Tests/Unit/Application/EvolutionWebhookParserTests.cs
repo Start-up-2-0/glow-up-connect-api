@@ -99,7 +99,7 @@ public class EvolutionWebhookParserTests
     }
 
     [Fact]
-    public void IsMensagemInboundDoUsuario_DeveIgnorarFromMeTrue()
+    public void IsMensagemInboundDoUsuario_DeveAceitarFromMeTrue()
     {
         var payload = JsonDocument.Parse("""
             {
@@ -112,7 +112,7 @@ public class EvolutionWebhookParserTests
             }
             """).RootElement;
 
-        Assert.False(EvolutionWebhookParser.IsMensagemInboundDoUsuario(payload));
+        Assert.True(EvolutionWebhookParser.IsMensagemInboundDoUsuario(payload));
     }
 
     [Fact]

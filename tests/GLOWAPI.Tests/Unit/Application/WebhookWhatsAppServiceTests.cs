@@ -90,8 +90,24 @@ public class WebhookWhatsAppServiceTests
     }
 
     [Fact]
-    public async Task ProcessarMensagemRecebidaAsync_DeveIgnorar_MensagensEnviadasPelaPlataforma()
+    public async Task ProcessarMensagemRecebidaAsync_DeveProcessar_MensagensFromMeTrue()
     {
+        _confirmacaoWhatsAppService
+            .Setup(s => s.TentarConfirmarPorMensagemInboundAsync(
+                "5511988887777",
+                "GLOW 482913",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.Ignorado(
+                WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido));
+
+        _confirmacaoEstabelecimentoService
+            .Setup(s => s.TentarConfirmarPorMensagemInboundAsync(
+                "5511988887777",
+                "GLOW 482913",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.Ignorado(
+                WhatsAppConfirmacaoInboundMotivoIgnorado.EntidadeNaoEncontrada));
+
         var service = CreateService();
         var payload = JsonDocument.Parse("""
             {
@@ -102,7 +118,7 @@ public class WebhookWhatsAppServiceTests
                   "fromMe": true
                 },
                 "message": {
-                  "conversation": "Resposta automatica"
+                  "conversation": "GLOW 482913"
                 }
               }
             }
@@ -112,10 +128,10 @@ public class WebhookWhatsAppServiceTests
 
         _confirmacaoWhatsAppService.Verify(
             s => s.TentarConfirmarPorMensagemInboundAsync(
-                It.IsAny<string>(),
-                It.IsAny<string>(),
+                "5511988887777",
+                "GLOW 482913",
                 It.IsAny<CancellationToken>()),
-            Times.Never);
+            Times.Once);
     }
 
     [Fact]
