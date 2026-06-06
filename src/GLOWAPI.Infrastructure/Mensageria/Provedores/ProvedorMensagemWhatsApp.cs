@@ -81,6 +81,7 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
             request.Content = JsonContent.Create(new
             {
                 number = mensagem.Destinatario,
+                text = mensagem.Conteudo,
                 textMessage = new { text = mensagem.Conteudo }
             });
 
