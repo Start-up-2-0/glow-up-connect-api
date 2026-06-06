@@ -43,7 +43,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
 
         if (!ValidarApiKey(payload))
         {
-            _logger.LogWarning("Webhook WhatsApp message_upsert ignorado: apikey invalida.");
+            _logger.LogWarning("Webhook WhatsApp messages-upsert ignorado: apikey invalida.");
             return;
         }
 
@@ -56,7 +56,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
     {
         if (!ValidarApiKey(payload))
         {
-            _logger.LogWarning("Webhook WhatsApp send_message ignorado: apikey invalida.");
+            _logger.LogWarning("Webhook WhatsApp send-message ignorado: apikey invalida.");
             return Task.CompletedTask;
         }
 
@@ -64,7 +64,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         var textoMensagem = EvolutionWebhookParser.ExtrairTextoMensagem(payload);
 
         _logger.LogInformation(
-            "Webhook WhatsApp send_message recebido. Telefone={Telefone}, TextoPresente={TextoPresente}",
+            "Webhook WhatsApp send-message recebido. Telefone={Telefone}, TextoPresente={TextoPresente}",
             string.IsNullOrWhiteSpace(telefone) ? "(nao identificado)" : telefone,
             !string.IsNullOrWhiteSpace(textoMensagem));
 

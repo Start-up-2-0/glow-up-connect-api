@@ -125,18 +125,18 @@ Configure na instancia Evolution (webhook por evento):
 
 | Evento Evolution | Metodo | Rota (sem auth) |
 |------------------|--------|-----------------|
-| `MESSAGES_UPSERT` | POST | `/api/webhooks/whatsapp/evolution/message_upsert` |
-| `SEND_MESSAGE` | POST | `/api/webhooks/whatsapp/evolution/send_message` |
+| `MESSAGES_UPSERT` | POST | `/api/webhooks/whatsapp/evolution/messages-upsert` |
+| `SEND_MESSAGE` | POST | `/api/webhooks/whatsapp/evolution/send-message` |
 
 Exemplo staging:
 
 ```text
-MESSAGES_UPSERT → https://api-staging-61ce.up.railway.app/api/webhooks/whatsapp/evolution/message_upsert
-SEND_MESSAGE    → https://api-staging-61ce.up.railway.app/api/webhooks/whatsapp/evolution/send_message
+MESSAGES_UPSERT → https://api-staging-61ce.up.railway.app/api/webhooks/whatsapp/evolution/messages-upsert
+SEND_MESSAGE    → https://api-staging-61ce.up.railway.app/api/webhooks/whatsapp/evolution/send-message
 ```
 
-- `message_upsert`: confirma codigo WhatsApp inbound; ignora mensagens `fromMe: true`
-- `send_message`: recebido e registrado em log (sem efeito colateral hoje)
+- `messages-upsert`: confirma codigo WhatsApp inbound; ignora mensagens `fromMe: true`
+- `send-message`: recebido e registrado em log (sem efeito colateral hoje)
 
 ---
 
