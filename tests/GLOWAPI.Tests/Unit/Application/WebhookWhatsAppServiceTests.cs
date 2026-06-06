@@ -119,6 +119,42 @@ public class WebhookWhatsAppServiceTests
     }
 
     [Fact]
+    public async Task ProcessarMensagemRecebidaAsync_DeveConfirmarUsuario_QuandoPayloadUsaLidComRemoteJidAlt()
+    {
+        _confirmacaoWhatsAppService
+            .Setup(s => s.TentarConfirmarPorMensagemInboundAsync(
+                "5511988887777",
+                "GLOW 482913",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.SucessoUsuario("Maria", "5511988887777"));
+
+        var service = CreateService();
+        var payload = JsonDocument.Parse("""
+            {
+              "data": {
+                "key": {
+                  "remoteJid": "69385314111689@lid",
+                  "remoteJidAlt": "5511988887777@s.whatsapp.net",
+                  "fromMe": false
+                },
+                "message": {
+                  "conversation": "GLOW 482913"
+                }
+              }
+            }
+            """).RootElement;
+
+        await service.ProcessarMensagemRecebidaAsync(payload);
+
+        _confirmacaoWhatsAppService.Verify(
+            s => s.TentarConfirmarPorMensagemInboundAsync(
+                "5511988887777",
+                "GLOW 482913",
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task ProcessarMensagemEnviadaAsync_NaoDeveConfirmarUsuario()
     {
         var service = CreateService();
