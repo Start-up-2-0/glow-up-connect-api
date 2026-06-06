@@ -37,19 +37,40 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         JsonElement payload,
         CancellationToken cancellationToken = default)
     {
+        var evento = EvolutionWebhookParser.ExtrairEvento(payload) ?? "(nao informado)";
+        var instancia = EvolutionWebhookParser.ExtrairInstancia(payload) ?? "(nao informado)";
+        var fromMe = EvolutionWebhookParser.ExtrairFromMe(payload);
+        var telefone = EvolutionWebhookParser.ExtrairTelefoneRemetente(payload);
+        var textoMensagem = EvolutionWebhookParser.ExtrairTextoMensagem(payload);
+
+        _logger.LogInformation(
+            "Webhook WhatsApp messages-upsert recebido. Evento={Evento}, Instancia={Instancia}, FromMe={FromMe}, TelefonePresente={TelefonePresente}, TextoPresente={TextoPresente}",
+            evento,
+            instancia,
+            fromMe,
+            !string.IsNullOrWhiteSpace(telefone),
+            !string.IsNullOrWhiteSpace(textoMensagem));
+
         if (!EvolutionWebhookParser.IsMensagemInboundDoUsuario(payload))
         {
-            _logger.LogDebug("Webhook WhatsApp messages-upsert ignorado: nao inbound.");
+            _logger.LogInformation(
+                "Webhook WhatsApp messages-upsert ignorado: nao inbound. Evento={Evento}, Instancia={Instancia}, Motivo={Motivo}",
+                evento,
+                instancia,
+                EvolutionWebhookParser.DescreverMotivoNaoInbound(payload));
             return;
         }
 
         if (!ValidarApiKey(payload))
         {
-            _logger.LogWarning("Webhook WhatsApp messages-upsert ignorado: apikey invalida.");
+            _logger.LogWarning(
+                "Webhook WhatsApp messages-upsert ignorado: apikey invalida. Evento={Evento}, Instancia={Instancia}",
+                evento,
+                instancia);
             return;
         }
 
-        await ProcessarConfirmacaoInboundAsync(payload, cancellationToken);
+        await ProcessarConfirmacaoInboundAsync(telefone, textoMensagem, cancellationToken);
     }
 
     public Task ProcessarMensagemEnviadaAsync(
@@ -74,12 +95,10 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
     }
 
     private async Task ProcessarConfirmacaoInboundAsync(
-        JsonElement payload,
+        string telefoneRemetente,
+        string textoMensagem,
         CancellationToken cancellationToken)
     {
-        var telefoneRemetente = EvolutionWebhookParser.ExtrairTelefoneRemetente(payload);
-        var textoMensagem = EvolutionWebhookParser.ExtrairTextoMensagem(payload);
-
         if (string.IsNullOrWhiteSpace(telefoneRemetente) || string.IsNullOrWhiteSpace(textoMensagem))
         {
             _logger.LogInformation(

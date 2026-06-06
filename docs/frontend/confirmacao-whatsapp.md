@@ -208,6 +208,8 @@ Em dev com e-mail desabilitado, use `linkWhatsApp` da resposta JSON para testar 
 
 | Log | Significado |
 |-----|-------------|
+| `messages-upsert recebido` | Request chegou ao service (sempre em `Information`) |
+| `messages-upsert ignorado: nao inbound` | Payload sem `data` ou telefone extraivel (`Motivo=sem_campo_data` / `telefone_nao_extraido`) |
 | `WhatsApp confirmado via webhook inbound` | Confirmacao gravada com sucesso |
 | `Motivo=EntidadeNaoEncontrada` | Telefone do webhook nao bate com perfil pendente |
 | `Motivo=CodigoInvalido` | Mensagem sem o codigo atual (`GLOW {codigo}`) |

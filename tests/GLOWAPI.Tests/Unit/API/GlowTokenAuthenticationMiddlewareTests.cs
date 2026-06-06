@@ -23,6 +23,26 @@ public class GlowTokenAuthenticationMiddlewareTests
         new(next, Options.Create(_authOptions));
 
     [Fact]
+    public async Task InvokeAsync_WebhookEvolutionSemEndpoint_DevePassarSemToken()
+    {
+        var called = false;
+        var middleware = CreateMiddleware(_ =>
+        {
+            called = true;
+            return Task.CompletedTask;
+        });
+
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+        context.Request.Path = "/api/webhooks/whatsapp/evolution/messages-upsert";
+
+        await middleware.InvokeAsync(context, _authSessionService.Object, _currentUserContext.Object, _auditLogger.Object);
+
+        Assert.True(called);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+    }
+
+    [Fact]
     public async Task InvokeAsync_RotaPublica_DevePassarSemToken()
     {
         var called = false;
