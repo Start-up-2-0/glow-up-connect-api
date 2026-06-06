@@ -189,6 +189,48 @@ Em dev com e-mail desabilitado, use `linkWhatsApp` da resposta JSON para testar 
 
 ---
 
+## Troubleshooting webhook (staging)
+
+**HTTP 200 no `messages-upsert` nao garante confirmacao.** O endpoint sempre responde 200 apos processar o payload; `whatsAppConfirmado` so muda quando telefone + codigo batem com um usuario/estabelecimento pendente.
+
+### Logs esperados no Railway
+
+| Log | Significado |
+|-----|-------------|
+| `WhatsApp confirmado via webhook inbound` | Confirmacao gravada com sucesso |
+| `Motivo=EntidadeNaoEncontrada` | Telefone do webhook nao bate com perfil pendente |
+| `Motivo=CodigoInvalido` | Mensagem sem o codigo atual (`GLOW {codigo}`) |
+| `Motivo=SemPendencia` | Nao ha solicitacao de confirmacao ativa |
+| `Motivo=JaConfirmado` | WhatsApp ja estava confirmado |
+| `sem telefone ou texto` | Parser nao extraiu `remoteJid`/mensagem do payload Evolution |
+| `apikey invalida` | `Mensageria__WhatsApp__WebhookApiKey` nao confere com payload |
+
+### Causas comuns
+
+1. **Codigo antigo** — cada `solicitar-confirmacao` gera codigo novo; use sempre o ultimo e-mail.
+2. **Telefone diferente do perfil** — a mensagem deve sair do numero cadastrado em `Usuario.Telefone` (equivalencia BR com/sem 9o digito e aceita).
+3. **Payload `@lid`** — a API resolve `remoteJidAlt` e `senderPn`; se a Evolution nao enviar alternativa, o evento e ignorado.
+4. **Evento `fromMe: true`** — eco da plataforma; ignorado de proposito.
+
+### Isolar parser vs regra de negocio
+
+Se o webhook retorna 200 mas o status continua pendente, teste o fallback manual:
+
+```http
+POST /api/auth/confirmar-whatsapp
+Content-Type: application/json
+
+{
+  "telefone": "79991917634",
+  "codigo": "123456"
+}
+```
+
+- Se o fallback confirmar: problema estava no payload Evolution (telefone/texto).
+- Se o fallback falhar: codigo expirado, telefone errado ou sem pendencia no banco.
+
+---
+
 ## Checklist frontend
 
 - [ ] Tela "Verifique seu e-mail" apos solicitar confirmacao
