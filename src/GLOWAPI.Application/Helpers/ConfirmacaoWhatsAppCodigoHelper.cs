@@ -30,7 +30,7 @@ public static class ConfirmacaoWhatsAppCodigoHelper
         !string.IsNullOrWhiteSpace(textoMensagem)
         && textoMensagem.Contains("GLOW", StringComparison.OrdinalIgnoreCase);
 
-    private static IEnumerable<string> ExtrairCandidatosCodigo(string texto, int digitosCodigo)
+    public static IEnumerable<string> ExtrairCandidatosCodigo(string texto, int digitosCodigo)
     {
         var numeros = new List<string>();
         var buffer = new List<char>();

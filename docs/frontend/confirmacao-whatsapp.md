@@ -210,7 +210,8 @@ Em dev com e-mail desabilitado, use `linkWhatsApp` da resposta JSON para testar 
 |-----|-------------|
 | `payload bruto Evolution` | JSON completo enviado pela Evolution (truncado em 8k chars) |
 | `messages-upsert recebido` | Request chegou ao service (sempre em `Information`) |
-| `messages-upsert ignorado: nao inbound` | Payload sem `data` ou telefone extraivel (`Motivo=sem_campo_data` / `telefone_nao_extraido`) |
+| `messages-upsert ignorado: nao inbound` | Payload sem `data`, sem telefone extraivel e sem `GLOW` no texto (`Motivo=sem_campo_data` / `telefone_nao_extraido`) |
+| `messages-upsert ignorado: mensagem sem GLOW` | Self-chat ou chat comum sem tentativa de confirmacao — nenhuma resposta automatica |
 | `WhatsApp confirmado via webhook inbound` | Confirmacao gravada com sucesso |
 | `Motivo=EntidadeNaoEncontrada` | Telefone do webhook nao bate com perfil pendente |
 | `Motivo=CodigoInvalido` | Mensagem sem o codigo atual (`GLOW {codigo}`) |
@@ -223,7 +224,8 @@ Em dev com e-mail desabilitado, use `linkWhatsApp` da resposta JSON para testar 
 
 1. **Codigo antigo** — cada `solicitar-confirmacao` gera codigo novo; use sempre o ultimo e-mail.
 2. **Telefone diferente do perfil** — a mensagem deve sair do numero cadastrado em `Usuario.Telefone` (equivalencia BR com/sem 9o digito e aceita).
-3. **Payload `@lid`** — a API resolve `remoteJidAlt`, `senderPn` e, se `fromMe=true` (self-chat), `sender` no root. Com `fromMe=false` e `@lid` sem alternativa, o telefone real pode nao vir no payload Evolution v1.7 — use `POST /api/auth/confirmar-whatsapp` como fallback.
+3. **Payload `@lid`** — a API resolve `remoteJidAlt`, `senderPn` e, se `fromMe=true` (self-chat), `sender` no root. Com `fromMe=false` e `@lid` sem alternativa, o telefone real pode nao vir no payload Evolution v1.7; nesse caso a API confirma **somente pelo codigo** (`GLOW {codigo}`) e envia a resposta para o telefone cadastrado no perfil. Fallback manual: `POST /api/auth/confirmar-whatsapp`.
+4. **Self-chat sem `GLOW`** — mensagens como `"mande dnv o codigo"` ou figurinhas no proprio numero da instancia sao ignoradas (sem `ja confirmado` nem outras respostas automaticas).
 ### Isolar parser vs regra de negocio
 
 Se o webhook retorna 200 mas o status continua pendente, teste o fallback manual:

@@ -114,7 +114,7 @@ public class ConfirmacaoWhatsAppService : IConfirmacaoWhatsAppService
         var telefoneNormalizado = TelefoneHelper.NormalizarParaWhatsApp(telefoneRemetente);
         if (string.IsNullOrWhiteSpace(telefoneNormalizado))
         {
-            return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.TelefoneInvalido);
+            return await TentarConfirmarApenasPorCodigoInboundAsync(textoMensagem, cancellationToken);
         }
 
         var usuario = await _usuarioRepository.ObterPorTelefoneNormalizadoAsync(telefoneNormalizado, cancellationToken);
@@ -123,42 +123,7 @@ public class ConfirmacaoWhatsAppService : IConfirmacaoWhatsAppService
             return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.EntidadeNaoEncontrada);
         }
 
-        if (usuario.WhatsAppConfirmadoEm.HasValue)
-        {
-            return WhatsAppConfirmacaoInboundResultado.Ignorado(
-                WhatsAppConfirmacaoInboundMotivoIgnorado.JaConfirmado,
-                usuario.Nome,
-                telefoneNormalizado,
-                usuario.Email);
-        }
-
-        if (!usuario.PendenteConfirmacaoWhatsApp())
-        {
-            return WhatsAppConfirmacaoInboundResultado.Ignorado(
-                WhatsAppConfirmacaoInboundMotivoIgnorado.SemPendencia,
-                usuario.Nome,
-                telefoneNormalizado,
-                usuario.Email);
-        }
-
-        if (!ConfirmacaoWhatsAppCodigoHelper.MensagemContemCodigoValido(
-                textoMensagem,
-                usuario.WhatsAppConfirmacaoCodigoHash,
-                _authOptions.ConfirmacaoCodigoDigitos,
-                _tokenService))
-        {
-            return WhatsAppConfirmacaoInboundResultado.Ignorado(
-                WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido,
-                usuario.Nome,
-                telefoneNormalizado,
-                usuario.Email);
-        }
-
-        await ConfirmarUsuarioAsync(usuario, cancellationToken);
-
-        return WhatsAppConfirmacaoInboundResultado.SucessoUsuario(
-            usuario.Nome,
-            telefoneNormalizado);
+        return await ProcessarConfirmacaoInboundDoUsuarioAsync(usuario, textoMensagem, cancellationToken);
     }
 
     public async Task ReenviarConfirmacaoAsync(string email, CancellationToken cancellationToken = default)
@@ -213,6 +178,73 @@ public class ConfirmacaoWhatsAppService : IConfirmacaoWhatsAppService
 
         return true;
     }
+
+    private async Task<WhatsAppConfirmacaoInboundResultado> TentarConfirmarApenasPorCodigoInboundAsync(
+        string textoMensagem,
+        CancellationToken cancellationToken)
+    {
+        foreach (var candidato in ConfirmacaoWhatsAppCodigoHelper.ExtrairCandidatosCodigo(
+                     textoMensagem,
+                     _authOptions.ConfirmacaoCodigoDigitos))
+        {
+            var hash = _tokenService.HashToken(candidato);
+            var usuario = await _usuarioRepository.ObterPorWhatsAppConfirmacaoCodigoHashAsync(hash, cancellationToken);
+            if (usuario is null)
+            {
+                continue;
+            }
+
+            return await ProcessarConfirmacaoInboundDoUsuarioAsync(usuario, textoMensagem, cancellationToken);
+        }
+
+        return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido);
+    }
+
+    private async Task<WhatsAppConfirmacaoInboundResultado> ProcessarConfirmacaoInboundDoUsuarioAsync(
+        Usuario usuario,
+        string textoMensagem,
+        CancellationToken cancellationToken)
+    {
+        var telefoneCadastrado = ObterTelefoneCadastradoNormalizado(usuario);
+
+        if (usuario.WhatsAppConfirmadoEm.HasValue)
+        {
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(
+                WhatsAppConfirmacaoInboundMotivoIgnorado.JaConfirmado,
+                usuario.Nome,
+                telefoneCadastrado,
+                usuario.Email);
+        }
+
+        if (!usuario.PendenteConfirmacaoWhatsApp())
+        {
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(
+                WhatsAppConfirmacaoInboundMotivoIgnorado.SemPendencia,
+                usuario.Nome,
+                telefoneCadastrado,
+                usuario.Email);
+        }
+
+        if (!ConfirmacaoWhatsAppCodigoHelper.MensagemContemCodigoValido(
+                textoMensagem,
+                usuario.WhatsAppConfirmacaoCodigoHash,
+                _authOptions.ConfirmacaoCodigoDigitos,
+                _tokenService))
+        {
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(
+                WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido,
+                usuario.Nome,
+                telefoneCadastrado,
+                usuario.Email);
+        }
+
+        await ConfirmarUsuarioAsync(usuario, cancellationToken);
+
+        return WhatsAppConfirmacaoInboundResultado.SucessoUsuario(usuario.Nome, telefoneCadastrado);
+    }
+
+    private static string ObterTelefoneCadastradoNormalizado(Usuario usuario) =>
+        TelefoneHelper.NormalizarParaWhatsApp(usuario.Telefone) ?? string.Empty;
 
     private async Task ConfirmarUsuarioAsync(Usuario? usuario, CancellationToken cancellationToken)
     {

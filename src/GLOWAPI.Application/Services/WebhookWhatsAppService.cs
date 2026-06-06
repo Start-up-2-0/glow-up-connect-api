@@ -55,7 +55,10 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             !string.IsNullOrWhiteSpace(telefone),
             !string.IsNullOrWhiteSpace(textoMensagem));
 
-        if (!EvolutionWebhookParser.IsMensagemInboundDoUsuario(payload))
+        var podeProcessarConfirmacao = EvolutionWebhookParser.IsMensagemInboundDoUsuario(payload)
+            || ConfirmacaoWhatsAppCodigoHelper.PareceTentativaConfirmacao(textoMensagem);
+
+        if (!podeProcessarConfirmacao)
         {
             _logger.LogInformation(
                 "Webhook WhatsApp messages-upsert ignorado: nao inbound. Evento={Evento}, Instancia={Instancia}, Motivo={Motivo}",
@@ -108,17 +111,23 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         string textoMensagem,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(telefoneRemetente) || string.IsNullOrWhiteSpace(textoMensagem))
+        if (string.IsNullOrWhiteSpace(textoMensagem))
         {
             _logger.LogInformation(
-                "Webhook WhatsApp messages-upsert sem telefone ou texto. TelefonePresente={TelefonePresente}, TextoPresente={TextoPresente}",
-                !string.IsNullOrWhiteSpace(telefoneRemetente),
-                !string.IsNullOrWhiteSpace(textoMensagem));
+                "Webhook WhatsApp messages-upsert ignorado: texto ausente. TelefonePresente={TelefonePresente}",
+                !string.IsNullOrWhiteSpace(telefoneRemetente));
             return;
         }
 
-        var pareceTentativaConfirmacao = ConfirmacaoWhatsAppCodigoHelper.PareceTentativaConfirmacao(textoMensagem);
-        if (pareceTentativaConfirmacao)
+        if (!ConfirmacaoWhatsAppCodigoHelper.PareceTentativaConfirmacao(textoMensagem))
+        {
+            _logger.LogInformation(
+                "Webhook WhatsApp messages-upsert ignorado: mensagem sem GLOW. TelefonePresente={TelefonePresente}",
+                !string.IsNullOrWhiteSpace(telefoneRemetente));
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(telefoneRemetente))
         {
             await EnviarMensagemProcessandoAsync(telefoneRemetente, cancellationToken);
         }
@@ -161,11 +170,8 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             return;
         }
 
-        if (pareceTentativaConfirmacao)
-        {
-            var resultadoFalha = SelecionarResultadoFalha(resultadoUsuario, resultadoEstabelecimento);
-            await EnviarRespostaConfirmacaoFalhaAsync(resultadoFalha, telefoneRemetente, cancellationToken);
-        }
+        var resultadoFalha = SelecionarResultadoFalha(resultadoUsuario, resultadoEstabelecimento);
+        await EnviarRespostaConfirmacaoFalhaAsync(resultadoFalha, telefoneRemetente, cancellationToken);
     }
 
     private static WhatsAppConfirmacaoInboundResultado SelecionarResultadoFalha(
@@ -309,13 +315,16 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             ? ConfirmacaoWhatsAppTemplate.RespostaConfirmacaoFalha(resultado.NomeDestinatario)
             : ConfirmacaoWhatsAppTemplate.RespostaConfirmacaoFalhaGenerica();
 
-        await RegistrarWhatsAppAsync(
-            telefoneResposta,
-            "Confirmacao WhatsApp nao concluida",
-            conteudoWhatsApp,
-            resultado.EstabelecimentoId,
-            prioridade: 2,
-            cancellationToken);
+        if (!string.IsNullOrWhiteSpace(telefoneResposta))
+        {
+            await RegistrarWhatsAppAsync(
+                telefoneResposta,
+                "Confirmacao WhatsApp nao concluida",
+                conteudoWhatsApp,
+                resultado.EstabelecimentoId,
+                prioridade: 2,
+                cancellationToken);
+        }
 
         if (!string.IsNullOrWhiteSpace(resultado.EmailDestinatario))
         {

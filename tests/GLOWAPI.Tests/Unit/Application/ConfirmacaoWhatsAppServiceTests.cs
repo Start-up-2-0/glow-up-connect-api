@@ -129,6 +129,41 @@ public class ConfirmacaoWhatsAppServiceTests
     }
 
     [Fact]
+    public async Task TentarConfirmarPorMensagemInboundAsync_DeveConfirmarApenasPorCodigo_QuandoTelefoneAusente()
+    {
+        var usuario = CriarUsuarioPendenteWhatsApp();
+        usuario.Telefone = "79998755111";
+        _usuarioRepository
+            .Setup(r => r.ObterPorWhatsAppConfirmacaoCodigoHashAsync("hash-482913", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usuario);
+
+        var service = CreateService();
+        var resultado = await service.TentarConfirmarPorMensagemInboundAsync(
+            string.Empty,
+            "GLOW 482913");
+
+        Assert.True(resultado.Confirmado);
+        Assert.Equal("5579998755111", resultado.TelefoneResposta);
+        Assert.NotNull(usuario.WhatsAppConfirmadoEm);
+    }
+
+    [Fact]
+    public async Task TentarConfirmarPorMensagemInboundAsync_DeveRetornarCodigoInvalido_QuandoTelefoneAusenteECodigoInexistente()
+    {
+        _usuarioRepository
+            .Setup(r => r.ObterPorWhatsAppConfirmacaoCodigoHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Usuario?)null);
+
+        var service = CreateService();
+        var resultado = await service.TentarConfirmarPorMensagemInboundAsync(
+            string.Empty,
+            "GLOW 000000");
+
+        Assert.False(resultado.Confirmado);
+        Assert.Equal(WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido, resultado.MotivoIgnorado);
+    }
+
+    [Fact]
     public async Task TentarConfirmarPorMensagemInboundAsync_DeveRetornarCodigoInvalido_QuandoMensagemSemCodigo()
     {
         var usuario = CriarUsuarioPendenteWhatsApp();
