@@ -13,6 +13,8 @@ namespace GLOWAPI.Application.Services;
 
 public class WebhookWhatsAppService : IWebhookWhatsAppService
 {
+    private const int PayloadLogMaxLength = 8000;
+
     private readonly IConfirmacaoWhatsAppService _confirmacaoWhatsAppService;
     private readonly IConfirmacaoWhatsAppEstabelecimentoService _confirmacaoWhatsAppEstabelecimentoService;
     private readonly IMensagemNotificacaoService _mensagemNotificacaoService;
@@ -39,6 +41,8 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
     {
         var evento = EvolutionWebhookParser.ExtrairEvento(payload) ?? "(nao informado)";
         var instancia = EvolutionWebhookParser.ExtrairInstancia(payload) ?? "(nao informado)";
+
+        LogPayloadBrutoEvolution("messages-upsert", evento, instancia, payload);
         var fromMe = EvolutionWebhookParser.ExtrairFromMe(payload);
         var telefone = EvolutionWebhookParser.ExtrairTelefoneRemetente(payload);
         var textoMensagem = EvolutionWebhookParser.ExtrairTextoMensagem(payload);
@@ -77,6 +81,11 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         JsonElement payload,
         CancellationToken cancellationToken = default)
     {
+        var evento = EvolutionWebhookParser.ExtrairEvento(payload) ?? "(nao informado)";
+        var instancia = EvolutionWebhookParser.ExtrairInstancia(payload) ?? "(nao informado)";
+
+        LogPayloadBrutoEvolution("send-message", evento, instancia, payload);
+
         if (!ValidarApiKey(payload))
         {
             _logger.LogWarning("Webhook WhatsApp send-message ignorado: apikey invalida.");
@@ -200,6 +209,26 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             tipo,
             telefone,
             motivo);
+    }
+
+    private void LogPayloadBrutoEvolution(
+        string endpoint,
+        string evento,
+        string instancia,
+        JsonElement payload)
+    {
+        var raw = payload.GetRawText();
+        if (raw.Length > PayloadLogMaxLength)
+        {
+            raw = raw[..PayloadLogMaxLength] + "...(truncado)";
+        }
+
+        _logger.LogInformation(
+            "Webhook WhatsApp {Endpoint} payload bruto Evolution. Evento={Evento}, Instancia={Instancia}, Payload={Payload}",
+            endpoint,
+            evento,
+            instancia,
+            raw);
     }
 
     private bool ValidarApiKey(JsonElement payload)
