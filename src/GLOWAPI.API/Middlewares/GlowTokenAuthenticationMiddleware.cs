@@ -26,7 +26,8 @@ public class GlowTokenAuthenticationMiddleware
         ISecurityAuditLogger auditLogger)
     {
         var endpoint = context.GetEndpoint();
-        if (endpoint?.Metadata.GetMetadata<IAllowAnonymous>() is not null)
+        if (endpoint?.Metadata.GetMetadata<IAllowAnonymous>() is not null
+            || EhRotaWebhookPublica(context))
         {
             await _next(context);
             return;
@@ -72,6 +73,18 @@ public class GlowTokenAuthenticationMiddleware
             await WriteErrorAsync(context, statusCode, ex.Message, ex.Code);
             await auditLogger.AccessDeniedAsync(ex.Code, sessionContext.Ip, sessionContext.UserAgent);
         }
+    }
+
+    private static bool EhRotaWebhookPublica(HttpContext context)
+    {
+        var path = context.Request.Path.Value;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        return path.Equals("/api/webhooks/whatsapp/evolution/messages-upsert", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/api/webhooks/whatsapp/evolution/send-message", StringComparison.OrdinalIgnoreCase);
     }
 
     private bool DeveRenovarSessao(DateTime referencia)
