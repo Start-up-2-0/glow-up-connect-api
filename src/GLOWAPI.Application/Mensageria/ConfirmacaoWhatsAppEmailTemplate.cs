@@ -4,6 +4,20 @@ namespace GLOWAPI.Application.Mensageria;
 
 public static class ConfirmacaoWhatsAppEmailTemplate
 {
+    public static string CriarFalhaConfirmacao(string nome) =>
+        $"""
+            <p>Ola {Html(nome)},</p>
+            <p>Nao conseguimos confirmar seu WhatsApp no Glow Up Connect.</p>
+            <p>Verifique o codigo mais recente no e-mail de confirmacao ou solicite uma nova confirmacao pelo app.</p>
+            <p>Se o problema persistir, confira se a mensagem foi enviada do mesmo numero cadastrado no perfil.</p>
+            """;
+
+    public static string CriarFalhaConfirmacaoGenerica() =>
+        """
+            <p>Nao conseguimos confirmar seu WhatsApp no Glow Up Connect.</p>
+            <p>Verifique se o telefone esta cadastrado no perfil e use o codigo mais recente enviado por e-mail.</p>
+            """;
+
     private const string CorAmarela = "#ffbf00";
     private const string CorEscura = "#282828";
     private const string CorTextoSuave = "rgba(40,40,40,0.6)";

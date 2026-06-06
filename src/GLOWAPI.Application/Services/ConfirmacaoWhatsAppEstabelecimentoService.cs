@@ -137,12 +137,22 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
 
         if (estabelecimento.WhatsAppConfirmadoEm.HasValue)
         {
-            return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.JaConfirmado);
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(
+                WhatsAppConfirmacaoInboundMotivoIgnorado.JaConfirmado,
+                estabelecimento.Nome,
+                telefoneNormalizado,
+                estabelecimento.Email,
+                estabelecimento.Id);
         }
 
         if (!estabelecimento.PendenteConfirmacaoWhatsApp())
         {
-            return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.SemPendencia);
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(
+                WhatsAppConfirmacaoInboundMotivoIgnorado.SemPendencia,
+                estabelecimento.Nome,
+                telefoneNormalizado,
+                estabelecimento.Email,
+                estabelecimento.Id);
         }
 
         if (!ConfirmacaoWhatsAppCodigoHelper.MensagemContemCodigoValido(
@@ -151,7 +161,12 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
                 _authOptions.ConfirmacaoCodigoDigitos,
                 _tokenService))
         {
-            return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido);
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(
+                WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido,
+                estabelecimento.Nome,
+                telefoneNormalizado,
+                estabelecimento.Email,
+                estabelecimento.Id);
         }
 
         await ConfirmarEstabelecimentoAsync(estabelecimento, cancellationToken);

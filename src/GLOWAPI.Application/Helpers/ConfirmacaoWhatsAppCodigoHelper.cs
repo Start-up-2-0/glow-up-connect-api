@@ -26,6 +26,10 @@ public static class ConfirmacaoWhatsAppCodigoHelper
         return false;
     }
 
+    public static bool PareceTentativaConfirmacao(string textoMensagem) =>
+        !string.IsNullOrWhiteSpace(textoMensagem)
+        && textoMensagem.Contains("GLOW", StringComparison.OrdinalIgnoreCase);
+
     private static IEnumerable<string> ExtrairCandidatosCodigo(string texto, int digitosCodigo)
     {
         var numeros = new List<string>();

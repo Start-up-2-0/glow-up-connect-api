@@ -28,20 +28,7 @@ public class WebhookWhatsAppServiceTests
             .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.SucessoUsuario("Maria", "5511988887777"));
 
         var service = CreateService();
-        var payload = JsonDocument.Parse("""
-            {
-              "event": "messages.upsert",
-              "data": {
-                "key": {
-                  "remoteJid": "5511988887777@s.whatsapp.net",
-                  "fromMe": false
-                },
-                "message": {
-                  "conversation": "GLOW 482913"
-                }
-              }
-            }
-            """).RootElement;
+        var payload = CriarPayloadMensagem("5511988887777", "GLOW 482913", fromMe: false);
 
         await service.ProcessarMensagemRecebidaAsync(payload);
 
@@ -49,7 +36,17 @@ public class WebhookWhatsAppServiceTests
             m => m.RegistrarAsync(
                 It.Is<RegistrarMensagemNotificacaoDto>(dto =>
                     dto.Canal == CanalMensagemNotificacao.WhatsApp
-                    && dto.Destinatario == "5511988887777"),
+                    && dto.Destinatario == "5511988887777"
+                    && dto.Assunto == "Confirmacao WhatsApp em processamento"),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _mensagemService.Verify(
+            m => m.RegistrarAsync(
+                It.Is<RegistrarMensagemNotificacaoDto>(dto =>
+                    dto.Canal == CanalMensagemNotificacao.WhatsApp
+                    && dto.Destinatario == "5511988887777"
+                    && dto.Assunto == "Confirmacao WhatsApp aprovada"),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -90,30 +87,81 @@ public class WebhookWhatsAppServiceTests
     }
 
     [Fact]
-    public async Task ProcessarMensagemRecebidaAsync_DeveIgnorar_MensagensEnviadasPelaPlataforma()
+    public async Task ProcessarMensagemRecebidaAsync_DeveProcessar_MensagensFromMeTrue()
     {
+        ConfigurarFalhaConfirmacaoUsuarioECodigoInvalido();
+
         var service = CreateService();
-        var payload = JsonDocument.Parse("""
-            {
-              "event": "messages.upsert",
-              "data": {
-                "key": {
-                  "remoteJid": "5511988887777@s.whatsapp.net",
-                  "fromMe": true
-                },
-                "message": {
-                  "conversation": "Resposta automatica"
-                }
-              }
-            }
-            """).RootElement;
+        var payload = CriarPayloadMensagem("5511988887777", "GLOW 482913", fromMe: true);
 
         await service.ProcessarMensagemRecebidaAsync(payload);
 
         _confirmacaoWhatsAppService.Verify(
             s => s.TentarConfirmarPorMensagemInboundAsync(
-                It.IsAny<string>(),
-                It.IsAny<string>(),
+                "5511988887777",
+                "GLOW 482913",
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessarMensagemRecebidaAsync_DeveEnviarFalhaPorWhatsAppEEEmail_QuandoCodigoInvalido()
+    {
+        ConfigurarFalhaConfirmacaoUsuarioECodigoInvalido();
+
+        var service = CreateService();
+        var payload = CriarPayloadMensagem("5511988887777", "GLOW 482913", fromMe: false);
+
+        await service.ProcessarMensagemRecebidaAsync(payload);
+
+        _mensagemService.Verify(
+            m => m.RegistrarAsync(
+                It.Is<RegistrarMensagemNotificacaoDto>(dto =>
+                    dto.Canal == CanalMensagemNotificacao.WhatsApp
+                    && dto.Assunto == "Confirmacao WhatsApp nao concluida"),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _mensagemService.Verify(
+            m => m.RegistrarAsync(
+                It.Is<RegistrarMensagemNotificacaoDto>(dto =>
+                    dto.Canal == CanalMensagemNotificacao.Email
+                    && dto.Destinatario == "maria@email.com"
+                    && dto.Assunto == "Nao conseguimos confirmar seu WhatsApp"),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessarMensagemRecebidaAsync_DeveInformarJaConfirmado_SemEnviarFalha()
+    {
+        _confirmacaoWhatsAppService
+            .Setup(s => s.TentarConfirmarPorMensagemInboundAsync(
+                "5511988887777",
+                "GLOW 482913",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.Ignorado(
+                WhatsAppConfirmacaoInboundMotivoIgnorado.JaConfirmado,
+                "Maria",
+                "5511988887777",
+                "maria@email.com"));
+
+        var service = CreateService();
+        var payload = CriarPayloadMensagem("5511988887777", "GLOW 482913", fromMe: false);
+
+        await service.ProcessarMensagemRecebidaAsync(payload);
+
+        _mensagemService.Verify(
+            m => m.RegistrarAsync(
+                It.Is<RegistrarMensagemNotificacaoDto>(dto =>
+                    dto.Assunto == "WhatsApp ja confirmado"),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _mensagemService.Verify(
+            m => m.RegistrarAsync(
+                It.Is<RegistrarMensagemNotificacaoDto>(dto =>
+                    dto.Assunto == "Confirmacao WhatsApp nao concluida"),
                 It.IsAny<CancellationToken>()),
             Times.Never);
     }
@@ -186,6 +234,44 @@ public class WebhookWhatsAppServiceTests
             m => m.RegistrarAsync(It.IsAny<RegistrarMensagemNotificacaoDto>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
+
+    private void ConfigurarFalhaConfirmacaoUsuarioECodigoInvalido()
+    {
+        _confirmacaoWhatsAppService
+            .Setup(s => s.TentarConfirmarPorMensagemInboundAsync(
+                "5511988887777",
+                "GLOW 482913",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.Ignorado(
+                WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido,
+                "Maria",
+                "5511988887777",
+                "maria@email.com"));
+
+        _confirmacaoEstabelecimentoService
+            .Setup(s => s.TentarConfirmarPorMensagemInboundAsync(
+                "5511988887777",
+                "GLOW 482913",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.Ignorado(
+                WhatsAppConfirmacaoInboundMotivoIgnorado.EntidadeNaoEncontrada));
+    }
+
+    private static JsonElement CriarPayloadMensagem(string telefone, string texto, bool fromMe) =>
+        JsonDocument.Parse($$"""
+            {
+              "event": "messages.upsert",
+              "data": {
+                "key": {
+                  "remoteJid": "{{telefone}}@s.whatsapp.net",
+                  "fromMe": {{fromMe.ToString().ToLowerInvariant()}}
+                },
+                "message": {
+                  "conversation": "{{texto}}"
+                }
+              }
+            }
+            """).RootElement;
 
     private WebhookWhatsAppService CreateService() =>
         new(

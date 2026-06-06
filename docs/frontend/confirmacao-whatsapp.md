@@ -135,8 +135,19 @@ MESSAGES_UPSERT → https://api-staging-61ce.up.railway.app/api/webhooks/whatsap
 SEND_MESSAGE    → https://api-staging-61ce.up.railway.app/api/webhooks/whatsapp/evolution/send-message
 ```
 
-- `messages-upsert`: confirma codigo WhatsApp inbound; ignora mensagens `fromMe: true`
+- `messages-upsert`: confirma codigo WhatsApp inbound (inclui `fromMe: true`, ex.: mesmo chip plataforma/perfil em staging)
 - `send-message`: recebido e registrado em log (sem efeito colateral hoje)
+
+### Respostas automaticas ao usuario (WhatsApp)
+
+Quando a mensagem contem `GLOW` (tentativa de confirmacao), a API enfileira:
+
+| Momento | Canal | Mensagem |
+|---------|-------|----------|
+| Ao receber | WhatsApp | Estamos processando sua confirmacao |
+| Sucesso | WhatsApp | Confirmacao aprovada |
+| Ja confirmado | WhatsApp | Seu WhatsApp ja esta confirmado |
+| Falha (codigo/telefone) | WhatsApp + e-mail (se houver) | Nao conseguimos confirmar seu numero |
 
 ---
 
@@ -210,8 +221,6 @@ Em dev com e-mail desabilitado, use `linkWhatsApp` da resposta JSON para testar 
 1. **Codigo antigo** — cada `solicitar-confirmacao` gera codigo novo; use sempre o ultimo e-mail.
 2. **Telefone diferente do perfil** — a mensagem deve sair do numero cadastrado em `Usuario.Telefone` (equivalencia BR com/sem 9o digito e aceita).
 3. **Payload `@lid`** — a API resolve `remoteJidAlt` e `senderPn`; se a Evolution nao enviar alternativa, o evento e ignorado.
-4. **Evento `fromMe: true`** — eco da plataforma; ignorado de proposito.
-
 ### Isolar parser vs regra de negocio
 
 Se o webhook retorna 200 mas o status continua pendente, teste o fallback manual:
