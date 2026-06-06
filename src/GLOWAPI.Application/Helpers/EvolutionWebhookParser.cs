@@ -57,6 +57,19 @@ public static class EvolutionWebhookParser
             {
                 return telefone;
             }
+
+            if (key.TryGetProperty("fromMe", out var fromMe)
+                && fromMe.ValueKind == JsonValueKind.True
+                && payload.TryGetProperty("sender", out var senderFromMe))
+            {
+                var telefoneSender = NormalizarJid(senderFromMe.GetString());
+                if (!string.IsNullOrWhiteSpace(telefoneSender))
+                {
+                    return telefoneSender;
+                }
+            }
+
+            return string.Empty;
         }
 
         if (payload.TryGetProperty("sender", out var sender))
