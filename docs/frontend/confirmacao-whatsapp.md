@@ -223,7 +223,7 @@ Em dev com e-mail desabilitado, use `linkWhatsApp` da resposta JSON para testar 
 
 1. **Codigo antigo** — cada `solicitar-confirmacao` gera codigo novo; use sempre o ultimo e-mail.
 2. **Telefone diferente do perfil** — a mensagem deve sair do numero cadastrado em `Usuario.Telefone` (equivalencia BR com/sem 9o digito e aceita).
-3. **Payload `@lid`** — a API resolve `remoteJidAlt`, `senderPn` e, como fallback, `sender` no root do payload Evolution.
+3. **Payload `@lid`** — a API resolve `remoteJidAlt`, `senderPn` e, se `fromMe=true` (self-chat), `sender` no root. Com `fromMe=false` e `@lid` sem alternativa, o telefone real pode nao vir no payload Evolution v1.7 — use `POST /api/auth/confirmar-whatsapp` como fallback.
 ### Isolar parser vs regra de negocio
 
 Se o webhook retorna 200 mas o status continua pendente, teste o fallback manual:
