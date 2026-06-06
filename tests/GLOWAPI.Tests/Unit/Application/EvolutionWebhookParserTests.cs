@@ -138,7 +138,7 @@ public class EvolutionWebhookParserTests
     }
 
     [Fact]
-    public void ExtrairTelefoneRemetente_DeveUsarSenderSomenteSemDataKey()
+    public void ExtrairTelefoneRemetente_SemDataKey_NaoDeveUsarSenderInstancia()
     {
         var payload = JsonDocument.Parse("""
             {
@@ -148,7 +148,61 @@ public class EvolutionWebhookParserTests
 
         var telefone = EvolutionWebhookParser.ExtrairTelefoneRemetente(payload);
 
-        Assert.Equal("5511988887777", telefone);
+        Assert.Equal(string.Empty, telefone);
+    }
+
+    [Fact]
+    public void ExtrairTelefoneRemetente_LidFromMeFalse_DeveUsarSenderPnNoData()
+    {
+        var payload = JsonDocument.Parse("""
+            {
+              "data": {
+                "key": {
+                  "remoteJid": "60348602310753@lid",
+                  "fromMe": false
+                },
+                "senderPn": "5579998755111@s.whatsapp.net"
+              },
+              "sender": "557991917634@s.whatsapp.net"
+            }
+            """).RootElement;
+
+        var telefone = EvolutionWebhookParser.ExtrairTelefoneRemetente(payload);
+
+        Assert.Equal("5579998755111", telefone);
+    }
+
+    [Fact]
+    public void ExtrairDiagnosticoRemetente_PayloadThiagoLid_DeveDocumentarLimitacao()
+    {
+        var payload = JsonDocument.Parse("""
+            {
+              "data": {
+                "key": {
+                  "remoteJid": "60348602310753@lid",
+                  "fromMe": false
+                },
+                "pushName": "Thiago Soares",
+                "message": {
+                  "extendedTextMessage": {
+                    "text": "GLOW 565325"
+                  }
+                }
+              },
+              "sender": "557991917634@s.whatsapp.net"
+            }
+            """).RootElement;
+
+        var diagnostico = EvolutionWebhookParser.ExtrairDiagnosticoRemetente(payload);
+
+        Assert.Equal("60348602310753@lid", diagnostico.RemoteJid);
+        Assert.True(diagnostico.EhLid);
+        Assert.False(diagnostico.RemoteJidAltPresente);
+        Assert.False(diagnostico.SenderPnKeyPresente);
+        Assert.Equal("557991917634@s.whatsapp.net", diagnostico.SenderInstancia);
+        Assert.Equal("Thiago Soares", diagnostico.PushName);
+        Assert.Equal(string.Empty, diagnostico.TelefoneExtraido);
+        Assert.Equal("lid_sem_telefone_no_payload", diagnostico.MotivoTelefoneVazio);
     }
 
     [Fact]

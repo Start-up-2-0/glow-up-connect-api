@@ -279,7 +279,7 @@ public class WebhookWhatsAppServiceTests
                 string.Empty,
                 "GLOW 691617",
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new WhatsAppConfirmacaoInboundRespostaDestino("5579998755111", "Thiago", "60348602310753@lid"));
+            .ReturnsAsync(new WhatsAppConfirmacaoInboundRespostaDestino("5579998755111", "Thiago"));
 
         _confirmacaoWhatsAppService
             .Setup(s => s.TentarConfirmarPorMensagemInboundAsync(
@@ -318,7 +318,7 @@ public class WebhookWhatsAppServiceTests
         _mensagemService.Verify(
             m => m.RegistrarAsync(
                 It.Is<RegistrarMensagemNotificacaoDto>(dto =>
-                    dto.Destinatario == "60348602310753@lid"
+                    dto.Destinatario == "5579998755111"
                     && dto.Assunto == "Confirmacao WhatsApp em processamento"
                     && dto.Conteudo.Contains("Thiago")),
                 It.IsAny<CancellationToken>()),
@@ -327,7 +327,7 @@ public class WebhookWhatsAppServiceTests
         _mensagemService.Verify(
             m => m.RegistrarAsync(
                 It.Is<RegistrarMensagemNotificacaoDto>(dto =>
-                    dto.Destinatario == "60348602310753@lid"
+                    dto.Destinatario == "5579998755111"
                     && dto.Assunto == "Confirmacao WhatsApp aprovada"
                     && dto.Conteudo.Contains("Thiago")),
                 It.IsAny<CancellationToken>()),
