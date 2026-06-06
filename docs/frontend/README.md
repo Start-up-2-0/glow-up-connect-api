@@ -14,6 +14,7 @@ Substitua `{BASE_URL}` pela URL da API (local, staging ou producao).
 
 | Documento | Conteudo |
 |-----------|----------|
+| [../acesso/README.md](../acesso/README.md) | Controle de acesso: roles, planos e modulos por persona |
 | [convencoes.md](./convencoes.md) | Content-Type, header `x-glow-token`, formatos de resposta e erros |
 | [cadastro.md](./cadastro.md) | `POST /api/usuario` — criar conta cliente |
 | [confirmacao-conta.md](./confirmacao-conta.md) | Confirmar e-mail (link, codigo, reenvio) |

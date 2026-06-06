@@ -4,6 +4,7 @@ using System.Text.Json;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
+using GLOWAPI.Domain.Exceptions.Auth;
 using GLOWAPI.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,6 +30,41 @@ public class AcessoNegocioControllerTests : IClassFixture<GlowApiWebApplicationF
         var response = await client.GetAsync($"/api/estabelecimentos/{seed.EstabelecimentoId}/caixa");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Cliente_NaoDeveAcessarMeEstabelecimentos()
+    {
+        const string email = "cliente-acesso@email.com";
+        const string senha = "Senha123!";
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+
+            db.Usuarios.RemoveRange(db.Usuarios.Where(usuario => usuario.Email == email));
+            db.Usuarios.Add(new Usuario
+            {
+                Nome = "Cliente Acesso",
+                Email = email,
+                Telefone = "11999999999",
+                Senha = hasher.Hash(senha),
+                Role = UserRole.Cliente,
+                Ativo = true
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClient();
+        await AutenticarAsync(client, email, senha);
+
+        var response = await client.GetAsync("/api/usuario/me/estabelecimentos");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        Assert.Equal(ClienteSemAcessoNegocioException.ErrorCode, body.GetProperty("code").GetString());
     }
 
     [Fact]
