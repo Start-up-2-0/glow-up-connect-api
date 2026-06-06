@@ -144,12 +144,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
 
         if (destinoResposta is not null && !string.IsNullOrWhiteSpace(destinoResposta.Telefone))
         {
-            if (string.IsNullOrWhiteSpace(telefoneRemetente))
-            {
-                _logger.LogInformation(
-                    "Webhook WhatsApp resposta automatica via telefone cadastrado (inbound sem telefone no payload). Telefone={Telefone}",
-                    destinoResposta.Telefone);
-            }
+            LogarDestinoRespostaAutomatica(telefoneRemetente, destinoResposta);
 
             await EnviarMensagemProcessandoAsync(
                 destinoResposta.Telefone,
@@ -166,7 +161,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         {
             await EnviarRespostaConfirmacaoSucessoAsync(
                 resultadoUsuario,
-                ObterDestinatarioRespostaAutomatica(resultadoUsuario, telefoneRemetente),
+                ObterDestinatarioRespostaAutomatica(resultadoUsuario),
                 cancellationToken);
             return;
         }
@@ -177,7 +172,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         {
             await EnviarRespostaJaConfirmadoAsync(
                 resultadoUsuario,
-                ObterDestinatarioRespostaAutomatica(resultadoUsuario, telefoneRemetente),
+                ObterDestinatarioRespostaAutomatica(resultadoUsuario),
                 cancellationToken);
             return;
         }
@@ -191,7 +186,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         {
             await EnviarRespostaConfirmacaoSucessoAsync(
                 resultadoEstabelecimento,
-                ObterDestinatarioRespostaAutomatica(resultadoEstabelecimento, telefoneRemetente),
+                ObterDestinatarioRespostaAutomatica(resultadoEstabelecimento),
                 cancellationToken);
             return;
         }
@@ -202,7 +197,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         {
             await EnviarRespostaJaConfirmadoAsync(
                 resultadoEstabelecimento,
-                ObterDestinatarioRespostaAutomatica(resultadoEstabelecimento, telefoneRemetente),
+                ObterDestinatarioRespostaAutomatica(resultadoEstabelecimento),
                 cancellationToken);
             return;
         }
@@ -210,7 +205,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         var resultadoFalha = SelecionarResultadoFalha(resultadoUsuario, resultadoEstabelecimento);
         await EnviarRespostaConfirmacaoFalhaAsync(
             resultadoFalha,
-            ObterDestinatarioRespostaAutomatica(resultadoFalha, telefoneRemetente),
+            ObterDestinatarioRespostaAutomatica(resultadoFalha),
             cancellationToken);
     }
 
@@ -300,11 +295,6 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         string textoMensagem,
         CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(telefoneRemetente))
-        {
-            return new WhatsAppConfirmacaoInboundRespostaDestino(telefoneRemetente, null);
-        }
-
         var destinoUsuario = await _confirmacaoWhatsAppService.ResolverDestinoRespostaInboundAsync(
             telefoneRemetente,
             textoMensagem,
@@ -321,10 +311,37 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             cancellationToken);
     }
 
+    private void LogarDestinoRespostaAutomatica(
+        string telefoneWebhook,
+        WhatsAppConfirmacaoInboundRespostaDestino destino)
+    {
+        var telefoneWebhookNormalizado = TelefoneHelper.NormalizarParaWhatsApp(telefoneWebhook);
+        if (string.IsNullOrWhiteSpace(telefoneWebhookNormalizado))
+        {
+            _logger.LogInformation(
+                "Webhook WhatsApp resposta automatica via telefone cadastrado do codigo. UsuarioId={UsuarioId}, EstabelecimentoId={EstabelecimentoId}, Nome={Nome}, Telefone={Telefone}",
+                destino.UsuarioId,
+                destino.EstabelecimentoId,
+                destino.Nome ?? "(nao informado)",
+                destino.Telefone);
+            return;
+        }
+
+        if (!TelefoneHelper.SaoEquivalentes(telefoneWebhookNormalizado, destino.Telefone))
+        {
+            _logger.LogInformation(
+                "Webhook WhatsApp resposta automatica via telefone cadastrado do codigo (telefone do payload ignorado). UsuarioId={UsuarioId}, EstabelecimentoId={EstabelecimentoId}, TelefonePayload={TelefonePayload}, Nome={Nome}, TelefoneDestino={TelefoneDestino}",
+                destino.UsuarioId,
+                destino.EstabelecimentoId,
+                telefoneWebhookNormalizado,
+                destino.Nome ?? "(nao informado)",
+                destino.Telefone);
+        }
+    }
+
     private static string ObterDestinatarioRespostaAutomatica(
-        WhatsAppConfirmacaoInboundResultado resultado,
-        string telefoneRemetente) =>
-        ObterTelefoneResposta(resultado, telefoneRemetente);
+        WhatsAppConfirmacaoInboundResultado resultado) =>
+        resultado.TelefoneResposta;
 
     private async Task EnviarMensagemProcessandoAsync(
         string telefoneRemetente,
@@ -360,8 +377,10 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             cancellationToken);
 
         _logger.LogInformation(
-            "WhatsApp confirmado via webhook inbound. Tipo={Tipo}, Destinatario={Destinatario}",
+            "WhatsApp confirmado via webhook inbound. Tipo={Tipo}, UsuarioId={UsuarioId}, EstabelecimentoId={EstabelecimentoId}, Destinatario={Destinatario}",
             resultado.Tipo,
+            resultado.UsuarioId,
+            resultado.EstabelecimentoId,
             destinatario);
     }
 

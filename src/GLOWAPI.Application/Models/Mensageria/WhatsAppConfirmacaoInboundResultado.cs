@@ -24,6 +24,7 @@ public class WhatsAppConfirmacaoInboundResultado
     public string NomeDestinatario { get; init; } = string.Empty;
     public string TelefoneResposta { get; init; } = string.Empty;
     public string EmailDestinatario { get; init; } = string.Empty;
+    public int? UsuarioId { get; init; }
     public int? EstabelecimentoId { get; init; }
 
     public bool PossuiContatoIdentificado =>
@@ -34,6 +35,7 @@ public class WhatsAppConfirmacaoInboundResultado
         string? nomeDestinatario = null,
         string? telefoneResposta = null,
         string? emailDestinatario = null,
+        int? usuarioId = null,
         int? estabelecimentoId = null) =>
         new()
         {
@@ -42,16 +44,18 @@ public class WhatsAppConfirmacaoInboundResultado
             NomeDestinatario = nomeDestinatario ?? string.Empty,
             TelefoneResposta = telefoneResposta ?? string.Empty,
             EmailDestinatario = emailDestinatario ?? string.Empty,
+            UsuarioId = usuarioId,
             EstabelecimentoId = estabelecimentoId
         };
 
-    public static WhatsAppConfirmacaoInboundResultado SucessoUsuario(string nome, string telefone) =>
+    public static WhatsAppConfirmacaoInboundResultado SucessoUsuario(string nome, string telefone, int usuarioId) =>
         new()
         {
             Confirmado = true,
             Tipo = WhatsAppConfirmacaoInboundTipo.Usuario,
             NomeDestinatario = nome,
-            TelefoneResposta = telefone
+            TelefoneResposta = telefone,
+            UsuarioId = usuarioId
         };
 
     public static WhatsAppConfirmacaoInboundResultado SucessoEstabelecimento(
