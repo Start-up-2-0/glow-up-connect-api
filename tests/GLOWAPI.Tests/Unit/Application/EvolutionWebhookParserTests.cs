@@ -99,6 +99,31 @@ public class EvolutionWebhookParserTests
     }
 
     [Fact]
+    public void DescreverMotivoNaoInbound_DeveRetornarSemCampoData()
+    {
+        var payload = JsonDocument.Parse("""{ "event": "messages.upsert" }""").RootElement;
+
+        Assert.Equal("sem_campo_data", EvolutionWebhookParser.DescreverMotivoNaoInbound(payload));
+    }
+
+    [Fact]
+    public void DescreverMotivoNaoInbound_DeveRetornarTelefoneNaoExtraido()
+    {
+        var payload = JsonDocument.Parse("""
+            {
+              "data": {
+                "key": {
+                  "remoteJid": "69385314111689@lid",
+                  "fromMe": false
+                }
+              }
+            }
+            """).RootElement;
+
+        Assert.Equal("telefone_nao_extraido", EvolutionWebhookParser.DescreverMotivoNaoInbound(payload));
+    }
+
+    [Fact]
     public void IsMensagemInboundDoUsuario_DeveAceitarFromMeTrue()
     {
         var payload = JsonDocument.Parse("""
