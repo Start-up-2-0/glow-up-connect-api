@@ -6,16 +6,32 @@ public enum WhatsAppConfirmacaoInboundTipo
     Estabelecimento = 2
 }
 
+public enum WhatsAppConfirmacaoInboundMotivoIgnorado
+{
+    Nenhum = 0,
+    TelefoneInvalido,
+    EntidadeNaoEncontrada,
+    JaConfirmado,
+    SemPendencia,
+    CodigoInvalido
+}
+
 public class WhatsAppConfirmacaoInboundResultado
 {
     public bool Confirmado { get; init; }
     public WhatsAppConfirmacaoInboundTipo? Tipo { get; init; }
+    public WhatsAppConfirmacaoInboundMotivoIgnorado MotivoIgnorado { get; init; }
     public string NomeDestinatario { get; init; } = string.Empty;
     public string TelefoneResposta { get; init; } = string.Empty;
     public int? EstabelecimentoId { get; init; }
 
-    public static WhatsAppConfirmacaoInboundResultado Ignorado() =>
-        new() { Confirmado = false };
+    public static WhatsAppConfirmacaoInboundResultado Ignorado(
+        WhatsAppConfirmacaoInboundMotivoIgnorado motivo = WhatsAppConfirmacaoInboundMotivoIgnorado.Nenhum) =>
+        new()
+        {
+            Confirmado = false,
+            MotivoIgnorado = motivo
+        };
 
     public static WhatsAppConfirmacaoInboundResultado SucessoUsuario(string nome, string telefone) =>
         new()
