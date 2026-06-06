@@ -129,6 +129,23 @@ public class ConfirmacaoWhatsAppServiceTests
     }
 
     [Fact]
+    public async Task ResolverDestinoRespostaInboundAsync_DeveRetornarTelefoneCadastrado_QuandoCodigoIdentificaUsuario()
+    {
+        var usuario = CriarUsuarioPendenteWhatsApp();
+        usuario.Telefone = "79998755111";
+        _usuarioRepository
+            .Setup(r => r.ObterPorWhatsAppConfirmacaoCodigoHashAsync("hash-482913", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usuario);
+
+        var service = CreateService();
+        var destino = await service.ResolverDestinoRespostaInboundAsync(string.Empty, "GLOW 482913");
+
+        Assert.NotNull(destino);
+        Assert.Equal("5579998755111", destino!.Telefone);
+        Assert.Equal("Maria", destino.Nome);
+    }
+
+    [Fact]
     public async Task TentarConfirmarPorMensagemInboundAsync_DeveConfirmarApenasPorCodigo_QuandoTelefoneAusente()
     {
         var usuario = CriarUsuarioPendenteWhatsApp();

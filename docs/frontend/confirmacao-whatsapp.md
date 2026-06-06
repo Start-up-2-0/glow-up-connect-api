@@ -224,7 +224,7 @@ Em dev com e-mail desabilitado, use `linkWhatsApp` da resposta JSON para testar 
 
 1. **Codigo antigo** — cada `solicitar-confirmacao` gera codigo novo; use sempre o ultimo e-mail.
 2. **Telefone diferente do perfil** — a mensagem deve sair do numero cadastrado em `Usuario.Telefone` (equivalencia BR com/sem 9o digito e aceita).
-3. **Payload `@lid`** — a API resolve `remoteJidAlt`, `senderPn` e, se `fromMe=true` (self-chat), `sender` no root. Com `fromMe=false` e `@lid` sem alternativa, o telefone real pode nao vir no payload Evolution v1.7; nesse caso a API confirma **somente pelo codigo** (`GLOW {codigo}`) e envia a resposta para o telefone cadastrado no perfil. Fallback manual: `POST /api/auth/confirmar-whatsapp`.
+3. **Payload `@lid`** — a API resolve `remoteJidAlt`, `senderPn` e, se `fromMe=true` (self-chat), `sender` no root. Com `fromMe=false` e `@lid` sem alternativa, confirma **somente pelo codigo** e responde na **mesma conversa** (`remoteJid` `@lid`), nao no telefone cadastrado. Fallback manual: `POST /api/auth/confirmar-whatsapp`.
 4. **Self-chat sem `GLOW`** — mensagens como `"mande dnv o codigo"` ou figurinhas no proprio numero da instancia sao ignoradas (sem `ja confirmado` nem outras respostas automaticas).
 ### Isolar parser vs regra de negocio
 

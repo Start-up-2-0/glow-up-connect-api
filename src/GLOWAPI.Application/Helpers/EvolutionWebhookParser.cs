@@ -84,6 +84,23 @@ public static class EvolutionWebhookParser
         return string.Empty;
     }
 
+    public static string? ExtrairRemoteJidConversa(JsonElement payload)
+    {
+        if (payload.TryGetProperty("data", out var data)
+            && data.TryGetProperty("key", out var key)
+            && key.TryGetProperty("remoteJid", out var remoteJid))
+        {
+            var jid = remoteJid.GetString();
+            return string.IsNullOrWhiteSpace(jid) ? null : jid;
+        }
+
+        return null;
+    }
+
+    public static bool EhRemoteJidLid(string? remoteJid) =>
+        !string.IsNullOrWhiteSpace(remoteJid)
+        && remoteJid.Contains("@lid", StringComparison.OrdinalIgnoreCase);
+
     public static string ExtrairTextoMensagem(JsonElement payload)
     {
         if (!payload.TryGetProperty("data", out var data)
