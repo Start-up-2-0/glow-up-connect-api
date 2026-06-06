@@ -22,4 +22,9 @@ public interface IConfirmacaoWhatsAppEstabelecimentoService
         string telefoneRemetente,
         string textoMensagem,
         CancellationToken cancellationToken = default);
+
+    Task<WhatsAppConfirmacaoInboundRespostaDestino?> ResolverDestinoRespostaInboundAsync(
+        string telefoneRemetente,
+        string textoMensagem,
+        CancellationToken cancellationToken = default);
 }
