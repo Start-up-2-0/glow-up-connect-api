@@ -56,7 +56,8 @@ Prefixo: `/api/publico/agendar`
 | Metodo | Rota | Descricao |
 |--------|------|-----------|
 | POST | `/api/webhooks/pagamentos` | Eventos de gateway de pagamento |
-| POST | `/api/webhooks/whatsapp/evolution` | Eventos WhatsApp Evolution |
+| POST | `/api/webhooks/whatsapp/evolution/message_upsert` | Mensagem recebida WhatsApp Evolution |
+| POST | `/api/webhooks/whatsapp/evolution/send_message` | Mensagem enviada WhatsApp Evolution |
 
 ## Modulos de assinatura
 

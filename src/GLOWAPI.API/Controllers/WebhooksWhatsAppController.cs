@@ -18,12 +18,22 @@ public class WebhooksWhatsAppController : ControllerBase
     }
 
     [AllowAnonymous]
-    [HttpPost("evolution")]
-    public async Task<IActionResult> Evolution(
+    [HttpPost("evolution/message_upsert")]
+    public async Task<IActionResult> MensagemRecebida(
         [FromBody] JsonElement payload,
         CancellationToken cancellationToken)
     {
-        await _webhookWhatsAppService.ProcessarEvolutionWebhookAsync(payload, cancellationToken);
+        await _webhookWhatsAppService.ProcessarMensagemRecebidaAsync(payload, cancellationToken);
+        return Ok(ApiSuccessResponse.From("Webhook WhatsApp processado."));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("evolution/send_message")]
+    public async Task<IActionResult> MensagemEnviada(
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        await _webhookWhatsAppService.ProcessarMensagemEnviadaAsync(payload, cancellationToken);
         return Ok(ApiSuccessResponse.From("Webhook WhatsApp processado."));
     }
 }

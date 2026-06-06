@@ -18,7 +18,7 @@ public class WebhookWhatsAppServiceTests
     private readonly Mock<IMensagemNotificacaoService> _mensagemService = new();
 
     [Fact]
-    public async Task ProcessarEvolutionWebhookAsync_DeveConfirmarUsuario_QuandoMensagemRecebida()
+    public async Task ProcessarMensagemRecebidaAsync_DeveConfirmarUsuario_QuandoMensagemRecebida()
     {
         _confirmacaoWhatsAppService
             .Setup(s => s.TentarConfirmarPorMensagemInboundAsync(
@@ -43,7 +43,7 @@ public class WebhookWhatsAppServiceTests
             }
             """).RootElement;
 
-        await service.ProcessarEvolutionWebhookAsync(payload);
+        await service.ProcessarMensagemRecebidaAsync(payload);
 
         _mensagemService.Verify(
             m => m.RegistrarAsync(
@@ -55,7 +55,42 @@ public class WebhookWhatsAppServiceTests
     }
 
     [Fact]
-    public async Task ProcessarEvolutionWebhookAsync_DeveIgnorar_MensagensEnviadasPelaPlataforma()
+    public async Task ProcessarMensagemRecebidaAsync_DeveConfirmarUsuario_SemCampoEventNoPayload()
+    {
+        _confirmacaoWhatsAppService
+            .Setup(s => s.TentarConfirmarPorMensagemInboundAsync(
+                "5511988887777",
+                "GLOW 482913",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.SucessoUsuario("Maria", "5511988887777"));
+
+        var service = CreateService();
+        var payload = JsonDocument.Parse("""
+            {
+              "data": {
+                "key": {
+                  "remoteJid": "5511988887777@s.whatsapp.net",
+                  "fromMe": false
+                },
+                "message": {
+                  "conversation": "GLOW 482913"
+                }
+              }
+            }
+            """).RootElement;
+
+        await service.ProcessarMensagemRecebidaAsync(payload);
+
+        _confirmacaoWhatsAppService.Verify(
+            s => s.TentarConfirmarPorMensagemInboundAsync(
+                "5511988887777",
+                "GLOW 482913",
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessarMensagemRecebidaAsync_DeveIgnorar_MensagensEnviadasPelaPlataforma()
     {
         var service = CreateService();
         var payload = JsonDocument.Parse("""
@@ -73,13 +108,46 @@ public class WebhookWhatsAppServiceTests
             }
             """).RootElement;
 
-        await service.ProcessarEvolutionWebhookAsync(payload);
+        await service.ProcessarMensagemRecebidaAsync(payload);
 
         _confirmacaoWhatsAppService.Verify(
             s => s.TentarConfirmarPorMensagemInboundAsync(
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ProcessarMensagemEnviadaAsync_NaoDeveConfirmarUsuario()
+    {
+        var service = CreateService();
+        var payload = JsonDocument.Parse("""
+            {
+              "event": "send.message",
+              "data": {
+                "key": {
+                  "remoteJid": "5511988887777@s.whatsapp.net",
+                  "fromMe": true
+                },
+                "message": {
+                  "conversation": "Ola Maria"
+                }
+              }
+            }
+            """).RootElement;
+
+        await service.ProcessarMensagemEnviadaAsync(payload);
+
+        _confirmacaoWhatsAppService.Verify(
+            s => s.TentarConfirmarPorMensagemInboundAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        _mensagemService.Verify(
+            m => m.RegistrarAsync(It.IsAny<RegistrarMensagemNotificacaoDto>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
