@@ -3,6 +3,7 @@ using GLOWAPI.Application.DTOs.Mensageria;
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Mensageria;
+using GLOWAPI.Application.Models.Mensageria;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Enums;
 using Microsoft.Extensions.Logging;
@@ -38,6 +39,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
     {
         if (!EvolutionWebhookParser.IsMensagemInboundDoUsuario(payload))
         {
+            _logger.LogDebug("Webhook WhatsApp messages-upsert ignorado: nao inbound.");
             return;
         }
 
@@ -80,6 +82,10 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
 
         if (string.IsNullOrWhiteSpace(telefoneRemetente) || string.IsNullOrWhiteSpace(textoMensagem))
         {
+            _logger.LogInformation(
+                "Webhook WhatsApp messages-upsert sem telefone ou texto. TelefonePresente={TelefonePresente}, TextoPresente={TextoPresente}",
+                !string.IsNullOrWhiteSpace(telefoneRemetente),
+                !string.IsNullOrWhiteSpace(textoMensagem));
             return;
         }
 
@@ -94,6 +100,8 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             return;
         }
 
+        LogarMotivoIgnorado("usuario", telefoneRemetente, resultadoUsuario.MotivoIgnorado);
+
         var resultadoEstabelecimento = await _confirmacaoWhatsAppEstabelecimentoService.TentarConfirmarPorMensagemInboundAsync(
             telefoneRemetente,
             textoMensagem,
@@ -102,7 +110,27 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         if (resultadoEstabelecimento.Confirmado)
         {
             await EnviarRespostaConfirmacaoAsync(resultadoEstabelecimento, cancellationToken);
+            return;
         }
+
+        LogarMotivoIgnorado("estabelecimento", telefoneRemetente, resultadoEstabelecimento.MotivoIgnorado);
+    }
+
+    private void LogarMotivoIgnorado(
+        string tipo,
+        string telefone,
+        WhatsAppConfirmacaoInboundMotivoIgnorado motivo)
+    {
+        if (motivo == WhatsAppConfirmacaoInboundMotivoIgnorado.Nenhum)
+        {
+            return;
+        }
+
+        _logger.LogInformation(
+            "Webhook WhatsApp messages-upsert sem confirmacao. Tipo={Tipo}, Telefone={Telefone}, Motivo={Motivo}",
+            tipo,
+            telefone,
+            motivo);
     }
 
     private bool ValidarApiKey(JsonElement payload)
@@ -124,7 +152,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
     }
 
     private async Task EnviarRespostaConfirmacaoAsync(
-        Models.Mensageria.WhatsAppConfirmacaoInboundResultado resultado,
+        WhatsAppConfirmacaoInboundResultado resultado,
         CancellationToken cancellationToken)
     {
         var conteudo = ConfirmacaoWhatsAppTemplate.RespostaConfirmacaoSucesso(resultado.NomeDestinatario);
