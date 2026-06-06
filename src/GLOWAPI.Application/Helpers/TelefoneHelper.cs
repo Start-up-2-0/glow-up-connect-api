@@ -27,8 +27,18 @@ public static class TelefoneHelper
     {
         var normalizadoA = NormalizarParaWhatsApp(telefoneA ?? string.Empty);
         var normalizadoB = NormalizarParaWhatsApp(telefoneB ?? string.Empty);
-        return !string.IsNullOrEmpty(normalizadoA)
-            && normalizadoA == normalizadoB;
+
+        if (string.IsNullOrEmpty(normalizadoA) || string.IsNullOrEmpty(normalizadoB))
+        {
+            return false;
+        }
+
+        if (normalizadoA == normalizadoB)
+        {
+            return true;
+        }
+
+        return SaoEquivalentesCelularBrasil(normalizadoA, normalizadoB);
     }
 
     public static string CriarLinkWaMe(string numeroPlataforma, string mensagem)
@@ -41,5 +51,42 @@ public static class TelefoneHelper
 
         var texto = Uri.EscapeDataString(mensagem.Trim());
         return $"https://wa.me/{numero}?text={texto}";
+    }
+
+    private static bool SaoEquivalentesCelularBrasil(string telefoneA, string telefoneB)
+    {
+        var varianteA = ObterVarianteCelularBrasilSemNonoDigito(telefoneA);
+        var varianteB = ObterVarianteCelularBrasilSemNonoDigito(telefoneB);
+
+        if (varianteA is null || varianteB is null)
+        {
+            return false;
+        }
+
+        return varianteA == varianteB
+            || varianteA == telefoneB
+            || varianteB == telefoneA;
+    }
+
+    private static string? ObterVarianteCelularBrasilSemNonoDigito(string telefone)
+    {
+        if (!telefone.StartsWith("55", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var numeroLocal = telefone[2..];
+
+        if (numeroLocal.Length == 11 && numeroLocal[2] == '9')
+        {
+            return $"55{numeroLocal[..2]}{numeroLocal[3..]}";
+        }
+
+        if (numeroLocal.Length == 10)
+        {
+            return $"55{numeroLocal[..2]}9{numeroLocal[2..]}";
+        }
+
+        return null;
     }
 }

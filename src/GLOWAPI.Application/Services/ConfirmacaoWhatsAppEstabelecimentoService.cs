@@ -123,18 +123,26 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
         var telefoneNormalizado = TelefoneHelper.NormalizarParaWhatsApp(telefoneRemetente);
         if (string.IsNullOrWhiteSpace(telefoneNormalizado))
         {
-            return WhatsAppConfirmacaoInboundResultado.Ignorado();
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.TelefoneInvalido);
         }
 
         var estabelecimento = await _estabelecimentoRepository.ObterPorTelefoneNormalizadoAsync(
             telefoneNormalizado,
             cancellationToken);
 
-        if (estabelecimento is null
-            || estabelecimento.WhatsAppConfirmadoEm.HasValue
-            || !estabelecimento.PendenteConfirmacaoWhatsApp())
+        if (estabelecimento is null)
         {
-            return WhatsAppConfirmacaoInboundResultado.Ignorado();
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.EntidadeNaoEncontrada);
+        }
+
+        if (estabelecimento.WhatsAppConfirmadoEm.HasValue)
+        {
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.JaConfirmado);
+        }
+
+        if (!estabelecimento.PendenteConfirmacaoWhatsApp())
+        {
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.SemPendencia);
         }
 
         if (!ConfirmacaoWhatsAppCodigoHelper.MensagemContemCodigoValido(
@@ -143,7 +151,7 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
                 _authOptions.ConfirmacaoCodigoDigitos,
                 _tokenService))
         {
-            return WhatsAppConfirmacaoInboundResultado.Ignorado();
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido);
         }
 
         await ConfirmarEstabelecimentoAsync(estabelecimento, cancellationToken);

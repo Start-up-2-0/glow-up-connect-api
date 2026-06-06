@@ -1,6 +1,7 @@
 using GLOWAPI.Application.DTOs.Mensageria;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Models.Mensageria;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
@@ -109,6 +110,39 @@ public class ConfirmacaoWhatsAppServiceTests
 
         Assert.True(resultado.Confirmado);
         Assert.NotNull(usuario.WhatsAppConfirmadoEm);
+    }
+
+    [Fact]
+    public async Task TentarConfirmarPorMensagemInboundAsync_DeveRetornarEntidadeNaoEncontrada_QuandoUsuarioInexistente()
+    {
+        _usuarioRepository
+            .Setup(r => r.ObterPorTelefoneNormalizadoAsync("5511988887777", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Usuario?)null);
+
+        var service = CreateService();
+        var resultado = await service.TentarConfirmarPorMensagemInboundAsync(
+            "5511988887777",
+            "GLOW 482913");
+
+        Assert.False(resultado.Confirmado);
+        Assert.Equal(WhatsAppConfirmacaoInboundMotivoIgnorado.EntidadeNaoEncontrada, resultado.MotivoIgnorado);
+    }
+
+    [Fact]
+    public async Task TentarConfirmarPorMensagemInboundAsync_DeveRetornarCodigoInvalido_QuandoMensagemSemCodigo()
+    {
+        var usuario = CriarUsuarioPendenteWhatsApp();
+        _usuarioRepository
+            .Setup(r => r.ObterPorTelefoneNormalizadoAsync("5511988887777", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usuario);
+
+        var service = CreateService();
+        var resultado = await service.TentarConfirmarPorMensagemInboundAsync(
+            "5511988887777",
+            "Ola, tudo bem?");
+
+        Assert.False(resultado.Confirmado);
+        Assert.Equal(WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido, resultado.MotivoIgnorado);
     }
 
     [Fact]

@@ -58,7 +58,7 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
             .ToListAsync(cancellationToken);
 
         return candidatos.FirstOrDefault(estabelecimento =>
-            TelefoneHelper.NormalizarParaWhatsApp(estabelecimento.Telefone) == telefoneNormalizado);
+            TelefoneHelper.SaoEquivalentes(estabelecimento.Telefone, telefoneNormalizado));
     }
 
     public async Task<(IReadOnlyList<EstabelecimentoProximoConsulta> Itens, int Total)> ListarProximosAsync(

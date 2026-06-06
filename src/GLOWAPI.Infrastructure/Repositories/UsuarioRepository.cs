@@ -35,7 +35,7 @@ public class UsuarioRepository : Repository<Usuario>, IUsuarioRepository
             .ToListAsync(cancellationToken);
 
         return candidatos.FirstOrDefault(usuario =>
-            TelefoneHelper.NormalizarParaWhatsApp(usuario.Telefone) == telefoneNormalizado);
+            TelefoneHelper.SaoEquivalentes(usuario.Telefone, telefoneNormalizado));
     }
 
     public Task<Usuario?> ObterPorConfirmacaoTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default)

@@ -24,18 +24,19 @@ public static class EvolutionWebhookParser
     public static string ExtrairTelefoneRemetente(JsonElement payload)
     {
         if (payload.TryGetProperty("data", out var data)
-            && data.TryGetProperty("key", out var key)
-            && key.TryGetProperty("remoteJid", out var remoteJid))
+            && data.TryGetProperty("key", out var key))
         {
-            var jid = remoteJid.GetString() ?? string.Empty;
-            var telefone = jid.Split('@')[0];
-            return TelefoneHelper.NormalizarParaWhatsApp(telefone);
+            var telefone = ResolverTelefoneDeKey(key);
+            if (!string.IsNullOrWhiteSpace(telefone))
+            {
+                return telefone;
+            }
         }
 
-        if (payload.TryGetProperty("sender", out var sender))
+        if (!payload.TryGetProperty("data", out _)
+            && payload.TryGetProperty("sender", out var sender))
         {
-            var valor = sender.GetString() ?? string.Empty;
-            return TelefoneHelper.NormalizarParaWhatsApp(valor.Split('@')[0]);
+            return NormalizarJid(sender.GetString());
         }
 
         return string.Empty;
@@ -49,21 +50,93 @@ public static class EvolutionWebhookParser
             return string.Empty;
         }
 
+        return ExtrairTextoDeMessageObject(message);
+    }
+
+    private static string ResolverTelefoneDeKey(JsonElement key)
+    {
+        if (key.TryGetProperty("remoteJid", out var remoteJid))
+        {
+            var jid = remoteJid.GetString() ?? string.Empty;
+            if (jid.Contains("@lid", StringComparison.OrdinalIgnoreCase))
+            {
+                if (key.TryGetProperty("remoteJidAlt", out var remoteJidAlt))
+                {
+                    var telefoneAlt = NormalizarJid(remoteJidAlt.GetString());
+                    if (!string.IsNullOrWhiteSpace(telefoneAlt))
+                    {
+                        return telefoneAlt;
+                    }
+                }
+
+                if (key.TryGetProperty("senderPn", out var senderPn))
+                {
+                    var telefonePn = NormalizarJid(senderPn.GetString());
+                    if (!string.IsNullOrWhiteSpace(telefonePn))
+                    {
+                        return telefonePn;
+                    }
+                }
+
+                return string.Empty;
+            }
+
+            return NormalizarJid(jid);
+        }
+
+        return string.Empty;
+    }
+
+    private static string NormalizarJid(string? jid)
+    {
+        if (string.IsNullOrWhiteSpace(jid))
+        {
+            return string.Empty;
+        }
+
+        var prefixo = jid.Split('@')[0];
+        return TelefoneHelper.NormalizarParaWhatsApp(prefixo);
+    }
+
+    private static string ExtrairTextoDeMessageObject(JsonElement message)
+    {
         if (message.TryGetProperty("conversation", out var conversation))
         {
-            return conversation.GetString()?.Trim() ?? string.Empty;
+            var texto = conversation.GetString()?.Trim();
+            if (!string.IsNullOrWhiteSpace(texto))
+            {
+                return texto;
+            }
         }
 
         if (message.TryGetProperty("extendedTextMessage", out var extended)
             && extended.TryGetProperty("text", out var text))
         {
-            return text.GetString()?.Trim() ?? string.Empty;
+            var texto = text.GetString()?.Trim();
+            if (!string.IsNullOrWhiteSpace(texto))
+            {
+                return texto;
+            }
         }
 
         if (message.TryGetProperty("buttonsResponseMessage", out var buttonResponse)
             && buttonResponse.TryGetProperty("selectedDisplayText", out var selected))
         {
-            return selected.GetString()?.Trim() ?? string.Empty;
+            var texto = selected.GetString()?.Trim();
+            if (!string.IsNullOrWhiteSpace(texto))
+            {
+                return texto;
+            }
+        }
+
+        if (message.TryGetProperty("ephemeralMessage", out var ephemeral)
+            && ephemeral.TryGetProperty("message", out var ephemeralMessage))
+        {
+            var texto = ExtrairTextoDeMessageObject(ephemeralMessage);
+            if (!string.IsNullOrWhiteSpace(texto))
+            {
+                return texto;
+            }
         }
 
         return string.Empty;
