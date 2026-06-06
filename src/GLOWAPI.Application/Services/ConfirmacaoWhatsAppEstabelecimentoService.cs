@@ -120,10 +120,22 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
         string textoMensagem,
         CancellationToken cancellationToken = default)
     {
+        var estabelecimentoPorCodigo = await BuscarEstabelecimentoPorCodigoNaMensagemAsync(
+            textoMensagem,
+            cancellationToken);
+
+        if (estabelecimentoPorCodigo is not null)
+        {
+            return await ProcessarConfirmacaoInboundDoEstabelecimentoAsync(
+                estabelecimentoPorCodigo,
+                textoMensagem,
+                cancellationToken);
+        }
+
         var telefoneNormalizado = TelefoneHelper.NormalizarParaWhatsApp(telefoneRemetente);
         if (string.IsNullOrWhiteSpace(telefoneNormalizado))
         {
-            return await TentarConfirmarApenasPorCodigoInboundAsync(textoMensagem, cancellationToken);
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido);
         }
 
         var estabelecimento = await _estabelecimentoRepository.ObterPorTelefoneNormalizadoAsync(
@@ -143,25 +155,19 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
         string textoMensagem,
         CancellationToken cancellationToken = default)
     {
+        var destinoPorCodigo = await ResolverDestinoPorCodigoAsync(textoMensagem, cancellationToken);
+        if (destinoPorCodigo is not null)
+        {
+            return destinoPorCodigo;
+        }
+
         var telefoneNormalizado = TelefoneHelper.NormalizarParaWhatsApp(telefoneRemetente);
-        if (!string.IsNullOrWhiteSpace(telefoneNormalizado))
-        {
-            return new WhatsAppConfirmacaoInboundRespostaDestino(telefoneNormalizado, null);
-        }
-
-        var estabelecimento = await BuscarEstabelecimentoPorCodigoNaMensagemAsync(textoMensagem, cancellationToken);
-        if (estabelecimento is null)
+        if (string.IsNullOrWhiteSpace(telefoneNormalizado))
         {
             return null;
         }
 
-        var telefoneCadastrado = ObterTelefoneCadastradoNormalizado(estabelecimento);
-        if (string.IsNullOrWhiteSpace(telefoneCadastrado))
-        {
-            return null;
-        }
-
-        return new WhatsAppConfirmacaoInboundRespostaDestino(telefoneCadastrado, estabelecimento.Nome);
+        return new WhatsAppConfirmacaoInboundRespostaDestino(telefoneNormalizado, null);
     }
 
     private async Task<bool> EnviarEmailsConfirmacaoAsync(
@@ -202,17 +208,26 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
         return true;
     }
 
-    private async Task<WhatsAppConfirmacaoInboundResultado> TentarConfirmarApenasPorCodigoInboundAsync(
+    private async Task<WhatsAppConfirmacaoInboundRespostaDestino?> ResolverDestinoPorCodigoAsync(
         string textoMensagem,
         CancellationToken cancellationToken)
     {
         var estabelecimento = await BuscarEstabelecimentoPorCodigoNaMensagemAsync(textoMensagem, cancellationToken);
         if (estabelecimento is null)
         {
-            return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido);
+            return null;
         }
 
-        return await ProcessarConfirmacaoInboundDoEstabelecimentoAsync(estabelecimento, textoMensagem, cancellationToken);
+        var telefoneCadastrado = ObterTelefoneCadastradoNormalizado(estabelecimento);
+        if (string.IsNullOrWhiteSpace(telefoneCadastrado))
+        {
+            return null;
+        }
+
+        return new WhatsAppConfirmacaoInboundRespostaDestino(
+            telefoneCadastrado,
+            estabelecimento.Nome,
+            EstabelecimentoId: estabelecimento.Id);
     }
 
     private async Task<Estabelecimento?> BuscarEstabelecimentoPorCodigoNaMensagemAsync(

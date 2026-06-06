@@ -63,7 +63,7 @@ public class WebhookWhatsAppServiceTests
                 "5511988887777",
                 "GLOW 482913",
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.SucessoUsuario("Maria", "5511988887777"));
+            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.SucessoUsuario("Maria", "5511988887777", 1));
 
         var service = CreateService();
         var payload = CriarPayloadMensagem("5511988887777", "GLOW 482913", fromMe: false);
@@ -97,7 +97,7 @@ public class WebhookWhatsAppServiceTests
                 "5511988887777",
                 "GLOW 482913",
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.SucessoUsuario("Maria", "5511988887777"));
+            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.SucessoUsuario("Maria", "5511988887777", 1));
 
         var service = CreateService();
         var payload = JsonDocument.Parse("""
@@ -212,7 +212,7 @@ public class WebhookWhatsAppServiceTests
                 "5511988887777",
                 "GLOW 482913",
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.SucessoUsuario("Maria", "5511988887777"));
+            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.SucessoUsuario("Maria", "5511988887777", 1));
 
         var service = CreateService();
         var payload = JsonDocument.Parse("""
@@ -286,7 +286,7 @@ public class WebhookWhatsAppServiceTests
                 string.Empty,
                 "GLOW 691617",
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.SucessoUsuario("Thiago", "5579998755111"));
+            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.SucessoUsuario("Thiago", "5579998755111", 13));
 
         var service = CreateService();
         var payload = JsonDocument.Parse("""
