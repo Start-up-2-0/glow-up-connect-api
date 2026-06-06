@@ -89,6 +89,12 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             return;
         }
 
+        var pareceTentativaConfirmacao = ConfirmacaoWhatsAppCodigoHelper.PareceTentativaConfirmacao(textoMensagem);
+        if (pareceTentativaConfirmacao)
+        {
+            await EnviarMensagemProcessandoAsync(telefoneRemetente, cancellationToken);
+        }
+
         var resultadoUsuario = await _confirmacaoWhatsAppService.TentarConfirmarPorMensagemInboundAsync(
             telefoneRemetente,
             textoMensagem,
@@ -96,11 +102,17 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
 
         if (resultadoUsuario.Confirmado)
         {
-            await EnviarRespostaConfirmacaoAsync(resultadoUsuario, cancellationToken);
+            await EnviarRespostaConfirmacaoSucessoAsync(resultadoUsuario, cancellationToken);
             return;
         }
 
         LogarMotivoIgnorado("usuario", telefoneRemetente, resultadoUsuario.MotivoIgnorado);
+
+        if (resultadoUsuario.MotivoIgnorado == WhatsAppConfirmacaoInboundMotivoIgnorado.JaConfirmado)
+        {
+            await EnviarRespostaJaConfirmadoAsync(resultadoUsuario, cancellationToken);
+            return;
+        }
 
         var resultadoEstabelecimento = await _confirmacaoWhatsAppEstabelecimentoService.TentarConfirmarPorMensagemInboundAsync(
             telefoneRemetente,
@@ -109,12 +121,50 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
 
         if (resultadoEstabelecimento.Confirmado)
         {
-            await EnviarRespostaConfirmacaoAsync(resultadoEstabelecimento, cancellationToken);
+            await EnviarRespostaConfirmacaoSucessoAsync(resultadoEstabelecimento, cancellationToken);
             return;
         }
 
         LogarMotivoIgnorado("estabelecimento", telefoneRemetente, resultadoEstabelecimento.MotivoIgnorado);
+
+        if (resultadoEstabelecimento.MotivoIgnorado == WhatsAppConfirmacaoInboundMotivoIgnorado.JaConfirmado)
+        {
+            await EnviarRespostaJaConfirmadoAsync(resultadoEstabelecimento, cancellationToken);
+            return;
+        }
+
+        if (pareceTentativaConfirmacao)
+        {
+            var resultadoFalha = SelecionarResultadoFalha(resultadoUsuario, resultadoEstabelecimento);
+            await EnviarRespostaConfirmacaoFalhaAsync(resultadoFalha, telefoneRemetente, cancellationToken);
+        }
     }
+
+    private static WhatsAppConfirmacaoInboundResultado SelecionarResultadoFalha(
+        WhatsAppConfirmacaoInboundResultado resultadoUsuario,
+        WhatsAppConfirmacaoInboundResultado resultadoEstabelecimento)
+    {
+        if (resultadoUsuario.PossuiContatoIdentificado
+            && DeveNotificarFalha(resultadoUsuario.MotivoIgnorado))
+        {
+            return resultadoUsuario;
+        }
+
+        if (resultadoEstabelecimento.PossuiContatoIdentificado
+            && DeveNotificarFalha(resultadoEstabelecimento.MotivoIgnorado))
+        {
+            return resultadoEstabelecimento;
+        }
+
+        return resultadoUsuario.MotivoIgnorado != WhatsAppConfirmacaoInboundMotivoIgnorado.Nenhum
+            ? resultadoUsuario
+            : resultadoEstabelecimento;
+    }
+
+    private static bool DeveNotificarFalha(WhatsAppConfirmacaoInboundMotivoIgnorado motivo) =>
+        motivo is WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido
+            or WhatsAppConfirmacaoInboundMotivoIgnorado.SemPendencia
+            or WhatsAppConfirmacaoInboundMotivoIgnorado.EntidadeNaoEncontrada;
 
     private void LogarMotivoIgnorado(
         string tipo,
@@ -151,25 +201,121 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             && string.Equals(apikey.GetString(), _options.ApiKey, StringComparison.Ordinal);
     }
 
-    private async Task EnviarRespostaConfirmacaoAsync(
+    private async Task EnviarMensagemProcessandoAsync(
+        string telefoneRemetente,
+        CancellationToken cancellationToken)
+    {
+        var conteudo = ConfirmacaoWhatsAppTemplate.RespostaProcessandoConfirmacaoGenerica();
+
+        await RegistrarWhatsAppAsync(
+            telefoneRemetente,
+            "Confirmacao WhatsApp em processamento",
+            conteudo,
+            estabelecimentoId: null,
+            prioridade: 3,
+            cancellationToken);
+    }
+
+    private async Task EnviarRespostaConfirmacaoSucessoAsync(
         WhatsAppConfirmacaoInboundResultado resultado,
         CancellationToken cancellationToken)
     {
         var conteudo = ConfirmacaoWhatsAppTemplate.RespostaConfirmacaoSucesso(resultado.NomeDestinatario);
 
-        await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
-        {
-            Canal = CanalMensagemNotificacao.WhatsApp,
-            Destinatario = resultado.TelefoneResposta,
-            Assunto = "WhatsApp confirmado",
-            Conteudo = conteudo,
-            EstabelecimentoId = resultado.EstabelecimentoId,
-            Prioridade = 2
-        }, cancellationToken);
+        await RegistrarWhatsAppAsync(
+            resultado.TelefoneResposta,
+            "Confirmacao WhatsApp aprovada",
+            conteudo,
+            resultado.EstabelecimentoId,
+            prioridade: 2,
+            cancellationToken);
 
         _logger.LogInformation(
             "WhatsApp confirmado via webhook inbound. Tipo={Tipo}, Telefone={Telefone}",
             resultado.Tipo,
             resultado.TelefoneResposta);
     }
+
+    private async Task EnviarRespostaJaConfirmadoAsync(
+        WhatsAppConfirmacaoInboundResultado resultado,
+        CancellationToken cancellationToken)
+    {
+        var conteudo = ConfirmacaoWhatsAppTemplate.RespostaConfirmacaoJaRealizada(resultado.NomeDestinatario);
+
+        await RegistrarWhatsAppAsync(
+            ObterTelefoneResposta(resultado),
+            "WhatsApp ja confirmado",
+            conteudo,
+            resultado.EstabelecimentoId,
+            prioridade: 2,
+            cancellationToken);
+    }
+
+    private async Task EnviarRespostaConfirmacaoFalhaAsync(
+        WhatsAppConfirmacaoInboundResultado resultado,
+        string telefoneRemetente,
+        CancellationToken cancellationToken)
+    {
+        var telefoneResposta = ObterTelefoneResposta(resultado, telefoneRemetente);
+        var conteudoWhatsApp = resultado.PossuiContatoIdentificado
+            ? ConfirmacaoWhatsAppTemplate.RespostaConfirmacaoFalha(resultado.NomeDestinatario)
+            : ConfirmacaoWhatsAppTemplate.RespostaConfirmacaoFalhaGenerica();
+
+        await RegistrarWhatsAppAsync(
+            telefoneResposta,
+            "Confirmacao WhatsApp nao concluida",
+            conteudoWhatsApp,
+            resultado.EstabelecimentoId,
+            prioridade: 2,
+            cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(resultado.EmailDestinatario))
+        {
+            var conteudoEmail = resultado.PossuiContatoIdentificado
+                ? ConfirmacaoWhatsAppEmailTemplate.CriarFalhaConfirmacao(resultado.NomeDestinatario)
+                : ConfirmacaoWhatsAppEmailTemplate.CriarFalhaConfirmacaoGenerica();
+
+            await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
+            {
+                Canal = CanalMensagemNotificacao.Email,
+                Destinatario = resultado.EmailDestinatario,
+                Assunto = "Nao conseguimos confirmar seu WhatsApp",
+                Conteudo = conteudoEmail,
+                EstabelecimentoId = resultado.EstabelecimentoId,
+                Prioridade = 2
+            }, cancellationToken);
+        }
+
+        _logger.LogInformation(
+            "Confirmacao WhatsApp nao concluida. Motivo={Motivo}, Telefone={Telefone}, EmailEnviado={EmailEnviado}",
+            resultado.MotivoIgnorado,
+            telefoneResposta,
+            !string.IsNullOrWhiteSpace(resultado.EmailDestinatario));
+    }
+
+    private async Task RegistrarWhatsAppAsync(
+        string destinatario,
+        string assunto,
+        string conteudo,
+        int? estabelecimentoId,
+        int prioridade,
+        CancellationToken cancellationToken)
+    {
+        await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
+        {
+            Canal = CanalMensagemNotificacao.WhatsApp,
+            Destinatario = destinatario,
+            Assunto = assunto,
+            Conteudo = conteudo,
+            EstabelecimentoId = estabelecimentoId,
+            Prioridade = prioridade
+        }, cancellationToken);
+    }
+
+    private static string ObterTelefoneResposta(
+        WhatsAppConfirmacaoInboundResultado resultado,
+        string? fallback = null) =>
+        !string.IsNullOrWhiteSpace(resultado.TelefoneResposta)
+            ? resultado.TelefoneResposta
+            : fallback ?? string.Empty;
 }

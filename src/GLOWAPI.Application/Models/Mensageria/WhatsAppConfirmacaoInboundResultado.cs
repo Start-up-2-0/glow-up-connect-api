@@ -23,14 +23,26 @@ public class WhatsAppConfirmacaoInboundResultado
     public WhatsAppConfirmacaoInboundMotivoIgnorado MotivoIgnorado { get; init; }
     public string NomeDestinatario { get; init; } = string.Empty;
     public string TelefoneResposta { get; init; } = string.Empty;
+    public string EmailDestinatario { get; init; } = string.Empty;
     public int? EstabelecimentoId { get; init; }
 
+    public bool PossuiContatoIdentificado =>
+        !string.IsNullOrWhiteSpace(NomeDestinatario);
+
     public static WhatsAppConfirmacaoInboundResultado Ignorado(
-        WhatsAppConfirmacaoInboundMotivoIgnorado motivo = WhatsAppConfirmacaoInboundMotivoIgnorado.Nenhum) =>
+        WhatsAppConfirmacaoInboundMotivoIgnorado motivo = WhatsAppConfirmacaoInboundMotivoIgnorado.Nenhum,
+        string? nomeDestinatario = null,
+        string? telefoneResposta = null,
+        string? emailDestinatario = null,
+        int? estabelecimentoId = null) =>
         new()
         {
             Confirmado = false,
-            MotivoIgnorado = motivo
+            MotivoIgnorado = motivo,
+            NomeDestinatario = nomeDestinatario ?? string.Empty,
+            TelefoneResposta = telefoneResposta ?? string.Empty,
+            EmailDestinatario = emailDestinatario ?? string.Empty,
+            EstabelecimentoId = estabelecimentoId
         };
 
     public static WhatsAppConfirmacaoInboundResultado SucessoUsuario(string nome, string telefone) =>
