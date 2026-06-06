@@ -59,6 +59,23 @@ public class ProvedorMensagemWhatsAppTests
     }
 
     [Fact]
+    public async Task EnviarAsync_DeveRetornarFalha_QuandoDestinatarioEhLid()
+    {
+        var handler = new RecordingHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var client = new HttpClient(handler) { BaseAddress = new Uri("https://evolution.test/") };
+        var provedor = CriarProvedor(client, habilitado: true);
+
+        var mensagem = CriarMensagem();
+        mensagem.Destinatario = "60348602310753@lid";
+
+        var resultado = await provedor.EnviarAsync(mensagem);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("invalido", resultado.MensagemErro!, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, handler.CallCount);
+    }
+
+    [Fact]
     public async Task EnviarAsync_DeveRetornarFalha_QuandoEvolutionRetornaErro()
     {
         var handler = new RecordingHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest)
