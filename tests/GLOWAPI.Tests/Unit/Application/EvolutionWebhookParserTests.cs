@@ -194,6 +194,24 @@ public class EvolutionWebhookParserTests
     }
 
     [Fact]
+    public void ExtrairRemoteJidConversa_DeveRetornarRemoteJidDoPayload()
+    {
+        var payload = JsonDocument.Parse("""
+            {
+              "data": {
+                "key": {
+                  "remoteJid": "60348602310753@lid",
+                  "fromMe": false
+                }
+              }
+            }
+            """).RootElement;
+
+        Assert.Equal("60348602310753@lid", EvolutionWebhookParser.ExtrairRemoteJidConversa(payload));
+        Assert.True(EvolutionWebhookParser.EhRemoteJidLid("60348602310753@lid"));
+    }
+
+    [Fact]
     public void ExtrairTextoMensagem_DeveLerEphemeralMessage()
     {
         var payload = JsonDocument.Parse("""
