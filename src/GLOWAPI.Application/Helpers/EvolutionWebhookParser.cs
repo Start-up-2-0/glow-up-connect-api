@@ -4,15 +4,8 @@ namespace GLOWAPI.Application.Helpers;
 
 public static class EvolutionWebhookParser
 {
-    public static bool IsMensagemRecebida(JsonElement payload)
+    public static bool IsMensagemInboundDoUsuario(JsonElement payload)
     {
-        var evento = ExtrairEvento(payload);
-        if (!string.Equals(evento, "messages.upsert", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(evento, "MESSAGES_UPSERT", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
         if (!payload.TryGetProperty("data", out var data))
         {
             return false;
@@ -26,16 +19,6 @@ public static class EvolutionWebhookParser
         }
 
         return !string.IsNullOrWhiteSpace(ExtrairTelefoneRemetente(payload));
-    }
-
-    public static string? ExtrairEvento(JsonElement payload)
-    {
-        if (payload.TryGetProperty("event", out var evento))
-        {
-            return evento.GetString();
-        }
-
-        return null;
     }
 
     public static string ExtrairTelefoneRemetente(JsonElement payload)

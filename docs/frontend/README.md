@@ -14,6 +14,7 @@ Substitua `{BASE_URL}` pela URL da API (local, staging ou producao).
 
 | Documento | Conteudo |
 |-----------|----------|
+| [../acesso/README.md](../acesso/README.md) | Controle de acesso: roles, planos e modulos por persona |
 | [convencoes.md](./convencoes.md) | Content-Type, header `x-glow-token`, formatos de resposta e erros |
 | [cadastro.md](./cadastro.md) | `POST /api/usuario` — criar conta cliente |
 | [confirmacao-conta.md](./confirmacao-conta.md) | Confirmar e-mail (link, codigo, reenvio) |
@@ -47,7 +48,8 @@ Substitua `{BASE_URL}` pela URL da API (local, staging ou producao).
 | Detalhe agendamento | GET | `/api/agendamentos/me/{id}` | Sim | Implementado |
 | Cancelar agendamento | POST | `/api/agendamentos/me/{id}/cancelar` | Sim | Implementado |
 | Remarcar agendamento | POST | `/api/agendamentos/me/{id}/remarcar` | Sim | Implementado |
-| Webhook WhatsApp Evolution | POST | `/api/webhooks/whatsapp/evolution` | Nao | Implementado |
+| Webhook WhatsApp message_upsert | POST | `/api/webhooks/whatsapp/evolution/message_upsert` | Nao | Implementado |
+| Webhook WhatsApp send_message | POST | `/api/webhooks/whatsapp/evolution/send_message` | Nao | Implementado |
 | Confirmar WhatsApp | POST | `/api/auth/confirmar-whatsapp` | Nao | Fallback |
 | Reenviar confirmacao WhatsApp | POST | `/api/auth/reenviar-confirmacao-whatsapp` | Nao | Implementado (body: `{ email }`) |
 | Solicitar confirmacao WhatsApp | POST | `/api/usuario/me/whatsapp/solicitar-confirmacao` | Sim | Implementado |

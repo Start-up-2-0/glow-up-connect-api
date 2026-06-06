@@ -121,12 +121,22 @@ Profissional autonomo: ao mudar telefone, sincroniza `Usuario` + telefone comerc
 
 ## Webhook Evolution API
 
-`POST /api/webhooks/whatsapp/evolution` (sem auth)
+Configure na instancia Evolution (webhook por evento):
 
-Configure na instancia Evolution:
-- **URL:** `https://sua-api/api/webhooks/whatsapp/evolution`
-- **Eventos:** `MESSAGES_UPSERT`
-- Ignora mensagens `fromMe: true`
+| Evento Evolution | Metodo | Rota (sem auth) |
+|------------------|--------|-----------------|
+| `MESSAGES_UPSERT` | POST | `/api/webhooks/whatsapp/evolution/message_upsert` |
+| `SEND_MESSAGE` | POST | `/api/webhooks/whatsapp/evolution/send_message` |
+
+Exemplo staging:
+
+```text
+MESSAGES_UPSERT → https://api-staging-61ce.up.railway.app/api/webhooks/whatsapp/evolution/message_upsert
+SEND_MESSAGE    → https://api-staging-61ce.up.railway.app/api/webhooks/whatsapp/evolution/send_message
+```
+
+- `message_upsert`: confirma codigo WhatsApp inbound; ignora mensagens `fromMe: true`
+- `send_message`: recebido e registrado em log (sem efeito colateral hoje)
 
 ---
 

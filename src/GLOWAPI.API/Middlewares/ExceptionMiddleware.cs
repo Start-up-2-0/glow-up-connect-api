@@ -86,7 +86,8 @@ public class ExceptionMiddleware
                     or UsuarioSemPermissaoNegocioException
                     or UsuarioSemVinculoNegocioException
                     or ProfissionalSemVinculoNegocioException
-                    or RecursoForaEscopoProfissionalException => HttpStatusCode.Forbidden,
+                    or RecursoForaEscopoProfissionalException
+                    or ClienteSemAcessoNegocioException => HttpStatusCode.Forbidden,
                 MensagemNotificacaoNaoEncontradaException
                     or PlanoNaoEncontradoException
                     or AssinaturaNaoEncontradaException

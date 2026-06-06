@@ -31,6 +31,7 @@ public class UsuarioNegocioContextoServiceTests
 
         _currentUserContext.SetupGet(c => c.IsAuthenticated).Returns(true);
         _currentUserContext.SetupGet(c => c.UserId).Returns(10);
+        _currentUserContext.SetupGet(c => c.Role).Returns(UserRole.ProfissionalEstabelecimento);
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ListarAtivosPorUsuarioAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync([
@@ -91,6 +92,19 @@ public class UsuarioNegocioContextoServiceTests
         var service = CreateService();
 
         await Assert.ThrowsAsync<UnauthorizedException>(() =>
+            service.ListarEstabelecimentosAsync());
+    }
+
+    [Fact]
+    public async Task ListarEstabelecimentosAsync_DeveLancarForbidden_QuandoUsuarioForCliente()
+    {
+        _currentUserContext.SetupGet(c => c.IsAuthenticated).Returns(true);
+        _currentUserContext.SetupGet(c => c.UserId).Returns(10);
+        _currentUserContext.SetupGet(c => c.Role).Returns(UserRole.Cliente);
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<ClienteSemAcessoNegocioException>(() =>
             service.ListarEstabelecimentosAsync());
     }
 

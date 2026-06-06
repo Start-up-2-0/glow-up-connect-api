@@ -31,6 +31,8 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
     public async Task<IReadOnlyList<EstabelecimentoAcessoResponseDto>> ListarEstabelecimentosAsync(
         CancellationToken cancellationToken = default)
     {
+        GarantirAcessoNegocio();
+
         var usuarioId = ObterUsuarioAutenticado();
         var vinculos = await _estabelecimentoUsuarioRepository.ListarAtivosPorUsuarioAsync(
             usuarioId,
@@ -73,6 +75,19 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
         }
 
         return response;
+    }
+
+    private void GarantirAcessoNegocio()
+    {
+        if (!_currentUserContext.IsAuthenticated)
+        {
+            throw new UnauthorizedException();
+        }
+
+        if (_currentUserContext.Role == UserRole.Cliente)
+        {
+            throw new ClienteSemAcessoNegocioException();
+        }
     }
 
     private int ObterUsuarioAutenticado()
