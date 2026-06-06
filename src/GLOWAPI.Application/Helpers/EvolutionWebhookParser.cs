@@ -6,14 +6,7 @@ public static class EvolutionWebhookParser
 {
     public static bool IsMensagemInboundDoUsuario(JsonElement payload)
     {
-        if (!payload.TryGetProperty("data", out var data))
-        {
-            return false;
-        }
-
-        if (data.TryGetProperty("key", out var key)
-            && key.TryGetProperty("fromMe", out var fromMe)
-            && fromMe.ValueKind == JsonValueKind.True)
+        if (!payload.TryGetProperty("data", out _))
         {
             return false;
         }
