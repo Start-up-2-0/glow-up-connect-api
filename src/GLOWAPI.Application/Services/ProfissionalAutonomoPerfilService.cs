@@ -19,6 +19,7 @@ public class ProfissionalAutonomoPerfilService : IProfissionalAutonomoPerfilServ
     private readonly IEnderecoGeocodificacaoService _enderecoGeocodificacaoService;
     private readonly IConfirmacaoWhatsAppService _confirmacaoWhatsAppService;
     private readonly IConfirmacaoWhatsAppEstabelecimentoService _confirmacaoWhatsAppEstabelecimentoService;
+    private readonly IAvatarBase64Decoder _avatarBase64Decoder;
 
     public ProfissionalAutonomoPerfilService(
         IProfissionalRepository profissionalRepository,
@@ -28,7 +29,8 @@ public class ProfissionalAutonomoPerfilService : IProfissionalAutonomoPerfilServ
         ICurrentUserContext currentUser,
         IEnderecoGeocodificacaoService enderecoGeocodificacaoService,
         IConfirmacaoWhatsAppService confirmacaoWhatsAppService,
-        IConfirmacaoWhatsAppEstabelecimentoService confirmacaoWhatsAppEstabelecimentoService)
+        IConfirmacaoWhatsAppEstabelecimentoService confirmacaoWhatsAppEstabelecimentoService,
+        IAvatarBase64Decoder avatarBase64Decoder)
     {
         _profissionalRepository = profissionalRepository;
         _estabelecimentoRepository = estabelecimentoRepository;
@@ -38,6 +40,7 @@ public class ProfissionalAutonomoPerfilService : IProfissionalAutonomoPerfilServ
         _enderecoGeocodificacaoService = enderecoGeocodificacaoService;
         _confirmacaoWhatsAppService = confirmacaoWhatsAppService;
         _confirmacaoWhatsAppEstabelecimentoService = confirmacaoWhatsAppEstabelecimentoService;
+        _avatarBase64Decoder = avatarBase64Decoder;
     }
 
     public async Task<ProfissionalAutonomoPerfilResponseDto> AtualizarAsync(
@@ -62,7 +65,11 @@ public class ProfissionalAutonomoPerfilService : IProfissionalAutonomoPerfilServ
         var telefoneAnterior = profissional.Telefone;
 
         profissional.NomePublico = OperacaoPerfilValidation.ValidarTextoObrigatorio(request.NomePublico, "Nome publico do profissional", 150, CriarExcecao);
-        profissional.Logo = OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Logo, "Logo do profissional", 500, CriarExcecao);
+        profissional.Logo = OperacaoPerfilValidation.ValidarLogoBase64(
+            request.Logo,
+            "Logo do profissional",
+            _avatarBase64Decoder,
+            CriarExcecao);
         profissional.Telefone = OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Telefone, "Telefone do profissional", 20, CriarExcecao);
         profissional.Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Email, "Email do profissional", 255, CriarExcecao);
         profissional.UpdatedAt = DateTime.UtcNow;

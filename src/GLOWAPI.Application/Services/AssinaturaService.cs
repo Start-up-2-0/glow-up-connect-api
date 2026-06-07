@@ -28,6 +28,7 @@ public class AssinaturaService : IAssinaturaService
     private readonly IPromocaoLancamentoService _promocaoLancamentoService;
     private readonly ICicloCobrancaAssinaturaService _cicloCobrancaService;
     private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
+    private readonly IAvatarBase64Decoder _avatarBase64Decoder;
 
     public AssinaturaService(
         IAssinaturaRepository assinaturaRepository,
@@ -45,7 +46,8 @@ public class AssinaturaService : IAssinaturaService
         IEnderecoGeocodificacaoService enderecoGeocodificacaoService,
         IPromocaoLancamentoService promocaoLancamentoService,
         ICicloCobrancaAssinaturaService cicloCobrancaService,
-        ICobrancaAssinaturaService cobrancaAssinaturaService)
+        ICobrancaAssinaturaService cobrancaAssinaturaService,
+        IAvatarBase64Decoder avatarBase64Decoder)
     {
         _assinaturaRepository = assinaturaRepository;
         _planoRepository = planoRepository;
@@ -63,6 +65,7 @@ public class AssinaturaService : IAssinaturaService
         _promocaoLancamentoService = promocaoLancamentoService;
         _cicloCobrancaService = cicloCobrancaService;
         _cobrancaAssinaturaService = cobrancaAssinaturaService;
+        _avatarBase64Decoder = avatarBase64Decoder;
     }
 
     public async Task<AssinaturaResponseDto> IniciarAsync(
@@ -525,7 +528,7 @@ public class AssinaturaService : IAssinaturaService
         }
     }
 
-    private static Estabelecimento CriarEstabelecimento(CriarEstabelecimentoAssinaturaDto dto)
+    private Estabelecimento CriarEstabelecimento(CriarEstabelecimentoAssinaturaDto dto)
     {
         static Exception CriarExcecao(string mensagem) => new EstabelecimentoAssinaturaInvalidoException(mensagem);
 
@@ -538,7 +541,11 @@ public class AssinaturaService : IAssinaturaService
         {
             Nome = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Nome, "Nome do estabelecimento", 150, CriarExcecao),
             Descricao = dto.Descricao.Trim(),
-            Logo = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Logo, "Logo do estabelecimento", 500, CriarExcecao),
+            Logo = OperacaoPerfilValidation.ValidarLogoBase64(
+                dto.Logo,
+                "Logo do estabelecimento",
+                _avatarBase64Decoder,
+                CriarExcecao),
             Telefone = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Telefone, "Telefone do estabelecimento", 20, CriarExcecao),
             Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Email, "Email do estabelecimento", 255, CriarExcecao),
             Ativo = true,
@@ -546,16 +553,16 @@ public class AssinaturaService : IAssinaturaService
         };
     }
 
-    private static Estabelecimento CriarEstabelecimentoParaProfissionalAutonomo(
+    private Estabelecimento CriarEstabelecimentoParaProfissionalAutonomo(
         CriarProfissionalAutonomoAssinaturaDto dto)
     {
-        ValidarProfissionalAutonomo(dto);
+        var logo = ValidarLogoProfissionalAutonomo(dto);
 
         return new Estabelecimento
         {
             Nome = dto.NomePublico.Trim(),
             Descricao = dto.Biografia.Trim(),
-            Logo = dto.Logo.Trim(),
+            Logo = logo,
             Telefone = dto.Telefone.Trim(),
             Email = dto.Email.Trim(),
             Ativo = true,
@@ -580,15 +587,15 @@ public class AssinaturaService : IAssinaturaService
         };
     }
 
-    private static void AtualizarEstabelecimentoAutonomo(
+    private void AtualizarEstabelecimentoAutonomo(
         Estabelecimento estabelecimento,
         CriarProfissionalAutonomoAssinaturaDto dto)
     {
-        ValidarProfissionalAutonomo(dto);
+        var logo = ValidarLogoProfissionalAutonomo(dto);
 
         estabelecimento.Nome = dto.NomePublico.Trim();
         estabelecimento.Descricao = dto.Biografia.Trim();
-        estabelecimento.Logo = dto.Logo.Trim();
+        estabelecimento.Logo = logo;
         estabelecimento.Telefone = dto.Telefone.Trim();
         estabelecimento.Email = dto.Email.Trim();
         estabelecimento.Ativo = true;
@@ -603,18 +610,18 @@ public class AssinaturaService : IAssinaturaService
         estabelecimento.Caixa ??= new Caixa();
     }
 
-    private static Profissional CriarProfissionalAutonomo(
+    private Profissional CriarProfissionalAutonomo(
         CriarProfissionalAutonomoAssinaturaDto dto,
         int userId)
     {
-        ValidarProfissionalAutonomo(dto);
+        var logo = ValidarLogoProfissionalAutonomo(dto);
 
         return new Profissional
         {
             UsuarioId = userId,
             NomePublico = dto.NomePublico.Trim(),
             Biografia = dto.Biografia.Trim(),
-            Logo = dto.Logo.Trim(),
+            Logo = logo,
             Telefone = dto.Telefone.Trim(),
             Email = dto.Email.Trim(),
             TipoProfissional = ProfessionalType.Autonomo,
@@ -622,15 +629,15 @@ public class AssinaturaService : IAssinaturaService
         };
     }
 
-    private static void AtualizarProfissionalAutonomo(
+    private void AtualizarProfissionalAutonomo(
         Profissional profissional,
         CriarProfissionalAutonomoAssinaturaDto dto)
     {
-        ValidarProfissionalAutonomo(dto);
+        var logo = ValidarLogoProfissionalAutonomo(dto);
 
         profissional.NomePublico = dto.NomePublico.Trim();
         profissional.Biografia = dto.Biografia.Trim();
-        profissional.Logo = dto.Logo.Trim();
+        profissional.Logo = logo;
         profissional.Telefone = dto.Telefone.Trim();
         profissional.Email = dto.Email.Trim();
         profissional.TipoProfissional = ProfessionalType.Autonomo;
@@ -645,6 +652,17 @@ public class AssinaturaService : IAssinaturaService
             throw new ProfissionalAutonomoAssinaturaInvalidoException(
                 "Usuario ja possui um perfil profissional que nao e autonomo.");
         }
+    }
+
+    private string ValidarLogoProfissionalAutonomo(CriarProfissionalAutonomoAssinaturaDto dto)
+    {
+        ValidarProfissionalAutonomo(dto);
+
+        return OperacaoPerfilValidation.ValidarLogoBase64(
+            dto.Logo,
+            "Logo do profissional",
+            _avatarBase64Decoder,
+            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
     }
 
     private static void ValidarProfissionalAutonomo(CriarProfissionalAutonomoAssinaturaDto dto)
@@ -663,12 +681,6 @@ public class AssinaturaService : IAssinaturaService
         {
             throw new ProfissionalAutonomoAssinaturaInvalidoException("Biografia do profissional deve ter no maximo 1000 caracteres.");
         }
-
-        OperacaoPerfilValidation.ValidarTextoObrigatorio(
-            dto.Logo,
-            "Logo do profissional",
-            500,
-            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
 
         OperacaoPerfilValidation.ValidarTextoObrigatorio(
             dto.Telefone,
