@@ -105,7 +105,7 @@ public static class PlanoComercialCatalogo
         {
             return new PlanoComercialPerfil(
                 LimiteUsuarios: 1,
-                LimiteAgendamentosPorDia: 10,
+                LimiteAgendamentosPorDia: null,
                 PrioridadeListagemPublica: false,
                 Modulos: ModulosBasic,
                 Funcionalidades: FuncionalidadesBasic);
