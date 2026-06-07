@@ -48,6 +48,7 @@ public class ExceptionMiddleware
                     or MensagemNotificacaoJaEnviadaException
                     or MensagemNotificacaoNaoCancelavelException
                     or AssinaturaDuplicadaException
+                    or EstabelecimentoOnboardingDuplicadoException
                     or UsuarioEquipeNegocioDuplicadoException
                     or ProfissionalNegocioDuplicadoException
                     or ProfissionalServicoDuplicadoException

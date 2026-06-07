@@ -13,6 +13,7 @@ public class AssinaturasControllerTests
 {
     private readonly Mock<IAssinaturaService> _assinaturaService = new();
     private readonly Mock<ICobrancaAssinaturaService> _cobrancaAssinaturaService = new();
+    private readonly Mock<IAssinaturaOnboardingContextoService> _assinaturaOnboardingContextoService = new();
     private readonly Mock<ICurrentUserContext> _currentUser = new();
 
     [Fact]
@@ -38,6 +39,7 @@ public class AssinaturasControllerTests
         var controller = new AssinaturasController(
             _assinaturaService.Object,
             _cobrancaAssinaturaService.Object,
+            _assinaturaOnboardingContextoService.Object,
             _currentUser.Object);
 
         var result = await controller.TrocarPlano(
@@ -78,6 +80,7 @@ public class AssinaturasControllerTests
         var controller = new AssinaturasController(
             _assinaturaService.Object,
             _cobrancaAssinaturaService.Object,
+            _assinaturaOnboardingContextoService.Object,
             _currentUser.Object);
 
         var result = await controller.Cancelar(30, CancellationToken.None);
