@@ -55,7 +55,11 @@ public class ExceptionMiddleware
                     or ConviteNegocioDuplicadoException
                     => HttpStatusCode.Conflict,
                 GatewayPagamentoException => HttpStatusCode.BadGateway,
-                ConfirmacaoEmailInvalidaException
+                CodigoRecuperacaoInvalidoException
+                    or CodigoRecuperacaoExpiradoException
+                    or ResetTokenInvalidoException
+                    or ResetTokenExpiradoException
+                    or ConfirmacaoEmailInvalidaException
                     or ConfirmacaoWhatsAppInvalidaException
                     or AvatarInvalidoException
                     or AssinaturaTitularInvalidoException

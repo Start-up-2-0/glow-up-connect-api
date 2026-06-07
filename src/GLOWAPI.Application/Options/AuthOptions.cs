@@ -17,4 +17,10 @@ public class AuthOptions
     public int ConfirmacaoWhatsAppHoras { get; set; } = 24;
     public int ConfirmacaoCodigoDigitos { get; set; } = 6;
     public string FrontendBaseUrl { get; set; } = "http://localhost:3000";
+
+    public int CodigoExpiracaoMinutos { get; set; } = 10;
+    public int ResetTokenExpiracaoMinutos { get; set; } = 10;
+    public int MaxTentativasCodigo { get; set; } = 3;
+    public int BackoffBaseSegundos { get; set; } = 30;
+    public int BackoffMaximoSegundos { get; set; } = 3600;
 }

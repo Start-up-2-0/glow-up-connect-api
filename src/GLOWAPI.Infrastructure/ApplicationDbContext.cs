@@ -42,6 +42,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<AuditoriaNegocio> AuditoriasNegocio { get; set; }
     public DbSet<ConviteNegocio> ConvitesNegocio { get; set; }
 
+    public DbSet<RecuperacaoSenha> RecuperacoesSenha { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Chama a implementação base

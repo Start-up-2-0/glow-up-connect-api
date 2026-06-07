@@ -167,6 +167,20 @@ public class AuthSessionService : IAuthSessionService
         await _sessaoRepository.SalvarAlteracoesAsync(cancellationToken);
     }
 
+    public async Task RevogarTodasSessoesAsync(int usuarioId, CancellationToken cancellationToken = default)
+    {
+        var sessoesAtivas = await _sessaoRepository.ListarAtivasPorUsuarioIdAsync(usuarioId, cancellationToken);
+        var agora = DateTime.UtcNow;
+
+        foreach (var sessao in sessoesAtivas)
+        {
+            sessao.Revogar(agora);
+            _sessaoRepository.Atualizar(sessao);
+        }
+
+        await _sessaoRepository.SalvarAlteracoesAsync(cancellationToken);
+    }
+
     private void ValidarContextoSessao(SessaoAutenticacao sessao, AuthSessionContext context)
     {
         if (_authOptions.ValidateIpOnToken &&

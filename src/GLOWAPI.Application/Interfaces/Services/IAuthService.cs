@@ -16,4 +16,19 @@ public interface IAuthService
         RefreshTokenRequestDto dto,
         AuthSessionContext context,
         CancellationToken cancellationToken = default);
+
+    // New Methods 
+    Task ForgotPasswordAsync(
+        ForgotPasswordRequestDto dto,
+        string? ip,
+        CancellationToken cancellationToken = default);
+
+    Task<VerifyRecoveryCodeResult> VerifyRecoveryCodeAsync(
+        VerifyRecoveryCodeRequestDto dto,
+        CancellationToken cancellationToken = default);
+
+    Task ResetPasswordAsync(
+        ResetPasswordRequestDto dto,
+        CancellationToken cancellationToken = default);
+
 }

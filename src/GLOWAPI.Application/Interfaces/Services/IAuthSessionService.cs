@@ -32,4 +32,6 @@ public interface IAuthSessionService
         CancellationToken cancellationToken = default);
 
     Task RenovarExpiracaoAsync(SessaoAutenticacao sessao, CancellationToken cancellationToken = default);
+
+    Task RevogarTodasSessoesAsync(int usuarioId, CancellationToken cancellationToken = default);
 }

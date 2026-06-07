@@ -74,9 +74,11 @@ public static class DependencyInjection
         services.AddScoped<IGlowTokenService, GlowTokenService>();
         services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
         services.AddScoped<IMensagemNotificacaoRepository, MensagemNotificacaoRepository>();
+        services.AddScoped<IRecuperacaoSenhaRepository, RecuperacaoSenhaRepository>();
 
         services.Configure<MercadoPagoOptions>(configuration.GetSection(MercadoPagoOptions.SectionName));
         services.Configure<GeocodificacaoOptions>(configuration.GetSection(GeocodificacaoOptions.SectionName));
+        services.Configure<AuthOptions>(configuration.GetSection("Auth"));
 
         services.AddHttpClient<ResendClient>();
         services.Configure<ResendClientOptions>(options =>

@@ -41,4 +41,17 @@ public class SessaoAutenticacaoRepository : Repository<SessaoAutenticacao>, ISes
                      && s.ExpiraEm > agora,
                 cancellationToken);
     }
+
+    public async Task<IReadOnlyList<SessaoAutenticacao>> ListarAtivasPorUsuarioIdAsync(
+        int usuarioId,
+        CancellationToken cancellationToken = default)
+    {
+        var agora = DateTime.UtcNow;
+
+        return await DbSet
+            .Where(s => s.UsuarioId == usuarioId
+                        && s.RevogadoEm == null
+                        && s.ExpiraEm > agora)
+            .ToListAsync(cancellationToken);
+    }
 }

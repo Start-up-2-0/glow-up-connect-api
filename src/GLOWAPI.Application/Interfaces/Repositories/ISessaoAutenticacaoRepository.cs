@@ -12,4 +12,8 @@ public interface ISessaoAutenticacaoRepository : IRepository<SessaoAutenticacao>
         string accessTokenHash,
         int sessionId,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SessaoAutenticacao>> ListarAtivasPorUsuarioIdAsync(
+        int usuarioId,
+        CancellationToken cancellationToken = default);
 }

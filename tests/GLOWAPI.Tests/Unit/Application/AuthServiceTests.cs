@@ -22,11 +22,13 @@ public class AuthServiceTests
     private readonly AuthSessionContext _context = new("127.0.0.1", "test-agent");
 
     private AuthService CreateService() => new(
-        _usuarioRepository.Object,
-        _authSessionService.Object,
-        _passwordHasher.Object,
-        _auditLogger.Object,
-        Options.Create(_authOptions));
+    _usuarioRepository.Object,
+    _authSessionService.Object,
+    _passwordHasher.Object,
+    _auditLogger.Object,
+    Mock.Of<IRecuperacaoSenhaRepository>(),
+    Mock.Of<IMensagemNotificacaoService>(),
+    Options.Create(_authOptions));
 
     [Fact]
     public async Task LoginAsync_DeveRetornarTokens_QuandoCredenciaisValidas()
