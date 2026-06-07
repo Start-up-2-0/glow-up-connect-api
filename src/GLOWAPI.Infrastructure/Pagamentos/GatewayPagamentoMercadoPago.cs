@@ -4,6 +4,7 @@ using System.Text.Json;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Pagamentos;
 using GLOWAPI.Application.Options;
+using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Enums;
 using Microsoft.Extensions.Options;
 
@@ -210,7 +211,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             installments = pagamento.Installments,
             payer = new
             {
-                email = request.PagadorEmail,
+                email = ResolverPagadorEmail(request.PagadorEmail),
                 first_name = request.PagadorNome,
                 identification = CriarIdentificacao(pagamento)
             },
@@ -384,7 +385,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         {
             reason = request.Descricao,
             external_reference = request.ReferenciaInterna,
-            payer_email = request.PagadorEmail,
+            payer_email = ResolverPagadorEmail(request.PagadorEmail),
             card_token_id = request.PagamentoTransparente!.Token,
             auto_recurring = autoRecurring,
             back_url = TextoOuNull(_options.SuccessUrl),
@@ -406,6 +407,9 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             return (false, null, ex.Message);
         }
     }
+
+    private string ResolverPagadorEmail(string pagadorEmail) =>
+        MercadoPagoPayerEmailResolver.Resolver(pagadorEmail, _options);
 
     private void AplicarHeadersMercadoPago(HttpRequestMessage request, string? idempotencyKey = null)
     {

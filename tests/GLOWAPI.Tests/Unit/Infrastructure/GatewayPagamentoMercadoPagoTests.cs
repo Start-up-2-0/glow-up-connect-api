@@ -366,6 +366,49 @@ public class GatewayPagamentoMercadoPagoTests
         Assert.False(document.RootElement.TryGetProperty("notification_url", out _));
     }
 
+    [Fact]
+    public async Task CriarAssinaturaRecorrenteAsync_DeveUsarPayerEmailOverride_QuandoConfigurado()
+    {
+        string? requestPayload = null;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            requestPayload = request.Content is null
+                ? null
+                : request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent("""{"id":"sub-789","payer_id":"payer-3"}""", Encoding.UTF8, "application/json")
+            };
+        });
+
+        var gateway = CriarGateway(handler, new MercadoPagoOptions
+        {
+            AccessToken = "TEST-123",
+            ApiBaseUrl = "https://api.mercadopago.com",
+            PayerEmailOverride = "TESTUSER978765836"
+        });
+
+        var response = await gateway.CriarAssinaturaRecorrenteAsync(new CriarAssinaturaRecorrenteGatewayRequest(
+            Gateway: GatewayPagamento.MercadoPago,
+            ReferenciaInterna: "trial-3",
+            Descricao: "Assinatura trial",
+            Valor: 99.90m,
+            Moeda: "BRL",
+            PagadorNome: "Cliente",
+            PagadorEmail: "usuario.real@glow.com",
+            DiasTrial: 30,
+            PrimeiraCobrancaEm: DateTime.UtcNow.AddDays(30),
+            PagamentoTransparente: new PagamentoTransparenteGatewayRequest("visa", "card-token", null, 1, "CPF", "12345678901"),
+            Metadados: new Dictionary<string, string>()));
+
+        Assert.True(response.Sucesso);
+        Assert.NotNull(requestPayload);
+        using var document = JsonDocument.Parse(requestPayload!);
+        Assert.Equal(
+            "test_user_978765836@testuser.com",
+            document.RootElement.GetProperty("payer_email").GetString());
+    }
+
     private static GatewayPagamentoMercadoPago CriarGateway(
         HttpMessageHandler handler,
         MercadoPagoOptions options)
