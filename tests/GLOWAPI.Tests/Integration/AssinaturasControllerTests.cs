@@ -226,6 +226,48 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
     }
 
     [Fact]
+    public async Task Iniciar_ComPayloadFrontend_DeveAceitarEnumsComoString()
+    {
+        var seed = await SeedUsuarioEPlanoAsync("onboarding-frontend-payload@email.com");
+        var client = _factory.CreateClient();
+        await AutenticarAsync(client, seed.Email, seed.Senha);
+
+        using var content = new StringContent(
+            """
+            {
+              "planoId": 0,
+              "tipoAssinatura": "Estabelecimento",
+              "gateway": "MercadoPago",
+              "diaVencimento": 10,
+              "pagamento": {
+                "paymentMethodId": "pix"
+              },
+              "estabelecimento": {
+                "nome": "Studio Frontend",
+                "descricao": "Salao de beleza",
+                "logo": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+                "telefone": "11999999999",
+                "email": "studio-frontend@email.com",
+                "endereco": {
+                  "cep": "01310100",
+                  "logradouro": "Rua Glow",
+                  "numero": "100",
+                  "bairro": "Centro",
+                  "cidade": "Sao Paulo",
+                  "estado": "SP"
+                }
+              }
+            }
+            """.Replace("\"planoId\": 0", $"\"planoId\": {seed.PlanoId}"),
+            System.Text.Encoding.UTF8,
+            "application/json");
+
+        var response = await client.PostAsync("/api/assinaturas", content);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Iniciar_DeveCriarProfissionalAutonomoEAssinaturaPendente()
     {
         var seed = await SeedUsuarioEPlanoAsync("onboarding-autonomo@email.com");
