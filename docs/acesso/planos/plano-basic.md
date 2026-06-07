@@ -1,5 +1,7 @@
 # Plano Basic
 
+> Spec canonica: [../specs/planos/basic.md](../specs/planos/basic.md).
+
 Identificacao no catalogo: nome contem **`basic`** ou **`basico`**.
 
 Fonte: `PlanoComercialCatalogo` em `src/GLOWAPI.Application/Services/PlanoComercialCatalogo.cs`.
