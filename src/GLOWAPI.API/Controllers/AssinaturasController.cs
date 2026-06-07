@@ -11,16 +11,33 @@ public class AssinaturasController : ControllerBase
 {
     private readonly IAssinaturaService _assinaturaService;
     private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
+    private readonly IAssinaturaOnboardingContextoService _assinaturaOnboardingContextoService;
     private readonly ICurrentUserContext _currentUser;
 
     public AssinaturasController(
         IAssinaturaService assinaturaService,
         ICobrancaAssinaturaService cobrancaAssinaturaService,
+        IAssinaturaOnboardingContextoService assinaturaOnboardingContextoService,
         ICurrentUserContext currentUser)
     {
         _assinaturaService = assinaturaService;
         _cobrancaAssinaturaService = cobrancaAssinaturaService;
+        _assinaturaOnboardingContextoService = assinaturaOnboardingContextoService;
         _currentUser = currentUser;
+    }
+
+    [HttpGet("onboarding/contexto")]
+    public async Task<IActionResult> ObterContextoOnboarding(CancellationToken cancellationToken)
+    {
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Unauthorized();
+        }
+
+        var contexto = await _assinaturaOnboardingContextoService.ObterContextoAsync(cancellationToken);
+        return Ok(ApiSuccessResponse<AssinaturaOnboardingContextoResponseDto>.From(
+            "Contexto de onboarding obtido com sucesso.",
+            contexto));
     }
 
     [HttpPost]

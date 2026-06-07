@@ -364,6 +364,18 @@ public class AssinaturaService : IAssinaturaService
         int userId,
         CancellationToken cancellationToken)
     {
+        var vinculos = await _estabelecimentoUsuarioRepository.ListarAtivosPorUsuarioAsync(
+            userId,
+            cancellationToken)
+            ?? Array.Empty<EstabelecimentoUsuario>();
+        if (vinculos.Any(v =>
+                v.RoleNoEstabelecimento == EstablishmentUserRole.Owner
+                && v.Estabelecimento is not null
+                && v.Estabelecimento.Ativo))
+        {
+            throw new EstabelecimentoOnboardingDuplicadoException();
+        }
+
         var estabelecimento = CriarEstabelecimento(request.Estabelecimento!);
         await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
         await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);

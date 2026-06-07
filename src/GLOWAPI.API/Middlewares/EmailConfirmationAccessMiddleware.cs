@@ -71,6 +71,12 @@ public class EmailConfirmationAccessMiddleware
             return true;
         }
 
+        if (method.Equals(HttpMethods.Get, StringComparison.OrdinalIgnoreCase)
+            && path.Equals("/api/assinaturas/onboarding/contexto", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
         return RotasPermitidas.Contains(path);
     }
 }
