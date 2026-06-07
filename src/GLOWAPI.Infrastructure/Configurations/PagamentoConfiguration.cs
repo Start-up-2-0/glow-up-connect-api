@@ -45,6 +45,19 @@ public class PagamentoConfiguration : IEntityTypeConfiguration<Pagamento>
         builder.Property(pagamento => pagamento.CreateAd)
             .IsRequired();
 
+        builder.Property(pagamento => pagamento.TipoCobranca)
+            .HasConversion(
+                tipo => tipo.HasValue ? tipo.Value.ToString() : null,
+                tipo => tipo == null ? null : Enum.Parse<TipoCobrancaAssinatura>(tipo))
+            .HasMaxLength(30);
+
+        builder.Property(pagamento => pagamento.NumeroCiclo)
+            .HasDefaultValue(1);
+
+        builder.Property(pagamento => pagamento.DataVencimento);
+        builder.Property(pagamento => pagamento.DataGeracao);
+        builder.Property(pagamento => pagamento.CicloInicio);
+        builder.Property(pagamento => pagamento.CicloFim);
         builder.Property(pagamento => pagamento.UpdatedAt);
         builder.Property(pagamento => pagamento.PagoEm);
         builder.Property(pagamento => pagamento.ExpiraEm);

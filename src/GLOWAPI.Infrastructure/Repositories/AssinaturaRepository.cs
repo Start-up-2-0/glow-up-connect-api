@@ -56,4 +56,44 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
             cancellationToken);
     }
 
+    public Task<bool> ExisteComCampanhaPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        string codigoCampanha,
+        CancellationToken cancellationToken = default) =>
+        DbSet.AnyAsync(
+            assinatura => assinatura.EstabelecimentoId == estabelecimentoId
+                && assinatura.CampanhaPromocional != null
+                && assinatura.CampanhaPromocional.Codigo == codigoCampanha,
+            cancellationToken);
+
+    public async Task<IReadOnlyList<Assinatura>> ListarParaAlertaFaturaAsync(
+        DateTime dataReferenciaUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var data = dataReferenciaUtc.Date;
+        return await DbSet
+            .Include(assinatura => assinatura.Plano)
+            .Where(assinatura =>
+                (assinatura.Status == AssinaturaStatus.Ativa || assinatura.Status == AssinaturaStatus.Trial)
+                && assinatura.ProximaDataAlerta.HasValue
+                && assinatura.ProximaDataAlerta.Value.Date == data
+                && (assinatura.UltimoAlertaFaturaEm == null
+                    || assinatura.UltimoAlertaFaturaEm.Value.Date < data))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Assinatura>> ListarParaGeracaoCobrancaAsync(
+        DateTime dataReferenciaUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var data = dataReferenciaUtc.Date;
+        return await DbSet
+            .Include(assinatura => assinatura.Plano)
+            .Where(assinatura =>
+                (assinatura.Status == AssinaturaStatus.Ativa || assinatura.Status == AssinaturaStatus.Trial)
+                && assinatura.ProximaDataGeracaoCobranca.HasValue
+                && assinatura.ProximaDataGeracaoCobranca.Value.Date == data)
+            .ToListAsync(cancellationToken);
+    }
+
 }

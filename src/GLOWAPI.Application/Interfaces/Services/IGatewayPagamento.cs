@@ -14,4 +14,8 @@ public interface IGatewayPagamento
     Task<ConsultarPagamentoGatewayResponse> ConsultarPagamentoAsync(
         string gatewayPaymentId,
         CancellationToken cancellationToken = default);
+
+    Task<CriarAssinaturaRecorrenteGatewayResponse> CriarAssinaturaRecorrenteAsync(
+        CriarAssinaturaRecorrenteGatewayRequest request,
+        CancellationToken cancellationToken = default);
 }
