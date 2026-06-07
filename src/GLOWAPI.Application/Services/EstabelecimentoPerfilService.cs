@@ -19,6 +19,7 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
     private readonly IConfirmacaoWhatsAppEstabelecimentoService _confirmacaoWhatsAppEstabelecimentoService;
     private readonly IUsuarioRepository _usuarioRepository;
     private readonly ICurrentUserContext _currentUser;
+    private readonly IAvatarBase64Decoder _avatarBase64Decoder;
 
     public EstabelecimentoPerfilService(
         IEstabelecimentoRepository estabelecimentoRepository,
@@ -26,7 +27,8 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
         IEnderecoGeocodificacaoService enderecoGeocodificacaoService,
         IConfirmacaoWhatsAppEstabelecimentoService confirmacaoWhatsAppEstabelecimentoService,
         IUsuarioRepository usuarioRepository,
-        ICurrentUserContext currentUser)
+        ICurrentUserContext currentUser,
+        IAvatarBase64Decoder avatarBase64Decoder)
     {
         _estabelecimentoRepository = estabelecimentoRepository;
         _autorizacaoNegocioService = autorizacaoNegocioService;
@@ -34,6 +36,7 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
         _confirmacaoWhatsAppEstabelecimentoService = confirmacaoWhatsAppEstabelecimentoService;
         _usuarioRepository = usuarioRepository;
         _currentUser = currentUser;
+        _avatarBase64Decoder = avatarBase64Decoder;
     }
 
 
@@ -62,7 +65,11 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
 
         estabelecimento.Nome = OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Nome, "Nome do estabelecimento", 150, CriarExcecao);
 
-        estabelecimento.Logo = OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Logo, "Logo do estabelecimento", 500, CriarExcecao);
+        estabelecimento.Logo = OperacaoPerfilValidation.ValidarLogoBase64(
+            request.Logo,
+            "Logo do estabelecimento",
+            _avatarBase64Decoder,
+            CriarExcecao);
 
         estabelecimento.Telefone = OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Telefone, "Telefone do estabelecimento", 20, CriarExcecao);
 

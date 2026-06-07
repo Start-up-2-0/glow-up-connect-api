@@ -19,11 +19,16 @@ public class AssinaturaService : IAssinaturaService
     private readonly IProfissionalRepository _profissionalRepository;
     private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
     private readonly IPagamentoRepository _pagamentoRepository;
+    private readonly ICampanhaPromocionalRepository _campanhaPromocionalRepository;
     private readonly IGatewayPagamentoResolver _gatewayPagamentoResolver;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
     private readonly IAssinaturaHistoricoService _assinaturaHistoricoService;
     private readonly IEnderecoGeocodificacaoService _enderecoGeocodificacaoService;
+    private readonly IPromocaoLancamentoService _promocaoLancamentoService;
+    private readonly ICicloCobrancaAssinaturaService _cicloCobrancaService;
+    private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
+    private readonly IAvatarBase64Decoder _avatarBase64Decoder;
 
     public AssinaturaService(
         IAssinaturaRepository assinaturaRepository,
@@ -33,11 +38,16 @@ public class AssinaturaService : IAssinaturaService
         IProfissionalRepository profissionalRepository,
         IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
         IPagamentoRepository pagamentoRepository,
+        ICampanhaPromocionalRepository campanhaPromocionalRepository,
         IGatewayPagamentoResolver gatewayPagamentoResolver,
         ICurrentUserContext currentUser,
         IAssinaturaNotificacaoService assinaturaNotificacaoService,
         IAssinaturaHistoricoService assinaturaHistoricoService,
-        IEnderecoGeocodificacaoService enderecoGeocodificacaoService)
+        IEnderecoGeocodificacaoService enderecoGeocodificacaoService,
+        IPromocaoLancamentoService promocaoLancamentoService,
+        ICicloCobrancaAssinaturaService cicloCobrancaService,
+        ICobrancaAssinaturaService cobrancaAssinaturaService,
+        IAvatarBase64Decoder avatarBase64Decoder)
     {
         _assinaturaRepository = assinaturaRepository;
         _planoRepository = planoRepository;
@@ -46,11 +56,16 @@ public class AssinaturaService : IAssinaturaService
         _profissionalRepository = profissionalRepository;
         _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
         _pagamentoRepository = pagamentoRepository;
+        _campanhaPromocionalRepository = campanhaPromocionalRepository;
         _gatewayPagamentoResolver = gatewayPagamentoResolver;
         _currentUser = currentUser;
         _assinaturaNotificacaoService = assinaturaNotificacaoService;
         _assinaturaHistoricoService = assinaturaHistoricoService;
         _enderecoGeocodificacaoService = enderecoGeocodificacaoService;
+        _promocaoLancamentoService = promocaoLancamentoService;
+        _cicloCobrancaService = cicloCobrancaService;
+        _cobrancaAssinaturaService = cobrancaAssinaturaService;
+        _avatarBase64Decoder = avatarBase64Decoder;
     }
 
     public async Task<AssinaturaResponseDto> IniciarAsync(
@@ -65,6 +80,7 @@ public class AssinaturaService : IAssinaturaService
         }
 
         ValidarTitular(request);
+        _cicloCobrancaService.ValidarDiaVencimento(request.DiaVencimento);
 
         var assinatura = request.TipoAssinatura switch
         {
@@ -73,7 +89,36 @@ public class AssinaturaService : IAssinaturaService
             _ => throw new AssinaturaTitularInvalidoException()
         };
 
-        var pagamentoInicial = await CriarPagamentoInicialAsync(
+        assinatura.DiaVencimento = request.DiaVencimento;
+
+        if (await TentarIniciarComTrialAsync(assinatura, plano, request, cancellationToken))
+        {
+            await _assinaturaRepository.AdicionarAsync(assinatura, cancellationToken);
+            await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+
+            if (assinatura.Estabelecimento is not null && !assinatura.EstabelecimentoId.HasValue)
+            {
+                assinatura.EstabelecimentoId = assinatura.Estabelecimento.Id;
+            }
+
+            var diasTrial = assinatura.CampanhaPromocional?.DiasTrial
+                ?? (await _promocaoLancamentoService.ObterStatusAsync(cancellationToken)).DiasTrial;
+
+            await _assinaturaNotificacaoService.TrialIniciadoAsync(
+                assinatura,
+                plano,
+                diasTrial,
+                _currentUser.Email,
+                cancellationToken);
+
+            return AssinaturaResponseDto.From(assinatura, diasTrial: diasTrial);
+        }
+
+        var ciclo = _cicloCobrancaService.CalcularPrimeiroCiclo(request.DiaVencimento, DateTime.UtcNow);
+        _cicloCobrancaService.AplicarCicloNaAssinatura(assinatura, ciclo);
+        assinatura.Fim = ciclo.Vencimento;
+
+        var pagamentoInicial = await _cobrancaAssinaturaService.GerarCobrancaInicialAsync(
             assinatura,
             plano,
             request.Pagamento,
@@ -128,9 +173,9 @@ public class AssinaturaService : IAssinaturaService
         return AssinaturaResponseDto.From(
             assinatura,
             PagamentoAssinaturaResponseDto.From(
-            pagamentoInicial.Pagamento,
-            pagamentoInicial.CheckoutUrl,
-            pagamentoInicial.QrCode));
+                pagamentoInicial.Pagamento,
+                pagamentoInicial.CheckoutUrl,
+                pagamentoInicial.QrCode));
     }
 
     public async Task<AssinaturaResponseDto> TrocarPlanoAsync(
@@ -165,7 +210,7 @@ public class AssinaturaService : IAssinaturaService
             assinatura.PlanoAlteracaoPendente = novoPlano;
             assinatura.UpdatedAt = DateTime.UtcNow;
 
-            var pagamentoTroca = await CriarPagamentoTrocaPlanoAsync(
+            var pagamentoTroca = await _cobrancaAssinaturaService.GerarCobrancaTrocaPlanoAsync(
                 assinatura,
                 novoPlano,
                 request.Gateway ?? assinatura.Gateway,
@@ -233,9 +278,9 @@ public class AssinaturaService : IAssinaturaService
 
         await ValidarPermissaoGerenciarAssinaturaAsync(assinatura, userId, cancellationToken);
 
-        if (assinatura.Status != AssinaturaStatus.Ativa)
+        if (assinatura.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Trial))
         {
-            throw new CancelamentoAssinaturaInvalidoException("Somente assinatura ativa pode ser cancelada pelo usuario.");
+            throw new CancelamentoAssinaturaInvalidoException("Somente assinatura ativa ou em trial pode ser cancelada pelo usuario.");
         }
 
         var statusAnterior = assinatura.Status;
@@ -483,7 +528,7 @@ public class AssinaturaService : IAssinaturaService
         }
     }
 
-    private static Estabelecimento CriarEstabelecimento(CriarEstabelecimentoAssinaturaDto dto)
+    private Estabelecimento CriarEstabelecimento(CriarEstabelecimentoAssinaturaDto dto)
     {
         static Exception CriarExcecao(string mensagem) => new EstabelecimentoAssinaturaInvalidoException(mensagem);
 
@@ -496,7 +541,11 @@ public class AssinaturaService : IAssinaturaService
         {
             Nome = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Nome, "Nome do estabelecimento", 150, CriarExcecao),
             Descricao = dto.Descricao.Trim(),
-            Logo = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Logo, "Logo do estabelecimento", 500, CriarExcecao),
+            Logo = OperacaoPerfilValidation.ValidarLogoBase64(
+                dto.Logo,
+                "Logo do estabelecimento",
+                _avatarBase64Decoder,
+                CriarExcecao),
             Telefone = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Telefone, "Telefone do estabelecimento", 20, CriarExcecao),
             Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Email, "Email do estabelecimento", 255, CriarExcecao),
             Ativo = true,
@@ -504,16 +553,16 @@ public class AssinaturaService : IAssinaturaService
         };
     }
 
-    private static Estabelecimento CriarEstabelecimentoParaProfissionalAutonomo(
+    private Estabelecimento CriarEstabelecimentoParaProfissionalAutonomo(
         CriarProfissionalAutonomoAssinaturaDto dto)
     {
-        ValidarProfissionalAutonomo(dto);
+        var logo = ValidarLogoProfissionalAutonomo(dto);
 
         return new Estabelecimento
         {
             Nome = dto.NomePublico.Trim(),
             Descricao = dto.Biografia.Trim(),
-            Logo = dto.Logo.Trim(),
+            Logo = logo,
             Telefone = dto.Telefone.Trim(),
             Email = dto.Email.Trim(),
             Ativo = true,
@@ -538,15 +587,15 @@ public class AssinaturaService : IAssinaturaService
         };
     }
 
-    private static void AtualizarEstabelecimentoAutonomo(
+    private void AtualizarEstabelecimentoAutonomo(
         Estabelecimento estabelecimento,
         CriarProfissionalAutonomoAssinaturaDto dto)
     {
-        ValidarProfissionalAutonomo(dto);
+        var logo = ValidarLogoProfissionalAutonomo(dto);
 
         estabelecimento.Nome = dto.NomePublico.Trim();
         estabelecimento.Descricao = dto.Biografia.Trim();
-        estabelecimento.Logo = dto.Logo.Trim();
+        estabelecimento.Logo = logo;
         estabelecimento.Telefone = dto.Telefone.Trim();
         estabelecimento.Email = dto.Email.Trim();
         estabelecimento.Ativo = true;
@@ -561,18 +610,18 @@ public class AssinaturaService : IAssinaturaService
         estabelecimento.Caixa ??= new Caixa();
     }
 
-    private static Profissional CriarProfissionalAutonomo(
+    private Profissional CriarProfissionalAutonomo(
         CriarProfissionalAutonomoAssinaturaDto dto,
         int userId)
     {
-        ValidarProfissionalAutonomo(dto);
+        var logo = ValidarLogoProfissionalAutonomo(dto);
 
         return new Profissional
         {
             UsuarioId = userId,
             NomePublico = dto.NomePublico.Trim(),
             Biografia = dto.Biografia.Trim(),
-            Logo = dto.Logo.Trim(),
+            Logo = logo,
             Telefone = dto.Telefone.Trim(),
             Email = dto.Email.Trim(),
             TipoProfissional = ProfessionalType.Autonomo,
@@ -580,15 +629,15 @@ public class AssinaturaService : IAssinaturaService
         };
     }
 
-    private static void AtualizarProfissionalAutonomo(
+    private void AtualizarProfissionalAutonomo(
         Profissional profissional,
         CriarProfissionalAutonomoAssinaturaDto dto)
     {
-        ValidarProfissionalAutonomo(dto);
+        var logo = ValidarLogoProfissionalAutonomo(dto);
 
         profissional.NomePublico = dto.NomePublico.Trim();
         profissional.Biografia = dto.Biografia.Trim();
-        profissional.Logo = dto.Logo.Trim();
+        profissional.Logo = logo;
         profissional.Telefone = dto.Telefone.Trim();
         profissional.Email = dto.Email.Trim();
         profissional.TipoProfissional = ProfessionalType.Autonomo;
@@ -603,6 +652,17 @@ public class AssinaturaService : IAssinaturaService
             throw new ProfissionalAutonomoAssinaturaInvalidoException(
                 "Usuario ja possui um perfil profissional que nao e autonomo.");
         }
+    }
+
+    private string ValidarLogoProfissionalAutonomo(CriarProfissionalAutonomoAssinaturaDto dto)
+    {
+        ValidarProfissionalAutonomo(dto);
+
+        return OperacaoPerfilValidation.ValidarLogoBase64(
+            dto.Logo,
+            "Logo do profissional",
+            _avatarBase64Decoder,
+            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
     }
 
     private static void ValidarProfissionalAutonomo(CriarProfissionalAutonomoAssinaturaDto dto)
@@ -621,12 +681,6 @@ public class AssinaturaService : IAssinaturaService
         {
             throw new ProfissionalAutonomoAssinaturaInvalidoException("Biografia do profissional deve ter no maximo 1000 caracteres.");
         }
-
-        OperacaoPerfilValidation.ValidarTextoObrigatorio(
-            dto.Logo,
-            "Logo do profissional",
-            500,
-            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
 
         OperacaoPerfilValidation.ValidarTextoObrigatorio(
             dto.Telefone,
@@ -651,96 +705,97 @@ public class AssinaturaService : IAssinaturaService
             RenovacaoAutomatica = true
         };
 
-    private async Task<PagamentoInicial> CriarPagamentoInicialAsync(
+    private async Task<bool> TentarIniciarComTrialAsync(
         Assinatura assinatura,
         Plano plano,
-        PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
+        IniciarAssinaturaRequestDto request,
         CancellationToken cancellationToken)
     {
+        var promoStatus = await _promocaoLancamentoService.ObterStatusAsync(cancellationToken);
+        if (!promoStatus.Disponivel)
+        {
+            return false;
+        }
+
+        var estabelecimentoIdPromo = assinatura.EstabelecimentoId ?? 0;
+        if (estabelecimentoIdPromo > 0
+            && await _promocaoLancamentoService.EstabelecimentoJaUsouPromocaoAsync(estabelecimentoIdPromo, cancellationToken))
+        {
+            return false;
+        }
+
+        if (!await _promocaoLancamentoService.TentarReservarVagaAsync(estabelecimentoIdPromo, cancellationToken))
+        {
+            return false;
+        }
+
+        var campanha = await _campanhaPromocionalRepository.ObterAtivaPorCodigoAsync(
+            PromocaoLancamentoService.CodigoCampanhaLancamento,
+            cancellationToken);
+
+        if (campanha is null)
+        {
+            return false;
+        }
+
+        var inicio = DateTime.UtcNow;
+        var fimTrial = _cicloCobrancaService.CalcularFimTrial(inicio, campanha.DiasTrial);
+        var ciclo = _cicloCobrancaService.CalcularPrimeiroCiclo(request.DiaVencimento, fimTrial);
+
         var gateway = _gatewayPagamentoResolver.Resolver(assinatura.Gateway);
-        var referenciaInterna = $"assinatura-{Guid.NewGuid():N}";
-        var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
+        var referenciaInterna = $"trial-{Guid.NewGuid():N}";
+        var response = await gateway.CriarAssinaturaRecorrenteAsync(new CriarAssinaturaRecorrenteGatewayRequest(
             Gateway: assinatura.Gateway,
             ReferenciaInterna: referenciaInterna,
-            Descricao: $"Assinatura {plano.Nome}",
+            Descricao: $"Assinatura {plano.Nome} - trial {campanha.DiasTrial} dias",
             Valor: plano.Preco,
             Moeda: "BRL",
             PagadorNome: _currentUser.Email ?? "Usuario Glow",
             PagadorEmail: _currentUser.Email ?? string.Empty,
+            DiasTrial: campanha.DiasTrial,
+            PrimeiraCobrancaEm: ciclo.Vencimento,
+            PagamentoTransparente: CriarPagamentoTransparenteRequest(assinatura.Gateway, request.Pagamento),
             Metadados: new Dictionary<string, string>
             {
                 ["planoId"] = plano.Id.ToString(),
-                ["tipo"] = assinatura.EstabelecimentoId.HasValue || assinatura.Estabelecimento is not null
-                    ? TipoAssinatura.Estabelecimento.ToString()
-                    : TipoAssinatura.ProfissionalAutonomo.ToString()
-            },
-            PagamentoTransparente: CriarPagamentoTransparenteRequest(assinatura.Gateway, pagamentoTransparente)),
+                ["campanha"] = campanha.Codigo,
+                ["diaVencimento"] = request.DiaVencimento.ToString()
+            }),
             cancellationToken);
 
         if (!response.Sucesso)
         {
-            throw new GatewayPagamentoException(response.MensagemErro ?? "Nao foi possivel criar a cobranca no gateway.");
+            throw new GatewayPagamentoException(response.MensagemErro ?? "Nao foi possivel criar assinatura recorrente no gateway.");
         }
 
-        var pagamento = new Pagamento
-        {
-            Assinatura = assinatura,
-            Gateway = assinatura.Gateway,
-            GatewayPaymentId = response.GatewayPaymentId,
-            MetodoPagamento = response.MetodoPagamento,
-            Status = PagamentoStatus.Pendente,
-            Valor = plano.Preco,
-            Moeda = "BRL"
-        };
+        assinatura.Status = AssinaturaStatus.Trial;
+        assinatura.CampanhaPromocionalId = campanha.Id;
+        assinatura.CampanhaPromocional = campanha;
+        assinatura.Inicio = inicio;
+        assinatura.Fim = ciclo.Vencimento;
+        assinatura.GatewaySubscriptionId = response.GatewaySubscriptionId;
+        assinatura.GatewayCustomerId = response.GatewayCustomerId ?? string.Empty;
+        _cicloCobrancaService.AplicarCicloNaAssinatura(assinatura, ciclo);
 
-        return new PagamentoInicial(pagamento, response.CheckoutUrl, response.QrCode);
-    }
+        await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+            assinatura,
+            "TrialIniciado",
+            null,
+            assinatura.Status,
+            observacao: $"Trial de {campanha.DiasTrial} dias iniciado via campanha {campanha.Codigo}.",
+            payloadJson: response.ResponsePayload,
+            cancellationToken: cancellationToken);
+        await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
+            assinatura,
+            "TrialAtivo",
+            "Trial",
+            cicloInicio: inicio,
+            cicloFim: ciclo.Vencimento,
+            observacao: "Periodo de trial ativo com modulos liberados.",
+            payloadJson: response.ResponsePayload,
+            cancellationToken: cancellationToken);
 
-    private async Task<PagamentoInicial> CriarPagamentoTrocaPlanoAsync(
-        Assinatura assinatura,
-        Plano novoPlano,
-        GatewayPagamento gatewayPagamento,
-        PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
-        CancellationToken cancellationToken)
-    {
-        var gateway = _gatewayPagamentoResolver.Resolver(gatewayPagamento);
-        var referenciaInterna = $"troca-plano-{assinatura.Id}-{Guid.NewGuid():N}";
-        var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
-            Gateway: gatewayPagamento,
-            ReferenciaInterna: referenciaInterna,
-            Descricao: $"Troca de plano para {novoPlano.Nome}",
-            Valor: novoPlano.Preco,
-            Moeda: "BRL",
-            PagadorNome: _currentUser.Email ?? "Usuario Glow",
-            PagadorEmail: _currentUser.Email ?? string.Empty,
-            Metadados: new Dictionary<string, string>
-            {
-                ["assinaturaId"] = assinatura.Id.ToString(),
-                ["planoAtualId"] = assinatura.PlanoId.ToString(),
-                ["novoPlanoId"] = novoPlano.Id.ToString(),
-                ["acao"] = "TrocaPlano"
-            },
-            PagamentoTransparente: CriarPagamentoTransparenteRequest(gatewayPagamento, pagamentoTransparente)),
-            cancellationToken);
-
-        if (!response.Sucesso)
-        {
-            throw new GatewayPagamentoException(response.MensagemErro ?? "Nao foi possivel criar a cobranca no gateway.");
-        }
-
-        var pagamento = new Pagamento
-        {
-            Assinatura = assinatura,
-            AssinaturaId = assinatura.Id,
-            Gateway = gatewayPagamento,
-            GatewayPaymentId = response.GatewayPaymentId,
-            MetodoPagamento = response.MetodoPagamento,
-            Status = PagamentoStatus.Pendente,
-            Valor = novoPlano.Preco,
-            Moeda = "BRL"
-        };
-
-        return new PagamentoInicial(pagamento, response.CheckoutUrl, response.QrCode);
+        return true;
     }
 
     private static PagamentoTransparenteGatewayRequest? CriarPagamentoTransparenteRequest(
@@ -840,5 +895,4 @@ public class AssinaturaService : IAssinaturaService
         return _currentUser.UserId.Value;
     }
 
-    private record PagamentoInicial(Pagamento Pagamento, string CheckoutUrl, string QrCode);
 }

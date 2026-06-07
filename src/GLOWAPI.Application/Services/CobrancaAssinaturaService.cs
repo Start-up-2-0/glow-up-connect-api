@@ -1,0 +1,559 @@
+using System.Text.Json;
+using GLOWAPI.Application.DTOs.Assinaturas;
+using GLOWAPI.Application.DTOs.Pagamentos;
+using GLOWAPI.Application.Interfaces.Repositories;
+using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Models.Pagamentos;
+using GLOWAPI.Domain.Entities;
+using GLOWAPI.Domain.Enums;
+using GLOWAPI.Domain.Exceptions.Assinatura;
+using GLOWAPI.Domain.Exceptions.Auth;
+using GLOWAPI.Domain.Exceptions.Pagamentos;
+
+namespace GLOWAPI.Application.Services;
+
+public class CobrancaAssinaturaService : ICobrancaAssinaturaService
+{
+    private readonly IPagamentoRepository _pagamentoRepository;
+    private readonly IAssinaturaRepository _assinaturaRepository;
+    private readonly IEstabelecimentoUsuarioRepository _estabelecimentoUsuarioRepository;
+    private readonly IGatewayPagamentoResolver _gatewayPagamentoResolver;
+    private readonly IAssinaturaHistoricoService _assinaturaHistoricoService;
+    private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
+    private readonly ICicloCobrancaAssinaturaService _cicloCobrancaService;
+    private readonly ICurrentUserContext _currentUser;
+
+    public CobrancaAssinaturaService(
+        IPagamentoRepository pagamentoRepository,
+        IAssinaturaRepository assinaturaRepository,
+        IEstabelecimentoUsuarioRepository estabelecimentoUsuarioRepository,
+        IGatewayPagamentoResolver gatewayPagamentoResolver,
+        IAssinaturaHistoricoService assinaturaHistoricoService,
+        IAssinaturaNotificacaoService assinaturaNotificacaoService,
+        ICicloCobrancaAssinaturaService cicloCobrancaService,
+        ICurrentUserContext currentUser)
+    {
+        _pagamentoRepository = pagamentoRepository;
+        _assinaturaRepository = assinaturaRepository;
+        _estabelecimentoUsuarioRepository = estabelecimentoUsuarioRepository;
+        _gatewayPagamentoResolver = gatewayPagamentoResolver;
+        _assinaturaHistoricoService = assinaturaHistoricoService;
+        _assinaturaNotificacaoService = assinaturaNotificacaoService;
+        _cicloCobrancaService = cicloCobrancaService;
+        _currentUser = currentUser;
+    }
+
+    public async Task<(Pagamento Pagamento, string? CheckoutUrl, string? QrCode)> GerarCobrancaInicialAsync(
+        Assinatura assinatura,
+        Plano plano,
+        PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
+        CancellationToken cancellationToken = default)
+    {
+        var ciclo = assinatura.ProximaDataVencimento.HasValue
+            ? new CicloCobrancaDatasDto(
+                assinatura.ProximaDataVencimento.Value,
+                assinatura.ProximaDataGeracaoCobranca ?? DateTime.UtcNow.Date,
+                assinatura.ProximaDataAlerta ?? DateTime.UtcNow.Date)
+            : _cicloCobrancaService.CalcularPrimeiroCiclo(assinatura.DiaVencimento, DateTime.UtcNow);
+
+        return await CriarCobrancaGatewayAsync(
+            assinatura,
+            plano,
+            plano.Preco,
+            TipoCobrancaAssinatura.Inicial,
+            1,
+            ciclo,
+            $"assinatura-{Guid.NewGuid():N}",
+            $"Assinatura {plano.Nome}",
+            pagamentoTransparente,
+            cancellationToken);
+    }
+
+    public async Task<Pagamento> GerarCobrancaRecorrenteAsync(
+        Assinatura assinatura,
+        CancellationToken cancellationToken = default)
+    {
+        if (assinatura.Plano is null)
+        {
+            throw new AssinaturaNaoEncontradaException();
+        }
+
+        if (!assinatura.ProximaDataVencimento.HasValue)
+        {
+            throw new PagamentoAssinaturaInvalidoException("Assinatura sem proxima data de vencimento configurada.");
+        }
+
+        var vencimento = assinatura.ProximaDataVencimento.Value.Date;
+        var cobrancasExistentes = await _pagamentoRepository.ListarPorAssinaturaAsync(assinatura.Id, cancellationToken);
+        if (cobrancasExistentes.Any(pagamento =>
+                pagamento.DataVencimento.HasValue
+                && pagamento.DataVencimento.Value.Date == vencimento
+                && pagamento.Status is PagamentoStatus.Pendente or PagamentoStatus.Pago or PagamentoStatus.Atrasado))
+        {
+            return cobrancasExistentes.First(pagamento =>
+                pagamento.DataVencimento.HasValue && pagamento.DataVencimento.Value.Date == vencimento);
+        }
+
+        var numeroCiclo = cobrancasExistentes.Count == 0
+            ? 1
+            : cobrancasExistentes.Max(pagamento => pagamento.NumeroCiclo) + 1;
+
+        var ciclo = new CicloCobrancaDatasDto(
+            vencimento,
+            assinatura.ProximaDataGeracaoCobranca ?? DateTime.UtcNow.Date,
+            assinatura.ProximaDataAlerta ?? vencimento.AddDays(-3));
+
+        Pagamento pagamento;
+        if (!string.IsNullOrWhiteSpace(assinatura.GatewaySubscriptionId))
+        {
+            pagamento = CriarPagamentoInterno(
+                assinatura,
+                assinatura.Plano.Preco,
+                TipoCobrancaAssinatura.Recorrente,
+                numeroCiclo,
+                ciclo,
+                $"sub-{assinatura.GatewaySubscriptionId}-ciclo-{numeroCiclo}",
+                "subscription");
+        }
+        else
+        {
+            var resultado = await CriarCobrancaGatewayAsync(
+                assinatura,
+                assinatura.Plano,
+                assinatura.Plano.Preco,
+                TipoCobrancaAssinatura.Recorrente,
+                numeroCiclo,
+                ciclo,
+                $"recorrente-{assinatura.Id}-{numeroCiclo}-{Guid.NewGuid():N}",
+                $"Assinatura {assinatura.Plano.Nome} - ciclo {numeroCiclo}",
+                null,
+                cancellationToken);
+            pagamento = resultado.Pagamento;
+        }
+
+        await _pagamentoRepository.AdicionarAsync(pagamento, cancellationToken);
+        await _assinaturaHistoricoService.RegistrarPagamentoAsync(
+            pagamento,
+            "CobrancaRecorrenteGerada",
+            null,
+            pagamento.Status,
+            "Cobranca recorrente gerada pelo worker.",
+            cancellationToken: cancellationToken);
+        await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
+            assinatura,
+            "CobrancaCicloGerada",
+            pagamento.Status.ToString(),
+            pagamento,
+            ciclo.Vencimento.AddMonths(-1),
+            ciclo.Vencimento,
+            $"Cobranca do ciclo {numeroCiclo} gerada.",
+            cancellationToken: cancellationToken);
+        await _pagamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        return pagamento;
+    }
+
+    public async Task<(Pagamento Pagamento, string? CheckoutUrl, string? QrCode)> GerarCobrancaTrocaPlanoAsync(
+        Assinatura assinatura,
+        Plano novoPlano,
+        GatewayPagamento gateway,
+        PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
+        CancellationToken cancellationToken = default)
+    {
+        var ciclo = assinatura.ProximaDataVencimento.HasValue
+            ? new CicloCobrancaDatasDto(
+                assinatura.ProximaDataVencimento.Value,
+                assinatura.ProximaDataGeracaoCobranca ?? DateTime.UtcNow.Date,
+                assinatura.ProximaDataAlerta ?? DateTime.UtcNow.Date)
+            : _cicloCobrancaService.CalcularPrimeiroCiclo(assinatura.DiaVencimento, DateTime.UtcNow);
+
+        return await CriarCobrancaGatewayAsync(
+            assinatura,
+            novoPlano,
+            novoPlano.Preco,
+            TipoCobrancaAssinatura.TrocaPlano,
+            1,
+            ciclo,
+            $"troca-plano-{assinatura.Id}-{Guid.NewGuid():N}",
+            $"Troca de plano para {novoPlano.Nome}",
+            pagamentoTransparente,
+            cancellationToken,
+            gateway);
+    }
+
+    public async Task ProcessarPagamentoAprovadoAsync(
+        Pagamento pagamento,
+        string payloadJson,
+        CancellationToken cancellationToken = default)
+    {
+        if (pagamento.Status == PagamentoStatus.Pago)
+        {
+            return;
+        }
+
+        var statusPagamentoAnterior = pagamento.Status;
+        pagamento.Status = PagamentoStatus.Pago;
+        pagamento.PagoEm = DateTime.UtcNow;
+        pagamento.UpdatedAt = DateTime.UtcNow;
+        _pagamentoRepository.Atualizar(pagamento);
+
+        await _assinaturaHistoricoService.RegistrarPagamentoAsync(
+            pagamento,
+            "PagamentoAprovado",
+            statusPagamentoAnterior,
+            pagamento.Status,
+            "Pagamento aprovado pelo gateway.",
+            payloadJson,
+            cancellationToken);
+
+        if (pagamento.Assinatura is null)
+        {
+            await _pagamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+            return;
+        }
+
+        var assinatura = pagamento.Assinatura;
+        var statusAssinaturaAnterior = assinatura.Status;
+
+        if (assinatura.PlanoAlteracaoPendenteId.HasValue)
+        {
+            assinatura.PlanoId = assinatura.PlanoAlteracaoPendenteId.Value;
+            assinatura.Plano = assinatura.PlanoAlteracaoPendente;
+            assinatura.PlanoAlteracaoPendenteId = null;
+            assinatura.PlanoAlteracaoPendente = null;
+        }
+
+        if (assinatura.Status is AssinaturaStatus.PendentePagamento or AssinaturaStatus.Trial)
+        {
+            assinatura.Status = AssinaturaStatus.Ativa;
+            assinatura.Inicio = pagamento.PagoEm.Value;
+        }
+
+        var fimAnterior = assinatura.Fim;
+        assinatura.Fim = CalcularFimEncadeado(fimAnterior, pagamento.PagoEm.Value, assinatura.Plano?.Periodo);
+        assinatura.UltimoPagamentoId = pagamento.Id;
+        assinatura.UpdatedAt = DateTime.UtcNow;
+
+        if (assinatura.ProximaDataVencimento.HasValue)
+        {
+            var proximoCiclo = _cicloCobrancaService.CalcularProximoCiclo(
+                assinatura.DiaVencimento,
+                assinatura.ProximaDataVencimento.Value);
+            _cicloCobrancaService.AplicarCicloNaAssinatura(assinatura, proximoCiclo);
+        }
+
+        _assinaturaRepository.Atualizar(assinatura);
+        await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+            assinatura,
+            statusAssinaturaAnterior == AssinaturaStatus.Trial
+                ? "AssinaturaAtivadaPosTrial"
+                : "AssinaturaAtivadaPorPagamento",
+            statusAssinaturaAnterior,
+            assinatura.Status,
+            pagamento,
+            "Assinatura atualizada apos pagamento aprovado.",
+            payloadJson,
+            cancellationToken);
+        await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
+            assinatura,
+            "RecorrenciaLiberada",
+            "Ativa",
+            pagamento,
+            pagamento.CicloInicio ?? assinatura.Inicio,
+            pagamento.CicloFim ?? assinatura.Fim,
+            "Ciclo liberado apos pagamento aprovado.",
+            payloadJson,
+            cancellationToken);
+
+        await _assinaturaNotificacaoService.PagamentoConfirmadoAsync(
+            assinatura,
+            pagamento,
+            ExtrairEmail(payloadJson) ?? _currentUser.Email,
+            cancellationToken);
+
+        await _pagamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+    }
+
+    public async Task ProcessarPagamentoRecusadoAsync(
+        Pagamento pagamento,
+        string payloadJson,
+        PagamentoStatus? novoStatus = null,
+        CancellationToken cancellationToken = default)
+    {
+        var statusDestino = novoStatus ?? PagamentoStatus.Recusado;
+        if (pagamento.Status == statusDestino || pagamento.Status == PagamentoStatus.Pago)
+        {
+            return;
+        }
+
+        var statusAnterior = pagamento.Status;
+        pagamento.Status = statusDestino;
+        pagamento.UpdatedAt = DateTime.UtcNow;
+        _pagamentoRepository.Atualizar(pagamento);
+
+        await _assinaturaHistoricoService.RegistrarPagamentoAsync(
+            pagamento,
+            "PagamentoNaoAprovado",
+            statusAnterior,
+            pagamento.Status,
+            "Pagamento nao aprovado pelo gateway.",
+            payloadJson,
+            cancellationToken);
+
+        if (pagamento.Assinatura is not null)
+        {
+            await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
+                pagamento.Assinatura,
+                "RecorrenciaPagamentoNaoAprovado",
+                pagamento.Status.ToString(),
+                pagamento,
+                pagamento.Assinatura.Inicio,
+                pagamento.Assinatura.Fim,
+                "Ciclo aguardando regularizacao de pagamento.",
+                payloadJson,
+                cancellationToken);
+        }
+
+        await _assinaturaNotificacaoService.PagamentoRecusadoAsync(
+            pagamento,
+            ExtrairEmail(payloadJson) ?? _currentUser.Email,
+            cancellationToken);
+
+        await _pagamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+    }
+
+    public async Task<int> MarcarAtrasadasAsync(CancellationToken cancellationToken = default)
+    {
+        var pendentesVencidos = await _pagamentoRepository.ListarPendentesVencidosAsync(
+            DateTime.UtcNow,
+            cancellationToken);
+
+        var marcados = 0;
+        foreach (var pagamento in pendentesVencidos)
+        {
+            var statusAnterior = pagamento.Status;
+            pagamento.Status = PagamentoStatus.Atrasado;
+            pagamento.UpdatedAt = DateTime.UtcNow;
+            _pagamentoRepository.Atualizar(pagamento);
+
+            await _assinaturaHistoricoService.RegistrarPagamentoAsync(
+                pagamento,
+                "CobrancaAtrasada",
+                statusAnterior,
+                pagamento.Status,
+                "Cobranca marcada como atrasada.",
+                cancellationToken: cancellationToken);
+
+            if (pagamento.Assinatura is not null)
+            {
+                await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
+                    pagamento.Assinatura,
+                    "CobrancaAtrasada",
+                    pagamento.Status.ToString(),
+                    pagamento,
+                    pagamento.Assinatura.Inicio,
+                    pagamento.Assinatura.Fim,
+                    "Cobranca em atraso.",
+                    cancellationToken: cancellationToken);
+            }
+
+            marcados++;
+        }
+
+        if (marcados > 0)
+        {
+            await _pagamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+        }
+
+        return marcados;
+    }
+
+    public async Task<IReadOnlyList<CobrancaAssinaturaResponseDto>> ListarPorAssinaturaAsync(
+        int assinaturaId,
+        int usuarioId,
+        CancellationToken cancellationToken = default)
+    {
+        var assinatura = await _assinaturaRepository.ObterPorIdComPlanoAsync(assinaturaId, cancellationToken);
+        if (assinatura is null)
+        {
+            throw new AssinaturaNaoEncontradaException();
+        }
+
+        if (!assinatura.EstabelecimentoId.HasValue)
+        {
+            throw new AssinaturaTitularInvalidoException();
+        }
+
+        var vinculo = await _estabelecimentoUsuarioRepository.ObterAtivoAsync(
+            assinatura.EstabelecimentoId.Value,
+            usuarioId,
+            cancellationToken);
+
+        if (vinculo is null)
+        {
+            throw new UsuarioSemPermissaoAssinaturaException();
+        }
+
+        var cobrancas = await _pagamentoRepository.ListarPorAssinaturaAsync(assinaturaId, cancellationToken);
+        return cobrancas.Select(CobrancaAssinaturaResponseDto.From).ToList();
+    }
+
+    private async Task<(Pagamento Pagamento, string? CheckoutUrl, string? QrCode)> CriarCobrancaGatewayAsync(
+        Assinatura assinatura,
+        Plano plano,
+        decimal valor,
+        TipoCobrancaAssinatura tipoCobranca,
+        int numeroCiclo,
+        CicloCobrancaDatasDto ciclo,
+        string referenciaInterna,
+        string descricao,
+        PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
+        CancellationToken cancellationToken,
+        GatewayPagamento? gatewayOverride = null)
+    {
+        var gatewayPagamento = gatewayOverride ?? assinatura.Gateway;
+        var gateway = _gatewayPagamentoResolver.Resolver(gatewayPagamento);
+        var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
+            Gateway: gatewayPagamento,
+            ReferenciaInterna: referenciaInterna,
+            Descricao: descricao,
+            Valor: valor,
+            Moeda: "BRL",
+            PagadorNome: _currentUser.Email ?? "Usuario Glow",
+            PagadorEmail: _currentUser.Email ?? string.Empty,
+            Metadados: new Dictionary<string, string>
+            {
+                ["assinaturaId"] = assinatura.Id > 0 ? assinatura.Id.ToString() : string.Empty,
+                ["planoId"] = plano.Id.ToString(),
+                ["tipoCobranca"] = tipoCobranca.ToString(),
+                ["numeroCiclo"] = numeroCiclo.ToString()
+            },
+            PagamentoTransparente: CriarPagamentoTransparenteRequest(gatewayPagamento, pagamentoTransparente)),
+            cancellationToken);
+
+        if (!response.Sucesso)
+        {
+            throw new GatewayPagamentoException(response.MensagemErro ?? "Nao foi possivel criar a cobranca no gateway.");
+        }
+
+        var pagamento = new Pagamento
+        {
+            Assinatura = assinatura,
+            AssinaturaId = assinatura.Id > 0 ? assinatura.Id : null,
+            Gateway = gatewayPagamento,
+            GatewayPaymentId = response.GatewayPaymentId,
+            MetodoPagamento = response.MetodoPagamento,
+            Status = PagamentoStatus.Pendente,
+            Valor = valor,
+            Moeda = "BRL",
+            TipoCobranca = tipoCobranca,
+            NumeroCiclo = numeroCiclo,
+            DataVencimento = ciclo.Vencimento,
+            DataGeracao = ciclo.Geracao,
+            CicloInicio = ciclo.Vencimento.AddMonths(-1),
+            CicloFim = ciclo.Vencimento
+        };
+
+        return (pagamento, response.CheckoutUrl, response.QrCode);
+    }
+
+    private static PagamentoTransparenteGatewayRequest? CriarPagamentoTransparenteRequest(
+        GatewayPagamento gateway,
+        PagamentoTransparenteMercadoPagoDto? pagamento)
+    {
+        if (gateway != GatewayPagamento.MercadoPago)
+        {
+            return null;
+        }
+
+        if (pagamento is null)
+        {
+            throw new PagamentoAssinaturaInvalidoException(
+                "Dados do Checkout Transparente sao obrigatorios para pagamento via Mercado Pago.");
+        }
+
+        if (string.IsNullOrWhiteSpace(pagamento.PaymentMethodId))
+        {
+            throw new PagamentoAssinaturaInvalidoException("PaymentMethodId do pagamento e obrigatorio.");
+        }
+
+        return new PagamentoTransparenteGatewayRequest(
+            pagamento.PaymentMethodId.Trim(),
+            pagamento.Token,
+            pagamento.IssuerId,
+            pagamento.Installments,
+            pagamento.IdentificationType,
+            pagamento.IdentificationNumber);
+    }
+
+    private static Pagamento CriarPagamentoInterno(
+        Assinatura assinatura,
+        decimal valor,
+        TipoCobrancaAssinatura tipoCobranca,
+        int numeroCiclo,
+        CicloCobrancaDatasDto ciclo,
+        string gatewayPaymentId,
+        string metodoPagamento) =>
+        new()
+        {
+            Assinatura = assinatura,
+            AssinaturaId = assinatura.Id > 0 ? assinatura.Id : null,
+            Gateway = assinatura.Gateway,
+            GatewayPaymentId = gatewayPaymentId,
+            MetodoPagamento = metodoPagamento,
+            Status = PagamentoStatus.Pendente,
+            Valor = valor,
+            Moeda = "BRL",
+            TipoCobranca = tipoCobranca,
+            NumeroCiclo = numeroCiclo,
+            DataVencimento = ciclo.Vencimento,
+            DataGeracao = ciclo.Geracao,
+            CicloInicio = ciclo.Vencimento.AddMonths(-1),
+            CicloFim = ciclo.Vencimento
+        };
+
+    private static string? ExtrairEmail(string payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(payloadJson);
+            var root = document.RootElement;
+            foreach (var property in new[] { "email", "payerEmail", "pagadorEmail", "customerEmail" })
+            {
+                if (root.TryGetProperty(property, out var value)
+                    && value.ValueKind == JsonValueKind.String
+                    && !string.IsNullOrWhiteSpace(value.GetString()))
+                {
+                    return value.GetString();
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        return null;
+    }
+
+    private static DateTime? CalcularFimEncadeado(DateTime? fimAnterior, DateTime pagoEm, PlanoPeriodo? periodo)
+    {
+        var baseCalculo = fimAnterior.HasValue && fimAnterior.Value > pagoEm
+            ? fimAnterior.Value
+            : pagoEm;
+
+        return periodo switch
+        {
+            PlanoPeriodo.Mensal => baseCalculo.AddMonths(1),
+            PlanoPeriodo.Trimestral => baseCalculo.AddMonths(3),
+            PlanoPeriodo.Semestral => baseCalculo.AddMonths(6),
+            PlanoPeriodo.Anual => baseCalculo.AddYears(1),
+            _ => baseCalculo.AddMonths(1)
+        };
+    }
+}

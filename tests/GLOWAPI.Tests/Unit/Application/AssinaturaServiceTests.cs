@@ -3,7 +3,9 @@ using GLOWAPI.Application.DTOs.Pagamentos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Pagamentos;
+using GLOWAPI.Application.Options;
 using GLOWAPI.Application.Services;
+using Microsoft.Extensions.Options;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
@@ -27,9 +29,63 @@ public class AssinaturaServiceTests
     private readonly Mock<IAssinaturaNotificacaoService> _assinaturaNotificacaoService = new();
     private readonly Mock<IAssinaturaHistoricoService> _assinaturaHistoricoService = new();
     private readonly Mock<IEnderecoGeocodificacaoService> _enderecoGeocodificacaoService = new();
+    private readonly Mock<ICampanhaPromocionalRepository> _campanhaPromocionalRepository = new();
+    private readonly Mock<IPromocaoLancamentoService> _promocaoLancamentoService = new();
+    private readonly Mock<ICobrancaAssinaturaService> _cobrancaAssinaturaService = new();
 
     public AssinaturaServiceTests()
     {
+        _promocaoLancamentoService
+            .Setup(s => s.ObterStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PromocaoLancamentoStatusDto(false, 0, 30, [5, 10, 15, 20], 3, 2));
+        _promocaoLancamentoService
+            .Setup(s => s.TentarReservarVagaAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _cobrancaAssinaturaService
+            .Setup(s => s.GerarCobrancaInicialAsync(
+                It.IsAny<Assinatura>(),
+                It.IsAny<Plano>(),
+                It.IsAny<PagamentoTransparenteMercadoPagoDto?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((
+                new Pagamento
+                {
+                    Gateway = GatewayPagamento.MercadoPago,
+                    GatewayPaymentId = "pay_test_123",
+                    Status = PagamentoStatus.Pendente,
+                    Valor = 29.99m,
+                    Moeda = "BRL"
+                },
+                "https://checkout.test/pay_test_123",
+                "qr-code"));
+
+        _cobrancaAssinaturaService
+            .Setup(s => s.GerarCobrancaTrocaPlanoAsync(
+                It.IsAny<Assinatura>(),
+                It.IsAny<Plano>(),
+                It.IsAny<GatewayPagamento>(),
+                It.IsAny<PagamentoTransparenteMercadoPagoDto?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((
+                Assinatura assinatura,
+                Plano plano,
+                GatewayPagamento gateway,
+                PagamentoTransparenteMercadoPagoDto? pagamento,
+                CancellationToken _) => (
+                new Pagamento
+                {
+                    Assinatura = assinatura,
+                    AssinaturaId = assinatura.Id,
+                    Gateway = gateway,
+                    GatewayPaymentId = "pay_test_123",
+                    MetodoPagamento = pagamento?.PaymentMethodId ?? "Checkout",
+                    Status = PagamentoStatus.Pendente,
+                    Valor = plano.Preco,
+                    Moeda = "BRL"
+                },
+                "https://checkout.test/pay_test_123",
+                "qr-code"));
         _currentUser.Setup(c => c.UserId).Returns(10);
         _currentUser.Setup(c => c.Email).Returns("usuario@email.com");
         _enderecoGeocodificacaoService
@@ -159,7 +215,7 @@ public class AssinaturaServiceTests
             {
                 Nome = " Studio Glow ",
                 Descricao = " Salao premium ",
-                Logo = "https://cdn.test/logo.png",
+                Logo = LogoBase64TestHelper.PngDataUri,
                 Telefone = "11999999999",
                 Email = "studio@email.com",
                 Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Sao Paulo", logradouro: "Rua Glow")
@@ -173,7 +229,7 @@ public class AssinaturaServiceTests
         Assert.NotNull(estabelecimentoCriado);
         Assert.Equal("Studio Glow", estabelecimentoCriado!.Nome);
         Assert.Equal("Salao premium", estabelecimentoCriado.Descricao);
-        Assert.Equal("https://cdn.test/logo.png", estabelecimentoCriado.Logo);
+        Assert.StartsWith("data:image/png;base64,", estabelecimentoCriado!.Logo);
         Assert.Equal("11999999999", estabelecimentoCriado.Telefone);
         Assert.Equal("studio@email.com", estabelecimentoCriado.Email);
         Assert.NotNull(estabelecimentoCriado.Endereco);
@@ -275,7 +331,7 @@ public class AssinaturaServiceTests
             {
                 NomePublico = " Maria Glow ",
                 Biografia = " Especialista em beleza ",
-                Logo = "https://cdn.test/maria.png",
+                Logo = LogoBase64TestHelper.PngDataUri,
                 Telefone = "11988888888",
                 Email = "maria@email.com",
                 Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Campinas", logradouro: "Sala 12", numero: "12", bairro: "Centro")
@@ -291,7 +347,7 @@ public class AssinaturaServiceTests
         Assert.Equal(10, profissionalCriado!.UsuarioId);
         Assert.Equal("Maria Glow", profissionalCriado.NomePublico);
         Assert.Equal("Especialista em beleza", profissionalCriado.Biografia);
-        Assert.Equal("https://cdn.test/maria.png", profissionalCriado.Logo);
+        Assert.StartsWith("data:image/png;base64,", profissionalCriado!.Logo);
         Assert.Equal("11988888888", profissionalCriado.Telefone);
         Assert.Equal("maria@email.com", profissionalCriado.Email);
         Assert.Equal(ProfessionalType.Autonomo, profissionalCriado.TipoProfissional);
@@ -368,7 +424,7 @@ public class AssinaturaServiceTests
             {
                 NomePublico = "Novo nome",
                 Biografia = "Nova bio",
-                Logo = "https://cdn.test/novo.png",
+                Logo = LogoBase64TestHelper.PngDataUri,
                 Telefone = "11977777777",
                 Email = "novo@email.com",
                 Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Santos", logradouro: "Av Praia")
@@ -379,7 +435,7 @@ public class AssinaturaServiceTests
         Assert.Equal(71, response.EstabelecimentoId);
         Assert.Equal("Novo nome", profissional.NomePublico);
         Assert.Equal("Nova bio", profissional.Biografia);
-        Assert.Equal("https://cdn.test/novo.png", profissional.Logo);
+        Assert.StartsWith("data:image/png;base64,", profissional.Logo);
         Assert.Equal("11977777777", profissional.Telefone);
         Assert.Equal("novo@email.com", profissional.Email);
         Assert.True(profissional.Ativo);
@@ -442,11 +498,13 @@ public class AssinaturaServiceTests
             .Setup(r => r.ExisteAtivaOuPendentePorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
-        _gatewayPagamento
-            .Setup(g => g.CriarCobrancaAsync(
-                It.IsAny<CriarCobrancaGatewayRequest>(),
+        _cobrancaAssinaturaService
+            .Setup(s => s.GerarCobrancaInicialAsync(
+                It.IsAny<Assinatura>(),
+                It.IsAny<Plano>(),
+                It.IsAny<PagamentoTransparenteMercadoPagoDto?>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CriarCobrancaGatewayResponse.Falha("{}", "{}", "Gateway indisponivel"));
+            .ThrowsAsync(new GatewayPagamentoException("Gateway indisponivel"));
 
         var service = CreateService();
 
@@ -489,6 +547,15 @@ public class AssinaturaServiceTests
             .Setup(r => r.ExisteAtivaOuPendentePorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
+        _cobrancaAssinaturaService
+            .Setup(s => s.GerarCobrancaInicialAsync(
+                It.IsAny<Assinatura>(),
+                It.IsAny<Plano>(),
+                It.IsAny<PagamentoTransparenteMercadoPagoDto?>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new PagamentoAssinaturaInvalidoException(
+                "Dados do Checkout Transparente sao obrigatorios para pagamento via Mercado Pago."));
+
         var service = CreateService();
 
         await Assert.ThrowsAsync<PagamentoAssinaturaInvalidoException>(() =>
@@ -499,9 +566,11 @@ public class AssinaturaServiceTests
                 EstabelecimentoId = 20
             }));
 
-        _gatewayPagamento.Verify(g => g.CriarCobrancaAsync(
-            It.IsAny<CriarCobrancaGatewayRequest>(),
-            It.IsAny<CancellationToken>()), Times.Never);
+        _cobrancaAssinaturaService.Verify(s => s.GerarCobrancaInicialAsync(
+            It.IsAny<Assinatura>(),
+            It.IsAny<Plano>(),
+            It.IsAny<PagamentoTransparenteMercadoPagoDto?>(),
+            It.IsAny<CancellationToken>()), Times.Once);
         _assinaturaRepository.Verify(r => r.AdicionarAsync(It.IsAny<Assinatura>(), It.IsAny<CancellationToken>()), Times.Never);
         _pagamentoRepository.Verify(r => r.AdicionarAsync(It.IsAny<Pagamento>(), It.IsAny<CancellationToken>()), Times.Never);
         _assinaturaRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -669,7 +738,7 @@ public class AssinaturaServiceTests
 
         Assert.NotNull(pagamentoCriado);
         Assert.Equal(30, pagamentoCriado!.AssinaturaId);
-        Assert.Equal("Checkout", pagamentoCriado.MetodoPagamento);
+        Assert.Equal("pix", pagamentoCriado.MetodoPagamento);
         Assert.Equal(PagamentoStatus.Pendente, pagamentoCriado.Status);
         Assert.Equal(2, assinatura.PlanoAlteracaoPendenteId);
         Assert.Equal(1, assinatura.PlanoId);
@@ -890,11 +959,16 @@ public class AssinaturaServiceTests
             _profissionalRepository.Object,
             _profissionalEstabelecimentoRepository.Object,
             _pagamentoRepository.Object,
+            _campanhaPromocionalRepository.Object,
             _gatewayPagamentoResolver.Object,
             _currentUser.Object,
             _assinaturaNotificacaoService.Object,
             _assinaturaHistoricoService.Object,
-            _enderecoGeocodificacaoService.Object);
+            _enderecoGeocodificacaoService.Object,
+            _promocaoLancamentoService.Object,
+            new CicloCobrancaAssinaturaService(Options.Create(new AssinaturaCobrancaOptions())),
+            _cobrancaAssinaturaService.Object,
+            new AvatarBase64Decoder(Options.Create(new AvatarOptions())));
 
     private static PagamentoTransparenteMercadoPagoDto PagamentoValido() =>
         new()

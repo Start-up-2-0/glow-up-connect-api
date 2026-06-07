@@ -11,6 +11,12 @@ public class Pagamento
     public string GatewayPaymentId { get; set; } = string.Empty;
     public string MetodoPagamento { get; set; } = string.Empty;
     public PagamentoStatus Status { get; set; } = PagamentoStatus.Pendente;
+    public TipoCobrancaAssinatura? TipoCobranca { get; set; }
+    public int NumeroCiclo { get; set; } = 1;
+    public DateTime? DataVencimento { get; set; }
+    public DateTime? DataGeracao { get; set; }
+    public DateTime? CicloInicio { get; set; }
+    public DateTime? CicloFim { get; set; }
     public decimal Valor { get; set; }
     public string Moeda { get; set; } = "BRL";
     public DateTime? PagoEm { get; set; }

@@ -89,11 +89,33 @@ public class ModulosAssinaturaServiceTests
         Assert.Equal(500, resultado.Limites.Agendamentos);
     }
 
+    [Fact]
+    public async Task ObterPorEstabelecimentoAsync_DeveLiberarModulos_QuandoAssinaturaEmTrial()
+    {
+        _assinaturaRepository
+            .Setup(r => r.ObterAtualPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Assinatura
+            {
+                Id = 1,
+                PlanoId = 2,
+                EstabelecimentoId = 10,
+                Status = AssinaturaStatus.Trial,
+                Plano = new Plano { Id = 2, Nome = "Plus" }
+            });
+
+        var service = CreateService();
+
+        var resultado = await service.ObterPorEstabelecimentoAsync(10);
+
+        Assert.True(resultado.AssinaturaAtiva);
+        Assert.Equal("Trial", resultado.Status);
+        Assert.Contains("Profissionais", resultado.Modulos);
+    }
+
     [Theory]
     [InlineData(AssinaturaStatus.Cancelada)]
     [InlineData(AssinaturaStatus.Expirada)]
     [InlineData(AssinaturaStatus.Suspensa)]
-    [InlineData(AssinaturaStatus.Trial)]
     public async Task PossuiModuloPorEstabelecimentoAsync_DeveRetornarFalse_QuandoAssinaturaNaoEstaAtiva(
         AssinaturaStatus status)
     {
@@ -131,7 +153,7 @@ public class ModulosAssinaturaServiceTests
                     Nome = "Basic",
                     LimiteProfissionais = 1,
                     LimiteServicos = 15,
-                    LimiteAgendamentos = 10
+                    LimiteAgendamentos = null
                 }
             });
 
@@ -155,9 +177,9 @@ public class ModulosAssinaturaServiceTests
         Assert.DoesNotContain("Profissionais", resultado.Modulos);
         Assert.Equal(1, resultado.Limites.Profissionais);
         Assert.Equal(15, resultado.Limites.Servicos);
-        Assert.Equal(10, resultado.Limites.Agendamentos);
+        Assert.Null(resultado.Limites.Agendamentos);
         Assert.Equal(1, resultado.Limites.Usuarios);
-        Assert.Equal(10, resultado.Limites.AgendamentosPorDia);
+        Assert.Null(resultado.Limites.AgendamentosPorDia);
         Assert.False(resultado.Limites.PrioridadeListagemPublica);
     }
 

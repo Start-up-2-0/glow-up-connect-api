@@ -10,10 +10,17 @@ namespace GLOWAPI.API.Controllers;
 public class AssinaturasController : ControllerBase
 {
     private readonly IAssinaturaService _assinaturaService;
+    private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
+    private readonly ICurrentUserContext _currentUser;
 
-    public AssinaturasController(IAssinaturaService assinaturaService)
+    public AssinaturasController(
+        IAssinaturaService assinaturaService,
+        ICobrancaAssinaturaService cobrancaAssinaturaService,
+        ICurrentUserContext currentUser)
     {
         _assinaturaService = assinaturaService;
+        _cobrancaAssinaturaService = cobrancaAssinaturaService;
+        _currentUser = currentUser;
     }
 
     [HttpPost]
@@ -48,5 +55,25 @@ public class AssinaturasController : ControllerBase
         return Ok(ApiSuccessResponse<AssinaturaResponseDto>.From(
             "Assinatura cancelada com sucesso.",
             assinatura));
+    }
+
+    [HttpGet("{assinaturaId:int}/cobrancas")]
+    public async Task<IActionResult> ListarCobrancas(
+        int assinaturaId,
+        CancellationToken cancellationToken)
+    {
+        if (!_currentUser.UserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var cobrancas = await _cobrancaAssinaturaService.ListarPorAssinaturaAsync(
+            assinaturaId,
+            _currentUser.UserId.Value,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<CobrancaAssinaturaResponseDto>>.From(
+            "Cobrancas da assinatura listadas com sucesso.",
+            cobrancas));
     }
 }

@@ -21,9 +21,9 @@ public class PlanosController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> ListarAtivos(CancellationToken cancellationToken)
     {
-        var planos = await _planoService.ListarAtivosAsync(cancellationToken);
-        return Ok(ApiSuccessResponse<IReadOnlyList<PlanoResponseDto>>.From(
+        var resultado = await _planoService.ListarAtivosAsync(cancellationToken);
+        return Ok(ApiSuccessResponse<PlanosAtivosResponseDto>.From(
             "Planos disponiveis para contratacao.",
-            planos));
+            resultado));
     }
 }

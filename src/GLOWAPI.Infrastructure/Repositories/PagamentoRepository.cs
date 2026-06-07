@@ -26,4 +26,26 @@ public class PagamentoRepository : Repository<Pagamento>, IPagamentoRepository
                     && pagamento.GatewayPaymentId == gatewayPaymentId,
                 cancellationToken);
     }
+
+    public async Task<IReadOnlyList<Pagamento>> ListarPorAssinaturaAsync(
+        int assinaturaId,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .AsNoTracking()
+            .Where(pagamento => pagamento.AssinaturaId == assinaturaId)
+            .OrderByDescending(pagamento => pagamento.CreateAd)
+            .ThenByDescending(pagamento => pagamento.Id)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Pagamento>> ListarPendentesVencidosAsync(
+        DateTime dataReferenciaUtc,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Include(pagamento => pagamento.Assinatura)
+            .Where(pagamento =>
+                pagamento.AssinaturaId != null
+                && pagamento.Status == PagamentoStatus.Pendente
+                && pagamento.DataVencimento.HasValue
+                && pagamento.DataVencimento.Value.Date < dataReferenciaUtc.Date)
+            .ToListAsync(cancellationToken);
 }

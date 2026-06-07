@@ -1,5 +1,7 @@
 # Modulos de assinatura
 
+> Specs detalhadas: [specs/modulos/README.md](./specs/modulos/README.md) e [specs/liberacao-modulos.md](./specs/liberacao-modulos.md).
+
 Enum: `ModuloAssinatura` em `src/GLOWAPI.Domain/Enums/ModuloAssinatura.cs`
 
 Modulos liberados quando **assinatura ativa** + plano inclui o modulo. Sempre somados ao tenant: `Estabelecimento`, `Assinatura` (base interna).

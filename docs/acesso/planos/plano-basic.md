@@ -1,5 +1,7 @@
 # Plano Basic
 
+> Spec canonica: [../specs/planos/basic.md](../specs/planos/basic.md).
+
 Identificacao no catalogo: nome contem **`basic`** ou **`basico`**.
 
 Fonte: `PlanoComercialCatalogo` em `src/GLOWAPI.Application/Services/PlanoComercialCatalogo.cs`.
@@ -26,7 +28,7 @@ Fonte: `PlanoComercialCatalogo` em `src/GLOWAPI.Application/Services/PlanoComerc
 | Limite | Valor |
 |--------|-------|
 | Usuarios no negocio | 1 |
-| Agendamentos por dia | 10 |
+| Agendamentos por dia | Ilimitado |
 | Prioridade na listagem publica | Nao |
 
 Limites adicionais podem vir de `Plano.LimiteProfissionais`, `LimiteServicos`, `LimiteAgendamentos` no banco.

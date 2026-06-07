@@ -5,6 +5,7 @@ using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Infrastructure;
+using GLOWAPI.Tests.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GLOWAPI.Tests.Integration;
@@ -30,12 +31,13 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.Estabelecimento,
+            diaVencimento = 10,
             pagamento = PagamentoValido(),
             estabelecimento = new
             {
                 nome = "Studio Fluxo",
                 descricao = "Fluxo integrado",
-                logo = "https://cdn.test/studio-fluxo.png",
+                logo = LogoBase64TestHelper.PngDataUri,
                 telefone = "11999999999",
                 email = "studio-fluxo@email.com",
                 endereco = new
@@ -114,12 +116,13 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+            diaVencimento = 15,
             pagamento = PagamentoValido(),
             profissionalAutonomo = new
             {
                 nomePublico = "Autonomo Fluxo",
                 biografia = "Fluxo integrado autonomo",
-                logo = "https://cdn.test/autonomo-fluxo.png",
+                logo = LogoBase64TestHelper.PngDataUri,
                 telefone = "11988888888",
                 email = "autonomo-fluxo@email.com",
                 endereco = new
@@ -220,14 +223,15 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
         {
             Nome = role == UserRole.DonoEstabelecimento ? "Premium" : "Basic",
             Descricao = "Plano para fluxo integrado",
-            Preco = role == UserRole.DonoEstabelecimento ? 199.90m : 0m,
+            Preco = role == UserRole.DonoEstabelecimento ? 199.90m : 29.99m,
             Periodo = PlanoPeriodo.Mensal,
             LimiteProfissionais = role == UserRole.DonoEstabelecimento ? null : 1,
             LimiteServicos = role == UserRole.DonoEstabelecimento ? null : 10,
-            LimiteAgendamentos = role == UserRole.DonoEstabelecimento ? null : 10,
+            LimiteAgendamentos = null,
             Ativo = true
         };
 
+        await CampanhaPromocionalTestHelper.DesabilitarPromocaoAsync(db);
         db.Usuarios.Add(usuario);
         db.Planos.Add(plano);
         await db.SaveChangesAsync();

@@ -1,5 +1,7 @@
 # Plano Plus
 
+> Spec canonica: [../specs/planos/plus.md](../specs/planos/plus.md).
+
 Identificacao no catalogo: nome contem **`plus`**.
 
 Inclui **todos os modulos do Basic** mais os abaixo.

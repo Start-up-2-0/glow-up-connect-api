@@ -9,5 +9,6 @@ public enum PagamentoStatus
     Cancelado = 5,
     Estornado = 6,
     Chargeback = 7,
-    Expirado = 8
+    Expirado = 8,
+    Atrasado = 9
 }

@@ -1,12 +1,35 @@
 using System.Text.RegularExpressions;
 using GLOWAPI.Application.DTOs.Operacoes;
+using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Domain.Entities;
+using GLOWAPI.Domain.Exceptions.Usuario;
 
 namespace GLOWAPI.Application.Services;
 
 internal static partial class OperacaoPerfilValidation
 {
     private static readonly Regex CepRegex = CepValidoRegex();
+
+    public static string ValidarLogoBase64(
+        string logo,
+        string nomeCampo,
+        IAvatarBase64Decoder decoder,
+        Func<string, Exception> criarExcecao)
+    {
+        if (string.IsNullOrWhiteSpace(logo))
+        {
+            throw criarExcecao($"{nomeCampo} e obrigatorio.");
+        }
+
+        try
+        {
+            return decoder.ValidarENormalizar(logo.Trim(), null);
+        }
+        catch (AvatarInvalidoException ex)
+        {
+            throw criarExcecao(ex.Message.Replace("Avatar", nomeCampo, StringComparison.Ordinal));
+        }
+    }
 
     public static string ValidarTextoObrigatorio(
         string valor,

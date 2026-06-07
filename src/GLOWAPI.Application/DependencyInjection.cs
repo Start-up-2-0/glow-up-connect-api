@@ -25,6 +25,10 @@ public static class DependencyInjection
         services.AddScoped<IMensagemNotificacaoProcessadorService, MensagemNotificacaoProcessadorService>();
         services.AddScoped<IProvedorMensagemResolver, ProvedorMensagemResolver>();
         services.AddScoped<IPlanoService, PlanoService>();
+        services.AddScoped<ICicloCobrancaAssinaturaService, CicloCobrancaAssinaturaService>();
+        services.AddScoped<IPromocaoLancamentoService, PromocaoLancamentoService>();
+        services.AddScoped<ICobrancaAssinaturaService, CobrancaAssinaturaService>();
+        services.AddScoped<IAssinaturaCobrancaWorkerService, AssinaturaCobrancaWorkerService>();
         services.AddScoped<IAssinaturaService, AssinaturaService>();
         services.AddScoped<IAssinaturaHistoricoService, AssinaturaHistoricoService>();
         services.AddScoped<IEstabelecimentoPerfilService, EstabelecimentoPerfilService>();

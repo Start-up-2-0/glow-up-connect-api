@@ -35,6 +35,13 @@ public class AssinaturaConfiguration : IEntityTypeConfiguration<Assinatura>
         builder.Property(assinatura => assinatura.Inicio)
             .IsRequired();
 
+        builder.Property(assinatura => assinatura.DiaVencimento)
+            .IsRequired();
+
+        builder.Property(assinatura => assinatura.ProximaDataVencimento);
+        builder.Property(assinatura => assinatura.ProximaDataGeracaoCobranca);
+        builder.Property(assinatura => assinatura.ProximaDataAlerta);
+        builder.Property(assinatura => assinatura.UltimoAlertaFaturaEm);
         builder.Property(assinatura => assinatura.Fim);
         builder.Property(assinatura => assinatura.CanceladoEm);
 
@@ -58,7 +65,13 @@ public class AssinaturaConfiguration : IEntityTypeConfiguration<Assinatura>
             .HasForeignKey(assinatura => assinatura.EstabelecimentoId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(assinatura => assinatura.CampanhaPromocional)
+            .WithMany(campanha => campanha.Assinaturas)
+            .HasForeignKey(assinatura => assinatura.CampanhaPromocionalId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasIndex(assinatura => assinatura.PlanoId);
+        builder.HasIndex(assinatura => assinatura.CampanhaPromocionalId);
         builder.HasIndex(assinatura => assinatura.PlanoAlteracaoPendenteId);
         builder.HasIndex(assinatura => assinatura.EstabelecimentoId);
     }

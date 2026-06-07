@@ -13,24 +13,27 @@ public class WebhookPagamentoService : IWebhookPagamentoService
     private readonly IWebhookPagamentoRepository _webhookPagamentoRepository;
     private readonly IPagamentoRepository _pagamentoRepository;
     private readonly IAssinaturaRepository _assinaturaRepository;
-    private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
     private readonly IGatewayPagamentoResolver _gatewayPagamentoResolver;
+    private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
     private readonly IAssinaturaHistoricoService _assinaturaHistoricoService;
+    private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
 
     public WebhookPagamentoService(
         IWebhookPagamentoRepository webhookPagamentoRepository,
         IPagamentoRepository pagamentoRepository,
         IAssinaturaRepository assinaturaRepository,
-        IAssinaturaNotificacaoService assinaturaNotificacaoService,
         IGatewayPagamentoResolver gatewayPagamentoResolver,
-        IAssinaturaHistoricoService assinaturaHistoricoService)
+        ICobrancaAssinaturaService cobrancaAssinaturaService,
+        IAssinaturaHistoricoService assinaturaHistoricoService,
+        IAssinaturaNotificacaoService assinaturaNotificacaoService)
     {
         _webhookPagamentoRepository = webhookPagamentoRepository;
         _pagamentoRepository = pagamentoRepository;
         _assinaturaRepository = assinaturaRepository;
-        _assinaturaNotificacaoService = assinaturaNotificacaoService;
         _gatewayPagamentoResolver = gatewayPagamentoResolver;
+        _cobrancaAssinaturaService = cobrancaAssinaturaService;
         _assinaturaHistoricoService = assinaturaHistoricoService;
+        _assinaturaNotificacaoService = assinaturaNotificacaoService;
     }
 
     public async Task<WebhookPagamentoResponseDto> RegistrarAsync(
@@ -116,6 +119,13 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return;
         }
 
+        if (EventoAssinaturaAutorizada(webhook.EventType))
+        {
+            webhook.Processado = true;
+            webhook.ProcessadoEm = DateTime.UtcNow;
+            return;
+        }
+
         if (EventoPagamentoNaoAprovado(webhook.EventType))
         {
             await ProcessarPagamentoNaoAprovadoAsync(webhook, cancellationToken);
@@ -151,70 +161,10 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return;
         }
 
-        if (pagamento.Status == PagamentoStatus.Pago)
-        {
-            webhook.Processado = true;
-            webhook.ProcessadoEm ??= DateTime.UtcNow;
-            return;
-        }
-
-        var statusPagamentoAnterior = pagamento.Status;
-        pagamento.Status = PagamentoStatus.Pago;
-        pagamento.PagoEm = DateTime.UtcNow;
-        pagamento.UpdatedAt = DateTime.UtcNow;
-        _pagamentoRepository.Atualizar(pagamento);
-        await _assinaturaHistoricoService.RegistrarPagamentoAsync(
+        await _cobrancaAssinaturaService.ProcessarPagamentoAprovadoAsync(
             pagamento,
-            "PagamentoAprovado",
-            statusPagamentoAnterior,
-            pagamento.Status,
-            "Pagamento aprovado pelo gateway.",
             webhook.Payload,
             cancellationToken);
-
-        if (pagamento.Assinatura is not null)
-        {
-            var statusAssinaturaAnterior = pagamento.Assinatura.Status;
-            if (pagamento.Assinatura.PlanoAlteracaoPendenteId.HasValue)
-            {
-                pagamento.Assinatura.PlanoId = pagamento.Assinatura.PlanoAlteracaoPendenteId.Value;
-                pagamento.Assinatura.Plano = pagamento.Assinatura.PlanoAlteracaoPendente;
-                pagamento.Assinatura.PlanoAlteracaoPendenteId = null;
-                pagamento.Assinatura.PlanoAlteracaoPendente = null;
-            }
-
-            pagamento.Assinatura.Status = AssinaturaStatus.Ativa;
-            pagamento.Assinatura.Inicio = pagamento.PagoEm.Value;
-            pagamento.Assinatura.Fim = CalcularFimAssinatura(pagamento.PagoEm.Value, pagamento.Assinatura.Plano?.Periodo);
-            pagamento.Assinatura.UltimoPagamentoId = pagamento.Id;
-            pagamento.Assinatura.UpdatedAt = DateTime.UtcNow;
-
-            await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
-                pagamento.Assinatura,
-                "AssinaturaAtivadaPorPagamento",
-                statusAssinaturaAnterior,
-                pagamento.Assinatura.Status,
-                pagamento,
-                "Assinatura liberada apos pagamento aprovado.",
-                webhook.Payload,
-                cancellationToken);
-            await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
-                pagamento.Assinatura,
-                "RecorrenciaLiberada",
-                "Ativa",
-                pagamento,
-                pagamento.Assinatura.Inicio,
-                pagamento.Assinatura.Fim,
-                "Ciclo liberado apos pagamento aprovado.",
-                webhook.Payload,
-                cancellationToken);
-
-            await _assinaturaNotificacaoService.PagamentoConfirmadoAsync(
-                pagamento.Assinatura,
-                pagamento,
-                ExtrairEmail(webhook.Payload),
-                cancellationToken);
-        }
 
         webhook.Processado = true;
         webhook.ProcessadoEm = DateTime.UtcNow;
@@ -359,35 +309,10 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return;
         }
 
-        var statusAnterior = pagamento.Status;
-        pagamento.Status = ObterStatusPagamentoNaoAprovado(webhook.EventType);
-        pagamento.UpdatedAt = DateTime.UtcNow;
-        _pagamentoRepository.Atualizar(pagamento);
-        await _assinaturaHistoricoService.RegistrarPagamentoAsync(
+        await _cobrancaAssinaturaService.ProcessarPagamentoRecusadoAsync(
             pagamento,
-            "PagamentoNaoAprovado",
-            statusAnterior,
-            pagamento.Status,
-            "Pagamento nao aprovado pelo gateway.",
             webhook.Payload,
-            cancellationToken);
-        if (pagamento.Assinatura is not null)
-        {
-            await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
-                pagamento.Assinatura,
-                "RecorrenciaPagamentoNaoAprovado",
-                pagamento.Status.ToString(),
-                pagamento,
-                pagamento.Assinatura.Inicio,
-                pagamento.Assinatura.Fim,
-                "Ciclo aguardando regularizacao de pagamento.",
-                webhook.Payload,
-                cancellationToken);
-        }
-
-        await _assinaturaNotificacaoService.PagamentoRecusadoAsync(
-            pagamento,
-            ExtrairEmail(webhook.Payload),
+            ObterStatusPagamentoNaoAprovado(webhook.EventType),
             cancellationToken);
 
         webhook.Processado = true;
@@ -422,6 +347,11 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         eventType.Equals("payment.approved", StringComparison.OrdinalIgnoreCase)
         || eventType.Equals("payment.paid", StringComparison.OrdinalIgnoreCase)
         || eventType.Equals("billing.paid", StringComparison.OrdinalIgnoreCase);
+
+    private static bool EventoAssinaturaAutorizada(string eventType) =>
+        eventType.Equals("subscription.authorized", StringComparison.OrdinalIgnoreCase)
+        || eventType.Equals("preapproval.authorized", StringComparison.OrdinalIgnoreCase)
+        || eventType.Equals("billing.authorized", StringComparison.OrdinalIgnoreCase);
 
     private static bool EventoAssinaturaCancelada(string eventType) =>
         eventType.Equals("subscription.cancelled", StringComparison.OrdinalIgnoreCase)
@@ -626,13 +556,4 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         return false;
     }
 
-    private static DateTime? CalcularFimAssinatura(DateTime inicio, PlanoPeriodo? periodo) =>
-        periodo switch
-        {
-            PlanoPeriodo.Mensal => inicio.AddMonths(1),
-            PlanoPeriodo.Trimestral => inicio.AddMonths(3),
-            PlanoPeriodo.Semestral => inicio.AddMonths(6),
-            PlanoPeriodo.Anual => inicio.AddYears(1),
-            _ => null
-        };
 }

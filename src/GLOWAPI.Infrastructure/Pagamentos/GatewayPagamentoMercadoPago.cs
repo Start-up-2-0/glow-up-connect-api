@@ -260,6 +260,131 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         return null;
     }
 
+    public async Task<CriarAssinaturaRecorrenteGatewayResponse> CriarAssinaturaRecorrenteAsync(
+        CriarAssinaturaRecorrenteGatewayRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.Gateway != GatewaySuportado)
+        {
+            var payloadIncompativel = SerializarAssinaturaRequest(request);
+            return CriarAssinaturaRecorrenteGatewayResponse.Falha(
+                payloadIncompativel,
+                "{}",
+                $"Gateway incompativel. Esperado {GatewaySuportado}, recebido {request.Gateway}.");
+        }
+
+        if (string.IsNullOrWhiteSpace(_options.AccessToken))
+        {
+            return CriarAssinaturaRecorrenteGatewayResponse.Falha(
+                SerializarAssinaturaRequest(request),
+                "{}",
+                "Access token do Mercado Pago nao configurado.");
+        }
+
+        if (request.PagamentoTransparente is null || string.IsNullOrWhiteSpace(request.PagamentoTransparente.Token))
+        {
+            return CriarAssinaturaRecorrenteGatewayResponse.Falha(
+                SerializarAssinaturaRequest(request),
+                "{}",
+                "Token do cartao e obrigatorio para criar assinatura recorrente no Mercado Pago.");
+        }
+
+        var payload = CriarPayloadAssinatura(request);
+        var requestPayload = JsonSerializer.Serialize(payload, JsonOptions);
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "preapproval")
+        {
+            Content = new StringContent(requestPayload, Encoding.UTF8, "application/json")
+        };
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);
+        httpRequest.Headers.Add("X-Idempotency-Key", request.ReferenciaInterna);
+
+        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+        var responsePayload = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return CriarAssinaturaRecorrenteGatewayResponse.Falha(
+                requestPayload,
+                responsePayload,
+                $"Mercado Pago retornou {(int)response.StatusCode} ao criar assinatura recorrente.");
+        }
+
+        using var document = JsonDocument.Parse(responsePayload);
+        var root = document.RootElement;
+        var subscriptionId = ObterString(root, "id");
+        var payerId = ObterString(root, "payer_id");
+
+        if (string.IsNullOrWhiteSpace(subscriptionId))
+        {
+            return CriarAssinaturaRecorrenteGatewayResponse.Falha(
+                requestPayload,
+                responsePayload,
+                "Mercado Pago nao retornou id da assinatura recorrente.");
+        }
+
+        return new CriarAssinaturaRecorrenteGatewayResponse(
+            Sucesso: true,
+            GatewaySubscriptionId: subscriptionId,
+            GatewayCustomerId: payerId,
+            RequestPayload: requestPayload,
+            ResponsePayload: responsePayload);
+    }
+
+    private object CriarPayloadAssinatura(CriarAssinaturaRecorrenteGatewayRequest request)
+    {
+        var autoRecurring = new Dictionary<string, object?>
+        {
+            ["frequency"] = 1,
+            ["frequency_type"] = "months",
+            ["transaction_amount"] = request.Valor,
+            ["currency_id"] = request.Moeda
+        };
+
+        if (request.DiasTrial.HasValue && request.DiasTrial.Value > 0)
+        {
+            autoRecurring["free_trial"] = new
+            {
+                frequency = request.DiasTrial.Value,
+                frequency_type = "days"
+            };
+        }
+
+        if (request.PrimeiraCobrancaEm.HasValue)
+        {
+            autoRecurring["start_date"] = request.PrimeiraCobrancaEm.Value.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'");
+        }
+
+        return new
+        {
+            reason = request.Descricao,
+            external_reference = request.ReferenciaInterna,
+            payer_email = request.PagadorEmail,
+            card_token_id = request.PagamentoTransparente!.Token,
+            auto_recurring = autoRecurring,
+            back_url = TextoOuNull(_options.NotificationUrl),
+            status = "authorized"
+        };
+    }
+
+    private static string SerializarAssinaturaRequest(CriarAssinaturaRecorrenteGatewayRequest request) =>
+        JsonSerializer.Serialize(new
+        {
+            gateway = request.Gateway.ToString(),
+            reference = request.ReferenciaInterna,
+            description = request.Descricao,
+            amount = request.Valor,
+            currency = request.Moeda,
+            diasTrial = request.DiasTrial,
+            primeiraCobrancaEm = request.PrimeiraCobrancaEm,
+            payer = new
+            {
+                name = request.PagadorNome,
+                email = request.PagadorEmail
+            },
+            metadata = request.Metadados
+        }, JsonOptions);
+
     private static string SerializarRequest(CriarCobrancaGatewayRequest request) =>
         JsonSerializer.Serialize(new
         {

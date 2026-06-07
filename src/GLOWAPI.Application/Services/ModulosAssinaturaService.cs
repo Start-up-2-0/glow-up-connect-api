@@ -45,7 +45,8 @@ public class ModulosAssinaturaService : IModulosAssinaturaService
         Assinatura? assinatura,
         IReadOnlyList<ModuloAssinatura> modulos)
     {
-        if (assinatura is null || assinatura.Status != AssinaturaStatus.Ativa)
+        if (assinatura is null
+            || assinatura.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Trial))
         {
             return ModulosAssinaturaResponseDto.Bloqueado(assinatura);
         }

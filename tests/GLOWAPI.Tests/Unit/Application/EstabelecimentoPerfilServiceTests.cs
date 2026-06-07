@@ -1,7 +1,9 @@
 using GLOWAPI.Application.DTOs.Estabelecimentos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Options;
 using GLOWAPI.Application.Services;
+using Microsoft.Extensions.Options;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
@@ -74,7 +76,7 @@ public class EstabelecimentoPerfilServiceTests
         var response = await service.AtualizarAsync(20, new AtualizarEstabelecimentoPerfilDto
         {
             Nome = " Studio Novo ",
-            Logo = " https://cdn.test/novo.png ",
+            Logo = LogoBase64TestHelper.PngDataUri,
             Telefone = "11999999999",
             Email = "novo@email.com",
             Endereco = EnderecoOperacaoDtoBuilder.Criar(
@@ -86,7 +88,7 @@ public class EstabelecimentoPerfilServiceTests
         });
 
         Assert.Equal("Studio Novo", response.Nome);
-        Assert.Equal("https://cdn.test/novo.png", response.Logo);
+        Assert.StartsWith("data:image/png;base64,", response.Logo);
         Assert.Equal("11999999999", response.Telefone);
         Assert.Equal("novo@email.com", response.Email);
         Assert.Equal("Sao Paulo", response.Endereco.Cidade);
@@ -161,5 +163,6 @@ public class EstabelecimentoPerfilServiceTests
             _enderecoGeocodificacaoService.Object,
             _confirmacaoWhatsAppEstabelecimentoService.Object,
             _usuarioRepository.Object,
-            _currentUser.Object);
+            _currentUser.Object,
+            new AvatarBase64Decoder(Options.Create(new AvatarOptions())));
 }

@@ -1,5 +1,7 @@
 # Plano Premium
 
+> Spec canonica: [../specs/planos/premium.md](../specs/planos/premium.md).
+
 Identificacao no catalogo: nome contem **`premium`**.
 
 Inclui **todos os modulos do Plus** (e Basic) mais os abaixo.

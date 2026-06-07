@@ -8,6 +8,12 @@ public class Assinatura
     public int PlanoId { get; set; }
     public int? PlanoAlteracaoPendenteId { get; set; }
     public int? EstabelecimentoId { get; set; }
+    public int? CampanhaPromocionalId { get; set; }
+    public int DiaVencimento { get; set; }
+    public DateTime? ProximaDataVencimento { get; set; }
+    public DateTime? ProximaDataGeracaoCobranca { get; set; }
+    public DateTime? ProximaDataAlerta { get; set; }
+    public DateTime? UltimoAlertaFaturaEm { get; set; }
     public AssinaturaStatus Status { get; set; } = AssinaturaStatus.PendentePagamento;
     public DateTime Inicio { get; set; }
     public DateTime? Fim { get; set; }
@@ -22,6 +28,7 @@ public class Assinatura
 
     public Plano? Plano { get; set; }
     public Plano? PlanoAlteracaoPendente { get; set; }
+    public CampanhaPromocional? CampanhaPromocional { get; set; }
     public Estabelecimento? Estabelecimento { get; set; }
     public ICollection<Pagamento> Pagamentos { get; set; } = new List<Pagamento>();
     public ICollection<AssinaturaHistorico> Historicos { get; set; } = new List<AssinaturaHistorico>();

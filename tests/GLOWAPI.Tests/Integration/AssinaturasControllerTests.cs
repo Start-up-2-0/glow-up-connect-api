@@ -4,6 +4,7 @@ using System.Text.Json;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Infrastructure;
+using GLOWAPI.Tests.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GLOWAPI.Tests.Integration;
@@ -45,6 +46,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.Estabelecimento,
             estabelecimentoId = seed.EstabelecimentoId,
+            diaVencimento = 10,
             pagamento = PagamentoValido()
         });
 
@@ -81,12 +83,13 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.Estabelecimento,
+            diaVencimento = 10,
             pagamento = PagamentoValido(),
             estabelecimento = new
             {
                 nome = "Studio Glow",
                 descricao = "Salao de beleza",
-                logo = "https://cdn.test/studio.png",
+                logo = LogoBase64TestHelper.PngDataUri,
                 telefone = "11999999999",
                 email = "studio@email.com",
                 endereco = new
@@ -119,7 +122,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         var estabelecimento = await db.Estabelecimentos.FindAsync(estabelecimentoId);
         Assert.NotNull(estabelecimento);
         Assert.Equal("Studio Glow", estabelecimento!.Nome);
-        Assert.Equal("https://cdn.test/studio.png", estabelecimento.Logo);
+        Assert.StartsWith("data:image/png;base64,", estabelecimento!.Logo);
         Assert.Equal("11999999999", estabelecimento.Telefone);
         Assert.Equal("studio@email.com", estabelecimento.Email);
         Assert.NotEqual(Guid.Empty, estabelecimento.PublicGuid);
@@ -150,12 +153,13 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+            diaVencimento = 10,
             pagamento = PagamentoValido(),
             profissionalAutonomo = new
             {
                 nomePublico = "Maria Glow",
                 biografia = "Especialista em beleza",
-                logo = "https://cdn.test/maria.png",
+                logo = LogoBase64TestHelper.PngDataUri,
                 telefone = "11988888888",
                 email = "maria@email.com",
                 endereco = new
@@ -190,7 +194,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         Assert.NotNull(profissional);
         Assert.Equal(seed.UsuarioId, profissional!.UsuarioId);
         Assert.Equal("Maria Glow", profissional.NomePublico);
-        Assert.Equal("https://cdn.test/maria.png", profissional.Logo);
+        Assert.StartsWith("data:image/png;base64,", profissional!.Logo);
         Assert.Equal("11988888888", profissional.Telefone);
         Assert.Equal("maria@email.com", profissional.Email);
         Assert.Equal(ProfessionalType.Autonomo, profissional.TipoProfissional);
@@ -262,6 +266,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
             Ativo = true
         };
 
+        await CampanhaPromocionalTestHelper.DesabilitarPromocaoAsync(db);
         db.Usuarios.Add(usuario);
         db.Planos.Add(plano);
         db.Estabelecimentos.Add(estabelecimento);
@@ -317,6 +322,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
             Ativo = true
         };
 
+        await CampanhaPromocionalTestHelper.DesabilitarPromocaoAsync(db);
         db.Usuarios.Add(usuario);
         db.Planos.Add(plano);
         await db.SaveChangesAsync();

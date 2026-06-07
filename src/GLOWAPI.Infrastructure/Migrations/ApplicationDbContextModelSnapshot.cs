@@ -196,11 +196,17 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("CampanhaPromocionalId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("CanceladoEm")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreateAd")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DiaVencimento")
+                        .HasColumnType("integer");
 
                     b.Property<int?>("EstabelecimentoId")
                         .HasColumnType("integer");
@@ -232,6 +238,15 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Property<int>("PlanoId")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("ProximaDataAlerta")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ProximaDataGeracaoCobranca")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ProximaDataVencimento")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("RenovacaoAutomatica")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -242,6 +257,9 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<DateTime?>("UltimoAlertaFaturaEm")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int?>("UltimoPagamentoId")
                         .HasColumnType("integer");
 
@@ -249,6 +267,8 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CampanhaPromocionalId");
 
                     b.HasIndex("EstabelecimentoId");
 
@@ -454,6 +474,49 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Caixas", (string)null);
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.CampanhaPromocional", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativa")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTime>("CreateAd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DiasTrial")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Limite")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Utilizados")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique();
+
+                    b.ToTable("CampanhasPromocionais", (string)null);
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.ComissaoProfissional", b =>
@@ -686,8 +749,7 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.Property<string>("Logo")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Nome")
                         .IsRequired()
@@ -1170,7 +1232,19 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Property<int?>("AssinaturaId")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("CicloFim")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("CicloInicio")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("CreateAd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DataGeracao")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DataVencimento")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("ExpiraEm")
@@ -1196,6 +1270,11 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
 
+                    b.Property<int>("NumeroCiclo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
                     b.Property<DateTime?>("PagoEm")
                         .HasColumnType("timestamp with time zone");
 
@@ -1203,6 +1282,10 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("TipoCobranca")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1383,8 +1466,7 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.Property<string>("Logo")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("text");
 
                     b.Property<string>("NomePublico")
                         .IsRequired()
@@ -1842,6 +1924,11 @@ namespace GLOWAPI.Infrastructure.Migrations
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Assinatura", b =>
                 {
+                    b.HasOne("GLOWAPI.Domain.Entities.CampanhaPromocional", "CampanhaPromocional")
+                        .WithMany("Assinaturas")
+                        .HasForeignKey("CampanhaPromocionalId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
                         .WithMany("Assinaturas")
                         .HasForeignKey("EstabelecimentoId")
@@ -1857,6 +1944,8 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasForeignKey("PlanoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("CampanhaPromocional");
 
                     b.Navigation("Estabelecimento");
 
@@ -2216,6 +2305,11 @@ namespace GLOWAPI.Infrastructure.Migrations
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Caixa", b =>
                 {
                     b.Navigation("Lancamentos");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.CampanhaPromocional", b =>
+                {
+                    b.Navigation("Assinaturas");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Estabelecimento", b =>
