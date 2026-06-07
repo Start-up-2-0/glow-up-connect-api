@@ -153,7 +153,7 @@ public class ModulosAssinaturaServiceTests
                     Nome = "Basic",
                     LimiteProfissionais = 1,
                     LimiteServicos = 15,
-                    LimiteAgendamentos = 10
+                    LimiteAgendamentos = null
                 }
             });
 
@@ -177,9 +177,9 @@ public class ModulosAssinaturaServiceTests
         Assert.DoesNotContain("Profissionais", resultado.Modulos);
         Assert.Equal(1, resultado.Limites.Profissionais);
         Assert.Equal(15, resultado.Limites.Servicos);
-        Assert.Equal(10, resultado.Limites.Agendamentos);
+        Assert.Null(resultado.Limites.Agendamentos);
         Assert.Equal(1, resultado.Limites.Usuarios);
-        Assert.Equal(10, resultado.Limites.AgendamentosPorDia);
+        Assert.Null(resultado.Limites.AgendamentosPorDia);
         Assert.False(resultado.Limites.PrioridadeListagemPublica);
     }
 

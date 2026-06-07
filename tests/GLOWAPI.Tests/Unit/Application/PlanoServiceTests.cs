@@ -24,7 +24,7 @@ public class PlanoServiceTests
                 Periodo = PlanoPeriodo.Mensal,
                 LimiteProfissionais = 1,
                 LimiteServicos = 10,
-                LimiteAgendamentos = 10,
+                LimiteAgendamentos = null,
                 Ativo = true
             }
         };
@@ -50,9 +50,9 @@ public class PlanoServiceTests
         Assert.Equal("Mensal", plano.Periodo);
         Assert.Equal(1, plano.LimiteProfissionais);
         Assert.Equal(10, plano.LimiteServicos);
-        Assert.Equal(10, plano.LimiteAgendamentos);
+        Assert.Null(plano.LimiteAgendamentos);
         Assert.Equal(1, plano.LimiteUsuarios);
-        Assert.Equal(10, plano.LimiteAgendamentosPorDia);
+        Assert.Null(plano.LimiteAgendamentosPorDia);
         Assert.False(plano.PrioridadeListagemPublica);
         Assert.Contains("Agenda", plano.Modulos);
         Assert.Contains("Servicos", plano.Modulos);

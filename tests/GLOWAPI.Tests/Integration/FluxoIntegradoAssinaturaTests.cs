@@ -227,7 +227,7 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
             Periodo = PlanoPeriodo.Mensal,
             LimiteProfissionais = role == UserRole.DonoEstabelecimento ? null : 1,
             LimiteServicos = role == UserRole.DonoEstabelecimento ? null : 10,
-            LimiteAgendamentos = role == UserRole.DonoEstabelecimento ? null : 10,
+            LimiteAgendamentos = null,
             Ativo = true
         };
 
