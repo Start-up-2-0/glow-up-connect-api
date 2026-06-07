@@ -68,7 +68,16 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);
         httpRequest.Headers.Add("X-Idempotency-Key", request.ReferenciaInterna);
 
-        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+        var envio = await TentarEnviarAsync(httpRequest, cancellationToken);
+        if (!envio.Sucesso)
+        {
+            return CriarCobrancaGatewayResponse.Falha(
+                requestPayload,
+                "{}",
+                $"Falha ao chamar Mercado Pago: {envio.Erro}");
+        }
+
+        using var response = envio.Response!;
         var responsePayload = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
@@ -146,7 +155,16 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             CriarRequestUri($"v1/payments/{Uri.EscapeDataString(gatewayPaymentId.Trim())}"));
         httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);
 
-        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+        var envio = await TentarEnviarAsync(httpRequest, cancellationToken);
+        if (!envio.Sucesso)
+        {
+            return ConsultarPagamentoGatewayResponse.Falha(
+                gatewayPaymentId,
+                "{}",
+                $"Falha ao chamar Mercado Pago: {envio.Erro}");
+        }
+
+        using var response = envio.Response!;
         var responsePayload = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
@@ -299,7 +317,16 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);
         httpRequest.Headers.Add("X-Idempotency-Key", request.ReferenciaInterna);
 
-        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+        var envio = await TentarEnviarAsync(httpRequest, cancellationToken);
+        if (!envio.Sucesso)
+        {
+            return CriarAssinaturaRecorrenteGatewayResponse.Falha(
+                requestPayload,
+                "{}",
+                $"Falha ao chamar Mercado Pago: {envio.Erro}");
+        }
+
+        using var response = envio.Response!;
         var responsePayload = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
@@ -367,14 +394,24 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         };
     }
 
+    private async Task<(bool Sucesso, HttpResponseMessage? Response, string? Erro)> TentarEnviarAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await _httpClient.SendAsync(request, cancellationToken);
+            return (true, response, null);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return (false, null, ex.Message);
+        }
+    }
+
     private Uri CriarRequestUri(string path)
     {
         var relativePath = path.TrimStart('/');
-        if (_httpClient.BaseAddress is { IsAbsoluteUri: true } baseAddress)
-        {
-            return new Uri(baseAddress, relativePath);
-        }
-
         var apiBaseUrl = string.IsNullOrWhiteSpace(_options.ApiBaseUrl)
             ? "https://api.mercadopago.com"
             : _options.ApiBaseUrl.Trim().TrimEnd('/');
