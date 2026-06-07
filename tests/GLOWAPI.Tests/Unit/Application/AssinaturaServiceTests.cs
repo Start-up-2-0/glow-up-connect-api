@@ -32,9 +32,13 @@ public class AssinaturaServiceTests
     private readonly Mock<ICampanhaPromocionalRepository> _campanhaPromocionalRepository = new();
     private readonly Mock<IPromocaoLancamentoService> _promocaoLancamentoService = new();
     private readonly Mock<ICobrancaAssinaturaService> _cobrancaAssinaturaService = new();
+    private readonly Mock<IUsuarioRepository> _usuarioRepository = new();
 
     public AssinaturaServiceTests()
     {
+        _usuarioRepository
+            .Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(UsuarioBuilder.Criar(id: 10));
         _promocaoLancamentoService
             .Setup(s => s.ObterStatusAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PromocaoLancamentoStatusDto(false, 0, 30, [5, 10, 15, 20], 3, 2));
@@ -968,7 +972,8 @@ public class AssinaturaServiceTests
             _promocaoLancamentoService.Object,
             new CicloCobrancaAssinaturaService(Options.Create(new AssinaturaCobrancaOptions())),
             _cobrancaAssinaturaService.Object,
-            new AvatarBase64Decoder(Options.Create(new AvatarOptions())));
+            new AvatarBase64Decoder(Options.Create(new AvatarOptions())),
+            _usuarioRepository.Object);
 
     private static PagamentoTransparenteMercadoPagoDto PagamentoValido() =>
         new()

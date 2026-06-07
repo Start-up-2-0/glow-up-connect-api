@@ -54,6 +54,9 @@ public class Usuario
 
     public bool PodeAutenticar(int max) => Ativo && !EstaBloqueado(max);
 
+    public bool PodeAutenticarOnboarding(int max) =>
+        !EstaBloqueado(max) && (Ativo || PendenteConfirmacaoEmail());
+
     public bool PendenteConfirmacaoEmail() =>
         !string.IsNullOrEmpty(ConfirmacaoTokenHash) || !string.IsNullOrEmpty(ConfirmacaoCodigoHash);
 

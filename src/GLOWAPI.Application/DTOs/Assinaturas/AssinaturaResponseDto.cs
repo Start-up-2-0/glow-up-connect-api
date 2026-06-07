@@ -19,12 +19,14 @@ public record AssinaturaResponseDto(
     DateTime? ProximaDataGeracaoCobranca = null,
     DateTime? ProximaDataAlerta = null,
     bool EmTrial = false,
-    int? DiasTrial = null)
+    int? DiasTrial = null,
+    bool RequerConfirmacaoEmail = false)
 {
     public static AssinaturaResponseDto From(
         Assinatura assinatura,
         PagamentoAssinaturaResponseDto? pagamentoInicial = null,
-        int? diasTrial = null) =>
+        int? diasTrial = null,
+        bool requerConfirmacaoEmail = false) =>
         new(
             assinatura.Id,
             assinatura.PlanoId,
@@ -41,5 +43,6 @@ public record AssinaturaResponseDto(
             assinatura.ProximaDataGeracaoCobranca,
             assinatura.ProximaDataAlerta,
             assinatura.Status == AssinaturaStatus.Trial,
-            diasTrial);
+            diasTrial,
+            requerConfirmacaoEmail);
 }
