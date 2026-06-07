@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using GLOWAPI.Application.Services;
 
 namespace GLOWAPI.Application.Models.Pagamentos;
 
@@ -7,7 +8,12 @@ public record GatewayPagamentoErrorDetails(
     string Operacao,
     int? HttpStatusCode,
     string? GatewayMessage,
-    object? GatewayResponse)
+    object? GatewayResponse,
+    string? GatewayResponseRaw,
+    bool RespostaVazia,
+    string? RequestUri,
+    IReadOnlyDictionary<string, string>? ResponseHeaders,
+    object? RequestPayload)
 {
     private static readonly Regex HttpStatusPattern = new(
         @"retornou\s+(?<status>\d{3})\b",
@@ -15,24 +21,43 @@ public record GatewayPagamentoErrorDetails(
 
     public static GatewayPagamentoErrorDetails FromAssinaturaRecorrente(
         CriarAssinaturaRecorrenteGatewayResponse response) =>
-        Criar("criar_assinatura_recorrente", response.MensagemErro, response.ResponsePayload);
+        Criar(
+            "criar_assinatura_recorrente",
+            response.MensagemErro,
+            response.ResponsePayload,
+            response.RequestPayload,
+            response.FailureInfo);
 
     public static GatewayPagamentoErrorDetails FromCobranca(CriarCobrancaGatewayResponse response) =>
-        Criar("criar_cobranca", response.MensagemErro, response.ResponsePayload);
+        Criar(
+            "criar_cobranca",
+            response.MensagemErro,
+            response.ResponsePayload,
+            response.RequestPayload,
+            response.FailureInfo);
 
     private static GatewayPagamentoErrorDetails Criar(
         string operacao,
         string? mensagemErro,
-        string responsePayload)
+        string responsePayload,
+        string requestPayload,
+        GatewayHttpFailureInfo? failureInfo)
     {
+        var gatewayResponseRaw = string.IsNullOrWhiteSpace(responsePayload) ? string.Empty : responsePayload;
+        var respostaVazia = string.IsNullOrWhiteSpace(responsePayload);
         var gatewayResponse = ParseGatewayResponse(responsePayload);
-        var gatewayMessage = ExtrairMensagemGateway(gatewayResponse, responsePayload);
+        var gatewayMessage = ExtrairMensagemGateway(responsePayload);
 
         return new GatewayPagamentoErrorDetails(
             Operacao: operacao,
-            HttpStatusCode: ExtrairHttpStatus(mensagemErro),
+            HttpStatusCode: failureInfo?.HttpStatusCode ?? ExtrairHttpStatus(mensagemErro),
             GatewayMessage: gatewayMessage,
-            GatewayResponse: gatewayResponse);
+            GatewayResponse: gatewayResponse,
+            GatewayResponseRaw: gatewayResponseRaw,
+            RespostaVazia: respostaVazia,
+            RequestUri: failureInfo?.RequestUri,
+            ResponseHeaders: failureInfo?.ResponseHeaders,
+            RequestPayload: GatewayPagamentoRequestSanitizer.Sanitizar(requestPayload));
     }
 
     private static int? ExtrairHttpStatus(string? mensagemErro)
@@ -50,7 +75,7 @@ public record GatewayPagamentoErrorDetails(
 
     private static object? ParseGatewayResponse(string responsePayload)
     {
-        if (string.IsNullOrWhiteSpace(responsePayload) || responsePayload == "{}")
+        if (string.IsNullOrWhiteSpace(responsePayload))
         {
             return null;
         }
@@ -66,9 +91,9 @@ public record GatewayPagamentoErrorDetails(
         }
     }
 
-    private static string? ExtrairMensagemGateway(object? gatewayResponse, string responsePayload)
+    private static string? ExtrairMensagemGateway(string responsePayload)
     {
-        if (gatewayResponse is null)
+        if (string.IsNullOrWhiteSpace(responsePayload))
         {
             return null;
         }

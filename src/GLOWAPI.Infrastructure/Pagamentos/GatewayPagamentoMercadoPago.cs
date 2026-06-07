@@ -85,7 +85,8 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             return CriarCobrancaGatewayResponse.Falha(
                 requestPayload,
                 responsePayload,
-                MontarMensagemErroHttp((int)response.StatusCode, responsePayload, "criar pagamento"));
+                MontarMensagemErroHttp((int)response.StatusCode, responsePayload, "criar pagamento"),
+                CriarFailureInfo(response, responsePayload));
         }
 
         using var document = JsonDocument.Parse(responsePayload);
@@ -333,7 +334,8 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             return CriarAssinaturaRecorrenteGatewayResponse.Falha(
                 requestPayload,
                 responsePayload,
-                MontarMensagemErroHttp((int)response.StatusCode, responsePayload, "criar assinatura recorrente"));
+                MontarMensagemErroHttp((int)response.StatusCode, responsePayload, "criar assinatura recorrente"),
+                CriarFailureInfo(response, responsePayload));
         }
 
         using var document = JsonDocument.Parse(responsePayload);
@@ -402,7 +404,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             var response = await _httpClient.SendAsync(request, cancellationToken);
             return (true, response, null);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or TaskCanceledException)
         {
             return (false, null, ex.Message);
         }
@@ -414,6 +416,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
     private void AplicarHeadersMercadoPago(HttpRequestMessage request, string? idempotencyKey = null)
     {
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         if (!string.IsNullOrWhiteSpace(idempotencyKey))
         {
             request.Headers.Add("X-Idempotency-Key", idempotencyKey);
@@ -423,6 +426,30 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         {
             request.Headers.Add("X-scope", "stage");
         }
+    }
+
+    private static GatewayHttpFailureInfo CriarFailureInfo(
+        HttpResponseMessage response,
+        string responsePayload)
+    {
+        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var header in response.Headers)
+        {
+            headers[header.Key] = string.Join(", ", header.Value);
+        }
+
+        if (response.Content is not null)
+        {
+            foreach (var header in response.Content.Headers)
+            {
+                headers[header.Key] = string.Join(", ", header.Value);
+            }
+        }
+
+        return new GatewayHttpFailureInfo(
+            HttpStatusCode: (int)response.StatusCode,
+            RequestUri: response.RequestMessage?.RequestUri?.ToString(),
+            ResponseHeaders: headers.Count == 0 ? null : headers);
     }
 
     private static string MontarMensagemErroHttp(int statusCode, string responsePayload, string operacao)
