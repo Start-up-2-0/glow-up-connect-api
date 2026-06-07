@@ -98,6 +98,7 @@ app.UseRouting();
 app.UseCors("Frontend");
 
 app.UseMiddleware<GlowTokenAuthenticationMiddleware>();
+app.UseMiddleware<EmailConfirmationAccessMiddleware>();
 app.UseMiddleware<PermissionMiddleware>();
 app.MapControllers();
 

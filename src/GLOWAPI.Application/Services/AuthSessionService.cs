@@ -97,8 +97,13 @@ public class AuthSessionService : IAuthSessionService
         ValidarContextoSessao(sessao, context);
 
         var usuario = sessao.Usuario;
-        if (!usuario.Ativo)
+        if (!usuario.PodeAutenticarOnboarding(_authOptions.MaxLoginAttempts))
         {
+            if (usuario.EstaBloqueado(_authOptions.MaxLoginAttempts))
+            {
+                throw new UserBlockedException();
+            }
+
             throw new InactiveUserException();
         }
 

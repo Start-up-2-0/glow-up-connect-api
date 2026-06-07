@@ -74,7 +74,7 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
     }
 
     [Fact]
-    public async Task Login_AposCadastroSemConfirmar_DeveRetornar403EmailNaoConfirmado()
+    public async Task Login_AposCadastroSemConfirmar_DeveRetornarTokensComFlagRequerConfirmacao()
     {
         const string email = "pendente@email.com";
         const string senha = "Senha123!";
@@ -90,9 +90,10 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         Assert.Equal(HttpStatusCode.Created, cadastro.StatusCode);
 
         var login = await client.PostAsJsonAsync("/api/auth/login", new { email, senha });
-        Assert.Equal(HttpStatusCode.Forbidden, login.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         var body = await login.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-        Assert.Equal("EMAIL_NAO_CONFIRMADO", body.GetProperty("code").GetString());
+        Assert.True(body.GetProperty("data").GetProperty("requerConfirmacaoEmail").GetBoolean());
+        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("data").GetProperty("token").GetString()));
     }
 
     [Fact]

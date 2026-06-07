@@ -45,14 +45,10 @@ public class AuthService : IAuthService
             throw new InvalidCredentialsException();
         }
 
-        if (!usuario.Ativo)
-        {
-            if (usuario.PendenteConfirmacaoEmail())
-            {
-                await _auditLogger.LoginFailedAsync(email, "email_nao_confirmado", context.Ip, context.UserAgent, usuario.Id, cancellationToken);
-                throw new EmailNaoConfirmadoException();
-            }
+        var requerConfirmacaoEmail = !usuario.Ativo && usuario.PendenteConfirmacaoEmail();
 
+        if (!usuario.Ativo && !requerConfirmacaoEmail)
+        {
             await _auditLogger.LoginFailedAsync(email, "usuario_inativo", context.Ip, context.UserAgent, usuario.Id, cancellationToken);
             throw new InactiveUserException();
         }
@@ -95,7 +91,8 @@ public class AuthService : IAuthService
             tokens.RefreshToken,
             tokens.AccessTokenExpiresAt,
             tokens.RefreshTokenExpiresAt,
-            new UsuarioAuthInfo(usuario.Id, usuario.Nome, usuario.Email, usuario.Role, usuario.AvatarBase64));
+            new UsuarioAuthInfo(usuario.Id, usuario.Nome, usuario.Email, usuario.Role, usuario.AvatarBase64),
+            requerConfirmacaoEmail);
     }
 
     public async Task LogoutAsync(string accessToken, CancellationToken cancellationToken = default)
@@ -123,7 +120,7 @@ public class AuthService : IAuthService
         var sessao = await _authSessionService.ObterSessaoAtivaPorRefreshTokenAsync(dto.RefreshToken, cancellationToken);
         var usuario = await _usuarioRepository.ObterPorIdAsync(sessao.UsuarioId, cancellationToken);
 
-        if (usuario is null || !usuario.PodeAutenticar(_authOptions.MaxLoginAttempts))
+        if (usuario is null || !usuario.PodeAutenticarOnboarding(_authOptions.MaxLoginAttempts))
         {
             await _authSessionService.RevogarSessaoAsync(sessao, cancellationToken);
 

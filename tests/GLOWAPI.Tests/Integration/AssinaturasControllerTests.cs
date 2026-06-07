@@ -219,6 +219,88 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
             && pagamento.Status == PagamentoStatus.Pendente);
     }
 
+    [Fact]
+    public async Task Iniciar_ComEmailPendenteConfirmacao_DeveCriarAssinaturaEPromoverRole()
+    {
+        const string email = "onboarding-pendente@email.com";
+        const string senha = "Senha123!";
+        var planoId = await SeedPlanoPublicoAsync();
+
+        var client = _factory.CreateClient();
+        var cadastro = await client.PostAsJsonAsync("/api/usuario", new
+        {
+            nome = "Dono Onboarding",
+            email,
+            telefone = "11999999999",
+            senha
+        });
+        Assert.Equal(HttpStatusCode.Created, cadastro.StatusCode);
+
+        await AutenticarAsync(client, email, senha);
+
+        var response = await client.PostAsJsonAsync("/api/assinaturas", new
+        {
+            planoId,
+            tipoAssinatura = TipoAssinatura.Estabelecimento,
+            diaVencimento = 10,
+            pagamento = PagamentoValido(),
+            estabelecimento = new
+            {
+                nome = "Studio Pendente",
+                descricao = "Salao de beleza",
+                logo = LogoBase64TestHelper.PngDataUri,
+                telefone = "11999999999",
+                email = "studio-pendente@email.com",
+                endereco = new
+                {
+                    cep = "01310100",
+                    logradouro = "Rua Glow",
+                    numero = "100",
+                    bairro = "Centro",
+                    cidade = "Sao Paulo",
+                    estado = "SP"
+                }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        var data = body.GetProperty("data");
+        Assert.True(data.GetProperty("requerConfirmacaoEmail").GetBoolean());
+        Assert.Equal("PendentePagamento", data.GetProperty("status").GetString());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var usuario = db.Usuarios.Single(item => item.Email == email);
+        Assert.False(usuario.Ativo);
+        Assert.Equal(UserRole.DonoEstabelecimento, usuario.Role);
+    }
+
+    private async Task<int> SeedPlanoPublicoAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        await CampanhaPromocionalTestHelper.DesabilitarPromocaoAsync(db);
+
+        var plano = new Plano
+        {
+            Nome = $"Plano Onboarding {Guid.NewGuid()}",
+            Descricao = "Plano para onboarding pendente",
+            Preco = 99.90m,
+            Periodo = PlanoPeriodo.Mensal,
+            LimiteProfissionais = 5,
+            LimiteServicos = 20,
+            LimiteAgendamentos = 200,
+            Ativo = true
+        };
+
+        db.Planos.Add(plano);
+        await db.SaveChangesAsync();
+        return plano.Id;
+    }
+
     private async Task<(string Email, string Senha, int PlanoId, int EstabelecimentoId)> SeedEstabelecimentoAsync()
     {
         const string email = "assinatura-estabelecimento@email.com";
