@@ -27,7 +27,7 @@ public class ProfissionalConfiguration : IEntityTypeConfiguration<Profissional>
             .HasMaxLength(1000);
 
         builder.Property(profissional => profissional.Logo)
-            .HasMaxLength(500);
+            .HasColumnType("text");
 
         builder.Property(profissional => profissional.Telefone)
             .HasMaxLength(20);

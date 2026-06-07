@@ -26,7 +26,7 @@ public class EstabelecimentoConfiguration : IEntityTypeConfiguration<Estabelecim
             .HasMaxLength(500);
 
         builder.Property(estabelecimento => estabelecimento.Logo)
-            .HasMaxLength(500);
+            .HasColumnType("text");
 
         builder.Property(estabelecimento => estabelecimento.Telefone)
             .HasMaxLength(20);
