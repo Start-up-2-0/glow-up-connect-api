@@ -107,9 +107,12 @@ public class ExceptionMiddleware
                 _ => HttpStatusCode.NotFound
             };
 
-            var details = ex is HorarioAlteracaoImpactaAgendamentosFuturosException impacto
-                ? impacto.AgendamentosImpactados
-                : null;
+            var details = ex switch
+            {
+                HorarioAlteracaoImpactaAgendamentosFuturosException impacto => impacto.AgendamentosImpactados,
+                GatewayPagamentoException gateway => gateway.Details,
+                _ => null
+            };
 
             await WriteErrorAsync(context, (int)statusCode, ex.Message, ex.Code, details);
             _logger.LogWarning(ex, "Regra de negócio violada: {Code}", ex.Code);

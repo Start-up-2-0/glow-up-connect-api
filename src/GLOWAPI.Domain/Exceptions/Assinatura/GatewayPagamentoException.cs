@@ -6,8 +6,11 @@ public class GatewayPagamentoException : DomainException
 {
     public const string ErrorCode = "GATEWAY_PAGAMENTO_ERRO";
 
-    public GatewayPagamentoException(string message)
+    public object? Details { get; }
+
+    public GatewayPagamentoException(string message, object? details = null)
         : base(message, ErrorCode)
     {
+        Details = details;
     }
 }
