@@ -389,7 +389,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             payer_email = request.PagadorEmail,
             card_token_id = request.PagamentoTransparente!.Token,
             auto_recurring = autoRecurring,
-            back_url = TextoOuNull(_options.NotificationUrl),
+            back_url = TextoOuNull(_options.SuccessUrl),
             status = "authorized"
         };
     }
