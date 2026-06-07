@@ -278,6 +278,7 @@ public class GatewayPagamentoMercadoPagoTests
 
         Assert.False(response.Sucesso);
         Assert.Contains("Mercado Pago retornou 404", response.MensagemErro);
+        Assert.Contains("payment not found", response.MensagemErro);
         Assert.Contains("payment not found", response.ResponsePayload);
     }
 
@@ -317,6 +318,7 @@ public class GatewayPagamentoMercadoPagoTests
         Assert.True(response.Sucesso);
         Assert.NotNull(requestMessage);
         Assert.Equal("https://api.mercadopago.com/preapproval", requestMessage!.RequestUri?.ToString());
+        Assert.Equal("stage", requestMessage.Headers.GetValues("X-scope").Single());
     }
 
     [Fact]

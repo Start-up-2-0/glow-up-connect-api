@@ -65,8 +65,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         {
             Content = new StringContent(requestPayload, Encoding.UTF8, "application/json")
         };
-        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);
-        httpRequest.Headers.Add("X-Idempotency-Key", request.ReferenciaInterna);
+        AplicarHeadersMercadoPago(httpRequest, request.ReferenciaInterna);
 
         var envio = await TentarEnviarAsync(httpRequest, cancellationToken);
         if (!envio.Sucesso)
@@ -85,7 +84,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             return CriarCobrancaGatewayResponse.Falha(
                 requestPayload,
                 responsePayload,
-                $"Mercado Pago retornou {(int)response.StatusCode} ao criar pagamento.");
+                MontarMensagemErroHttp((int)response.StatusCode, responsePayload, "criar pagamento"));
         }
 
         using var document = JsonDocument.Parse(responsePayload);
@@ -153,7 +152,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         using var httpRequest = new HttpRequestMessage(
             HttpMethod.Get,
             CriarRequestUri($"v1/payments/{Uri.EscapeDataString(gatewayPaymentId.Trim())}"));
-        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);
+        AplicarHeadersMercadoPago(httpRequest);
 
         var envio = await TentarEnviarAsync(httpRequest, cancellationToken);
         if (!envio.Sucesso)
@@ -172,7 +171,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             return ConsultarPagamentoGatewayResponse.Falha(
                 gatewayPaymentId,
                 responsePayload,
-                $"Mercado Pago retornou {(int)response.StatusCode} ao consultar pagamento.");
+                MontarMensagemErroHttp((int)response.StatusCode, responsePayload, "consultar pagamento"));
         }
 
         using var document = JsonDocument.Parse(responsePayload);
@@ -314,8 +313,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         {
             Content = new StringContent(requestPayload, Encoding.UTF8, "application/json")
         };
-        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);
-        httpRequest.Headers.Add("X-Idempotency-Key", request.ReferenciaInterna);
+        AplicarHeadersMercadoPago(httpRequest, request.ReferenciaInterna);
 
         var envio = await TentarEnviarAsync(httpRequest, cancellationToken);
         if (!envio.Sucesso)
@@ -334,7 +332,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             return CriarAssinaturaRecorrenteGatewayResponse.Falha(
                 requestPayload,
                 responsePayload,
-                $"Mercado Pago retornou {(int)response.StatusCode} ao criar assinatura recorrente.");
+                MontarMensagemErroHttp((int)response.StatusCode, responsePayload, "criar assinatura recorrente"));
         }
 
         using var document = JsonDocument.Parse(responsePayload);
@@ -407,6 +405,63 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         {
             return (false, null, ex.Message);
         }
+    }
+
+    private void AplicarHeadersMercadoPago(HttpRequestMessage request, string? idempotencyKey = null)
+    {
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);
+        if (!string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            request.Headers.Add("X-Idempotency-Key", idempotencyKey);
+        }
+
+        if (_options.AccessToken.TrimStart().StartsWith("TEST-", StringComparison.OrdinalIgnoreCase))
+        {
+            request.Headers.Add("X-scope", "stage");
+        }
+    }
+
+    private static string MontarMensagemErroHttp(int statusCode, string responsePayload, string operacao)
+    {
+        var detalhe = ExtrairMensagemRespostaMercadoPago(responsePayload);
+        return string.IsNullOrWhiteSpace(detalhe)
+            ? $"Mercado Pago retornou {statusCode} ao {operacao}."
+            : $"Mercado Pago retornou {statusCode} ao {operacao}: {detalhe}";
+    }
+
+    private static string? ExtrairMensagemRespostaMercadoPago(string responsePayload)
+    {
+        if (string.IsNullOrWhiteSpace(responsePayload))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(responsePayload);
+            var root = document.RootElement;
+            if (root.TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.String)
+            {
+                return message.GetString();
+            }
+
+            if (root.TryGetProperty("cause", out var cause)
+                && cause.ValueKind == JsonValueKind.Array
+                && cause.GetArrayLength() > 0)
+            {
+                var first = cause[0];
+                if (first.TryGetProperty("description", out var description)
+                    && description.ValueKind == JsonValueKind.String)
+                {
+                    return description.GetString();
+                }
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return null;
     }
 
     private Uri CriarRequestUri(string path)
