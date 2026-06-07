@@ -29,6 +29,10 @@ builder.Services.Configure<MercadoPagoOptions>(
     builder.Configuration.GetSection(MercadoPagoOptions.SectionName));
 builder.Services.Configure<GeocodificacaoOptions>(
     builder.Configuration.GetSection(GeocodificacaoOptions.SectionName));
+builder.Services.Configure<AssinaturaCobrancaOptions>(
+    builder.Configuration.GetSection(AssinaturaCobrancaOptions.SectionName));
+builder.Services.Configure<AssinaturaCobrancaWorkerOptions>(
+    builder.Configuration.GetSection(AssinaturaCobrancaWorkerOptions.SectionName));
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
@@ -45,6 +49,7 @@ HostedConfigurationValidator.ValidarSeAmbienteHospedado(
 
 builder.Services.AddHostedService<MensagemNotificacaoWorker>();
 builder.Services.AddHostedService<MensagemNotificacaoRecuperacaoWorker>();
+builder.Services.AddHostedService<AssinaturaCobrancaWorker>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
