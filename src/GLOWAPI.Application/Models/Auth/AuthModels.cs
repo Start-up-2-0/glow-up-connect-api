@@ -9,7 +9,8 @@ public record AuthLoginResult(
     string RefreshToken,
     DateTime ExpiresAt,
     DateTime RefreshExpiresAt,
-    UsuarioAuthInfo Usuario);
+    UsuarioAuthInfo Usuario,
+    bool RequerConfirmacaoEmail = false);
 
 public record AuthRefreshResult(
     string Token,

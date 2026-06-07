@@ -65,19 +65,26 @@ public class AuthServiceTests
     }
 
     [Fact]
-    public async Task LoginAsync_DeveLancarEmailNaoConfirmado_QuandoPendenteConfirmacao()
+    public async Task LoginAsync_DeveRetornarTokensComFlag_QuandoPendenteConfirmacao()
     {
         var usuario = UsuarioBuilder.Criar(ativo: false);
         usuario.ConfirmacaoTokenHash = "hash";
         usuario.ConfirmacaoExpiraEm = DateTime.UtcNow.AddHours(1);
+        var expiresAccess = DateTime.UtcNow.AddMinutes(15);
+        var expiresRefresh = DateTime.UtcNow.AddDays(7);
+
         _usuarioRepository.Setup(r => r.ObterPorEmailAsync(usuario.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync(usuario);
         _passwordHasher.Setup(p => p.Verify("Senha123", usuario.Senha)).Returns(true);
+        _authSessionService.Setup(s => s.CriarSessaoComTokensAsync(usuario, _context, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IssuedTokenPair("access-token", "refresh-token", expiresAccess, expiresRefresh, 10));
 
-        await Assert.ThrowsAsync<EmailNaoConfirmadoException>(() =>
-            CreateService().LoginAsync(
-                new LoginRequestDto { Email = usuario.Email, Senha = "Senha123" },
-                _context));
+        var result = await CreateService().LoginAsync(
+            new LoginRequestDto { Email = usuario.Email, Senha = "Senha123" },
+            _context);
+
+        Assert.Equal("access-token", result.Token);
+        Assert.True(result.RequerConfirmacaoEmail);
     }
 
     [Fact]

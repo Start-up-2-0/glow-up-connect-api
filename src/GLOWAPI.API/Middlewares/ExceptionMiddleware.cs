@@ -48,6 +48,7 @@ public class ExceptionMiddleware
                     or MensagemNotificacaoJaEnviadaException
                     or MensagemNotificacaoNaoCancelavelException
                     or AssinaturaDuplicadaException
+                    or EstabelecimentoOnboardingDuplicadoException
                     or UsuarioEquipeNegocioDuplicadoException
                     or ProfissionalNegocioDuplicadoException
                     or ProfissionalServicoDuplicadoException
@@ -62,6 +63,7 @@ public class ExceptionMiddleware
                     or CancelamentoAssinaturaInvalidoException
                     or EstabelecimentoAssinaturaInvalidoException
                     or PagamentoAssinaturaInvalidoException
+                    or DiaVencimentoAssinaturaInvalidoException
                     or ProfissionalAutonomoAssinaturaInvalidoException
                     or TrocaPlanoAssinaturaInvalidaException
                     or WebhookPagamentoInvalidoException

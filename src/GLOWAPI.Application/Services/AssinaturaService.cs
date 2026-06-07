@@ -29,6 +29,7 @@ public class AssinaturaService : IAssinaturaService
     private readonly ICicloCobrancaAssinaturaService _cicloCobrancaService;
     private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
     private readonly IAvatarBase64Decoder _avatarBase64Decoder;
+    private readonly IUsuarioRepository _usuarioRepository;
 
     public AssinaturaService(
         IAssinaturaRepository assinaturaRepository,
@@ -47,7 +48,8 @@ public class AssinaturaService : IAssinaturaService
         IPromocaoLancamentoService promocaoLancamentoService,
         ICicloCobrancaAssinaturaService cicloCobrancaService,
         ICobrancaAssinaturaService cobrancaAssinaturaService,
-        IAvatarBase64Decoder avatarBase64Decoder)
+        IAvatarBase64Decoder avatarBase64Decoder,
+        IUsuarioRepository usuarioRepository)
     {
         _assinaturaRepository = assinaturaRepository;
         _planoRepository = planoRepository;
@@ -66,6 +68,7 @@ public class AssinaturaService : IAssinaturaService
         _cicloCobrancaService = cicloCobrancaService;
         _cobrancaAssinaturaService = cobrancaAssinaturaService;
         _avatarBase64Decoder = avatarBase64Decoder;
+        _usuarioRepository = usuarioRepository;
     }
 
     public async Task<AssinaturaResponseDto> IniciarAsync(
@@ -111,7 +114,9 @@ public class AssinaturaService : IAssinaturaService
                 _currentUser.Email,
                 cancellationToken);
 
-            return AssinaturaResponseDto.From(assinatura, diasTrial: diasTrial);
+            await PromoverRoleOnboardingAsync(userId, request.TipoAssinatura, cancellationToken);
+
+            return await MontarRespostaInicioAsync(assinatura, cancellationToken, diasTrial: diasTrial);
         }
 
         var ciclo = _cicloCobrancaService.CalcularPrimeiroCiclo(request.DiaVencimento, DateTime.UtcNow);
@@ -170,8 +175,11 @@ public class AssinaturaService : IAssinaturaService
             _currentUser.Email,
             cancellationToken);
 
-        return AssinaturaResponseDto.From(
+        await PromoverRoleOnboardingAsync(userId, request.TipoAssinatura, cancellationToken);
+
+        return await MontarRespostaInicioAsync(
             assinatura,
+            cancellationToken,
             PagamentoAssinaturaResponseDto.From(
                 pagamentoInicial.Pagamento,
                 pagamentoInicial.CheckoutUrl,
@@ -356,6 +364,18 @@ public class AssinaturaService : IAssinaturaService
         int userId,
         CancellationToken cancellationToken)
     {
+        var vinculos = await _estabelecimentoUsuarioRepository.ListarAtivosPorUsuarioAsync(
+            userId,
+            cancellationToken)
+            ?? Array.Empty<EstabelecimentoUsuario>();
+        if (vinculos.Any(v =>
+                v.RoleNoEstabelecimento == EstablishmentUserRole.Owner
+                && v.Estabelecimento is not null
+                && v.Estabelecimento.Ativo))
+        {
+            throw new EstabelecimentoOnboardingDuplicadoException();
+        }
+
         var estabelecimento = CriarEstabelecimento(request.Estabelecimento!);
         await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
         await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
@@ -717,6 +737,11 @@ public class AssinaturaService : IAssinaturaService
             return false;
         }
 
+        if (!PagamentoCompativelComTrial(request.Pagamento))
+        {
+            return false;
+        }
+
         var estabelecimentoIdPromo = assinatura.EstabelecimentoId ?? 0;
         if (estabelecimentoIdPromo > 0
             && await _promocaoLancamentoService.EstabelecimentoJaUsouPromocaoAsync(estabelecimentoIdPromo, cancellationToken))
@@ -797,6 +822,11 @@ public class AssinaturaService : IAssinaturaService
 
         return true;
     }
+
+    private static bool PagamentoCompativelComTrial(PagamentoTransparenteMercadoPagoDto? pagamento) =>
+        pagamento is not null
+        && !string.IsNullOrWhiteSpace(pagamento.Token)
+        && !string.Equals(pagamento.PaymentMethodId, "pix", StringComparison.OrdinalIgnoreCase);
 
     private static PagamentoTransparenteGatewayRequest? CriarPagamentoTransparenteRequest(
         GatewayPagamento gateway,
@@ -883,6 +913,47 @@ public class AssinaturaService : IAssinaturaService
         }
 
         await _enderecoGeocodificacaoService.TentarGeocodificarAsync(estabelecimento.Endereco, cancellationToken);
+    }
+
+    private async Task PromoverRoleOnboardingAsync(
+        int userId,
+        TipoAssinatura tipoAssinatura,
+        CancellationToken cancellationToken)
+    {
+        var usuario = await _usuarioRepository.ObterPorIdAsync(userId, cancellationToken);
+        if (usuario is null || usuario.Role != UserRole.Cliente)
+        {
+            return;
+        }
+
+        usuario.Role = tipoAssinatura switch
+        {
+            TipoAssinatura.Estabelecimento => UserRole.DonoEstabelecimento,
+            TipoAssinatura.ProfissionalAutonomo => UserRole.ProfissionalAutonomo,
+            _ => usuario.Role
+        };
+        usuario.UpdatedAt = DateTime.UtcNow;
+
+        _usuarioRepository.Atualizar(usuario);
+        await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
+    }
+
+    private async Task<AssinaturaResponseDto> MontarRespostaInicioAsync(
+        Assinatura assinatura,
+        CancellationToken cancellationToken,
+        PagamentoAssinaturaResponseDto? pagamentoInicial = null,
+        int? diasTrial = null)
+    {
+        var usuario = await _usuarioRepository.ObterPorIdAsync(ObterUserIdAutenticado(), cancellationToken);
+        var requerConfirmacaoEmail = usuario is not null
+            && !usuario.Ativo
+            && usuario.PendenteConfirmacaoEmail();
+
+        return AssinaturaResponseDto.From(
+            assinatura,
+            pagamentoInicial,
+            diasTrial,
+            requerConfirmacaoEmail);
     }
 
     private int ObterUserIdAutenticado()
