@@ -215,7 +215,7 @@ public class AssinaturaServiceTests
             {
                 Nome = " Studio Glow ",
                 Descricao = " Salao premium ",
-                Logo = "https://cdn.test/logo.png",
+                Logo = LogoBase64TestHelper.PngDataUri,
                 Telefone = "11999999999",
                 Email = "studio@email.com",
                 Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Sao Paulo", logradouro: "Rua Glow")
@@ -229,7 +229,7 @@ public class AssinaturaServiceTests
         Assert.NotNull(estabelecimentoCriado);
         Assert.Equal("Studio Glow", estabelecimentoCriado!.Nome);
         Assert.Equal("Salao premium", estabelecimentoCriado.Descricao);
-        Assert.Equal("https://cdn.test/logo.png", estabelecimentoCriado.Logo);
+        Assert.StartsWith("data:image/png;base64,", estabelecimentoCriado!.Logo);
         Assert.Equal("11999999999", estabelecimentoCriado.Telefone);
         Assert.Equal("studio@email.com", estabelecimentoCriado.Email);
         Assert.NotNull(estabelecimentoCriado.Endereco);
@@ -331,7 +331,7 @@ public class AssinaturaServiceTests
             {
                 NomePublico = " Maria Glow ",
                 Biografia = " Especialista em beleza ",
-                Logo = "https://cdn.test/maria.png",
+                Logo = LogoBase64TestHelper.PngDataUri,
                 Telefone = "11988888888",
                 Email = "maria@email.com",
                 Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Campinas", logradouro: "Sala 12", numero: "12", bairro: "Centro")
@@ -347,7 +347,7 @@ public class AssinaturaServiceTests
         Assert.Equal(10, profissionalCriado!.UsuarioId);
         Assert.Equal("Maria Glow", profissionalCriado.NomePublico);
         Assert.Equal("Especialista em beleza", profissionalCriado.Biografia);
-        Assert.Equal("https://cdn.test/maria.png", profissionalCriado.Logo);
+        Assert.StartsWith("data:image/png;base64,", profissionalCriado!.Logo);
         Assert.Equal("11988888888", profissionalCriado.Telefone);
         Assert.Equal("maria@email.com", profissionalCriado.Email);
         Assert.Equal(ProfessionalType.Autonomo, profissionalCriado.TipoProfissional);
@@ -424,7 +424,7 @@ public class AssinaturaServiceTests
             {
                 NomePublico = "Novo nome",
                 Biografia = "Nova bio",
-                Logo = "https://cdn.test/novo.png",
+                Logo = LogoBase64TestHelper.PngDataUri,
                 Telefone = "11977777777",
                 Email = "novo@email.com",
                 Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Santos", logradouro: "Av Praia")
@@ -435,7 +435,7 @@ public class AssinaturaServiceTests
         Assert.Equal(71, response.EstabelecimentoId);
         Assert.Equal("Novo nome", profissional.NomePublico);
         Assert.Equal("Nova bio", profissional.Biografia);
-        Assert.Equal("https://cdn.test/novo.png", profissional.Logo);
+        Assert.StartsWith("data:image/png;base64,", profissional.Logo);
         Assert.Equal("11977777777", profissional.Telefone);
         Assert.Equal("novo@email.com", profissional.Email);
         Assert.True(profissional.Ativo);
@@ -967,7 +967,8 @@ public class AssinaturaServiceTests
             _enderecoGeocodificacaoService.Object,
             _promocaoLancamentoService.Object,
             new CicloCobrancaAssinaturaService(Options.Create(new AssinaturaCobrancaOptions())),
-            _cobrancaAssinaturaService.Object);
+            _cobrancaAssinaturaService.Object,
+            new AvatarBase64Decoder(Options.Create(new AvatarOptions())));
 
     private static PagamentoTransparenteMercadoPagoDto PagamentoValido() =>
         new()

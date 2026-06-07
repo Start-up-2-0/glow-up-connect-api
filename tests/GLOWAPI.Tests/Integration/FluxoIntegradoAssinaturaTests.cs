@@ -37,7 +37,7 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
             {
                 nome = "Studio Fluxo",
                 descricao = "Fluxo integrado",
-                logo = "https://cdn.test/studio-fluxo.png",
+                logo = LogoBase64TestHelper.PngDataUri,
                 telefone = "11999999999",
                 email = "studio-fluxo@email.com",
                 endereco = new
@@ -122,7 +122,7 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
             {
                 nomePublico = "Autonomo Fluxo",
                 biografia = "Fluxo integrado autonomo",
-                logo = "https://cdn.test/autonomo-fluxo.png",
+                logo = LogoBase64TestHelper.PngDataUri,
                 telefone = "11988888888",
                 email = "autonomo-fluxo@email.com",
                 endereco = new

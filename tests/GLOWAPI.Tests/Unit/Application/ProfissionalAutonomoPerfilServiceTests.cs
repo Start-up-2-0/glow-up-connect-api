@@ -1,7 +1,9 @@
 using GLOWAPI.Application.DTOs.Profissionais;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Options;
 using GLOWAPI.Application.Services;
+using Microsoft.Extensions.Options;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
@@ -78,7 +80,7 @@ public class ProfissionalAutonomoPerfilServiceTests
         var response = await service.AtualizarAsync(30, new AtualizarProfissionalAutonomoPerfilDto
         {
             NomePublico = " Maria Nova ",
-            Logo = " https://cdn.test/maria.png ",
+            Logo = LogoBase64TestHelper.PngDataUri,
             Telefone = "11988888888",
             Email = "maria@email.com",
             Endereco = EnderecoOperacaoDtoBuilder.Criar(
@@ -89,7 +91,7 @@ public class ProfissionalAutonomoPerfilServiceTests
         });
 
         Assert.Equal("Maria Nova", response.NomePublico);
-        Assert.Equal("https://cdn.test/maria.png", response.Logo);
+        Assert.StartsWith("data:image/png;base64,", response.Logo);
         Assert.Equal("11988888888", response.Telefone);
         Assert.Equal("maria@email.com", response.Email);
         Assert.Equal("Campinas", response.Endereco.Cidade);
@@ -122,7 +124,7 @@ public class ProfissionalAutonomoPerfilServiceTests
             service.AtualizarAsync(30, new AtualizarProfissionalAutonomoPerfilDto
             {
                 NomePublico = "Maria",
-                Logo = "https://cdn.test/maria.png",
+                Logo = LogoBase64TestHelper.PngDataUri,
                 Telefone = "11988888888",
                 Email = "maria@email.com",
                 Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Campinas", logradouro: "Rua A")
@@ -138,5 +140,6 @@ public class ProfissionalAutonomoPerfilServiceTests
             _currentUser.Object,
             _enderecoGeocodificacaoService.Object,
             _confirmacaoWhatsAppService.Object,
-            _confirmacaoWhatsAppEstabelecimentoService.Object);
+            _confirmacaoWhatsAppEstabelecimentoService.Object,
+            new AvatarBase64Decoder(Options.Create(new AvatarOptions())));
 }
