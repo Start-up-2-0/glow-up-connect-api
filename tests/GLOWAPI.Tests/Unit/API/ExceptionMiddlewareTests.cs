@@ -97,7 +97,12 @@ public class ExceptionMiddlewareTests
             "criar_assinatura_recorrente",
             503,
             "service unavailable",
-            new { message = "service unavailable", status = 503 });
+            new { message = "service unavailable", status = 503 },
+            """{"message":"service unavailable","status":503}""",
+            false,
+            "https://api.mercadopago.com/preapproval",
+            new Dictionary<string, string> { ["x-request-id"] = "req-1" },
+            new { status = "authorized", card_token_id = "***" });
         var middleware = new ExceptionMiddleware(
             _ => throw new GatewayPagamentoException(
                 "Mercado Pago retornou 503 ao criar assinatura recorrente.",
@@ -114,5 +119,6 @@ public class ExceptionMiddlewareTests
         Assert.Equal("GATEWAY_PAGAMENTO_ERRO", json.RootElement.GetProperty("code").GetString());
         Assert.Equal("criar_assinatura_recorrente", json.RootElement.GetProperty("details").GetProperty("operacao").GetString());
         Assert.Equal(503, json.RootElement.GetProperty("details").GetProperty("httpStatusCode").GetInt32());
+        Assert.Equal("https://api.mercadopago.com/preapproval", json.RootElement.GetProperty("details").GetProperty("requestUri").GetString());
     }
 }

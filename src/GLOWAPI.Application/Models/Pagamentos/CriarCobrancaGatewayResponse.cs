@@ -8,12 +8,14 @@ public record CriarCobrancaGatewayResponse(
     string RequestPayload,
     string ResponsePayload,
     string? MensagemErro = null,
-    string MetodoPagamento = "Checkout")
+    string MetodoPagamento = "Checkout",
+    GatewayHttpFailureInfo? FailureInfo = null)
 {
     public static CriarCobrancaGatewayResponse Falha(
         string requestPayload,
         string responsePayload,
-        string mensagemErro) =>
+        string mensagemErro,
+        GatewayHttpFailureInfo? failureInfo = null) =>
         new(
             Sucesso: false,
             GatewayPaymentId: string.Empty,
@@ -21,5 +23,6 @@ public record CriarCobrancaGatewayResponse(
             QrCode: string.Empty,
             RequestPayload: requestPayload,
             ResponsePayload: responsePayload,
-            MensagemErro: mensagemErro);
+            MensagemErro: mensagemErro,
+            FailureInfo: failureInfo);
 }
