@@ -59,7 +59,7 @@ Permissao: usuario deve ser dono da assinatura (vinculo no estabelecimento inter
 | Limite | Plano Basic (padrao) |
 |--------|----------------------|
 | Usuarios | 1 |
-| Agendamentos/dia | 10 |
+| Agendamentos/dia | ilimitado |
 | Servicos ativos | conforme `Plano.LimiteServicos` |
 
 Plano Plus/Premium: limites ampliados ou ilimitados — ver planos em [planos/](./planos/).

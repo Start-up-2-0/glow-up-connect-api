@@ -8,7 +8,7 @@ Garantir que o banco contenha **exatamente 3 planos ativos** para contratacao, a
 
 | Id | Nome | Descricao | Preco | Periodo | LimiteProfissionais | LimiteServicos | LimiteAgendamentos | Ativo |
 |:--:|------|-----------|------:|---------|:-------------------:|:--------------:|:------------------:|:-----:|
-| 1 | Basic | Plano de entrada para operacao solo com agenda, servicos e e-mail | 29.99 | Mensal | 1 | 10 | 10 | true |
+| 1 | Basic | Plano de entrada para operacao solo com agenda, servicos e e-mail | 29.99 | Mensal | 1 | 10 | null | true |
 | 2 | Plus | Equipe, convites e notificacoes WhatsApp para o negocio | 99.90 | Mensal | null | null | null | true |
 | 3 | Premium | Caixa, financeiro, comissoes e prioridade no marketplace | 199.90 | Mensal | null | null | null | true |
 
@@ -16,7 +16,7 @@ Garantir que o banco contenha **exatamente 3 planos ativos** para contratacao, a
 
 - **Basic:** `LimiteProfissionais/Servicos/Agendamentos` no banco alimentam `Limites` da assinatura.
 - **Plus/Premium:** `null` = ilimitado nos services de validacao.
-- **LimiteUsuarios** e **LimiteAgendamentosPorDia** vêm do catalogo (`1` e `10` no Basic; `null` nos demais).
+- **LimiteUsuarios** vem do catalogo (`1` no Basic; `null` nos demais). **LimiteAgendamentosPorDia** e ilimitado em todos os planos pagos (`null`).
 
 ### Identificacao pelo nome
 
@@ -28,9 +28,10 @@ O nome **deve** conter a palavra-chave para o catalogo resolver modulos:
 
 Nao usar nomes como "Plano Pro" ou "Basico Premium" — caem no fallback Basic.
 
-## Migration
+## Migrations
 
-Arquivo: `SeedPlanosComerciais` em `src/GLOWAPI.Infrastructure/Migrations/`.
+- `SeedPlanosComerciais` — upsert dos 3 planos canonicos.
+- `CorrigirLimiteAgendamentosPlanoBasic` — remove teto de agendamentos do Basic (`LimiteAgendamentos = null`), alinhado ao catalogo.
 
 Comportamento do `Up()`:
 
@@ -57,9 +58,9 @@ Resposta esperada (exemplo Basic):
       "periodo": "Mensal",
       "limiteProfissionais": 1,
       "limiteServicos": 10,
-      "limiteAgendamentos": 10,
+      "limiteAgendamentos": null,
       "limiteUsuarios": 1,
-      "limiteAgendamentosPorDia": 10,
+      "limiteAgendamentosPorDia": null,
       "prioridadeListagemPublica": false,
       "modulos": ["Agenda", "Servicos", "HorariosAtendimento", "Notificacoes", "Email"],
       "funcionalidades": ["Cadastro de servicos", "Agenda simples", "..."]

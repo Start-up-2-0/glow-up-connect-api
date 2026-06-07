@@ -38,10 +38,10 @@ Notificacoes, Email
 | Limite | Valor | Origem |
 |--------|------:|--------|
 | Usuarios no negocio | 1 | catalogo |
-| Agendamentos por dia | 10 | catalogo |
+| Agendamentos por dia | ilimitado | catalogo |
 | Profissionais | 1 | banco (`LimiteProfissionais`) |
 | Servicos | 10 | banco (`LimiteServicos`) |
-| Agendamentos (total) | 10 | banco (`LimiteAgendamentos`) |
+| Agendamentos (total) | ilimitado | banco (`LimiteAgendamentos` = null) |
 | Prioridade listagem publica | nao | catalogo |
 
 ## O que NAO inclui
@@ -72,7 +72,7 @@ Notificacoes, Email
 
 ## Criterios de aceite
 
-- [ ] Seed com nome `Basic`, preco 0, limites 1/10/10.
+- [ ] Seed com nome `Basic`, preco 29.99, limites 1/10/null (agendamentos ilimitados).
 - [ ] `GET /api/planos` lista Basic com 5 modulos operacionais (+ base na assinatura ativa).
 - [ ] Autonomo no Basic libera Agenda e Servicos apos pagamento (fluxo integrado).
 - [ ] Convite de profissional retorna 403 no Basic.
