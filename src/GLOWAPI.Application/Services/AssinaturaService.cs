@@ -737,6 +737,11 @@ public class AssinaturaService : IAssinaturaService
             return false;
         }
 
+        if (!PagamentoCompativelComTrial(request.Pagamento))
+        {
+            return false;
+        }
+
         var estabelecimentoIdPromo = assinatura.EstabelecimentoId ?? 0;
         if (estabelecimentoIdPromo > 0
             && await _promocaoLancamentoService.EstabelecimentoJaUsouPromocaoAsync(estabelecimentoIdPromo, cancellationToken))
@@ -817,6 +822,11 @@ public class AssinaturaService : IAssinaturaService
 
         return true;
     }
+
+    private static bool PagamentoCompativelComTrial(PagamentoTransparenteMercadoPagoDto? pagamento) =>
+        pagamento is not null
+        && !string.IsNullOrWhiteSpace(pagamento.Token)
+        && !string.Equals(pagamento.PaymentMethodId, "pix", StringComparison.OrdinalIgnoreCase);
 
     private static PagamentoTransparenteGatewayRequest? CriarPagamentoTransparenteRequest(
         GatewayPagamento gateway,
