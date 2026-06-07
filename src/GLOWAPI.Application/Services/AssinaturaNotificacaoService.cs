@@ -82,6 +82,37 @@ public class AssinaturaNotificacaoService : IAssinaturaNotificacaoService
             prioridade: 2,
             cancellationToken);
 
+    public Task AlertaFaturaProximaAsync(
+        Assinatura assinatura,
+        string? destinatario,
+        CancellationToken cancellationToken = default)
+    {
+        var vencimento = assinatura.ProximaDataVencimento?.ToString("dd/MM/yyyy") ?? "em breve";
+        return EnfileirarAsync(
+            assinatura,
+            destinatario,
+            "Fatura proxima",
+            $"Sua proxima cobranca de assinatura vence em {vencimento}. Verifique se o cartao esta atualizado.",
+            "alerta-fatura-proxima",
+            prioridade: 2,
+            cancellationToken);
+    }
+
+    public Task TrialIniciadoAsync(
+        Assinatura assinatura,
+        Plano plano,
+        int diasTrial,
+        string? destinatario,
+        CancellationToken cancellationToken = default) =>
+        EnfileirarAsync(
+            assinatura,
+            destinatario,
+            "Trial iniciado",
+            $"Voce ganhou {diasTrial} dias gratis no plano {plano.Nome}. Aproveite todos os modulos durante o periodo de teste.",
+            "trial-iniciado",
+            prioridade: 2,
+            cancellationToken);
+
     private async Task EnfileirarAsync(
         Assinatura? assinatura,
         string? destinatario,

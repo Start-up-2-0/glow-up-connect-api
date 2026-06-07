@@ -4,5 +4,5 @@ namespace GLOWAPI.Application.Interfaces.Services;
 
 public interface IPlanoService
 {
-    Task<IReadOnlyList<PlanoResponseDto>> ListarAtivosAsync(CancellationToken cancellationToken = default);
+    Task<PlanosAtivosResponseDto> ListarAtivosAsync(CancellationToken cancellationToken = default);
 }

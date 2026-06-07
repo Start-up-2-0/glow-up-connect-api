@@ -30,4 +30,16 @@ public interface IAssinaturaNotificacaoService
         Assinatura assinatura,
         string? destinatario,
         CancellationToken cancellationToken = default);
+
+    Task AlertaFaturaProximaAsync(
+        Assinatura assinatura,
+        string? destinatario,
+        CancellationToken cancellationToken = default);
+
+    Task TrialIniciadoAsync(
+        Assinatura assinatura,
+        Plano plano,
+        int diasTrial,
+        string? destinatario,
+        CancellationToken cancellationToken = default);
 }
