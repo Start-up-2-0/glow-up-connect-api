@@ -179,13 +179,13 @@ public class AcessoNegocioControllerTests : IClassFixture<GlowApiWebApplicationF
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
 
-        var owner = CriarUsuario($"owner-{sufixo}@email.com", senha, hasher);
-        var admin = CriarUsuario($"admin-{sufixo}@email.com", senha, hasher);
-        var recepcionista = CriarUsuario($"recepcao-{sufixo}@email.com", senha, hasher);
-        var profissionalUsuario = CriarUsuario($"profissional-{sufixo}@email.com", senha, hasher);
-        var semVinculo = CriarUsuario($"sem-vinculo-{sufixo}@email.com", senha, hasher);
-        var inativo = CriarUsuario($"inativo-{sufixo}@email.com", senha, hasher);
-        var novoUsuario = CriarUsuario($"novo-{sufixo}@email.com", senha, hasher);
+        var owner = CriarUsuario($"owner-{sufixo}@email.com", senha, hasher, UserRole.DonoEstabelecimento);
+        var admin = CriarUsuario($"admin-{sufixo}@email.com", senha, hasher, UserRole.DonoEstabelecimento);
+        var recepcionista = CriarUsuario($"recepcao-{sufixo}@email.com", senha, hasher, UserRole.DonoEstabelecimento);
+        var profissionalUsuario = CriarUsuario($"profissional-{sufixo}@email.com", senha, hasher, UserRole.ProfissionalEstabelecimento);
+        var semVinculo = CriarUsuario($"sem-vinculo-{sufixo}@email.com", senha, hasher, UserRole.DonoEstabelecimento);
+        var inativo = CriarUsuario($"inativo-{sufixo}@email.com", senha, hasher, UserRole.DonoEstabelecimento);
+        var novoUsuario = CriarUsuario($"novo-{sufixo}@email.com", senha, hasher, UserRole.DonoEstabelecimento);
 
         var plano = new Plano
         {
@@ -242,6 +242,7 @@ public class AcessoNegocioControllerTests : IClassFixture<GlowApiWebApplicationF
         {
             EstabelecimentoId = estabelecimento.Id,
             PlanoId = plano.Id,
+            DiaVencimento = 10,
             Status = AssinaturaStatus.Ativa,
             Inicio = DateTime.UtcNow.AddDays(-1),
             Fim = DateTime.UtcNow.AddMonths(1)
@@ -270,14 +271,14 @@ public class AcessoNegocioControllerTests : IClassFixture<GlowApiWebApplicationF
             senha);
     }
 
-    private static Usuario CriarUsuario(string email, string senha, IPasswordHasher hasher) =>
+    private static Usuario CriarUsuario(string email, string senha, IPasswordHasher hasher, UserRole role) =>
         new()
         {
             Nome = "Usuario Acesso",
             Email = email,
             Telefone = "11999999999",
             Senha = hasher.Hash(senha),
-            Role = UserRole.Cliente,
+            Role = role,
             Ativo = true
         };
 

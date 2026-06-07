@@ -1,4 +1,6 @@
+using GLOWAPI.Application.DTOs.Assinaturas;
 using GLOWAPI.Application.Interfaces.Repositories;
+using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
@@ -17,8 +19,8 @@ public class PlanoServiceTests
             {
                 Id = 1,
                 Nome = "Basic",
-                Descricao = "Plano gratuito para autonomos iniciando",
-                Preco = 0m,
+                Descricao = "Plano de entrada para autonomos",
+                Preco = 29.99m,
                 Periodo = PlanoPeriodo.Mensal,
                 LimiteProfissionais = 1,
                 LimiteServicos = 10,
@@ -32,30 +34,38 @@ public class PlanoServiceTests
             .Setup(r => r.ListarAtivosAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(planos);
 
-        var service = new PlanoService(repository.Object);
+        var promocao = new Mock<IPromocaoLancamentoService>();
+        promocao
+            .Setup(s => s.ObterStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PromocaoLancamentoStatusDto(true, 50, 30, [5, 10, 15, 20], 3, 2));
+
+        var service = new PlanoService(repository.Object, promocao.Object);
 
         var resultado = await service.ListarAtivosAsync();
+        var plano = resultado.Planos.Single();
 
-        Assert.Single(resultado);
-        Assert.Equal("Basic", resultado[0].Nome);
-        Assert.Equal("Plano gratuito para autonomos iniciando", resultado[0].Descricao);
-        Assert.Equal(0m, resultado[0].Preco);
-        Assert.Equal("Mensal", resultado[0].Periodo);
-        Assert.Equal(1, resultado[0].LimiteProfissionais);
-        Assert.Equal(10, resultado[0].LimiteServicos);
-        Assert.Equal(10, resultado[0].LimiteAgendamentos);
-        Assert.Equal(1, resultado[0].LimiteUsuarios);
-        Assert.Equal(10, resultado[0].LimiteAgendamentosPorDia);
-        Assert.False(resultado[0].PrioridadeListagemPublica);
-        Assert.Contains("Agenda", resultado[0].Modulos);
-        Assert.Contains("Servicos", resultado[0].Modulos);
-        Assert.Contains("HorariosAtendimento", resultado[0].Modulos);
-        Assert.Contains("Notificacoes", resultado[0].Modulos);
-        Assert.Contains("Email", resultado[0].Modulos);
-        Assert.DoesNotContain("WhatsApp", resultado[0].Modulos);
-        Assert.DoesNotContain("Caixa", resultado[0].Modulos);
-        Assert.Contains("Agenda simples", resultado[0].Funcionalidades);
+        Assert.Equal("Basic", plano.Nome);
+        Assert.Equal("Plano de entrada para autonomos", plano.Descricao);
+        Assert.Equal(29.99m, plano.Preco);
+        Assert.Equal("Mensal", plano.Periodo);
+        Assert.Equal(1, plano.LimiteProfissionais);
+        Assert.Equal(10, plano.LimiteServicos);
+        Assert.Equal(10, plano.LimiteAgendamentos);
+        Assert.Equal(1, plano.LimiteUsuarios);
+        Assert.Equal(10, plano.LimiteAgendamentosPorDia);
+        Assert.False(plano.PrioridadeListagemPublica);
+        Assert.Contains("Agenda", plano.Modulos);
+        Assert.Contains("Servicos", plano.Modulos);
+        Assert.Contains("HorariosAtendimento", plano.Modulos);
+        Assert.Contains("Notificacoes", plano.Modulos);
+        Assert.Contains("Email", plano.Modulos);
+        Assert.DoesNotContain("WhatsApp", plano.Modulos);
+        Assert.DoesNotContain("Caixa", plano.Modulos);
+        Assert.Contains("Agenda simples", plano.Funcionalidades);
+        Assert.True(resultado.PromocaoLancamento.Disponivel);
+        Assert.Equal(50, resultado.PromocaoLancamento.VagasRestantes);
 
         repository.Verify(r => r.ListarAtivosAsync(It.IsAny<CancellationToken>()), Times.Once);
+        promocao.Verify(s => s.ObterStatusAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 }

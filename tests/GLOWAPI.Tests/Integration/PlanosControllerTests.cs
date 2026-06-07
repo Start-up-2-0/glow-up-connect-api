@@ -31,10 +31,15 @@ public class PlanosControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
         Assert.True(body.GetProperty("success").GetBoolean());
 
-        var data = body.GetProperty("data").EnumerateArray().ToList();
-        Assert.Single(data);
+        var data = body.GetProperty("data");
+        var planos = data.GetProperty("planos").EnumerateArray().ToList();
+        Assert.Single(planos);
 
-        var plano = data[0];
+        var promocao = data.GetProperty("promocaoLancamento");
+        Assert.Equal(30, promocao.GetProperty("diasTrial").GetInt32());
+        Assert.Contains(5, promocao.GetProperty("diasVencimentoPermitidos").EnumerateArray().Select(item => item.GetInt32()));
+
+        var plano = planos[0];
         Assert.Equal("Basic", plano.GetProperty("nome").GetString());
         Assert.Equal("Mensal", plano.GetProperty("periodo").GetString());
         Assert.Equal(1, plano.GetProperty("limiteProfissionais").GetInt32());
@@ -64,8 +69,8 @@ public class PlanosControllerTests : IClassFixture<GlowApiWebApplicationFactory>
             new Plano
             {
                 Nome = "Basic",
-                Descricao = "Gratuito para profissionais autonomos iniciando",
-                Preco = 0m,
+                Descricao = "Plano de entrada para autonomos",
+                Preco = 29.99m,
                 Periodo = PlanoPeriodo.Mensal,
                 LimiteProfissionais = 1,
                 LimiteServicos = 10,

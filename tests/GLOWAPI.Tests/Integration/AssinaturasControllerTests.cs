@@ -4,6 +4,7 @@ using System.Text.Json;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Infrastructure;
+using GLOWAPI.Tests.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GLOWAPI.Tests.Integration;
@@ -45,6 +46,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.Estabelecimento,
             estabelecimentoId = seed.EstabelecimentoId,
+            diaVencimento = 10,
             pagamento = PagamentoValido()
         });
 
@@ -81,6 +83,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.Estabelecimento,
+            diaVencimento = 10,
             pagamento = PagamentoValido(),
             estabelecimento = new
             {
@@ -150,6 +153,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+            diaVencimento = 10,
             pagamento = PagamentoValido(),
             profissionalAutonomo = new
             {
@@ -262,6 +266,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
             Ativo = true
         };
 
+        await CampanhaPromocionalTestHelper.DesabilitarPromocaoAsync(db);
         db.Usuarios.Add(usuario);
         db.Planos.Add(plano);
         db.Estabelecimentos.Add(estabelecimento);
@@ -317,6 +322,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
             Ativo = true
         };
 
+        await CampanhaPromocionalTestHelper.DesabilitarPromocaoAsync(db);
         db.Usuarios.Add(usuario);
         db.Planos.Add(plano);
         await db.SaveChangesAsync();
