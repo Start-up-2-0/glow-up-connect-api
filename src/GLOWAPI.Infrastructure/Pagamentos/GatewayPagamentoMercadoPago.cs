@@ -61,7 +61,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         var payload = CriarPayload(request);
         var requestPayload = JsonSerializer.Serialize(payload, JsonOptions);
 
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "v1/payments")
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, CriarRequestUri("v1/payments"))
         {
             Content = new StringContent(requestPayload, Encoding.UTF8, "application/json")
         };
@@ -143,7 +143,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
 
         using var httpRequest = new HttpRequestMessage(
             HttpMethod.Get,
-            $"v1/payments/{Uri.EscapeDataString(gatewayPaymentId.Trim())}");
+            CriarRequestUri($"v1/payments/{Uri.EscapeDataString(gatewayPaymentId.Trim())}"));
         httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);
 
         using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
@@ -292,7 +292,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         var payload = CriarPayloadAssinatura(request);
         var requestPayload = JsonSerializer.Serialize(payload, JsonOptions);
 
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "preapproval")
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, CriarRequestUri("preapproval"))
         {
             Content = new StringContent(requestPayload, Encoding.UTF8, "application/json")
         };
@@ -365,6 +365,20 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             back_url = TextoOuNull(_options.NotificationUrl),
             status = "authorized"
         };
+    }
+
+    private Uri CriarRequestUri(string path)
+    {
+        var relativePath = path.TrimStart('/');
+        if (_httpClient.BaseAddress is { IsAbsoluteUri: true } baseAddress)
+        {
+            return new Uri(baseAddress, relativePath);
+        }
+
+        var apiBaseUrl = string.IsNullOrWhiteSpace(_options.ApiBaseUrl)
+            ? "https://api.mercadopago.com"
+            : _options.ApiBaseUrl.Trim().TrimEnd('/');
+        return new Uri($"{apiBaseUrl}/{relativePath}");
     }
 
     private static string SerializarAssinaturaRequest(CriarAssinaturaRecorrenteGatewayRequest request) =>

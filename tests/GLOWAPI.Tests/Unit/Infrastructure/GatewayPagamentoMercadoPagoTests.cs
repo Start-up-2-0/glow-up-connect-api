@@ -281,13 +281,54 @@ public class GatewayPagamentoMercadoPagoTests
         Assert.Contains("payment not found", response.ResponsePayload);
     }
 
+    [Fact]
+    public async Task CriarAssinaturaRecorrenteAsync_DeveUsarApiBaseUrlDasOptions_QuandoHttpClientNaoTiverBaseAddress()
+    {
+        HttpRequestMessage? requestMessage = null;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            requestMessage = request;
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent("""{"id":"sub-123","payer_id":"payer-1"}""", Encoding.UTF8, "application/json")
+            };
+        });
+
+        var httpClient = new HttpClient(handler);
+        var gateway = new GatewayPagamentoMercadoPago(httpClient, Options.Create(new MercadoPagoOptions
+        {
+            AccessToken = "TEST-123",
+            ApiBaseUrl = "https://api.mercadopago.com"
+        }));
+
+        var response = await gateway.CriarAssinaturaRecorrenteAsync(new CriarAssinaturaRecorrenteGatewayRequest(
+            Gateway: GatewayPagamento.MercadoPago,
+            ReferenciaInterna: "trial-1",
+            Descricao: "Assinatura trial",
+            Valor: 99.90m,
+            Moeda: "BRL",
+            PagadorNome: "Cliente",
+            PagadorEmail: "cliente@email.com",
+            DiasTrial: 30,
+            PrimeiraCobrancaEm: DateTime.UtcNow.AddDays(30),
+            PagamentoTransparente: new PagamentoTransparenteGatewayRequest("visa", "card-token", null, 1, "CPF", "12345678901"),
+            Metadados: new Dictionary<string, string>()));
+
+        Assert.True(response.Sucesso);
+        Assert.NotNull(requestMessage);
+        Assert.Equal("https://api.mercadopago.com/preapproval", requestMessage!.RequestUri?.ToString());
+    }
+
     private static GatewayPagamentoMercadoPago CriarGateway(
         HttpMessageHandler handler,
         MercadoPagoOptions options)
     {
+        var apiBaseUrl = string.IsNullOrWhiteSpace(options.ApiBaseUrl)
+            ? "https://api.mercadopago.com"
+            : options.ApiBaseUrl.Trim();
         var httpClient = new HttpClient(handler)
         {
-            BaseAddress = new Uri(options.ApiBaseUrl.TrimEnd('/') + "/")
+            BaseAddress = new Uri(apiBaseUrl.TrimEnd('/') + "/")
         };
 
         return new GatewayPagamentoMercadoPago(httpClient, Options.Create(options));

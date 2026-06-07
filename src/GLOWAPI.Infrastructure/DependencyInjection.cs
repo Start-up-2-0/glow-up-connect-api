@@ -97,14 +97,14 @@ public static class DependencyInjection
         }
         else
         {
-            services.AddHttpClient<GatewayPagamentoMercadoPago>((_, client) =>
+            services.AddHttpClient<GatewayPagamentoMercadoPago>((serviceProvider, client) =>
             {
-                var apiBaseUrl = configuration[$"{MercadoPagoOptions.SectionName}:ApiBaseUrl"]
-                    ?? "https://api.mercadopago.com";
-                client.BaseAddress = new Uri(apiBaseUrl.TrimEnd('/') + "/");
-                client.Timeout = TimeSpan.FromSeconds(30);
+                var options = serviceProvider
+                    .GetRequiredService<Microsoft.Extensions.Options.IOptions<MercadoPagoOptions>>()
+                    .Value;
+                ConfigurarMercadoPagoHttpClient(client, options);
             });
-            services.AddScoped<IGatewayPagamento, GatewayPagamentoMercadoPago>();
+            services.AddScoped<IGatewayPagamento>(sp => sp.GetRequiredService<GatewayPagamentoMercadoPago>());
         }
 
         services.AddScoped<IGatewayPagamento>(_ => new GatewayPagamentoFake(GLOWAPI.Domain.Enums.GatewayPagamento.AbacatePay));
@@ -112,11 +112,23 @@ public static class DependencyInjection
         services.AddHttpClient<IGeocodificadorService, NominatimGeocodificadorClient>((serviceProvider, client) =>
         {
             var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<GeocodificacaoOptions>>().Value;
-            client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
+            var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
+                ? "https://nominatim.openstreetmap.org"
+                : options.BaseUrl.Trim();
+            client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
             client.Timeout = TimeSpan.FromSeconds(options.TimeoutSegundos);
             client.DefaultRequestHeaders.UserAgent.ParseAdd(options.UserAgent);
         });
 
         return services;
+    }
+
+    private static void ConfigurarMercadoPagoHttpClient(HttpClient client, MercadoPagoOptions options)
+    {
+        var apiBaseUrl = string.IsNullOrWhiteSpace(options.ApiBaseUrl)
+            ? "https://api.mercadopago.com"
+            : options.ApiBaseUrl.Trim();
+        client.BaseAddress = new Uri(apiBaseUrl.TrimEnd('/') + "/");
+        client.Timeout = TimeSpan.FromSeconds(30);
     }
 }

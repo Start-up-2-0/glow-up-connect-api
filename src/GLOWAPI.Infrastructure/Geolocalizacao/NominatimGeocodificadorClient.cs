@@ -48,7 +48,7 @@ public class NominatimGeocodificadorClient : IGeocodificadorService
 
             return new CoordenadaGeografica(latitude, longitude);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException or InvalidOperationException)
         {
             _logger.LogWarning(ex, "Falha ao geocodificar endereco via Nominatim.");
             return null;
@@ -81,7 +81,7 @@ public class NominatimGeocodificadorClient : IGeocodificadorService
                 cidade.Trim(),
                 estado.Trim().ToUpperInvariant());
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException or InvalidOperationException)
         {
             _logger.LogWarning(ex, "Falha no reverse geocode via Nominatim.");
             return null;
