@@ -433,7 +433,9 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
 
         if (!response.Sucesso)
         {
-            throw new GatewayPagamentoException(response.MensagemErro ?? "Nao foi possivel criar a cobranca no gateway.");
+            throw new GatewayPagamentoException(
+                response.MensagemErro ?? "Nao foi possivel criar a cobranca no gateway.",
+                GatewayPagamentoErrorDetails.FromCobranca(response));
         }
 
         var pagamento = new Pagamento

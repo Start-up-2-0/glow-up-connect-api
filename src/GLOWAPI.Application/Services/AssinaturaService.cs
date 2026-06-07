@@ -790,7 +790,9 @@ public class AssinaturaService : IAssinaturaService
 
         if (!response.Sucesso)
         {
-            throw new GatewayPagamentoException(response.MensagemErro ?? "Nao foi possivel criar assinatura recorrente no gateway.");
+            throw new GatewayPagamentoException(
+                response.MensagemErro ?? "Nao foi possivel criar assinatura recorrente no gateway.",
+                GatewayPagamentoErrorDetails.FromAssinaturaRecorrente(response));
         }
 
         assinatura.Status = AssinaturaStatus.Trial;

@@ -1,5 +1,7 @@
 using System.Text.Json;
 using GLOWAPI.API.Middlewares;
+using GLOWAPI.Application.Models.Pagamentos;
+using GLOWAPI.Domain.Exceptions.Assinatura;
 using GLOWAPI.Domain.Exceptions.Auth;
 using GLOWAPI.Domain.Exceptions.Usuario;
 using Microsoft.AspNetCore.Http;
@@ -86,5 +88,31 @@ public class ExceptionMiddlewareTests
         await middleware.InvokeAsync(context);
 
         Assert.Equal(StatusCodes.Status409Conflict, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_DeveRetornarDetails_ParaErroDeGatewayPagamento()
+    {
+        var details = new GatewayPagamentoErrorDetails(
+            "criar_assinatura_recorrente",
+            503,
+            "service unavailable",
+            new { message = "service unavailable", status = 503 });
+        var middleware = new ExceptionMiddleware(
+            _ => throw new GatewayPagamentoException(
+                "Mercado Pago retornou 503 ao criar assinatura recorrente.",
+                details),
+            NullLogger<ExceptionMiddleware>.Instance);
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(StatusCodes.Status502BadGateway, context.Response.StatusCode);
+        context.Response.Body.Seek(0, SeekOrigin.Begin);
+        var json = await JsonDocument.ParseAsync(context.Response.Body);
+        Assert.Equal("GATEWAY_PAGAMENTO_ERRO", json.RootElement.GetProperty("code").GetString());
+        Assert.Equal("criar_assinatura_recorrente", json.RootElement.GetProperty("details").GetProperty("operacao").GetString());
+        Assert.Equal(503, json.RootElement.GetProperty("details").GetProperty("httpStatusCode").GetInt32());
     }
 }
