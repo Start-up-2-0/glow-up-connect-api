@@ -36,14 +36,17 @@ Usuarios com role global `Cliente` recebem **403** neste endpoint.
 | [dono-estabelecimento.md](./dono-estabelecimento.md) | Role `DonoEstabelecimento` + onboarding de loja |
 | [profissional-autonomo.md](./profissional-autonomo.md) | Role `ProfissionalAutonomo` + ownership do perfil |
 | [modulos.md](./modulos.md) | Catalogo completo de modulos e endpoints protegidos |
+| [specs/README.md](./specs/README.md) | **Specs canonicas** de planos e modulos (seed, limites, enforcement) |
 
 ### Planos comerciais
 
 | Plano | Modulos liberados |
 |-------|-------------------|
-| [plano-basic.md](./planos/plano-basic.md) | Agenda, Servicos, Horarios, Notificacoes, Email |
-| [plano-plus.md](./planos/plano-plus.md) | Basic + Profissionais + WhatsApp |
-| [plano-premium.md](./planos/plano-premium.md) | Plus + Caixa + Financeiro + ComissaoProfissionais |
+| [specs/planos/basic.md](./specs/planos/basic.md) | Agenda, Servicos, Horarios, Notificacoes, Email |
+| [specs/planos/plus.md](./specs/planos/plus.md) | Basic + Profissionais + WhatsApp |
+| [specs/planos/premium.md](./specs/planos/premium.md) | Plus + Caixa + Financeiro + ComissaoProfissionais |
+
+Resumo legado: [planos/plano-basic.md](./planos/plano-basic.md), [planos/plano-plus.md](./planos/plano-plus.md), [planos/plano-premium.md](./planos/plano-premium.md).
 
 ### Roles dentro do estabelecimento
 
