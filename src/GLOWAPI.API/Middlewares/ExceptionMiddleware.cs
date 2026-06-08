@@ -1,5 +1,6 @@
 using System.Net;
 using GLOWAPI.API.Models;
+using Microsoft.EntityFrameworkCore;
 using GLOWAPI.Domain.Exceptions;
 using GLOWAPI.Domain.Exceptions.Assinatura;
 using GLOWAPI.Domain.Exceptions.Auth;
@@ -126,6 +127,17 @@ public class ExceptionMiddleware
         {
             _logger.LogWarning(ex, "Operação inválida");
             await WriteLegacyErrorAsync(context, 400, ex.Message);
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Falha ao persistir no banco de dados");
+            var mensagemInterna = ex.InnerException?.Message ?? ex.Message;
+            var mensagem = mensagemInterna.Contains("OnboardingPendenteJson", StringComparison.OrdinalIgnoreCase)
+                || mensagemInterna.Contains("ReferenciaInterna", StringComparison.OrdinalIgnoreCase)
+                ? "Banco desatualizado. Execute a migration AddCheckoutProOnboardingPendente no ambiente staging."
+                : "Erro ao salvar dados da assinatura. Verifique os logs da API.";
+
+            await WriteErrorAsync(context, 500, mensagem, "DATABASE_UPDATE_ERROR");
         }
         catch (Exception ex)
         {

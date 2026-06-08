@@ -17,6 +17,12 @@ public class MercadoPagoOptions
     public string PendingUrl { get; set; } = string.Empty;
 
     /// <summary>
+    /// URL publica da API (ex.: https://api-staging.up.railway.app). Usada para derivar NotificationUrl no Checkout Pro.
+    /// Se vazio, tenta RAILWAY_PUBLIC_DOMAIN.
+    /// </summary>
+    public string PublicBaseUrl { get; set; } = string.Empty;
+
+    /// <summary>
     /// Quando preenchido (ex.: homolog), substitui o e-mail do usuario logado nas chamadas ao Mercado Pago.
     /// Aceita e-mail completo ou identificador de conta de teste (TESTUSER123 ou test_user_123).
     /// </summary>

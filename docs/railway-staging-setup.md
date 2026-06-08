@@ -37,6 +37,11 @@ Guia para configurar homologacao no **mesmo projeto Railway** da producao, com i
 | `RESEND_APITOKEN` | API key em [resend.com/api-keys](https://resend.com/api-keys) |
 | `Mensageria__Email__From` | Ex.: `Glow Up Connect <noreply@dominio-verificado.com>` |
 | `Mensageria__Email__Habilitado` | `true` |
+| `MercadoPago__UsarCheckoutPro` | `true` |
+| `MercadoPago__AccessToken` | Token `TEST-...` (sandbox) ou producao |
+| `MercadoPago__PayerEmailOverride` | (opcional sandbox) ex.: `test_user_123` |
+
+Com `MercadoPago__UsarCheckoutPro=true`, as URLs de retorno do Checkout Pro sao derivadas de `Auth__FrontendBaseUrl` (`/assinatura/sucesso`, `/pendente`, `/falha`) e o webhook usa `RAILWAY_PUBLIC_DOMAIN` ou `MercadoPago__PublicBaseUrl`.
 
 > O remetente (`Mensageria__Email__From`) deve usar um dominio verificado em [resend.com/domains](https://resend.com/domains). Nao commite token nem `From` no `appsettings.json` do repositorio.
 

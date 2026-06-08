@@ -44,6 +44,12 @@ public static class HostedConfigurationValidator
             faltando.Add("MercadoPago__AccessToken");
         }
 
+        var usarCheckoutPro = configuration.GetValue<bool>($"{MercadoPagoOptions.SectionName}:UsarCheckoutPro");
+        if (usarCheckoutPro && string.IsNullOrWhiteSpace(frontendBaseUrl))
+        {
+            faltando.Add("Auth__FrontendBaseUrl (obrigatorio com MercadoPago__UsarCheckoutPro para back_urls)");
+        }
+
         var whatsAppHabilitado = configuration.GetValue<bool>($"{MensageriaWhatsAppOptions.SectionName}:Habilitado");
         if (whatsAppHabilitado)
         {

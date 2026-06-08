@@ -210,35 +210,16 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         CriarCobrancaGatewayRequest request,
         CancellationToken cancellationToken)
     {
-        var payload = new
+        var pagadorEmail = ResolverPagadorEmail(request.PagadorEmail);
+        if (string.IsNullOrWhiteSpace(pagadorEmail))
         {
-            items = new[]
-            {
-                new
-                {
-                    title = request.Descricao,
-                    quantity = 1,
-                    unit_price = request.Valor,
-                    currency_id = request.Moeda
-                }
-            },
-            payer = new
-            {
-                email = ResolverPagadorEmail(request.PagadorEmail),
-                name = request.PagadorNome
-            },
-            back_urls = new
-            {
-                success = TextoOuNull(_options.SuccessUrl),
-                failure = TextoOuNull(_options.FailureUrl),
-                pending = TextoOuNull(_options.PendingUrl)
-            },
-            auto_return = "approved",
-            external_reference = request.ReferenciaInterna,
-            notification_url = TextoOuNull(_options.NotificationUrl),
-            metadata = request.Metadados
-        };
+            return CriarCobrancaGatewayResponse.Falha(
+                SerializarRequest(request),
+                "{}",
+                "E-mail do pagador e obrigatorio para criar preferencia no Checkout Pro.");
+        }
 
+        var payload = CriarPayloadPreferenciaCheckoutPro(request, pagadorEmail);
         var requestPayload = JsonSerializer.Serialize(payload, JsonOptions);
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, CriarRequestUri("checkout/preferences"))
         {
@@ -271,12 +252,21 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         var preferenceId = ObterString(root, "id");
         var checkoutUrl = ObterInitPointCheckoutPro(root);
 
-        if (string.IsNullOrWhiteSpace(preferenceId) || string.IsNullOrWhiteSpace(checkoutUrl))
+        if (string.IsNullOrWhiteSpace(preferenceId))
         {
             return CriarCobrancaGatewayResponse.Falha(
                 requestPayload,
                 responsePayload,
-                "Mercado Pago nao retornou id ou init_point da preferencia.");
+                "Mercado Pago nao retornou id da preferencia.");
+        }
+
+        if (string.IsNullOrWhiteSpace(checkoutUrl))
+        {
+            var ambiente = TokenMercadoPagoSandboxAtivo() ? "sandbox_init_point" : "init_point";
+            return CriarCobrancaGatewayResponse.Falha(
+                requestPayload,
+                responsePayload,
+                $"Mercado Pago nao retornou {ambiente} da preferencia.");
         }
 
         return new CriarCobrancaGatewayResponse(
@@ -289,15 +279,72 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             MetodoPagamento: "checkout_pro");
     }
 
-    private string? ObterInitPointCheckoutPro(JsonElement root)
+    private Dictionary<string, object?> CriarPayloadPreferenciaCheckoutPro(
+        CriarCobrancaGatewayRequest request,
+        string pagadorEmail)
     {
-        if (_options.AccessToken.TrimStart().StartsWith("TEST-", StringComparison.OrdinalIgnoreCase))
+        var successUrl = TextoOuNull(_options.SuccessUrl);
+        var failureUrl = TextoOuNull(_options.FailureUrl);
+        var pendingUrl = TextoOuNull(_options.PendingUrl);
+        var notificationUrl = TextoOuNull(_options.NotificationUrl);
+
+        var payload = new Dictionary<string, object?>
         {
-            return ObterString(root, "sandbox_init_point") ?? ObterString(root, "init_point");
+            ["items"] = new[]
+            {
+                new
+                {
+                    title = request.Descricao,
+                    quantity = 1,
+                    unit_price = request.Valor,
+                    currency_id = request.Moeda
+                }
+            },
+            ["payer"] = new
+            {
+                email = pagadorEmail,
+                name = request.PagadorNome
+            },
+            ["external_reference"] = request.ReferenciaInterna,
+            ["metadata"] = request.Metadados
+        };
+
+        if (successUrl is not null || failureUrl is not null || pendingUrl is not null)
+        {
+            payload["back_urls"] = new
+            {
+                success = successUrl,
+                failure = failureUrl,
+                pending = pendingUrl
+            };
         }
 
-        return ObterString(root, "init_point") ?? ObterString(root, "sandbox_init_point");
+        if (!string.IsNullOrWhiteSpace(successUrl))
+        {
+            payload["auto_return"] = "approved";
+        }
+
+        if (notificationUrl is not null)
+        {
+            payload["notification_url"] = notificationUrl;
+        }
+
+        return payload;
     }
+
+    private string? ObterInitPointCheckoutPro(JsonElement root)
+    {
+        if (TokenMercadoPagoSandboxAtivo())
+        {
+            return ObterString(root, "sandbox_init_point");
+        }
+
+        return ObterString(root, "init_point");
+    }
+
+    private bool TokenMercadoPagoSandboxAtivo() =>
+        !string.IsNullOrWhiteSpace(_options.AccessToken)
+        && _options.AccessToken.TrimStart().StartsWith("TEST-", StringComparison.OrdinalIgnoreCase);
 
     private object CriarPayload(CriarCobrancaGatewayRequest request)
     {

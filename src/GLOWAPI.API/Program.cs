@@ -26,8 +26,9 @@ builder.Services.Configure<MensageriaEmailOptions>(
     builder.Configuration.GetSection(MensageriaEmailOptions.SectionName));
 builder.Services.Configure<MensageriaWhatsAppOptions>(
     builder.Configuration.GetSection(MensageriaWhatsAppOptions.SectionName));
-builder.Services.Configure<MercadoPagoOptions>(
-    builder.Configuration.GetSection(MercadoPagoOptions.SectionName));
+builder.Services.AddOptions<MercadoPagoOptions>()
+    .Bind(builder.Configuration.GetSection(MercadoPagoOptions.SectionName))
+    .PostConfigure(options => MercadoPagoCheckoutProUrlDefaults.Aplicar(options, builder.Configuration));
 builder.Services.Configure<GeocodificacaoOptions>(
     builder.Configuration.GetSection(GeocodificacaoOptions.SectionName));
 builder.Services.Configure<AssinaturaCobrancaOptions>(

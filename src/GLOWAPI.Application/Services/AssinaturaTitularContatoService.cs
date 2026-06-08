@@ -1,3 +1,4 @@
+using System.Text.Json;
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
@@ -27,6 +28,7 @@ public class AssinaturaTitularContatoService : IAssinaturaTitularContatoService
         CancellationToken cancellationToken = default)
     {
         var contato = new AssinaturaTitularContato();
+        PreencherContatoDoOnboardingPendente(assinatura, contato);
 
         if (assinatura.EstabelecimentoId.HasValue)
         {
@@ -70,5 +72,35 @@ public class AssinaturaTitularContatoService : IAssinaturaTitularContatoService
         }
 
         return contato;
+    }
+
+    private static void PreencherContatoDoOnboardingPendente(Assinatura assinatura, AssinaturaTitularContato contato)
+    {
+        if (string.IsNullOrWhiteSpace(assinatura.OnboardingPendenteJson))
+        {
+            return;
+        }
+
+        try
+        {
+            var pendente = JsonSerializer.Deserialize<AssinaturaOnboardingPendentePayload>(
+                assinatura.OnboardingPendenteJson);
+
+            if (pendente?.Estabelecimento is not null)
+            {
+                if (!string.IsNullOrWhiteSpace(pendente.Estabelecimento.Nome))
+                {
+                    contato.NomeEstabelecimento = pendente.Estabelecimento.Nome.Trim();
+                }
+
+                if (!string.IsNullOrWhiteSpace(pendente.Estabelecimento.Email))
+                {
+                    contato.Email = pendente.Estabelecimento.Email.Trim();
+                }
+            }
+        }
+        catch (JsonException)
+        {
+        }
     }
 }

@@ -92,7 +92,8 @@ public class AssinaturaService : IAssinaturaService
         ValidarTitular(request);
         _cicloCobrancaService.ValidarDiaVencimento(request.DiaVencimento);
 
-        var onboardingPendente = DeveAdiarOnboarding(request);
+        var elegivelTrial = await ElegivelPromocaoTrialAsync(request, cancellationToken);
+        var onboardingPendente = DeveAdiarOnboarding(request, elegivelTrial);
         Assinatura assinatura;
         if (onboardingPendente)
         {
@@ -110,8 +111,7 @@ public class AssinaturaService : IAssinaturaService
 
         assinatura.DiaVencimento = request.DiaVencimento;
 
-        if (!_mercadoPagoOptions.UsarCheckoutPro
-            && await TentarIniciarComTrialAsync(assinatura, plano, request, cancellationToken))
+        if (await TentarIniciarComTrialAsync(assinatura, plano, request, cancellationToken))
         {
             await _assinaturaRepository.AdicionarAsync(assinatura, cancellationToken);
             await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
@@ -348,8 +348,9 @@ public class AssinaturaService : IAssinaturaService
         return AssinaturaResponseDto.From(assinatura);
     }
 
-    private bool DeveAdiarOnboarding(IniciarAssinaturaRequestDto request) =>
+    private bool DeveAdiarOnboarding(IniciarAssinaturaRequestDto request, bool elegivelTrial) =>
         _mercadoPagoOptions.UsarCheckoutPro
+        && !elegivelTrial
         && (request.Estabelecimento is not null || request.ProfissionalAutonomo is not null);
 
     private async Task<Assinatura> CriarAssinaturaComOnboardingPendenteAsync(
@@ -783,9 +784,7 @@ public class AssinaturaService : IAssinaturaService
             RenovacaoAutomatica = true
         };
 
-    private async Task<bool> TentarIniciarComTrialAsync(
-        Assinatura assinatura,
-        Plano plano,
+    private async Task<bool> ElegivelPromocaoTrialAsync(
         IniciarAssinaturaRequestDto request,
         CancellationToken cancellationToken)
     {
@@ -795,12 +794,20 @@ public class AssinaturaService : IAssinaturaService
             return false;
         }
 
-        if (!PagamentoCompativelComTrial(request.Pagamento))
+        if (_mercadoPagoOptions.UsarCheckoutPro)
+        {
+            if (request.Pagamento is not null
+                && string.Equals(request.Pagamento.PaymentMethodId, "pix", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+        else if (!PagamentoCompativelComTrial(request.Pagamento))
         {
             return false;
         }
 
-        var estabelecimentoIdPromo = assinatura.EstabelecimentoId ?? 0;
+        var estabelecimentoIdPromo = request.EstabelecimentoId ?? 0;
         if (estabelecimentoIdPromo > 0
             && await _promocaoLancamentoService.EstabelecimentoJaUsouPromocaoAsync(estabelecimentoIdPromo, cancellationToken))
         {
@@ -808,6 +815,24 @@ public class AssinaturaService : IAssinaturaService
         }
 
         if (!await _promocaoLancamentoService.TentarReservarVagaAsync(estabelecimentoIdPromo, cancellationToken))
+        {
+            return false;
+        }
+
+        var campanha = await _campanhaPromocionalRepository.ObterAtivaPorCodigoAsync(
+            PromocaoLancamentoService.CodigoCampanhaLancamento,
+            cancellationToken);
+
+        return campanha is not null;
+    }
+
+    private async Task<bool> TentarIniciarComTrialAsync(
+        Assinatura assinatura,
+        Plano plano,
+        IniciarAssinaturaRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (!await ElegivelPromocaoTrialAsync(request, cancellationToken))
         {
             return false;
         }
@@ -828,7 +853,8 @@ public class AssinaturaService : IAssinaturaService
         var gateway = _gatewayPagamentoResolver.Resolver(assinatura.Gateway);
         var referenciaInterna = $"trial-{Guid.NewGuid():N}";
         CriarAssinaturaRecorrenteGatewayResponse? response = null;
-        var trialSemRecorrenciaNoGateway = _mercadoPagoOptions.PermitirTrialSemRecorrenciaNoGateway;
+        var trialSemRecorrenciaNoGateway = _mercadoPagoOptions.UsarCheckoutPro
+            || _mercadoPagoOptions.PermitirTrialSemRecorrenciaNoGateway;
 
         if (!trialSemRecorrenciaNoGateway)
         {
@@ -877,7 +903,9 @@ public class AssinaturaService : IAssinaturaService
         _cicloCobrancaService.AplicarCicloNaAssinatura(assinatura, ciclo);
 
         var observacaoTrial = trialSemRecorrenciaNoGateway
-            ? $"Trial de {campanha.DiasTrial} dias iniciado via campanha {campanha.Codigo} sem recorrencia no gateway (sandbox/flag ativa)."
+            ? _mercadoPagoOptions.UsarCheckoutPro
+                ? $"Trial de {campanha.DiasTrial} dias iniciado via campanha {campanha.Codigo} com Checkout Pro (sem cobranca inicial)."
+                : $"Trial de {campanha.DiasTrial} dias iniciado via campanha {campanha.Codigo} sem recorrencia no gateway (sandbox/flag ativa)."
             : $"Trial de {campanha.DiasTrial} dias iniciado via campanha {campanha.Codigo}.";
         var payloadHistorico = trialSemRecorrenciaNoGateway
             ? response?.ResponsePayload ?? "{}"
