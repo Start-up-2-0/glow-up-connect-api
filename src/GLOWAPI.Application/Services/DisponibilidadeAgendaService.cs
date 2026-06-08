@@ -74,6 +74,28 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             throw new NegocioNaoEncontradoException();
         }
 
+        if (request.ProfissionalPublicGuid.HasValue && !request.ProfissionalId.HasValue)
+        {
+            var profissional = await _profissionalRepository.ObterPorPublicGuidAsync(
+                request.ProfissionalPublicGuid.Value,
+                cancellationToken);
+            if (profissional is null || !profissional.Ativo)
+            {
+                throw new RecursoProfissionalNaoEncontradoException();
+            }
+
+            var vinculo = await _profissionalEstabelecimentoRepository.ObterPorProfissionalAsync(
+                profissional.Id,
+                estabelecimento.Id,
+                cancellationToken);
+            if (vinculo is null || !vinculo.Ativo || !vinculo.PodeReceberAgendamento)
+            {
+                throw new ProfissionalSemVinculoNegocioException();
+            }
+
+            request.ProfissionalId = profissional.Id;
+        }
+
         return await ConsultarInternoAsync(
             estabelecimento.Id,
             request,
@@ -180,6 +202,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             cancellationToken);
 
         var slots = new List<SlotDisponivelResponseDto>();
+        var datasAtendimento = new List<DateOnly>();
 
         for (var data = request.DataInicio; data <= request.DataFim; data = data.AddDays(1))
         {
@@ -190,6 +213,8 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
                     diaSemana,
                     cancellationToken)
                 : [];
+
+            var diaPossuiAtendimento = false;
 
             foreach (var profissionalId in profissionais)
             {
@@ -209,44 +234,54 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
                     ativo: true,
                     cancellationToken);
 
-                foreach (var horarioProfissional in horariosProfissional)
+                var janelas = ResolverJanelasAtendimento(
+                    exigirFuncionamentoEstabelecimento,
+                    funcionamentos,
+                    horariosProfissional);
+
+                if (janelas.Count == 0)
                 {
-                    var janelas = exigirFuncionamentoEstabelecimento
-                        ? IntersectarComFuncionamento(funcionamentos, horarioProfissional)
-                        : [(horarioProfissional.HoraInicio, horarioProfissional.HoraFim)];
+                    continue;
+                }
 
-                    foreach (var (janelaInicio, janelaFim) in janelas)
+                diaPossuiAtendimento = true;
+
+                foreach (var (janelaInicio, janelaFim) in janelas)
+                {
+                    var duracaoEfetiva = vinculosPorProfissional.TryGetValue(profissionalId, out var vinculosDoProfissional)
+                        ? ObterDuracaoTotal(servicos, vinculosDoProfissional)
+                        : servicos.Sum(servico => servico.DuracaoMinutos);
+
+                    foreach (var (inicioSlot, fimSlot) in GeradorSlotsDisponibilidade.Gerar(
+                                 data,
+                                 janelaInicio,
+                                 janelaFim,
+                                 duracaoEfetiva,
+                                 IntervaloEntreSlotsMinutos))
                     {
-                        var duracaoEfetiva = vinculosPorProfissional.TryGetValue(profissionalId, out var vinculosDoProfissional)
-                            ? ObterDuracaoTotal(servicos, vinculosDoProfissional)
-                            : servicos.Sum(servico => servico.DuracaoMinutos);
-
-                        foreach (var (inicioSlot, fimSlot) in GeradorSlotsDisponibilidade.Gerar(
-                                     data,
-                                     janelaInicio,
-                                     janelaFim,
-                                     duracaoEfetiva,
-                                     IntervaloEntreSlotsMinutos))
+                        if (inicioSlot < DateTime.UtcNow)
                         {
-                            if (inicioSlot < DateTime.UtcNow)
-                            {
-                                continue;
-                            }
-
-                            if (SlotOcupado(ocupacao, profissionalId, inicioSlot, fimSlot))
-                            {
-                                continue;
-                            }
-
-                            slots.Add(new SlotDisponivelResponseDto
-                            {
-                                ProfissionalId = profissionalId,
-                                Inicio = inicioSlot,
-                                Fim = fimSlot
-                            });
+                            continue;
                         }
+
+                        if (SlotOcupado(ocupacao, profissionalId, inicioSlot, fimSlot))
+                        {
+                            continue;
+                        }
+
+                        slots.Add(new SlotDisponivelResponseDto
+                        {
+                            ProfissionalId = profissionalId,
+                            Inicio = inicioSlot,
+                            Fim = fimSlot
+                        });
                     }
                 }
+            }
+
+            if (diaPossuiAtendimento)
+            {
+                datasAtendimento.Add(data);
             }
         }
 
@@ -255,6 +290,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             ServicoId = servicos[0].Id,
             ServicoIds = servicoIds,
             DuracaoMinutos = duracaoResposta,
+            DatasAtendimento = datasAtendimento,
             Slots = slots
                 .OrderBy(slot => slot.Inicio)
                 .ThenBy(slot => slot.ProfissionalId)
@@ -271,10 +307,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
         {
             foreach (var servico in servicos)
             {
-                if (!await _profissionalServicoRepository.ExisteAtivoAsync(
-                        profissionalId.Value,
-                        servico.Id,
-                        cancellationToken))
+                if (!ServicoExecucaoHelper.ProfissionalExecutaServico(servico, profissionalId.Value))
                 {
                     return [];
                 }
@@ -290,15 +323,8 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
         var profissionaisValidos = new List<int>();
         foreach (var candidato in candidatos)
         {
-            var executaTodos = true;
-            foreach (var servico in servicos)
-            {
-                if (!await _profissionalServicoRepository.ExisteAtivoAsync(candidato, servico.Id, cancellationToken))
-                {
-                    executaTodos = false;
-                    break;
-                }
-            }
+            var executaTodos = servicos.All(servico =>
+                ServicoExecucaoHelper.ProfissionalExecutaServico(servico, candidato));
 
             if (executaTodos)
             {
@@ -318,6 +344,13 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
 
         foreach (var profissionalId in profissionais)
         {
+            var podeExecutarTodos = servicos.All(servico =>
+                ServicoExecucaoHelper.ProfissionalExecutaServico(servico, profissionalId));
+            if (!podeExecutarTodos)
+            {
+                continue;
+            }
+
             var vinculosProfissional = new Dictionary<int, ProfissionalServico>();
 
             foreach (var servico in servicos)
@@ -333,10 +366,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
                 }
             }
 
-            if (vinculosProfissional.Count == servicos.Count)
-            {
-                vinculos[profissionalId] = vinculosProfissional;
-            }
+            vinculos[profissionalId] = vinculosProfissional;
         }
 
         return vinculos;
@@ -376,6 +406,40 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
 
         return vinculo.PodeReceberAgendamento
             || (permitirSomenteExibicao && vinculo.SomenteExibicao);
+    }
+
+    private static List<(TimeOnly Inicio, TimeOnly Fim)> ResolverJanelasAtendimento(
+        bool exigirFuncionamentoEstabelecimento,
+        IReadOnlyList<HorarioFuncionamentoEstabelecimento> funcionamentos,
+        IReadOnlyList<HorarioAtendimentoProfissional> horariosProfissional)
+    {
+        if (!exigirFuncionamentoEstabelecimento)
+        {
+            return horariosProfissional
+                .Select(horario => (horario.HoraInicio, horario.HoraFim))
+                .ToList();
+        }
+
+        if (funcionamentos.Count == 0)
+        {
+            return [];
+        }
+
+        if (horariosProfissional.Count == 0)
+        {
+            return funcionamentos
+                .Select(funcionamento => (funcionamento.HoraInicio, funcionamento.HoraFim))
+                .ToList();
+        }
+
+        var janelas = new List<(TimeOnly Inicio, TimeOnly Fim)>();
+
+        foreach (var horarioProfissional in horariosProfissional)
+        {
+            janelas.AddRange(IntersectarComFuncionamento(funcionamentos, horarioProfissional));
+        }
+
+        return janelas;
     }
 
     private static List<(TimeOnly Inicio, TimeOnly Fim)> IntersectarComFuncionamento(

@@ -7,6 +7,7 @@ public class ConsultarDisponibilidadeAgendaDto
     public int ServicoId { get; set; }
     public int[] ServicoIds { get; set; } = [];
     public int? ProfissionalId { get; set; }
+    public Guid? ProfissionalPublicGuid { get; set; }
 
     public int[] ObterServicoIdsEfetivos()
     {
