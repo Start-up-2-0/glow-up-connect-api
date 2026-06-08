@@ -49,6 +49,24 @@ public class AgendamentoIntegracaoTests : IClassFixture<GlowApiWebApplicationFac
     }
 
     [Fact]
+    public async Task ContextoPublico_DeveRetornarLojaEProfissional()
+    {
+        var seed = await SeedAgendamentoAsync();
+
+        var client = _factory.CreateClient();
+        var response = await client.GetAsync(
+            $"/api/publico/agendar/loja/{seed.PublicGuid}/profissional/{seed.ProfissionalPublicGuid}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        Assert.Equal(
+            seed.ProfissionalPublicGuid.ToString(),
+            body.GetProperty("data").GetProperty("profissional").GetProperty("publicGuid").GetString());
+        Assert.True(body.GetProperty("data").GetProperty("podeReceberAgendamento").GetBoolean());
+    }
+
+    [Fact]
     public async Task Visitante_DeveRetornarBadRequest_SemTelefone()
     {
         var seed = await SeedAgendamentoAsync();

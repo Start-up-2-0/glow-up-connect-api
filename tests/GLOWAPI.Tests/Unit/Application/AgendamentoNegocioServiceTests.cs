@@ -2,10 +2,12 @@ using GLOWAPI.Application.DTOs.Agendamento;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Agendamento;
+using GLOWAPI.Application.Options;
 using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Negocios;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace GLOWAPI.Tests.Unit.Application;
@@ -22,6 +24,8 @@ public class AgendamentoNegocioServiceTests
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
+    private readonly Mock<IUsuarioService> _usuarioService = new();
+    private readonly Mock<IAgendamentoPropostaRemarcacaoRepository> _propostaRemarcacaoRepository = new();
 
     [Fact]
     public async Task ConfirmarAsync_DeveAlterarStatusParaConfirmado()
@@ -183,7 +187,10 @@ public class AgendamentoNegocioServiceTests
             _agendamentoNotificacaoService.Object,
             _autorizacaoNegocioService.Object,
             _auditoriaNegocioService.Object,
-            _currentUserContext.Object);
+            _currentUserContext.Object,
+            _usuarioService.Object,
+            _propostaRemarcacaoRepository.Object,
+            Options.Create(new AuthOptions { FrontendBaseUrl = "http://localhost:5173" }));
 
     private static Agendamento CriarAgendamentoPendente()
     {

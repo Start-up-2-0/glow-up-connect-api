@@ -841,6 +841,26 @@ public class EstabelecimentosController : ControllerBase
             agendamento));
     }
 
+    [HttpPost("{estabelecimentoId:int}/agendamentos/{agendamentoId:int}/sugerir-remarcacao")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Agenda, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.AgendaReagendar, "estabelecimentoId")]
+    public async Task<IActionResult> SugerirRemarcacaoAgendamento(
+        int estabelecimentoId,
+        int agendamentoId,
+        [FromBody] RemarcarAgendamentoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var proposta = await _agendamentoNegocioService.SugerirRemarcacaoAsync(
+            estabelecimentoId,
+            agendamentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<PropostaRemarcacaoResponseDto>.From(
+            "Sugestao de remarcacao enviada com sucesso.",
+            proposta));
+    }
+
     [HttpPost("{estabelecimentoId:int}/agendamentos/{agendamentoId:int}/remarcar")]
     [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Agenda, "estabelecimentoId")]
     [RequerPermissaoNegocio(PermissaoNegocio.AgendaReagendar, "estabelecimentoId")]
