@@ -12,9 +12,30 @@ public class ServicoPublicoResponseDto
     public int DuracaoMinutosBase { get; set; }
     public int DuracaoMinutosEstimada { get; set; }
 
-    public static ServicoPublicoResponseDto From(Servico servico)
+    public static ServicoPublicoResponseDto From(Servico servico, int? profissionalId = null)
     {
         var vinculosAtivos = servico.Profissionais.Where(vinculo => vinculo.Ativo).ToList();
+
+        if (profissionalId.HasValue)
+        {
+            var vinculoProfissional = vinculosAtivos.FirstOrDefault(vinculo =>
+                vinculo.ProfissionalId == profissionalId.Value);
+
+            var preco = vinculoProfissional?.Preco ?? servico.PrecoBase;
+            var duracao = vinculoProfissional?.DuracaoMinutos ?? servico.DuracaoMinutos;
+
+            return new ServicoPublicoResponseDto
+            {
+                Id = servico.Id,
+                Nome = servico.Nome,
+                Descricao = servico.Descricao,
+                PrecoMinimo = preco,
+                PrecoMaximo = preco,
+                DuracaoMinutosBase = servico.DuracaoMinutos,
+                DuracaoMinutosEstimada = duracao
+            };
+        }
+
         var precos = vinculosAtivos.Select(vinculo => vinculo.Preco).ToList();
         var duracoes = vinculosAtivos.Select(vinculo => vinculo.DuracaoMinutos).ToList();
 

@@ -227,6 +227,15 @@ public class ServicoNegocioService : IServicoNegocioService
                 throw new RecursoProfissionalNaoEncontradoException();
             }
 
+            var vinculo = await _profissionalEstabelecimentoRepository.ObterPorProfissionalAsync(
+                profissional.Id,
+                estabelecimento.Id,
+                cancellationToken);
+            if (vinculo is null || !vinculo.Ativo || !vinculo.PodeReceberAgendamento)
+            {
+                throw new ProfissionalSemVinculoNegocioException();
+            }
+
             profissionalId = profissional.Id;
         }
 
@@ -241,7 +250,9 @@ public class ServicoNegocioService : IServicoNegocioService
                 estabelecimento.Id,
                 cancellationToken);
 
-        return servicos.Select(ServicoPublicoResponseDto.From).ToList();
+        return servicos
+            .Select(servico => ServicoPublicoResponseDto.From(servico, profissionalId))
+            .ToList();
     }
 
     public Task<IReadOnlyList<ServicoPublicoResponseDto>> ListarPublicosPorProfissionalAsync(
@@ -279,7 +290,9 @@ public class ServicoNegocioService : IServicoNegocioService
             nome: null,
             cancellationToken);
 
-        return servicos.Select(ServicoPublicoResponseDto.From).ToList();
+        return servicos
+            .Select(servico => ServicoPublicoResponseDto.From(servico, profissional.Id))
+            .ToList();
     }
 
     private async Task<Servico> ObterServicoDoEstabelecimentoAsync(

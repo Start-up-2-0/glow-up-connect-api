@@ -55,9 +55,11 @@ public class ServicoRepository : Repository<Servico>, IServicoRepository
 
         if (profissionalId.HasValue)
         {
+            var profId = profissionalId.Value;
             query = query.Where(servico =>
-                servico.Profissionais.Any(vinculo =>
-                    vinculo.ProfissionalId == profissionalId.Value && vinculo.Ativo));
+                !servico.Profissionais.Any(vinculo => vinculo.Ativo)
+                || servico.Profissionais.Any(vinculo =>
+                    vinculo.ProfissionalId == profId && vinculo.Ativo));
         }
 
         if (!string.IsNullOrWhiteSpace(nome))
@@ -82,7 +84,8 @@ public class ServicoRepository : Repository<Servico>, IServicoRepository
             .Where(servico =>
                 servico.EstabelecimentoId == estabelecimentoId
                 && servico.Ativo
-                && servico.Profissionais.Any(vinculo => vinculo.Ativo))
+                && (!servico.Profissionais.Any(vinculo => vinculo.Ativo)
+                    || servico.Profissionais.Any(vinculo => vinculo.Ativo)))
             .OrderBy(servico => servico.Nome)
             .ThenBy(servico => servico.Id)
             .ToListAsync(cancellationToken);
