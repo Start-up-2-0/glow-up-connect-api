@@ -214,7 +214,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
                     cancellationToken)
                 : [];
 
-            var diaPossuiAtendimento = false;
+            var slotsDoDia = new List<SlotDisponivelResponseDto>();
 
             foreach (var profissionalId in profissionais)
             {
@@ -244,8 +244,6 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
                     continue;
                 }
 
-                diaPossuiAtendimento = true;
-
                 foreach (var (janelaInicio, janelaFim) in janelas)
                 {
                     var duracaoEfetiva = vinculosPorProfissional.TryGetValue(profissionalId, out var vinculosDoProfissional)
@@ -269,7 +267,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
                             continue;
                         }
 
-                        slots.Add(new SlotDisponivelResponseDto
+                        slotsDoDia.Add(new SlotDisponivelResponseDto
                         {
                             ProfissionalId = profissionalId,
                             Inicio = inicioSlot,
@@ -279,9 +277,10 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
                 }
             }
 
-            if (diaPossuiAtendimento)
+            if (slotsDoDia.Count > 0)
             {
                 datasAtendimento.Add(data);
+                slots.AddRange(slotsDoDia);
             }
         }
 
