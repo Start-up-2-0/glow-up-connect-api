@@ -60,6 +60,7 @@ public static class DependencyInjection
         services.AddScoped<IAgendamentoRepository, AgendamentoRepository>();
         services.AddScoped<IAgendamentoItemRepository, AgendamentoItemRepository>();
         services.AddScoped<IAgendamentoHistoricoRepository, AgendamentoHistoricoRepository>();
+        services.AddScoped<IAgendamentoPropostaRemarcacaoRepository, AgendamentoPropostaRemarcacaoRepository>();
         services.AddScoped<ICaixaRepository, CaixaRepository>();
         services.AddScoped<IPlanoRepository, PlanoRepository>();
         services.AddScoped<IAssinaturaRepository, AssinaturaRepository>();
