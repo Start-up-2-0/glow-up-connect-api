@@ -21,12 +21,13 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
         _modulosAssinaturaService = modulosAssinaturaService;
     }
 
-    public Task AgendamentoCriadoAsync(
+    public async Task AgendamentoCriadoAsync(
         Agendamento agendamento,
         Estabelecimento estabelecimento,
         Profissional profissional,
-        CancellationToken cancellationToken = default) =>
-        EnfileirarNegocioAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await EnfileirarNegocioAsync(
             estabelecimento,
             profissional,
             "Novo agendamento recebido",
@@ -34,6 +35,16 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             "agendamento-criado",
             agendamento,
             cancellationToken);
+
+        var inicio = agendamento.Itens.OrderBy(item => item.Inicio).FirstOrDefault()?.Inicio;
+        await EnfileirarClienteContatoAsync(
+            agendamento,
+            estabelecimento,
+            "Agendamento recebido",
+            $"Recebemos seu pedido de agendamento em {estabelecimento.Nome} com {profissional.NomePublico} para {inicio:dd/MM/yyyy HH:mm}. Aguarde a confirmacao da loja.",
+            "agendamento-cliente-criado",
+            cancellationToken);
+    }
 
     public async Task AgendamentoConfirmadoAsync(
         Agendamento agendamento,
@@ -81,6 +92,48 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             "Agendamento cancelado",
             AgendamentoClienteWhatsAppTemplate.Cancelado(agendamento, estabelecimento, motivo),
             "agendamento-cliente-cancelado",
+            cancellationToken);
+    }
+
+    public async Task PropostaRemarcacaoEnviadaAsync(
+        Agendamento agendamento,
+        Estabelecimento estabelecimento,
+        Profissional profissional,
+        AgendamentoPropostaRemarcacao proposta,
+        string linkResposta,
+        CancellationToken cancellationToken = default)
+    {
+        var inicioAtual = agendamento.Itens.OrderBy(item => item.Inicio).FirstOrDefault()?.Inicio;
+        var mensagem =
+            $"A loja {estabelecimento.Nome} sugeriu um novo horario para seu agendamento: " +
+            $"{proposta.DataSugerida:dd/MM/yyyy} as {proposta.HorarioInicioSugerido:HH:mm}. " +
+            $"Horario atual: {inicioAtual:dd/MM/yyyy HH:mm}. Motivo: {proposta.Motivo}. " +
+            $"Responda em: {linkResposta}";
+
+        await EnfileirarClienteContatoAsync(
+            agendamento,
+            estabelecimento,
+            "Sugestao de reagendamento",
+            mensagem,
+            "agendamento-proposta-remarcacao",
+            cancellationToken);
+    }
+
+    public Task PropostaRemarcacaoRespondidaAsync(
+        Agendamento agendamento,
+        Estabelecimento estabelecimento,
+        Profissional profissional,
+        bool aceita,
+        CancellationToken cancellationToken = default)
+    {
+        var acao = aceita ? "aceitou" : "recusou";
+        return EnfileirarNegocioAsync(
+            estabelecimento,
+            profissional,
+            $"Cliente {acao} reagendamento",
+            $"O cliente {acao} a sugestao de reagendamento do agendamento #{agendamento.Id}.",
+            $"agendamento-proposta-{acao}",
+            agendamento,
             cancellationToken);
     }
 
@@ -177,7 +230,22 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
         }
     }
 
-    private async Task EnfileirarClienteAsync(
+    private Task EnfileirarClienteAsync(
+        Agendamento agendamento,
+        Estabelecimento estabelecimento,
+        string assunto,
+        string conteudo,
+        string evento,
+        CancellationToken cancellationToken) =>
+        EnfileirarClienteContatoAsync(
+            agendamento,
+            estabelecimento,
+            assunto,
+            conteudo,
+            evento,
+            cancellationToken);
+
+    private async Task EnfileirarClienteContatoAsync(
         Agendamento agendamento,
         Estabelecimento estabelecimento,
         string assunto,
@@ -190,6 +258,25 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             return;
         }
 
+        var email = agendamento.UsuarioCliente?.Email ?? agendamento.ClienteEmail;
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
+            {
+                Canal = CanalMensagemNotificacao.Email,
+                Destinatario = email.Trim(),
+                Assunto = assunto,
+                Conteudo = conteudo,
+                EstabelecimentoId = estabelecimento.Id,
+                Prioridade = 1,
+                PayloadJson = JsonSerializer.Serialize(new
+                {
+                    evento,
+                    agendamentoId = agendamento.Id
+                })
+            }, cancellationToken);
+        }
+
         var possuiModulo = await _modulosAssinaturaService.PossuiModuloPorEstabelecimentoAsync(
             agendamento.EstabelecimentoId.Value,
             ModuloAssinatura.WhatsApp,
@@ -200,13 +287,14 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             return;
         }
 
+        var telefoneRaw = agendamento.UsuarioCliente?.Telefone ?? agendamento.ClienteTelefone;
         var usuarioCliente = agendamento.UsuarioCliente;
-        if (usuarioCliente is null || !usuarioCliente.PodeReceberAlertasWhatsApp())
+        if (usuarioCliente is not null && !usuarioCliente.PodeReceberAlertasWhatsApp())
         {
             return;
         }
 
-        var telefone = TelefoneHelper.NormalizarParaWhatsApp(usuarioCliente.Telefone);
+        var telefone = TelefoneHelper.NormalizarParaWhatsApp(telefoneRaw ?? string.Empty);
         if (string.IsNullOrWhiteSpace(telefone))
         {
             return;

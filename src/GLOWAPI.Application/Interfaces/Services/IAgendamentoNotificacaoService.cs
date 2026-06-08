@@ -29,4 +29,19 @@ public interface IAgendamentoNotificacaoService
         Profissional profissional,
         string? motivo,
         CancellationToken cancellationToken = default);
+
+    Task PropostaRemarcacaoEnviadaAsync(
+        Agendamento agendamento,
+        Estabelecimento estabelecimento,
+        Profissional profissional,
+        AgendamentoPropostaRemarcacao proposta,
+        string linkResposta,
+        CancellationToken cancellationToken = default);
+
+    Task PropostaRemarcacaoRespondidaAsync(
+        Agendamento agendamento,
+        Estabelecimento estabelecimento,
+        Profissional profissional,
+        bool aceita,
+        CancellationToken cancellationToken = default);
 }
