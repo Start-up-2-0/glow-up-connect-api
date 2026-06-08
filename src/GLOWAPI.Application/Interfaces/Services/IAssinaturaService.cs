@@ -16,4 +16,8 @@ public interface IAssinaturaService
     Task<AssinaturaResponseDto> CancelarAsync(
         int assinaturaId,
         CancellationToken cancellationToken = default);
+
+    Task<AssinaturaResponseDto> ObterAtualPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default);
 }

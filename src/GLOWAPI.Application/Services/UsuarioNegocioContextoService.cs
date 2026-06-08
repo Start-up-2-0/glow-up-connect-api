@@ -1,6 +1,7 @@
 using GLOWAPI.Application.DTOs.Usuario;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Auth;
 
@@ -12,6 +13,8 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
     private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
     private readonly IMatrizPermissaoNegocioService _matrizPermissaoNegocioService;
     private readonly IModulosAssinaturaService _modulosAssinaturaService;
+    private readonly IAssinaturaRepository _assinaturaRepository;
+    private readonly ICampanhaPromocionalRepository _campanhaPromocionalRepository;
     private readonly ICurrentUserContext _currentUserContext;
 
     public UsuarioNegocioContextoService(
@@ -19,12 +22,16 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
         IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
         IMatrizPermissaoNegocioService matrizPermissaoNegocioService,
         IModulosAssinaturaService modulosAssinaturaService,
+        IAssinaturaRepository assinaturaRepository,
+        ICampanhaPromocionalRepository campanhaPromocionalRepository,
         ICurrentUserContext currentUserContext)
     {
         _estabelecimentoUsuarioRepository = estabelecimentoUsuarioRepository;
         _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
         _matrizPermissaoNegocioService = matrizPermissaoNegocioService;
         _modulosAssinaturaService = modulosAssinaturaService;
+        _assinaturaRepository = assinaturaRepository;
+        _campanhaPromocionalRepository = campanhaPromocionalRepository;
         _currentUserContext = currentUserContext;
     }
 
@@ -59,6 +66,8 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
                 vinculo.EstabelecimentoId,
                 cancellationToken);
 
+            var (diasTrial, _) = await ObterDiasTrialAsync(modulos.AssinaturaId, cancellationToken);
+
             response.Add(new EstabelecimentoAcessoResponseDto(
                 vinculo.EstabelecimentoId,
                 vinculo.Estabelecimento.PublicGuid,
@@ -71,7 +80,12 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
                 modulos.AssinaturaId,
                 modulos.PlanoId,
                 modulos.PlanoNome,
-                modulos.Modulos));
+                modulos.Status,
+                modulos.Status == AssinaturaStatus.Trial.ToString(),
+                diasTrial,
+                await ObterProximaDataVencimentoAsync(modulos.AssinaturaId, cancellationToken),
+                modulos.Modulos,
+                modulos.Limites));
         }
 
         return response;
@@ -88,6 +102,41 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
         {
             throw new ClienteSemAcessoNegocioException();
         }
+    }
+
+    private async Task<DateTime?> ObterProximaDataVencimentoAsync(
+        int? assinaturaId,
+        CancellationToken cancellationToken)
+    {
+        if (!assinaturaId.HasValue)
+        {
+            return null;
+        }
+
+        var assinatura = await _assinaturaRepository.ObterPorIdAsync(assinaturaId.Value, cancellationToken);
+        return assinatura?.ProximaDataVencimento;
+    }
+
+    private async Task<(int? DiasTrial, Assinatura? Assinatura)> ObterDiasTrialAsync(
+        int? assinaturaId,
+        CancellationToken cancellationToken)
+    {
+        if (!assinaturaId.HasValue)
+        {
+            return (null, null);
+        }
+
+        var assinatura = await _assinaturaRepository.ObterPorIdAsync(assinaturaId.Value, cancellationToken);
+        if (assinatura?.CampanhaPromocionalId is null)
+        {
+            return (null, assinatura);
+        }
+
+        var campanha = await _campanhaPromocionalRepository.ObterPorIdAsync(
+            assinatura.CampanhaPromocionalId.Value,
+            cancellationToken);
+
+        return (campanha?.DiasTrial, assinatura);
     }
 
     private int ObterUsuarioAutenticado()

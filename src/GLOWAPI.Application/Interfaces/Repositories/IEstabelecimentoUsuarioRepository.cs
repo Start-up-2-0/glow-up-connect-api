@@ -30,4 +30,8 @@ public interface IEstabelecimentoUsuarioRepository : IRepository<Estabelecimento
     Task<EstabelecimentoUsuario?> ObterOwnerAtivoAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<EstabelecimentoUsuario>> ListarAtivosPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default);
 }

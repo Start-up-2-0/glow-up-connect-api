@@ -348,6 +348,42 @@ public class AssinaturaService : IAssinaturaService
         return AssinaturaResponseDto.From(assinatura);
     }
 
+    public async Task<AssinaturaResponseDto> ObterAtualPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = ObterUserIdAutenticado();
+        var vinculo = await _estabelecimentoUsuarioRepository.ObterAtivoAsync(
+            estabelecimentoId,
+            userId,
+            cancellationToken);
+
+        if (vinculo is null)
+        {
+            throw new UsuarioSemPermissaoAssinaturaException();
+        }
+
+        var assinatura = await _assinaturaRepository.ObterAtualPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        if (assinatura is null)
+        {
+            throw new AssinaturaNaoEncontradaException();
+        }
+
+        int? diasTrial = null;
+        if (assinatura.CampanhaPromocionalId.HasValue)
+        {
+            var campanha = await _campanhaPromocionalRepository.ObterPorIdAsync(
+                assinatura.CampanhaPromocionalId.Value,
+                cancellationToken);
+            diasTrial = campanha?.DiasTrial;
+        }
+
+        return AssinaturaResponseDto.From(assinatura, diasTrial: diasTrial);
+    }
+
     private bool DeveAdiarOnboarding(IniciarAssinaturaRequestDto request, bool elegivelTrial) =>
         _mercadoPagoOptions.UsarCheckoutPro
         && !elegivelTrial

@@ -1,7 +1,9 @@
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Models.Geolocalizacao;
+using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
+using GLOWAPI.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace GLOWAPI.Infrastructure.Repositories;
@@ -84,6 +86,14 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
                 && estabelecimento.Endereco.Estado.ToUpper() == estadoNormalizado)
             .ToListAsync(cancellationToken);
 
+        var estabelecimentoIds = candidatos
+            .Where(estabelecimento =>
+                GeolocalizacaoHelper.NormalizarTextoLocalizacao(estabelecimento.Endereco!.Cidade) == cidadeNormalizada)
+            .Select(estabelecimento => estabelecimento.Id)
+            .ToList();
+
+        var destaqueIds = await ObterEstabelecimentosDestaqueAsync(estabelecimentoIds, cancellationToken);
+
         var filtrados = candidatos
             .Where(estabelecimento =>
                 GeolocalizacaoHelper.NormalizarTextoLocalizacao(estabelecimento.Endereco!.Cidade) == cidadeNormalizada)
@@ -93,9 +103,11 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
                     latitudeCliente,
                     longitudeCliente,
                     estabelecimento.Endereco!.Latitude!.Value,
-                    estabelecimento.Endereco.Longitude!.Value)))
+                    estabelecimento.Endereco.Longitude!.Value),
+                destaqueIds.Contains(estabelecimento.Id)))
             .Where(consulta => consulta.DistanciaKm <= raioKm)
-            .OrderBy(consulta => consulta.DistanciaKm)
+            .OrderByDescending(consulta => consulta.DestaqueMarketplace)
+            .ThenBy(consulta => consulta.DistanciaKm)
             .ToList();
 
         var total = filtrados.Count;
@@ -105,5 +117,29 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
             .ToList();
 
         return (itens, total);
+    }
+
+    private async Task<HashSet<int>> ObterEstabelecimentosDestaqueAsync(
+        IReadOnlyList<int> estabelecimentoIds,
+        CancellationToken cancellationToken)
+    {
+        if (estabelecimentoIds.Count == 0)
+        {
+            return [];
+        }
+
+        var assinaturas = await Context.Assinaturas
+            .AsNoTracking()
+            .Include(assinatura => assinatura.Plano)
+            .Where(assinatura =>
+                assinatura.EstabelecimentoId.HasValue
+                && estabelecimentoIds.Contains(assinatura.EstabelecimentoId.Value)
+                && (assinatura.Status == AssinaturaStatus.Ativa || assinatura.Status == AssinaturaStatus.Trial))
+            .ToListAsync(cancellationToken);
+
+        return assinaturas
+            .Where(assinatura => PlanoComercialCatalogo.Obter(assinatura.Plano).PrioridadeListagemPublica)
+            .Select(assinatura => assinatura.EstabelecimentoId!.Value)
+            .ToHashSet();
     }
 }

@@ -124,6 +124,16 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
         Agendamento agendamento,
         CancellationToken cancellationToken)
     {
+        var possuiWhatsApp = await _modulosAssinaturaService.PossuiModuloPorEstabelecimentoAsync(
+            estabelecimento.Id,
+            ModuloAssinatura.WhatsApp,
+            cancellationToken);
+
+        if (!possuiWhatsApp)
+        {
+            return;
+        }
+
         var destinatarios = new List<(string Telefone, int EstabelecimentoId)>();
 
         if (estabelecimento.PodeReceberAlertasWhatsApp())

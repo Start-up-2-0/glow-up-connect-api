@@ -148,6 +148,7 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             estabelecimento.Logo,
             TruncarDescricao(estabelecimento.Descricao),
             Math.Round(consulta.DistanciaKm, 2),
+            consulta.DestaqueMarketplace,
             new EnderecoResumoDto(
                 endereco.Logradouro,
                 endereco.Bairro,

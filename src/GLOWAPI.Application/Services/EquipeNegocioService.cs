@@ -597,6 +597,44 @@ public class EquipeNegocioService : IEquipeNegocioService
         await _estabelecimentoUsuarioRepository.SalvarAlteracoesAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<UsuarioEquipeResponseDto>> ListarUsuariosAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.EquipeGerenciar,
+            cancellationToken);
+
+        var vinculos = await _estabelecimentoUsuarioRepository.ListarAtivosPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return vinculos
+            .Where(vinculo => vinculo.Usuario is not null)
+            .Select(vinculo => UsuarioEquipeResponseDto.From(vinculo, vinculo.Usuario!))
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<ProfissionalEquipeResponseDto>> ListarProfissionaisAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.ProfissionalGerenciar,
+            cancellationToken);
+
+        var vinculos = await _profissionalEstabelecimentoRepository.ListarAtivosPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return vinculos
+            .Where(vinculo => vinculo.Profissional is not null)
+            .Select(vinculo => ProfissionalEquipeResponseDto.From(vinculo, vinculo.Profissional!))
+            .ToList();
+    }
+
     private static string NormalizarTexto(string? valor, string fallback)
     {
         var texto = valor?.Trim();

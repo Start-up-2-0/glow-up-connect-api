@@ -102,4 +102,20 @@ public class ProfissionalEstabelecimentoRepository : Repository<ProfissionalEsta
             .OrderBy(vinculo => vinculo.Profissional!.NomePublico)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<ProfissionalEstabelecimento>> ListarAtivosPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Include(vinculo => vinculo.Profissional)
+            .Where(vinculo =>
+                vinculo.EstabelecimentoId == estabelecimentoId
+                && vinculo.Ativo
+                && vinculo.Profissional != null
+                && vinculo.Profissional.Ativo)
+            .OrderBy(vinculo => vinculo.Profissional!.NomePublico)
+            .ToListAsync(cancellationToken);
+    }
 }

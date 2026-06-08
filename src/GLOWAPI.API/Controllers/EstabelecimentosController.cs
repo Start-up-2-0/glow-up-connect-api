@@ -3,6 +3,7 @@ using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Agendamento;
 using GLOWAPI.Application.DTOs.Agenda;
 using GLOWAPI.Application.DTOs.Caixa;
+using GLOWAPI.Application.DTOs.Financeiro;
 using GLOWAPI.Application.DTOs.Equipe;
 using GLOWAPI.Application.DTOs.Estabelecimentos;
 using GLOWAPI.Application.DTOs.Servicos;
@@ -29,6 +30,7 @@ public class EstabelecimentosController : ControllerBase
     private readonly IHorarioProfissionalNegocioService _horarioProfissionalNegocioService;
     private readonly IDisponibilidadeAgendaService _disponibilidadeAgendaService;
     private readonly IAgendamentoNegocioService _agendamentoNegocioService;
+    private readonly IFinanceiroNegocioService _financeiroNegocioService;
 
     public EstabelecimentosController(
         IEstabelecimentoPerfilService estabelecimentoPerfilService,
@@ -42,7 +44,8 @@ public class EstabelecimentosController : ControllerBase
         IServicoNegocioService servicoNegocioService,
         IHorarioProfissionalNegocioService horarioProfissionalNegocioService,
         IDisponibilidadeAgendaService disponibilidadeAgendaService,
-        IAgendamentoNegocioService agendamentoNegocioService)
+        IAgendamentoNegocioService agendamentoNegocioService,
+        IFinanceiroNegocioService financeiroNegocioService)
     {
         _estabelecimentoPerfilService = estabelecimentoPerfilService;
         _confirmacaoWhatsAppEstabelecimentoService = confirmacaoWhatsAppEstabelecimentoService;
@@ -56,6 +59,7 @@ public class EstabelecimentosController : ControllerBase
         _horarioProfissionalNegocioService = horarioProfissionalNegocioService;
         _disponibilidadeAgendaService = disponibilidadeAgendaService;
         _agendamentoNegocioService = agendamentoNegocioService;
+        _financeiroNegocioService = financeiroNegocioService;
     }
 
     [HttpPut("{estabelecimentoId:int}/perfil")]
@@ -118,6 +122,34 @@ public class EstabelecimentosController : ControllerBase
             cancellationToken);
 
         return NoContent();
+    }
+
+    [HttpGet("{estabelecimentoId:int}/equipe/usuarios")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.EquipeGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarUsuariosEquipe(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var usuarios = await _equipeNegocioService.ListarUsuariosAsync(estabelecimentoId, cancellationToken);
+        return Ok(ApiSuccessResponse<IReadOnlyList<UsuarioEquipeResponseDto>>.From(
+            "Usuarios da equipe listados com sucesso.",
+            usuarios));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/equipe/profissionais")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarProfissionaisEquipe(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var profissionais = await _equipeNegocioService.ListarProfissionaisAsync(
+            estabelecimentoId,
+            cancellationToken);
+        return Ok(ApiSuccessResponse<IReadOnlyList<ProfissionalEquipeResponseDto>>.From(
+            "Profissionais da equipe listados com sucesso.",
+            profissionais));
     }
 
     [HttpPost("{estabelecimentoId:int}/equipe/usuarios")]
@@ -324,6 +356,58 @@ public class EstabelecimentosController : ControllerBase
         return Ok(ApiSuccessResponse<IReadOnlyList<LancamentoCaixaResponseDto>>.From(
             "Lancamentos do caixa listados com sucesso.",
             lancamentos));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/resumo")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ObterFinanceiroResumo(
+        int estabelecimentoId,
+        [FromQuery] FinanceiroFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var resumo = await _financeiroNegocioService.ObterResumoAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<FinanceiroResumoResponseDto>.From(
+            "Resumo financeiro obtido com sucesso.",
+            resumo));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/relatorios")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarRelatorioFinanceiro(
+        int estabelecimentoId,
+        [FromQuery] FinanceiroFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var lancamentos = await _financeiroNegocioService.ListarRelatorioAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<LancamentoCaixaResponseDto>>.From(
+            "Relatorio financeiro listado com sucesso.",
+            lancamentos));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/comissoes")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.ComissaoProfissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarComissoesFinanceiro(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var comissoes = await _financeiroNegocioService.ListarComissoesAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<ComissaoProfissionalResponseDto>>.From(
+            "Comissoes listadas com sucesso.",
+            comissoes));
     }
 
     [HttpGet("{estabelecimentoId:int}/servicos")]

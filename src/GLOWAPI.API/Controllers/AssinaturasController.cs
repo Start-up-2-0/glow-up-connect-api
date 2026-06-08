@@ -74,6 +74,25 @@ public class AssinaturasController : ControllerBase
             assinatura));
     }
 
+    [HttpGet("atual")]
+    public async Task<IActionResult> ObterAtual(
+        [FromQuery] int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Unauthorized();
+        }
+
+        var assinatura = await _assinaturaService.ObterAtualPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<AssinaturaResponseDto>.From(
+            "Assinatura atual obtida com sucesso.",
+            assinatura));
+    }
+
     [HttpGet("{assinaturaId:int}/cobrancas")]
     public async Task<IActionResult> ListarCobrancas(
         int assinaturaId,

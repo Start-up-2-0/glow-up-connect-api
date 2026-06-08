@@ -15,6 +15,8 @@ public class UsuarioNegocioContextoServiceTests
     private readonly Mock<IProfissionalEstabelecimentoRepository> _profissionalEstabelecimentoRepository = new();
     private readonly Mock<IMatrizPermissaoNegocioService> _matrizPermissaoNegocioService = new();
     private readonly Mock<IModulosAssinaturaService> _modulosAssinaturaService = new();
+    private readonly Mock<IAssinaturaRepository> _assinaturaRepository = new();
+    private readonly Mock<ICampanhaPromocionalRepository> _campanhaPromocionalRepository = new();
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
 
     [Fact]
@@ -69,6 +71,16 @@ public class UsuarioNegocioContextoServiceTests
                     Plano = new Plano { Id = 40, Nome = "Plus" }
                 },
                 [ModuloAssinatura.Agenda, ModuloAssinatura.Profissionais]));
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdAsync(30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Assinatura
+            {
+                Id = 30,
+                EstabelecimentoId = 20,
+                PlanoId = 40,
+                Status = AssinaturaStatus.Ativa,
+                ProximaDataVencimento = DateTime.UtcNow.AddDays(10)
+            });
 
         var service = CreateService();
 
@@ -114,5 +126,7 @@ public class UsuarioNegocioContextoServiceTests
             _profissionalEstabelecimentoRepository.Object,
             _matrizPermissaoNegocioService.Object,
             _modulosAssinaturaService.Object,
+            _assinaturaRepository.Object,
+            _campanhaPromocionalRepository.Object,
             _currentUserContext.Object);
 }

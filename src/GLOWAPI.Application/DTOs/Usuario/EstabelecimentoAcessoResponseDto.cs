@@ -1,3 +1,5 @@
+using GLOWAPI.Application.DTOs.Assinaturas;
+
 namespace GLOWAPI.Application.DTOs.Usuario;
 
 public record EstabelecimentoAcessoResponseDto(
@@ -12,4 +14,9 @@ public record EstabelecimentoAcessoResponseDto(
     int? AssinaturaId,
     int? PlanoId,
     string? PlanoNome,
-    IReadOnlyList<string> Modulos);
+    string? AssinaturaStatus,
+    bool EmTrial,
+    int? DiasTrial,
+    DateTime? ProximaDataVencimento,
+    IReadOnlyList<string> Modulos,
+    LimitesAssinaturaDto Limites);
