@@ -35,7 +35,8 @@ public class NominatimGeocodificadorClient : IGeocodificadorService
 
         try
         {
-            var url = $"/search?q={Uri.EscapeDataString(enderecoFormatado)}&format=json&limit=1&countrycodes={_options.PaisPadrao}";
+            var url = CriarRequestUri(
+                $"/search?q={Uri.EscapeDataString(enderecoFormatado)}&format=json&limit=1&countrycodes={_options.PaisPadrao}");
             var resultados = await _httpClient.GetFromJsonAsync<List<NominatimSearchResult>>(url, cancellationToken);
 
             var primeiro = resultados?.FirstOrDefault();
@@ -48,7 +49,7 @@ public class NominatimGeocodificadorClient : IGeocodificadorService
 
             return new CoordenadaGeografica(latitude, longitude);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException or InvalidOperationException)
         {
             _logger.LogWarning(ex, "Falha ao geocodificar endereco via Nominatim.");
             return null;
@@ -62,7 +63,8 @@ public class NominatimGeocodificadorClient : IGeocodificadorService
     {
         try
         {
-            var url = $"/reverse?lat={latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&lon={longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&format=json";
+            var url = CriarRequestUri(
+                $"/reverse?lat={latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&lon={longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&format=json");
             var resultado = await _httpClient.GetFromJsonAsync<NominatimReverseResult>(url, cancellationToken);
             if (resultado?.Address is null)
             {
@@ -81,11 +83,20 @@ public class NominatimGeocodificadorClient : IGeocodificadorService
                 cidade.Trim(),
                 estado.Trim().ToUpperInvariant());
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException or InvalidOperationException)
         {
             _logger.LogWarning(ex, "Falha no reverse geocode via Nominatim.");
             return null;
         }
+    }
+
+    private Uri CriarRequestUri(string path)
+    {
+        var relativePath = path.TrimStart('/');
+        var baseUrl = string.IsNullOrWhiteSpace(_options.BaseUrl)
+            ? "https://nominatim.openstreetmap.org"
+            : _options.BaseUrl.Trim().TrimEnd('/');
+        return new Uri($"{baseUrl}/{relativePath}");
     }
 
     private static string? ObterCidade(NominatimAddress address) =>

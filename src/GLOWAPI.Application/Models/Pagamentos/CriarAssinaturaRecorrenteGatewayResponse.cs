@@ -6,17 +6,20 @@ public record CriarAssinaturaRecorrenteGatewayResponse(
     string? GatewayCustomerId,
     string RequestPayload,
     string ResponsePayload,
-    string? MensagemErro = null)
+    string? MensagemErro = null,
+    GatewayHttpFailureInfo? FailureInfo = null)
 {
     public static CriarAssinaturaRecorrenteGatewayResponse Falha(
         string requestPayload,
         string responsePayload,
-        string mensagemErro) =>
+        string mensagemErro,
+        GatewayHttpFailureInfo? failureInfo = null) =>
         new(
             Sucesso: false,
             GatewaySubscriptionId: string.Empty,
             GatewayCustomerId: null,
             RequestPayload: requestPayload,
             ResponsePayload: responsePayload,
-            MensagemErro: mensagemErro);
+            MensagemErro: mensagemErro,
+            FailureInfo: failureInfo);
 }

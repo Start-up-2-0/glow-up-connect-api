@@ -20,6 +20,89 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
     }
 
     [Fact]
+    public async Task ObterContextoOnboarding_SemToken_DeveRetornar401()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/assinaturas/onboarding/contexto");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ObterContextoOnboarding_ClienteSemEstabelecimento_DeveSugerirCadastro()
+    {
+        var seed = await SeedUsuarioClienteAsync("cliente-sem-loja@email.com");
+        var client = _factory.CreateClient();
+        await AutenticarAsync(client, seed.Email, seed.Senha);
+
+        var response = await client.GetAsync("/api/assinaturas/onboarding/contexto");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        var data = body.GetProperty("data");
+        Assert.False(data.GetProperty("temEstabelecimentoProprio").GetBoolean());
+        Assert.Equal("CadastrarEstabelecimento", data.GetProperty("proximaEtapa").GetString());
+    }
+
+    [Fact]
+    public async Task ObterContextoOnboarding_ComEstabelecimentoSemAssinatura_DeveSugerirAssinatura()
+    {
+        var seed = await SeedEstabelecimentoAsync();
+        var client = _factory.CreateClient();
+        await AutenticarAsync(client, seed.Email, seed.Senha);
+
+        var response = await client.GetAsync("/api/assinaturas/onboarding/contexto");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        var data = body.GetProperty("data");
+        Assert.True(data.GetProperty("temEstabelecimentoProprio").GetBoolean());
+        Assert.Equal("AssinarPlano", data.GetProperty("proximaEtapa").GetString());
+        Assert.Equal(seed.EstabelecimentoId, data.GetProperty("estabelecimentoIdSugerido").GetInt32());
+    }
+
+    [Fact]
+    public async Task Iniciar_ComEstabelecimentoExistente_DeveBloquearNovoCadastro()
+    {
+        var seed = await SeedEstabelecimentoAsync();
+        var client = _factory.CreateClient();
+        await AutenticarAsync(client, seed.Email, seed.Senha);
+
+        var response = await client.PostAsJsonAsync("/api/assinaturas", new
+        {
+            planoId = seed.PlanoId,
+            tipoAssinatura = TipoAssinatura.Estabelecimento,
+            diaVencimento = 10,
+            pagamento = PagamentoValido(),
+            estabelecimento = new
+            {
+                nome = "Outro Studio",
+                descricao = "Duplicado",
+                logo = LogoBase64TestHelper.PngDataUri,
+                telefone = "11999999999",
+                email = "outro@email.com",
+                endereco = new
+                {
+                    cep = "01310100",
+                    logradouro = "Rua Glow",
+                    numero = "200",
+                    bairro = "Centro",
+                    cidade = "Sao Paulo",
+                    estado = "SP"
+                }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        Assert.Equal("ESTABELECIMENTO_ONBOARDING_DUPLICADO", body.GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task Iniciar_SemToken_DeveRetornar401()
     {
         var client = _factory.CreateClient();
@@ -140,6 +223,48 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         Assert.Contains(db.Pagamentos, pagamento =>
             pagamento.AssinaturaId == assinaturaId
             && pagamento.Status == PagamentoStatus.Pendente);
+    }
+
+    [Fact]
+    public async Task Iniciar_ComPayloadFrontend_DeveAceitarEnumsComoString()
+    {
+        var seed = await SeedUsuarioEPlanoAsync("onboarding-frontend-payload@email.com");
+        var client = _factory.CreateClient();
+        await AutenticarAsync(client, seed.Email, seed.Senha);
+
+        using var content = new StringContent(
+            """
+            {
+              "planoId": 0,
+              "tipoAssinatura": "Estabelecimento",
+              "gateway": "MercadoPago",
+              "diaVencimento": 10,
+              "pagamento": {
+                "paymentMethodId": "pix"
+              },
+              "estabelecimento": {
+                "nome": "Studio Frontend",
+                "descricao": "Salao de beleza",
+                "logo": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+                "telefone": "11999999999",
+                "email": "studio-frontend@email.com",
+                "endereco": {
+                  "cep": "01310100",
+                  "logradouro": "Rua Glow",
+                  "numero": "100",
+                  "bairro": "Centro",
+                  "cidade": "Sao Paulo",
+                  "estado": "SP"
+                }
+              }
+            }
+            """.Replace("\"planoId\": 0", $"\"planoId\": {seed.PlanoId}"),
+            System.Text.Encoding.UTF8,
+            "application/json");
+
+        var response = await client.PostAsync("/api/assinaturas", content);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
 
     [Fact]
@@ -365,6 +490,32 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         await db.SaveChangesAsync();
 
         return (email, senha, plano.Id, estabelecimento.Id);
+    }
+
+    private async Task<(string Email, string Senha, int UsuarioId, int PlanoId)> SeedUsuarioClienteAsync(string email)
+    {
+        const string senha = "Senha123!";
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<GLOWAPI.Application.Interfaces.Services.IPasswordHasher>();
+
+        db.Usuarios.RemoveRange(db.Usuarios.Where(usuario => usuario.Email == email));
+
+        var usuario = new Usuario
+        {
+            Nome = "Cliente Ativo",
+            Email = email,
+            Telefone = "11999999999",
+            Senha = hasher.Hash(senha),
+            Role = UserRole.Cliente,
+            Ativo = true
+        };
+
+        db.Usuarios.Add(usuario);
+        await db.SaveChangesAsync();
+
+        return (email, senha, usuario.Id, 0);
     }
 
     private async Task<(string Email, string Senha, int UsuarioId, int PlanoId)> SeedUsuarioEPlanoAsync(string email)

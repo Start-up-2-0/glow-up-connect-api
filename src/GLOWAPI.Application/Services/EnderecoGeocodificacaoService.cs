@@ -28,22 +28,37 @@ public class EnderecoGeocodificacaoService : IEnderecoGeocodificacaoService
             return;
         }
 
-        var enderecoFormatado = OperacaoPerfilValidation.MontarEnderecoGeocodificacao(endereco);
-        var coordenada = await _geocodificadorService.GeocodificarEnderecoAsync(enderecoFormatado, cancellationToken);
+        try
+        {
+            var enderecoFormatado = OperacaoPerfilValidation.MontarEnderecoGeocodificacao(endereco);
+            var coordenada = await _geocodificadorService.GeocodificarEnderecoAsync(enderecoFormatado, cancellationToken);
 
-        if (coordenada is null)
+            if (coordenada is null)
+            {
+                endereco.Latitude = null;
+                endereco.Longitude = null;
+                endereco.GeocodificadoEm = null;
+                _logger.LogWarning(
+                    "Geocodificacao nao retornou coordenadas para endereco do estabelecimento {EstabelecimentoId}.",
+                    endereco.EstabelecimentoId);
+                return;
+            }
+
+            endereco.Latitude = coordenada.Latitude;
+            endereco.Longitude = coordenada.Longitude;
+            endereco.GeocodificadoEm = DateTime.UtcNow;
+            return;
+        }
+        catch (Exception ex)
         {
             endereco.Latitude = null;
             endereco.Longitude = null;
             endereco.GeocodificadoEm = null;
             _logger.LogWarning(
-                "Geocodificacao nao retornou coordenadas para endereco do estabelecimento {EstabelecimentoId}.",
+                ex,
+                "Falha ao geocodificar endereco do estabelecimento {EstabelecimentoId}.",
                 endereco.EstabelecimentoId);
             return;
         }
-
-        endereco.Latitude = coordenada.Latitude;
-        endereco.Longitude = coordenada.Longitude;
-        endereco.GeocodificadoEm = DateTime.UtcNow;
     }
 }

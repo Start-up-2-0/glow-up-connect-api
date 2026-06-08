@@ -364,6 +364,18 @@ public class AssinaturaService : IAssinaturaService
         int userId,
         CancellationToken cancellationToken)
     {
+        var vinculos = await _estabelecimentoUsuarioRepository.ListarAtivosPorUsuarioAsync(
+            userId,
+            cancellationToken)
+            ?? Array.Empty<EstabelecimentoUsuario>();
+        if (vinculos.Any(v =>
+                v.RoleNoEstabelecimento == EstablishmentUserRole.Owner
+                && v.Estabelecimento is not null
+                && v.Estabelecimento.Ativo))
+        {
+            throw new EstabelecimentoOnboardingDuplicadoException();
+        }
+
         var estabelecimento = CriarEstabelecimento(request.Estabelecimento!);
         await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
         await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
@@ -725,6 +737,11 @@ public class AssinaturaService : IAssinaturaService
             return false;
         }
 
+        if (!PagamentoCompativelComTrial(request.Pagamento))
+        {
+            return false;
+        }
+
         var estabelecimentoIdPromo = assinatura.EstabelecimentoId ?? 0;
         if (estabelecimentoIdPromo > 0
             && await _promocaoLancamentoService.EstabelecimentoJaUsouPromocaoAsync(estabelecimentoIdPromo, cancellationToken))
@@ -773,7 +790,9 @@ public class AssinaturaService : IAssinaturaService
 
         if (!response.Sucesso)
         {
-            throw new GatewayPagamentoException(response.MensagemErro ?? "Nao foi possivel criar assinatura recorrente no gateway.");
+            throw new GatewayPagamentoException(
+                response.MensagemErro ?? "Nao foi possivel criar assinatura recorrente no gateway.",
+                GatewayPagamentoErrorDetails.FromAssinaturaRecorrente(response));
         }
 
         assinatura.Status = AssinaturaStatus.Trial;
@@ -805,6 +824,11 @@ public class AssinaturaService : IAssinaturaService
 
         return true;
     }
+
+    private static bool PagamentoCompativelComTrial(PagamentoTransparenteMercadoPagoDto? pagamento) =>
+        pagamento is not null
+        && !string.IsNullOrWhiteSpace(pagamento.Token)
+        && !string.Equals(pagamento.PaymentMethodId, "pix", StringComparison.OrdinalIgnoreCase);
 
     private static PagamentoTransparenteGatewayRequest? CriarPagamentoTransparenteRequest(
         GatewayPagamento gateway,
