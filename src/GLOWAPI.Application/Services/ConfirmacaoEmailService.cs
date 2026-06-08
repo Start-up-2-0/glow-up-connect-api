@@ -16,17 +16,20 @@ public class ConfirmacaoEmailService : IConfirmacaoEmailService
     private readonly IUsuarioRepository _usuarioRepository;
     private readonly IGlowTokenService _tokenService;
     private readonly IMensagemNotificacaoService _mensagemNotificacaoService;
+    private readonly IAgendamentoConfirmacaoContaService _agendamentoConfirmacaoContaService;
     private readonly AuthOptions _authOptions;
 
     public ConfirmacaoEmailService(
         IUsuarioRepository usuarioRepository,
         IGlowTokenService tokenService,
         IMensagemNotificacaoService mensagemNotificacaoService,
+        IAgendamentoConfirmacaoContaService agendamentoConfirmacaoContaService,
         IOptions<AuthOptions> authOptions)
     {
         _usuarioRepository = usuarioRepository;
         _tokenService = tokenService;
         _mensagemNotificacaoService = mensagemNotificacaoService;
+        _agendamentoConfirmacaoContaService = agendamentoConfirmacaoContaService;
         _authOptions = authOptions.Value;
     }
 
@@ -126,6 +129,10 @@ public class ConfirmacaoEmailService : IConfirmacaoEmailService
 
         _usuarioRepository.Atualizar(usuario);
         await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        await _agendamentoConfirmacaoContaService.ProcessarConfirmacaoContaClienteAsync(
+            usuario.Id,
+            cancellationToken);
     }
 
     private static string GerarCodigoNumerico(int digitos)
