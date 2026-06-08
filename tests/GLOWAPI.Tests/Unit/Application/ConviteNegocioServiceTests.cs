@@ -25,7 +25,6 @@ public class ConviteNegocioServiceTests
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
     private readonly Mock<IModulosAssinaturaService> _modulosAssinaturaService = new();
     private readonly Mock<IMensagemNotificacaoService> _mensagemNotificacaoService = new();
-    private readonly Mock<IEquipeNegocioService> _equipeNegocioService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
     private readonly Mock<IGlowTokenService> _tokenService = new();
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
@@ -347,15 +346,20 @@ public class ConviteNegocioServiceTests
     }
 
     [Fact]
-    public async Task CriarConviteProfissionalAsync_DeveVincularQuandoContaAtivaExiste()
+    public async Task CriarConviteProfissionalAsync_DeveGerarConviteQuandoContaAtivaExiste()
     {
+        ConviteNegocio? conviteCriado = null;
         _usuarioRepository
             .Setup(r => r.ObterPorEmailAsync("profissional@email.com", It.IsAny<CancellationToken>()))
             .ReturnsAsync(CriarUsuario());
-        _equipeNegocioService
-            .Setup(s => s.ConvidarProfissionalAsync(20, It.IsAny<ConvidarProfissionalEquipeRequestDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ProfissionalEquipeResponseDto(
-                1, 20, 70, 10, "Maria", "profissional@email.com", "11999999999", true, true));
+        _conviteRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<ConviteNegocio>(), It.IsAny<CancellationToken>()))
+            .Callback<ConviteNegocio, CancellationToken>((convite, _) =>
+            {
+                convite.Id = 32;
+                conviteCriado = convite;
+            })
+            .Returns(Task.CompletedTask);
 
         var service = CreateService();
 
@@ -364,9 +368,13 @@ public class ConviteNegocioServiceTests
             Email = "profissional@email.com"
         });
 
-        Assert.Equal("Vinculado", response.TipoResultado);
-        Assert.NotNull(response.VinculoProfissional);
-        _conviteRepository.Verify(r => r.AdicionarAsync(It.IsAny<ConviteNegocio>(), It.IsAny<CancellationToken>()), Times.Never);
+        Assert.NotNull(conviteCriado);
+        Assert.Equal("Convite", response.TipoResultado);
+        Assert.NotNull(response.Convite);
+        Assert.Contains("token-plano", response.Convite!.LinkConvite);
+        _conviteRepository.Verify(
+            r => r.AdicionarAsync(It.IsAny<ConviteNegocio>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -527,7 +535,6 @@ public class ConviteNegocioServiceTests
             _autorizacaoNegocioService.Object,
             _modulosAssinaturaService.Object,
             _mensagemNotificacaoService.Object,
-            _equipeNegocioService.Object,
             _auditoriaNegocioService.Object,
             _tokenService.Object,
             _currentUserContext.Object,

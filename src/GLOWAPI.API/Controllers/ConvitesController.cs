@@ -32,13 +32,11 @@ public class ConvitesController : ControllerBase
             request,
             cancellationToken);
 
-        var mensagem = convite.TipoResultado == "Vinculado"
-            ? "Profissional vinculado com sucesso."
-            : "Convite enviado com sucesso.";
-
         return StatusCode(
             StatusCodes.Status201Created,
-            ApiSuccessResponse<ConviteOuVinculoResponseDto>.From(mensagem, convite));
+            ApiSuccessResponse<ConviteOuVinculoResponseDto>.From(
+                "Convite enviado com sucesso.",
+                convite));
     }
 
     [HttpPost("estabelecimentos/{estabelecimentoId:int}/convites/usuarios")]
@@ -54,13 +52,11 @@ public class ConvitesController : ControllerBase
             request,
             cancellationToken);
 
-        var mensagem = convite.TipoResultado == "Vinculado"
-            ? "Usuario vinculado com sucesso."
-            : "Convite enviado com sucesso.";
-
         return StatusCode(
             StatusCodes.Status201Created,
-            ApiSuccessResponse<ConviteOuVinculoResponseDto>.From(mensagem, convite));
+            ApiSuccessResponse<ConviteOuVinculoResponseDto>.From(
+                "Convite enviado com sucesso.",
+                convite));
     }
 
     [AllowAnonymous]
