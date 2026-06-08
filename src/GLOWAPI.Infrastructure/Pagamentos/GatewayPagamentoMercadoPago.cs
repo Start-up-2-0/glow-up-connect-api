@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -310,53 +311,72 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
 
         var payload = CriarPayloadAssinatura(request);
         var requestPayload = JsonSerializer.Serialize(payload, JsonOptions);
+        const int maxTentativas = 3;
+        HttpResponseMessage? response = null;
+        string responsePayload = string.Empty;
 
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, CriarRequestUri("preapproval"))
+        for (var tentativa = 1; tentativa <= maxTentativas; tentativa++)
         {
-            Content = new StringContent(requestPayload, Encoding.UTF8, "application/json")
-        };
-        AplicarHeadersMercadoPago(httpRequest, request.ReferenciaInterna);
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, CriarRequestUri("preapproval"))
+            {
+                Content = new StringContent(requestPayload, Encoding.UTF8, "application/json")
+            };
+            AplicarHeadersMercadoPago(httpRequest, $"{request.ReferenciaInterna}-{tentativa}");
 
-        var envio = await TentarEnviarAsync(httpRequest, cancellationToken);
-        if (!envio.Sucesso)
-        {
-            return CriarAssinaturaRecorrenteGatewayResponse.Falha(
-                requestPayload,
-                "{}",
-                $"Falha ao chamar Mercado Pago: {envio.Erro}");
+            var envio = await TentarEnviarAsync(httpRequest, cancellationToken);
+            if (!envio.Sucesso)
+            {
+                return CriarAssinaturaRecorrenteGatewayResponse.Falha(
+                    requestPayload,
+                    "{}",
+                    $"Falha ao chamar Mercado Pago: {envio.Erro}");
+            }
+
+            response = envio.Response!;
+            responsePayload = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                break;
+            }
+
+            if ((int)response.StatusCode != 503 || tentativa == maxTentativas)
+            {
+                return CriarAssinaturaRecorrenteGatewayResponse.Falha(
+                    requestPayload,
+                    responsePayload,
+                    MontarMensagemErroHttp((int)response.StatusCode, responsePayload, "criar assinatura recorrente"),
+                    CriarFailureInfo(response, responsePayload));
+            }
+
+            response.Dispose();
+            response = null;
+            await Task.Delay(TimeSpan.FromSeconds(tentativa), cancellationToken);
         }
 
-        using var response = envio.Response!;
-        var responsePayload = await response.Content.ReadAsStringAsync(cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
+        using (response!)
         {
-            return CriarAssinaturaRecorrenteGatewayResponse.Falha(
-                requestPayload,
-                responsePayload,
-                MontarMensagemErroHttp((int)response.StatusCode, responsePayload, "criar assinatura recorrente"),
-                CriarFailureInfo(response, responsePayload));
+
+            using var document = JsonDocument.Parse(responsePayload);
+            var root = document.RootElement;
+            var subscriptionId = ObterString(root, "id");
+            var payerId = ObterString(root, "payer_id");
+
+            if (string.IsNullOrWhiteSpace(subscriptionId))
+            {
+                return CriarAssinaturaRecorrenteGatewayResponse.Falha(
+                    requestPayload,
+                    responsePayload,
+                    "Mercado Pago nao retornou id da assinatura recorrente.");
+            }
+
+            return new CriarAssinaturaRecorrenteGatewayResponse(
+                Sucesso: true,
+                GatewaySubscriptionId: subscriptionId,
+                GatewayCustomerId: payerId,
+                RequestPayload: requestPayload,
+                ResponsePayload: responsePayload);
         }
-
-        using var document = JsonDocument.Parse(responsePayload);
-        var root = document.RootElement;
-        var subscriptionId = ObterString(root, "id");
-        var payerId = ObterString(root, "payer_id");
-
-        if (string.IsNullOrWhiteSpace(subscriptionId))
-        {
-            return CriarAssinaturaRecorrenteGatewayResponse.Falha(
-                requestPayload,
-                responsePayload,
-                "Mercado Pago nao retornou id da assinatura recorrente.");
-        }
-
-        return new CriarAssinaturaRecorrenteGatewayResponse(
-            Sucesso: true,
-            GatewaySubscriptionId: subscriptionId,
-            GatewayCustomerId: payerId,
-            RequestPayload: requestPayload,
-            ResponsePayload: responsePayload);
     }
 
     private object CriarPayloadAssinatura(CriarAssinaturaRecorrenteGatewayRequest request)
@@ -369,18 +389,20 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             ["currency_id"] = request.Moeda
         };
 
-        if (request.DiasTrial.HasValue && request.DiasTrial.Value > 0)
+        var possuiTrial = request.DiasTrial.HasValue && request.DiasTrial.Value > 0;
+        if (possuiTrial)
         {
             autoRecurring["free_trial"] = new
             {
-                frequency = request.DiasTrial.Value,
+                frequency = request.DiasTrial!.Value,
                 frequency_type = "days"
             };
         }
-
-        if (request.PrimeiraCobrancaEm.HasValue)
+        else if (request.PrimeiraCobrancaEm.HasValue)
         {
-            autoRecurring["start_date"] = request.PrimeiraCobrancaEm.Value.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'");
+            var inicio = request.PrimeiraCobrancaEm.Value.ToUniversalTime();
+            autoRecurring["start_date"] = FormatarDataMercadoPago(inicio);
+            autoRecurring["end_date"] = FormatarDataMercadoPago(inicio.AddYears(10));
         }
 
         return new
@@ -412,6 +434,9 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
 
     private string ResolverPagadorEmail(string pagadorEmail) =>
         MercadoPagoPayerEmailResolver.Resolver(pagadorEmail, _options);
+
+    private static string FormatarDataMercadoPago(DateTime dataUtc) =>
+        dataUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
 
     private void AplicarHeadersMercadoPago(HttpRequestMessage request, string? idempotencyKey = null)
     {
