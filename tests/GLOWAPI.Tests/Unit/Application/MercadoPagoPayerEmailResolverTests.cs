@@ -6,7 +6,7 @@ namespace GLOWAPI.Tests.Unit.Application;
 public class MercadoPagoPayerEmailResolverTests
 {
     [Theory]
-    [InlineData("TESTUSER978765836", "test_user_978765836@testuser.com")]
+    [InlineData("TESTUSER978765836", "TESTUSER978765836@testuser.com")]
     [InlineData("test_user_978765836", "test_user_978765836@testuser.com")]
     [InlineData("test_user_978765836@testuser.com", "test_user_978765836@testuser.com")]
     public void NormalizarEmailTeste_DeveConverterIdentificadorDeContaDeTeste(string entrada, string esperado)
@@ -24,7 +24,7 @@ public class MercadoPagoPayerEmailResolverTests
 
         var email = MercadoPagoPayerEmailResolver.Resolver("usuario.real@glow.com", options);
 
-        Assert.Equal("test_user_978765836@testuser.com", email);
+        Assert.Equal("TESTUSER978765836@testuser.com", email);
     }
 
     [Fact]

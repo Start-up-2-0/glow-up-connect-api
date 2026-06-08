@@ -405,8 +405,50 @@ public class GatewayPagamentoMercadoPagoTests
         Assert.NotNull(requestPayload);
         using var document = JsonDocument.Parse(requestPayload!);
         Assert.Equal(
-            "test_user_978765836@testuser.com",
+            "TESTUSER978765836@testuser.com",
             document.RootElement.GetProperty("payer_email").GetString());
+    }
+
+    [Fact]
+    public async Task CriarAssinaturaRecorrenteAsync_NaoDeveEnviarStartDate_QuandoTrialEstiverAtivo()
+    {
+        string? requestPayload = null;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            requestPayload = request.Content is null
+                ? null
+                : request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent("""{"id":"sub-trial","payer_id":"payer-1"}""", Encoding.UTF8, "application/json")
+            };
+        });
+
+        var gateway = CriarGateway(handler, new MercadoPagoOptions
+        {
+            AccessToken = "TEST-123",
+            ApiBaseUrl = "https://api.mercadopago.com"
+        });
+
+        var response = await gateway.CriarAssinaturaRecorrenteAsync(new CriarAssinaturaRecorrenteGatewayRequest(
+            Gateway: GatewayPagamento.MercadoPago,
+            ReferenciaInterna: "trial-start-date",
+            Descricao: "Assinatura trial",
+            Valor: 99.90m,
+            Moeda: "BRL",
+            PagadorNome: "Cliente",
+            PagadorEmail: "cliente@email.com",
+            DiasTrial: 30,
+            PrimeiraCobrancaEm: DateTime.UtcNow.AddDays(30),
+            PagamentoTransparente: new PagamentoTransparenteGatewayRequest("visa", "card-token", null, 1, "CPF", "12345678901"),
+            Metadados: new Dictionary<string, string>()));
+
+        Assert.True(response.Sucesso);
+        Assert.NotNull(requestPayload);
+        using var document = JsonDocument.Parse(requestPayload!);
+        var autoRecurring = document.RootElement.GetProperty("auto_recurring");
+        Assert.True(autoRecurring.TryGetProperty("free_trial", out _));
+        Assert.False(autoRecurring.TryGetProperty("start_date", out _));
     }
 
     private static GatewayPagamentoMercadoPago CriarGateway(

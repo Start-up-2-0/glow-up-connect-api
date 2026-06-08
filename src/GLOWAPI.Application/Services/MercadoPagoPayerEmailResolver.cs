@@ -30,7 +30,7 @@ public static class MercadoPagoPayerEmailResolver
         var match = TestUserPattern.Match(trimmed);
         if (match.Success)
         {
-            return $"test_user_{match.Groups["id"].Value}@testuser.com";
+            return $"TESTUSER{match.Groups["id"].Value}@testuser.com";
         }
 
         if (trimmed.StartsWith("test_user_", StringComparison.OrdinalIgnoreCase))
