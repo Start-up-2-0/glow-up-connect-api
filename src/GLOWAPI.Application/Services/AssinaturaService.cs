@@ -111,7 +111,8 @@ public class AssinaturaService : IAssinaturaService
 
         assinatura.DiaVencimento = request.DiaVencimento;
 
-        if (await TentarIniciarComTrialAsync(assinatura, plano, request, cancellationToken))
+        var diasTrialIniciado = await TentarIniciarComTrialAsync(assinatura, plano, request, cancellationToken);
+        if (diasTrialIniciado.HasValue)
         {
             await _assinaturaRepository.AdicionarAsync(assinatura, cancellationToken);
             await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
@@ -121,8 +122,7 @@ public class AssinaturaService : IAssinaturaService
                 assinatura.EstabelecimentoId = assinatura.Estabelecimento.Id;
             }
 
-            var diasTrial = assinatura.CampanhaPromocional?.DiasTrial
-                ?? (await _promocaoLancamentoService.ObterStatusAsync(cancellationToken)).DiasTrial;
+            var diasTrial = diasTrialIniciado.Value;
 
             await _assinaturaNotificacaoService.TrialIniciadoAsync(
                 assinatura,
@@ -826,7 +826,7 @@ public class AssinaturaService : IAssinaturaService
         return campanha is not null;
     }
 
-    private async Task<bool> TentarIniciarComTrialAsync(
+    private async Task<int?> TentarIniciarComTrialAsync(
         Assinatura assinatura,
         Plano plano,
         IniciarAssinaturaRequestDto request,
@@ -834,7 +834,7 @@ public class AssinaturaService : IAssinaturaService
     {
         if (!await ElegivelPromocaoTrialAsync(request, cancellationToken))
         {
-            return false;
+            return null;
         }
 
         var campanha = await _campanhaPromocionalRepository.ObterAtivaPorCodigoAsync(
@@ -843,7 +843,7 @@ public class AssinaturaService : IAssinaturaService
 
         if (campanha is null)
         {
-            return false;
+            return null;
         }
 
         var inicio = DateTime.UtcNow;
@@ -891,7 +891,6 @@ public class AssinaturaService : IAssinaturaService
 
         assinatura.Status = AssinaturaStatus.Trial;
         assinatura.CampanhaPromocionalId = campanha.Id;
-        assinatura.CampanhaPromocional = campanha;
         assinatura.Inicio = inicio;
         assinatura.Fim = ciclo.Vencimento;
         assinatura.GatewaySubscriptionId = trialSemRecorrenciaNoGateway
@@ -931,7 +930,7 @@ public class AssinaturaService : IAssinaturaService
             payloadJson: payloadHistorico,
             cancellationToken: cancellationToken);
 
-        return true;
+        return campanha.DiasTrial;
     }
 
     private bool DeveAtivarTrialSemRecorrenciaNoGateway(CriarAssinaturaRecorrenteGatewayResponse response)
