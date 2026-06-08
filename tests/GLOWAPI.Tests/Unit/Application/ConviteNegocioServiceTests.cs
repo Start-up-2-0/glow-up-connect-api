@@ -1,5 +1,6 @@
 using GLOWAPI.Application.DTOs.Convites;
 using GLOWAPI.Application.DTOs.Assinaturas;
+using GLOWAPI.Application.DTOs.Equipe;
 using GLOWAPI.Application.DTOs.Mensageria;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
@@ -24,6 +25,7 @@ public class ConviteNegocioServiceTests
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
     private readonly Mock<IModulosAssinaturaService> _modulosAssinaturaService = new();
     private readonly Mock<IMensagemNotificacaoService> _mensagemNotificacaoService = new();
+    private readonly Mock<IEquipeNegocioService> _equipeNegocioService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
     private readonly Mock<IGlowTokenService> _tokenService = new();
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
@@ -55,6 +57,9 @@ public class ConviteNegocioServiceTests
                     Plano = new Plano { Id = 2, Nome = "Plus" }
                 },
                 [ModuloAssinatura.Profissionais]));
+        _usuarioRepository
+            .Setup(r => r.ObterPorEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Usuario?)null);
     }
 
     [Fact]
@@ -89,7 +94,8 @@ public class ConviteNegocioServiceTests
         Assert.Equal(StatusConviteNegocio.Pendente, conviteCriado.Status);
         Assert.Equal("hash-token", conviteCriado.TokenHash);
         Assert.Equal(10, conviteCriado.CriadoPorUsuarioId);
-        Assert.Equal(30, response.Id);
+        Assert.Equal("Convite", response.TipoResultado);
+        Assert.Equal(30, response.Convite!.Id);
         Assert.NotNull(mensagem);
         Assert.Equal("profissional@email.com", mensagem!.Destinatario);
         Assert.Contains("token-plano", mensagem.Conteudo);
@@ -334,9 +340,55 @@ public class ConviteNegocioServiceTests
         Assert.NotNull(conviteCriado);
         Assert.Equal(TipoConviteNegocio.UsuarioEquipe, conviteCriado!.TipoConvite);
         Assert.Equal(EstablishmentUserRole.Manager, conviteCriado.RoleSugerida);
-        Assert.Equal(31, response.Id);
-        Assert.Contains("https://app.test/convites/", response.LinkConvite);
-        Assert.Contains("token-plano", response.LinkConvite);
+        Assert.Equal("Convite", response.TipoResultado);
+        Assert.Equal(31, response.Convite!.Id);
+        Assert.Contains("https://app.test/convites/", response.Convite.LinkConvite);
+        Assert.Contains("token-plano", response.Convite.LinkConvite);
+    }
+
+    [Fact]
+    public async Task CriarConviteProfissionalAsync_DeveVincularQuandoContaAtivaExiste()
+    {
+        _usuarioRepository
+            .Setup(r => r.ObterPorEmailAsync("profissional@email.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CriarUsuario());
+        _equipeNegocioService
+            .Setup(s => s.ConvidarProfissionalAsync(20, It.IsAny<ConvidarProfissionalEquipeRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfissionalEquipeResponseDto(
+                1, 20, 70, 10, "Maria", "profissional@email.com", "11999999999", true, true));
+
+        var service = CreateService();
+
+        var response = await service.CriarConviteProfissionalAsync(20, new CriarConviteProfissionalRequestDto
+        {
+            Email = "profissional@email.com"
+        });
+
+        Assert.Equal("Vinculado", response.TipoResultado);
+        Assert.NotNull(response.VinculoProfissional);
+        _conviteRepository.Verify(r => r.AdicionarAsync(It.IsAny<ConviteNegocio>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CriarConviteProfissionalAsync_DeveBloquearContaNaoConfirmada()
+    {
+        _usuarioRepository
+            .Setup(r => r.ObterPorEmailAsync("profissional@email.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Usuario
+            {
+                Id = 10,
+                Email = "profissional@email.com",
+                Ativo = false,
+                ConfirmacaoTokenHash = "hash"
+            });
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<ConviteUsuarioNaoConfirmadoException>(() =>
+            service.CriarConviteProfissionalAsync(20, new CriarConviteProfissionalRequestDto
+            {
+                Email = "profissional@email.com"
+            }));
     }
 
     [Fact]
@@ -475,6 +527,7 @@ public class ConviteNegocioServiceTests
             _autorizacaoNegocioService.Object,
             _modulosAssinaturaService.Object,
             _mensagemNotificacaoService.Object,
+            _equipeNegocioService.Object,
             _auditoriaNegocioService.Object,
             _tokenService.Object,
             _currentUserContext.Object,

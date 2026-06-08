@@ -4,12 +4,12 @@ namespace GLOWAPI.Application.Interfaces.Services;
 
 public interface IConviteNegocioService
 {
-    Task<ConviteNegocioCriadoResponseDto> CriarConviteProfissionalAsync(
+    Task<ConviteOuVinculoResponseDto> CriarConviteProfissionalAsync(
         int estabelecimentoId,
         CriarConviteProfissionalRequestDto request,
         CancellationToken cancellationToken = default);
 
-    Task<ConviteNegocioCriadoResponseDto> CriarConviteUsuarioEquipeAsync(
+    Task<ConviteOuVinculoResponseDto> CriarConviteUsuarioEquipeAsync(
         int estabelecimentoId,
         CriarConviteUsuarioEquipeRequestDto request,
         CancellationToken cancellationToken = default);

@@ -9,6 +9,10 @@ public interface IAgendamentoNegocioService
         Guid publicGuidLoja,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<ProfissionalVitrinePublicoResponseDto>> ListarProfissionaisVitrinePorLojaAsync(
+        Guid publicGuidLoja,
+        CancellationToken cancellationToken = default);
+
     Task<AgendamentoCriadoResponseDto> CriarPublicoPorLojaAsync(
         Guid publicGuidLoja,
         CriarAgendamentoRequestDto request,

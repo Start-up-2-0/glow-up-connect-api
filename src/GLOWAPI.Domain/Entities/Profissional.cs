@@ -6,7 +6,7 @@ public class Profissional
 {
     public int Id { get; set; }
     public Guid PublicGuid { get; set; } = Guid.NewGuid();
-    public int UsuarioId { get; set; }
+    public int? UsuarioId { get; set; }
     public string NomePublico { get; set; } = string.Empty;
     public string Biografia { get; set; } = string.Empty;
     public string Logo { get; set; } = string.Empty;

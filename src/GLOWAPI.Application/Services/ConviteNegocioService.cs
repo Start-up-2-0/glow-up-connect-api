@@ -1,4 +1,5 @@
 using GLOWAPI.Application.DTOs.Convites;
+using GLOWAPI.Application.DTOs.Equipe;
 using GLOWAPI.Application.DTOs.Mensageria;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
@@ -28,6 +29,7 @@ public class ConviteNegocioService : IConviteNegocioService
     private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
     private readonly IModulosAssinaturaService _modulosAssinaturaService;
     private readonly IMensagemNotificacaoService _mensagemNotificacaoService;
+    private readonly IEquipeNegocioService _equipeNegocioService;
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
     private readonly IGlowTokenService _tokenService;
     private readonly ICurrentUserContext _currentUserContext;
@@ -42,6 +44,7 @@ public class ConviteNegocioService : IConviteNegocioService
         IAutorizacaoNegocioService autorizacaoNegocioService,
         IModulosAssinaturaService modulosAssinaturaService,
         IMensagemNotificacaoService mensagemNotificacaoService,
+        IEquipeNegocioService equipeNegocioService,
         IAuditoriaNegocioService auditoriaNegocioService,
         IGlowTokenService tokenService,
         ICurrentUserContext currentUserContext,
@@ -55,13 +58,14 @@ public class ConviteNegocioService : IConviteNegocioService
         _autorizacaoNegocioService = autorizacaoNegocioService;
         _modulosAssinaturaService = modulosAssinaturaService;
         _mensagemNotificacaoService = mensagemNotificacaoService;
+        _equipeNegocioService = equipeNegocioService;
         _auditoriaNegocioService = auditoriaNegocioService;
         _tokenService = tokenService;
         _currentUserContext = currentUserContext;
         _authOptions = authOptions.Value;
     }
 
-    public async Task<ConviteNegocioCriadoResponseDto> CriarConviteProfissionalAsync(
+    public async Task<ConviteOuVinculoResponseDto> CriarConviteProfissionalAsync(
         int estabelecimentoId,
         CriarConviteProfissionalRequestDto request,
         CancellationToken cancellationToken = default)
@@ -75,6 +79,16 @@ public class ConviteNegocioService : IConviteNegocioService
         if (string.IsNullOrWhiteSpace(email))
         {
             throw new ConviteNegocioInvalidoException("E-mail do convite e obrigatorio.");
+        }
+
+        var vinculoDireto = await TentarVincularProfissionalExistenteAsync(
+            estabelecimentoId,
+            email,
+            request,
+            cancellationToken);
+        if (vinculoDireto is not null)
+        {
+            return vinculoDireto;
         }
 
         await ValidarConvitePendenteDuplicadoAsync(
@@ -99,15 +113,17 @@ public class ConviteNegocioService : IConviteNegocioService
             CriadoPorUsuarioId = ObterUsuarioAutenticado()
         };
 
-        return await PersistirConviteAsync(
+        var conviteCriado = await PersistirConviteAsync(
             convite,
             token,
             TipoAcaoAuditoriaNegocio.ProfissionalConvidado,
             "Voce recebeu um convite para atuar como profissional.",
             cancellationToken);
+
+        return ConviteOuVinculoResponseDto.FromConvite(conviteCriado);
     }
 
-    public async Task<ConviteNegocioCriadoResponseDto> CriarConviteUsuarioEquipeAsync(
+    public async Task<ConviteOuVinculoResponseDto> CriarConviteUsuarioEquipeAsync(
         int estabelecimentoId,
         CriarConviteUsuarioEquipeRequestDto request,
         CancellationToken cancellationToken = default)
@@ -129,6 +145,16 @@ public class ConviteNegocioService : IConviteNegocioService
             throw new ConviteNegocioInvalidoException("E-mail do convite e obrigatorio.");
         }
 
+        var vinculoDireto = await TentarVincularUsuarioEquipeExistenteAsync(
+            estabelecimentoId,
+            email,
+            request.Role,
+            cancellationToken);
+        if (vinculoDireto is not null)
+        {
+            return vinculoDireto;
+        }
+
         await ValidarConvitePendenteDuplicadoAsync(
             estabelecimentoId,
             email,
@@ -148,12 +174,14 @@ public class ConviteNegocioService : IConviteNegocioService
             CriadoPorUsuarioId = ObterUsuarioAutenticado()
         };
 
-        return await PersistirConviteAsync(
+        var conviteCriado = await PersistirConviteAsync(
             convite,
             token,
             TipoAcaoAuditoriaNegocio.UsuarioEquipeConvidado,
             $"Voce recebeu um convite para integrar a equipe como {request.Role}.",
             cancellationToken);
+
+        return ConviteOuVinculoResponseDto.FromConvite(conviteCriado);
     }
 
     public async Task<ConviteNegocioPreviewResponseDto> ObterPreviewAsync(
@@ -570,6 +598,68 @@ public class ConviteNegocioService : IConviteNegocioService
         if (!string.Equals(convite.Email, usuario.Email, StringComparison.OrdinalIgnoreCase))
         {
             throw new ConviteNegocioInvalidoException("Convite pertence a outro destinatario.");
+        }
+    }
+
+    private async Task<ConviteOuVinculoResponseDto?> TentarVincularProfissionalExistenteAsync(
+        int estabelecimentoId,
+        string email,
+        CriarConviteProfissionalRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var usuario = await _usuarioRepository.ObterPorEmailAsync(email, cancellationToken);
+        if (usuario is null)
+        {
+            return null;
+        }
+
+        ValidarUsuarioParaVinculoDireto(usuario);
+
+        var vinculo = await _equipeNegocioService.ConvidarProfissionalAsync(
+            estabelecimentoId,
+            new ConvidarProfissionalEquipeRequestDto
+            {
+                Email = email,
+                Telefone = request.Telefone,
+                NomePublico = request.NomePublico,
+                PodeReceberAgendamento = request.PodeReceberAgendamento
+            },
+            cancellationToken);
+
+        return ConviteOuVinculoResponseDto.FromVinculoProfissional(vinculo);
+    }
+
+    private async Task<ConviteOuVinculoResponseDto?> TentarVincularUsuarioEquipeExistenteAsync(
+        int estabelecimentoId,
+        string email,
+        EstablishmentUserRole role,
+        CancellationToken cancellationToken)
+    {
+        var usuario = await _usuarioRepository.ObterPorEmailAsync(email, cancellationToken);
+        if (usuario is null)
+        {
+            return null;
+        }
+
+        ValidarUsuarioParaVinculoDireto(usuario);
+
+        var vinculo = await _equipeNegocioService.CadastrarUsuarioAsync(
+            estabelecimentoId,
+            new CadastrarUsuarioEquipeRequestDto
+            {
+                Email = email,
+                Role = role
+            },
+            cancellationToken);
+
+        return ConviteOuVinculoResponseDto.FromVinculoUsuario(vinculo);
+    }
+
+    private static void ValidarUsuarioParaVinculoDireto(Usuario usuario)
+    {
+        if (!usuario.Ativo || usuario.PendenteConfirmacaoEmail())
+        {
+            throw new ConviteUsuarioNaoConfirmadoException();
         }
     }
 

@@ -74,6 +74,9 @@ public class ExceptionMiddleware
                     or HorarioAlteracaoImpactaAgendamentosFuturosException
                     or UltimoOwnerNegocioException
                     or ConviteNegocioInvalidoException
+                    or ConviteUsuarioNaoConfirmadoException
+                    or ProfissionalNegocioInvalidoException
+                    or ProfissionalVitrineNegocioIndisponivelException
                     or LimiteUsuariosNegocioExcedidoException
                     or LimiteProfissionaisNegocioExcedidoException
                     or LimiteServicosNegocioExcedidoException

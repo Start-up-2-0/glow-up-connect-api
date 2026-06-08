@@ -76,9 +76,14 @@ public class AgendamentoValidador : IAgendamentoValidador
             profissionalId,
             estabelecimentoId,
             cancellationToken);
-        if (vinculoEstabelecimento is null
-            || !vinculoEstabelecimento.Ativo
-            || !vinculoEstabelecimento.PodeReceberAgendamento)
+        if (vinculoEstabelecimento is null || !vinculoEstabelecimento.Ativo)
+        {
+            throw new ProfissionalSemVinculoNegocioException();
+        }
+
+        var origemPublica = origem is OrigemAgendamento.PublicoLoja or OrigemAgendamento.PublicoProfissional;
+        if (!vinculoEstabelecimento.PodeReceberAgendamento
+            && (origemPublica || !vinculoEstabelecimento.SomenteExibicao))
         {
             throw new ProfissionalSemVinculoNegocioException();
         }

@@ -2,28 +2,28 @@ using GLOWAPI.Domain.Entities;
 
 namespace GLOWAPI.Application.DTOs.Equipe;
 
-public record ProfissionalEquipeResponseDto(
+public record ProfissionalVitrineResponseDto(
     int Id,
     int EstabelecimentoId,
     int ProfissionalId,
-    int? UsuarioId,
+    Guid PublicGuid,
     string NomePublico,
-    string Email,
-    string Telefone,
-    bool PodeReceberAgendamento,
+    string Biografia,
+    string Logo,
+    bool SomenteExibicao,
     bool Ativo)
 {
-    public static ProfissionalEquipeResponseDto From(
+    public static ProfissionalVitrineResponseDto From(
         ProfissionalEstabelecimento vinculo,
         Profissional profissional) =>
         new(
             vinculo.Id,
             vinculo.EstabelecimentoId,
             profissional.Id,
-            profissional.UsuarioId,
+            profissional.PublicGuid,
             profissional.NomePublico,
-            profissional.Email,
-            profissional.Telefone,
-            vinculo.PodeReceberAgendamento,
-            vinculo.Ativo);
+            profissional.Biografia,
+            profissional.Logo,
+            vinculo.SomenteExibicao,
+            vinculo.Ativo && profissional.Ativo);
 }

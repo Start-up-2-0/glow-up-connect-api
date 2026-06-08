@@ -232,6 +232,82 @@ public class EstabelecimentosController : ControllerBase
                 profissionalEquipe));
     }
 
+    [HttpPost("{estabelecimentoId:int}/profissionais/vitrine")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> CadastrarProfissionalVitrine(
+        int estabelecimentoId,
+        [FromBody] CadastrarProfissionalVitrineRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var profissional = await _equipeNegocioService.CadastrarProfissionalVitrineAsync(
+            estabelecimentoId,
+            request,
+            cancellationToken);
+
+        return StatusCode(
+            StatusCodes.Status201Created,
+            ApiSuccessResponse<ProfissionalVitrineResponseDto>.From(
+                "Profissional de vitrine cadastrado com sucesso.",
+                profissional));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/profissionais/vitrine")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarProfissionaisVitrine(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var profissionais = await _equipeNegocioService.ListarProfissionaisVitrineAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<ProfissionalVitrineResponseDto>>.From(
+            "Profissionais de vitrine listados com sucesso.",
+            profissionais));
+    }
+
+    [HttpPatch("{estabelecimentoId:int}/profissionais/vitrine/{profissionalId:int}")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> AtualizarProfissionalVitrine(
+        int estabelecimentoId,
+        int profissionalId,
+        [FromBody] AtualizarProfissionalVitrineRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var profissional = await _equipeNegocioService.AtualizarProfissionalVitrineAsync(
+            estabelecimentoId,
+            profissionalId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ProfissionalVitrineResponseDto>.From(
+            "Profissional de vitrine atualizado com sucesso.",
+            profissional));
+    }
+
+    [HttpPatch("{estabelecimentoId:int}/profissionais/vitrine/{profissionalId:int}/status")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> AtualizarStatusProfissionalVitrine(
+        int estabelecimentoId,
+        int profissionalId,
+        [FromBody] AtualizarStatusProfissionalVitrineRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var profissional = await _equipeNegocioService.AtualizarStatusProfissionalVitrineAsync(
+            estabelecimentoId,
+            profissionalId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ProfissionalVitrineResponseDto>.From(
+            "Status do profissional de vitrine atualizado com sucesso.",
+            profissional));
+    }
+
     [HttpPatch("{estabelecimentoId:int}/equipe/profissionais/{profissionalId:int}/status")]
     [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
     [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]

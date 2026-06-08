@@ -60,6 +60,12 @@ public class EquipeNegocioServiceTests
         _modulosAssinaturaService
             .Setup(s => s.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(CriarModulosPlus());
+        _modulosAssinaturaService
+            .Setup(s => s.PossuiModuloPorEstabelecimentoAsync(
+                20,
+                ModuloAssinatura.Profissionais,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.AdicionarAsync(It.IsAny<EstabelecimentoUsuario>(), It.IsAny<CancellationToken>()))
@@ -855,6 +861,80 @@ public class EquipeNegocioServiceTests
     }
 
     [Fact]
+    public async Task CadastrarProfissionalVitrineAsync_DeveCriarProfissionalSemUsuarioId_QuandoBasic()
+    {
+        Profissional? profissionalCriado = null;
+        ProfissionalEstabelecimento? vinculoCriado = null;
+
+        ConfigurarModulosBasicSemProfissionais();
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ContarAtivosPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _profissionalRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Profissional>(), It.IsAny<CancellationToken>()))
+            .Callback<Profissional, CancellationToken>((profissional, _) =>
+            {
+                profissional.Id = 80;
+                profissionalCriado = profissional;
+            })
+            .Returns(Task.CompletedTask);
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<ProfissionalEstabelecimento>(), It.IsAny<CancellationToken>()))
+            .Callback<ProfissionalEstabelecimento, CancellationToken>((vinculo, _) => vinculoCriado = vinculo)
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService();
+
+        var response = await service.CadastrarProfissionalVitrineAsync(20, new CadastrarProfissionalVitrineRequestDto
+        {
+            NomePublico = " Ana Beauty ",
+            Biografia = "Especialista em unhas"
+        });
+
+        Assert.NotNull(profissionalCriado);
+        Assert.Null(profissionalCriado!.UsuarioId);
+        Assert.Equal(ProfessionalType.SomenteExibicao, profissionalCriado.TipoProfissional);
+        Assert.Equal("Ana Beauty", profissionalCriado.NomePublico);
+        Assert.NotNull(vinculoCriado);
+        Assert.True(vinculoCriado!.SomenteExibicao);
+        Assert.False(vinculoCriado.PodeReceberAgendamento);
+        Assert.Equal(80, response.ProfissionalId);
+        Assert.True(response.SomenteExibicao);
+        _estabelecimentoUsuarioRepository.Verify(
+            r => r.AdicionarAsync(It.IsAny<EstabelecimentoUsuario>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task CadastrarProfissionalVitrineAsync_DeveLancarExcecao_QuandoLimiteProfissionaisAtingido()
+    {
+        ConfigurarModulosBasicSemProfissionais();
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ContarAtivosPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<LimiteProfissionaisNegocioExcedidoException>(() =>
+            service.CadastrarProfissionalVitrineAsync(20, new CadastrarProfissionalVitrineRequestDto
+            {
+                NomePublico = "Ana Beauty"
+            }));
+    }
+
+    [Fact]
+    public async Task CadastrarProfissionalVitrineAsync_DeveLancarExcecao_QuandoPlanoPossuiModuloProfissionais()
+    {
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<ProfissionalVitrineNegocioIndisponivelException>(() =>
+            service.CadastrarProfissionalVitrineAsync(20, new CadastrarProfissionalVitrineRequestDto
+            {
+                NomePublico = "Ana Beauty"
+            }));
+    }
+
+    [Fact]
     public async Task AtualizarStatusProfissionalAsync_DeveLancarExcecao_QuandoProfissionalNaoPertenceAoNegocio()
     {
         _profissionalEstabelecimentoRepository
@@ -889,7 +969,20 @@ public class EquipeNegocioServiceTests
     private static ModulosAssinaturaResponseDto CriarModulosBasic() =>
         ModulosAssinaturaResponseDto.Liberado(
             CriarAssinatura("Basic"),
-            [ModuloAssinatura.Agenda]);
+            [ModuloAssinatura.Agenda, ModuloAssinatura.HorariosAtendimento]);
+
+    private void ConfigurarModulosBasicSemProfissionais()
+    {
+        _modulosAssinaturaService
+            .Setup(s => s.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CriarModulosBasic());
+        _modulosAssinaturaService
+            .Setup(s => s.PossuiModuloPorEstabelecimentoAsync(
+                20,
+                ModuloAssinatura.Profissionais,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+    }
 
     private static Assinatura CriarAssinatura(string planoNome) =>
         new()

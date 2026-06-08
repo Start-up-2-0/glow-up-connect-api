@@ -9,6 +9,7 @@ public class ProfissionalEstabelecimento
     public DateTime DataEntrada { get; set; } = DateTime.UtcNow;
     public DateTime? DataSaida { get; set; }
     public bool PodeReceberAgendamento { get; set; } = true;
+    public bool SomenteExibicao { get; set; }
     public DateTime CreateAd { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 

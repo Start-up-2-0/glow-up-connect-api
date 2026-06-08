@@ -53,9 +53,11 @@ public class ProfissionalConfiguration : IEntityTypeConfiguration<Profissional>
         builder.HasOne(profissional => profissional.Usuario)
             .WithOne()
             .HasForeignKey<Profissional>(profissional => profissional.UsuarioId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
 
         builder.HasIndex(profissional => profissional.UsuarioId)
-            .IsUnique();
+            .IsUnique()
+            .HasFilter("\"UsuarioId\" IS NOT NULL");
     }
 }

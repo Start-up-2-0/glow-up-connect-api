@@ -118,4 +118,36 @@ public class ProfissionalEstabelecimentoRepository : Repository<ProfissionalEsta
             .OrderBy(vinculo => vinculo.Profissional!.NomePublico)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<ProfissionalEstabelecimento>> ListarAtivosParaVitrinePorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Include(vinculo => vinculo.Profissional)
+            .Where(vinculo =>
+                vinculo.EstabelecimentoId == estabelecimentoId
+                && vinculo.Ativo
+                && vinculo.SomenteExibicao
+                && vinculo.Profissional != null
+                && vinculo.Profissional.Ativo)
+            .OrderBy(vinculo => vinculo.Profissional!.NomePublico)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ProfissionalEstabelecimento>> ListarVitrinePorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Include(vinculo => vinculo.Profissional)
+            .Where(vinculo =>
+                vinculo.EstabelecimentoId == estabelecimentoId
+                && vinculo.SomenteExibicao
+                && vinculo.Profissional != null)
+            .OrderBy(vinculo => vinculo.Profissional!.NomePublico)
+            .ToListAsync(cancellationToken);
+    }
 }

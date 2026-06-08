@@ -59,6 +59,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             estabelecimentoId,
             request,
             exigirFuncionamentoEstabelecimento: true,
+            permitirSomenteExibicao: true,
             cancellationToken);
     }
 
@@ -77,6 +78,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             estabelecimento.Id,
             request,
             exigirFuncionamentoEstabelecimento: true,
+            permitirSomenteExibicao: false,
             cancellationToken);
     }
 
@@ -111,6 +113,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             vinculo.EstabelecimentoId,
             request,
             exigirFuncionamentoEstabelecimento: profissional.TipoProfissional != ProfessionalType.Autonomo,
+            permitirSomenteExibicao: false,
             cancellationToken);
     }
 
@@ -118,6 +121,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
         int estabelecimentoId,
         ConsultarDisponibilidadeAgendaDto request,
         bool exigirFuncionamentoEstabelecimento,
+        bool permitirSomenteExibicao,
         CancellationToken cancellationToken)
     {
         ValidarPeriodo(request.DataInicio, request.DataFim);
@@ -189,7 +193,11 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
 
             foreach (var profissionalId in profissionais)
             {
-                if (!await ProfissionalPodeAtenderAsync(profissionalId, estabelecimentoId, cancellationToken))
+                if (!await ProfissionalPodeAtenderAsync(
+                        profissionalId,
+                        estabelecimentoId,
+                        permitirSomenteExibicao,
+                        cancellationToken))
                 {
                     continue;
                 }
@@ -353,6 +361,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
     private async Task<bool> ProfissionalPodeAtenderAsync(
         int profissionalId,
         int estabelecimentoId,
+        bool permitirSomenteExibicao,
         CancellationToken cancellationToken)
     {
         var vinculo = await _profissionalEstabelecimentoRepository.ObterPorProfissionalAsync(
@@ -360,7 +369,13 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             estabelecimentoId,
             cancellationToken);
 
-        return vinculo?.Ativo == true && vinculo.PodeReceberAgendamento;
+        if (vinculo?.Ativo != true)
+        {
+            return false;
+        }
+
+        return vinculo.PodeReceberAgendamento
+            || (permitirSomenteExibicao && vinculo.SomenteExibicao);
     }
 
     private static List<(TimeOnly Inicio, TimeOnly Fim)> IntersectarComFuncionamento(

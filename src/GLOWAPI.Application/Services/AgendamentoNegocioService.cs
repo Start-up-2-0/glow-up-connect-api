@@ -76,6 +76,27 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             .ToList();
     }
 
+    public async Task<IReadOnlyList<ProfissionalVitrinePublicoResponseDto>> ListarProfissionaisVitrinePorLojaAsync(
+        Guid publicGuidLoja,
+        CancellationToken cancellationToken = default)
+    {
+        var estabelecimento = await ObterEstabelecimentoPublicoAsync(publicGuidLoja, cancellationToken);
+        var vinculos = await _profissionalEstabelecimentoRepository.ListarAtivosParaVitrinePorEstabelecimentoAsync(
+            estabelecimento.Id,
+            cancellationToken);
+
+        return vinculos
+            .Where(vinculo => vinculo.Profissional is not null)
+            .Select(vinculo => new ProfissionalVitrinePublicoResponseDto
+            {
+                PublicGuid = vinculo.Profissional!.PublicGuid,
+                NomePublico = vinculo.Profissional.NomePublico,
+                Biografia = vinculo.Profissional.Biografia,
+                Logo = vinculo.Profissional.Logo
+            })
+            .ToList();
+    }
+
     public Task<AgendamentoCriadoResponseDto> CriarPublicoPorLojaAsync(
         Guid publicGuidLoja,
         CriarAgendamentoRequestDto request,
