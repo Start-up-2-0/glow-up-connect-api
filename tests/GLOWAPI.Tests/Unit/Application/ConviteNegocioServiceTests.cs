@@ -59,6 +59,9 @@ public class ConviteNegocioServiceTests
         _usuarioRepository
             .Setup(r => r.ObterPorEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Usuario?)null);
+        _usuarioRepository
+            .Setup(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
     }
 
     [Fact]
@@ -163,6 +166,8 @@ public class ConviteNegocioServiceTests
         Assert.NotNull(vinculoProfissional);
         Assert.Equal(70, vinculoProfissional!.ProfissionalId);
         Assert.True(vinculoProfissional.PodeReceberAgendamento);
+        Assert.Equal(UserRole.ProfissionalEstabelecimento, usuario.Role);
+        _usuarioRepository.Verify(r => r.Atualizar(usuario), Times.Once);
     }
 
     [Fact]
@@ -443,7 +448,8 @@ public class ConviteNegocioServiceTests
             Nome = "Joao",
             Email = "gerente@email.com",
             Telefone = "11999999999",
-            Ativo = true
+            Ativo = true,
+            Role = UserRole.Cliente
         };
         EstabelecimentoUsuario? vinculoUsuario = null;
         _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(usuario);
@@ -471,6 +477,8 @@ public class ConviteNegocioServiceTests
         Assert.Equal("Aceito", response.Status);
         Assert.NotNull(vinculoUsuario);
         Assert.Equal(EstablishmentUserRole.Manager, vinculoUsuario!.RoleNoEstabelecimento);
+        Assert.Equal(UserRole.DonoEstabelecimento, usuario.Role);
+        _usuarioRepository.Verify(r => r.Atualizar(usuario), Times.Once);
         _profissionalRepository.Verify(
             r => r.AdicionarAsync(It.IsAny<Profissional>(), It.IsAny<CancellationToken>()),
             Times.Never);
@@ -547,7 +555,8 @@ public class ConviteNegocioServiceTests
             Nome = "Maria",
             Email = "profissional@email.com",
             Telefone = "11999999999",
-            Ativo = true
+            Ativo = true,
+            Role = UserRole.Cliente
         };
 
     private static ConviteNegocio CriarConvite() =>
