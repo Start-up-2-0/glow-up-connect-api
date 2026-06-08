@@ -5,4 +5,5 @@ public class ServicoFiltroDto
     public bool? Ativo { get; set; }
     public int? ProfissionalId { get; set; }
     public string? Nome { get; set; }
+    public bool? ApenasVinculados { get; set; }
 }

@@ -20,6 +20,7 @@ public interface IServicoRepository : IRepository<Servico>
         bool? ativo,
         int? profissionalId,
         string? nome,
+        bool apenasVinculados = false,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Servico>> ListarPublicosPorEstabelecimentoAsync(

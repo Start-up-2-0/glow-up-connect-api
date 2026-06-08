@@ -41,6 +41,7 @@ public class ServicoRepository : Repository<Servico>, IServicoRepository
         bool? ativo,
         int? profissionalId,
         string? nome,
+        bool apenasVinculados = false,
         CancellationToken cancellationToken = default)
     {
         var query = DbSet
@@ -56,10 +57,14 @@ public class ServicoRepository : Repository<Servico>, IServicoRepository
         if (profissionalId.HasValue)
         {
             var profId = profissionalId.Value;
-            query = query.Where(servico =>
-                !servico.Profissionais.Any(vinculo => vinculo.Ativo)
-                || servico.Profissionais.Any(vinculo =>
-                    vinculo.ProfissionalId == profId && vinculo.Ativo));
+            query = apenasVinculados
+                ? query.Where(servico =>
+                    servico.Profissionais.Any(vinculo =>
+                        vinculo.ProfissionalId == profId && vinculo.Ativo))
+                : query.Where(servico =>
+                    !servico.Profissionais.Any(vinculo => vinculo.Ativo)
+                    || servico.Profissionais.Any(vinculo =>
+                        vinculo.ProfissionalId == profId && vinculo.Ativo));
         }
 
         if (!string.IsNullOrWhiteSpace(nome))
