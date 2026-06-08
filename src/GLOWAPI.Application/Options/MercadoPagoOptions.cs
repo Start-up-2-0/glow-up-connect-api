@@ -16,4 +16,10 @@ public class MercadoPagoOptions
     /// Aceita e-mail completo ou identificador de conta de teste (TESTUSER123 ou test_user_123).
     /// </summary>
     public string PayerEmailOverride { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ID de plano preapproval existente no Mercado Pago. Quando preenchido, trial reutiliza o plano
+    /// em vez de criar um novo via POST /preapproval_plan.
+    /// </summary>
+    public string PreapprovalPlanId { get; set; } = string.Empty;
 }

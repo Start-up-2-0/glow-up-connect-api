@@ -309,27 +309,121 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
                 "Token do cartao e obrigatorio para criar assinatura recorrente no Mercado Pago.");
         }
 
-        var payload = CriarPayloadAssinatura(request);
+        string? preapprovalPlanId = TextoOuNull(_options.PreapprovalPlanId);
+
+        if (request.DiasTrial is > 0)
+        {
+            if (string.IsNullOrWhiteSpace(preapprovalPlanId))
+            {
+                var plano = await CriarPlanoTrialAsync(request, cancellationToken);
+                if (!plano.Sucesso)
+                {
+                    return CriarAssinaturaRecorrenteGatewayResponse.Falha(
+                        plano.RequestPayload,
+                        plano.ResponsePayload,
+                        plano.MensagemErro ?? "Nao foi possivel criar plano de assinatura no Mercado Pago.",
+                        plano.FailureInfo);
+                }
+
+                preapprovalPlanId = plano.PlanId;
+            }
+        }
+
+        var payload = CriarPayloadAssinatura(request, preapprovalPlanId);
         var requestPayload = JsonSerializer.Serialize(payload, JsonOptions);
+        var envioAssinatura = await PostMercadoPagoComRetryAsync(
+            "preapproval",
+            requestPayload,
+            request.ReferenciaInterna,
+            cancellationToken);
+
+        if (!envioAssinatura.Sucesso)
+        {
+            return CriarAssinaturaRecorrenteGatewayResponse.Falha(
+                requestPayload,
+                envioAssinatura.ResponsePayload,
+                envioAssinatura.MensagemErro ?? "Nao foi possivel criar assinatura recorrente no Mercado Pago.",
+                envioAssinatura.FailureInfo);
+        }
+
+        using var document = JsonDocument.Parse(envioAssinatura.ResponsePayload);
+        var root = document.RootElement;
+        var subscriptionId = ObterString(root, "id");
+        var payerId = ObterString(root, "payer_id");
+
+        if (string.IsNullOrWhiteSpace(subscriptionId))
+        {
+            return CriarAssinaturaRecorrenteGatewayResponse.Falha(
+                requestPayload,
+                envioAssinatura.ResponsePayload,
+                "Mercado Pago nao retornou id da assinatura recorrente.");
+        }
+
+        return new CriarAssinaturaRecorrenteGatewayResponse(
+            Sucesso: true,
+            GatewaySubscriptionId: subscriptionId,
+            GatewayCustomerId: payerId,
+            RequestPayload: requestPayload,
+            ResponsePayload: envioAssinatura.ResponsePayload);
+    }
+
+    private async Task<(bool Sucesso, string? PlanId, string RequestPayload, string ResponsePayload, string? MensagemErro, GatewayHttpFailureInfo? FailureInfo)>
+        CriarPlanoTrialAsync(
+            CriarAssinaturaRecorrenteGatewayRequest request,
+            CancellationToken cancellationToken)
+    {
+        var payload = CriarPayloadPlanoTrial(request);
+        var requestPayload = JsonSerializer.Serialize(payload, JsonOptions);
+        var envio = await PostMercadoPagoComRetryAsync(
+            "preapproval_plan",
+            requestPayload,
+            $"{request.ReferenciaInterna}-plan",
+            cancellationToken);
+
+        if (!envio.Sucesso)
+        {
+            return (false, null, requestPayload, envio.ResponsePayload, envio.MensagemErro, envio.FailureInfo);
+        }
+
+        using var document = JsonDocument.Parse(envio.ResponsePayload);
+        var planId = ObterString(document.RootElement, "id");
+        if (string.IsNullOrWhiteSpace(planId))
+        {
+            return (
+                false,
+                null,
+                requestPayload,
+                envio.ResponsePayload,
+                "Mercado Pago nao retornou id do plano de assinatura.",
+                null);
+        }
+
+        return (true, planId, requestPayload, envio.ResponsePayload, null, null);
+    }
+
+    private async Task<(bool Sucesso, string ResponsePayload, string? MensagemErro, GatewayHttpFailureInfo? FailureInfo)>
+        PostMercadoPagoComRetryAsync(
+            string path,
+            string requestPayload,
+            string idempotencyPrefix,
+            CancellationToken cancellationToken)
+    {
         const int maxTentativas = 3;
         HttpResponseMessage? response = null;
-        string responsePayload = string.Empty;
+        var responsePayload = string.Empty;
 
         for (var tentativa = 1; tentativa <= maxTentativas; tentativa++)
         {
-            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, CriarRequestUri("preapproval"))
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, CriarRequestUri(path))
             {
                 Content = new StringContent(requestPayload, Encoding.UTF8, "application/json")
             };
-            AplicarHeadersMercadoPago(httpRequest, $"{request.ReferenciaInterna}-{tentativa}");
+            AplicarHeadersMercadoPago(httpRequest, $"{idempotencyPrefix}-{tentativa}");
 
             var envio = await TentarEnviarAsync(httpRequest, cancellationToken);
             if (!envio.Sucesso)
             {
-                return CriarAssinaturaRecorrenteGatewayResponse.Falha(
-                    requestPayload,
-                    "{}",
-                    $"Falha ao chamar Mercado Pago: {envio.Erro}");
+                return (false, "{}", $"Falha ao chamar Mercado Pago: {envio.Erro}", null);
             }
 
             response = envio.Response!;
@@ -342,11 +436,16 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
 
             if ((int)response.StatusCode != 503 || tentativa == maxTentativas)
             {
-                return CriarAssinaturaRecorrenteGatewayResponse.Falha(
-                    requestPayload,
+                var operacao = path.Contains("preapproval_plan", StringComparison.OrdinalIgnoreCase)
+                    ? "criar plano de assinatura"
+                    : "criar assinatura recorrente";
+                var failureInfo = CriarFailureInfo(response, responsePayload);
+                response.Dispose();
+                return (
+                    false,
                     responsePayload,
-                    MontarMensagemErroHttp((int)response.StatusCode, responsePayload, "criar assinatura recorrente"),
-                    CriarFailureInfo(response, responsePayload));
+                    MontarMensagemErroHttp((int)response.StatusCode, responsePayload, operacao),
+                    failureInfo);
             }
 
             response.Dispose();
@@ -354,33 +453,58 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             await Task.Delay(TimeSpan.FromSeconds(tentativa), cancellationToken);
         }
 
-        using (response!)
-        {
-
-            using var document = JsonDocument.Parse(responsePayload);
-            var root = document.RootElement;
-            var subscriptionId = ObterString(root, "id");
-            var payerId = ObterString(root, "payer_id");
-
-            if (string.IsNullOrWhiteSpace(subscriptionId))
-            {
-                return CriarAssinaturaRecorrenteGatewayResponse.Falha(
-                    requestPayload,
-                    responsePayload,
-                    "Mercado Pago nao retornou id da assinatura recorrente.");
-            }
-
-            return new CriarAssinaturaRecorrenteGatewayResponse(
-                Sucesso: true,
-                GatewaySubscriptionId: subscriptionId,
-                GatewayCustomerId: payerId,
-                RequestPayload: requestPayload,
-                ResponsePayload: responsePayload);
-        }
+        response!.Dispose();
+        return (true, responsePayload, null, null);
     }
 
-    private object CriarPayloadAssinatura(CriarAssinaturaRecorrenteGatewayRequest request)
+    private object CriarPayloadPlanoTrial(CriarAssinaturaRecorrenteGatewayRequest request)
     {
+        var autoRecurring = new Dictionary<string, object?>
+        {
+            ["frequency"] = 1,
+            ["frequency_type"] = "months",
+            ["transaction_amount"] = request.Valor,
+            ["currency_id"] = request.Moeda,
+            ["free_trial"] = new Dictionary<string, object?>
+            {
+                ["frequency"] = request.DiasTrial,
+                ["frequency_type"] = "days"
+            }
+        };
+
+        var diaVencimento = ObterDiaVencimento(request.Metadados);
+        if (diaVencimento.HasValue)
+        {
+            autoRecurring["billing_day"] = diaVencimento.Value;
+            autoRecurring["billing_day_proportional"] = true;
+        }
+
+        return new
+        {
+            reason = request.Descricao,
+            auto_recurring = autoRecurring,
+            back_url = TextoOuNull(_options.SuccessUrl)
+        };
+    }
+
+    private object CriarPayloadAssinatura(
+        CriarAssinaturaRecorrenteGatewayRequest request,
+        string? preapprovalPlanId)
+    {
+        if (!string.IsNullOrWhiteSpace(preapprovalPlanId))
+        {
+            return new
+            {
+                preapproval_plan_id = preapprovalPlanId,
+                reason = request.Descricao,
+                external_reference = request.ReferenciaInterna,
+                payer_email = ResolverPagadorEmail(request.PagadorEmail),
+                card_token_id = request.PagamentoTransparente!.Token,
+                back_url = TextoOuNull(_options.SuccessUrl),
+                status = "authorized"
+            };
+        }
+
         var autoRecurring = new Dictionary<string, object?>
         {
             ["frequency"] = 1,
@@ -389,8 +513,6 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             ["currency_id"] = request.Moeda
         };
 
-        // Assinatura sem plano + pagamento autorizado: MP documenta start_date/end_date,
-        // nao free_trial (campo usado em preapproval_plan). Trial interno = adiar start_date.
         if (request.PrimeiraCobrancaEm.HasValue)
         {
             var inicio = NormalizarDataInicioRecorrencia(request.PrimeiraCobrancaEm.Value);
@@ -408,6 +530,16 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             back_url = TextoOuNull(_options.SuccessUrl),
             status = "authorized"
         };
+    }
+
+    private static int? ObterDiaVencimento(IReadOnlyDictionary<string, string>? metadados)
+    {
+        if (metadados is null || !metadados.TryGetValue("diaVencimento", out var dia))
+        {
+            return null;
+        }
+
+        return int.TryParse(dia, out var valor) && valor is >= 1 and <= 28 ? valor : null;
     }
 
     private async Task<(bool Sucesso, HttpResponseMessage? Response, string? Erro)> TentarEnviarAsync(

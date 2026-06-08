@@ -286,14 +286,7 @@ public class GatewayPagamentoMercadoPagoTests
     public async Task CriarAssinaturaRecorrenteAsync_DeveUsarApiBaseUrlDasOptions_QuandoHttpClientNaoTiverBaseAddress()
     {
         HttpRequestMessage? requestMessage = null;
-        var handler = new StubHttpMessageHandler(request =>
-        {
-            requestMessage = request;
-            return new HttpResponseMessage(HttpStatusCode.Created)
-            {
-                Content = new StringContent("""{"id":"sub-123","payer_id":"payer-1"}""", Encoding.UTF8, "application/json")
-            };
-        });
+        var handler = CriarHandlerTrialMercadoPago(onSubscriptionHttpRequest: request => requestMessage = request);
 
         var httpClient = new HttpClient(handler);
         var gateway = new GatewayPagamentoMercadoPago(httpClient, Options.Create(new MercadoPagoOptions
@@ -325,16 +318,7 @@ public class GatewayPagamentoMercadoPagoTests
     public async Task CriarAssinaturaRecorrenteAsync_DeveUsarSuccessUrlComoBackUrl()
     {
         string? requestPayload = null;
-        var handler = new StubHttpMessageHandler(request =>
-        {
-            requestPayload = request.Content is null
-                ? null
-                : request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-            return new HttpResponseMessage(HttpStatusCode.Created)
-            {
-                Content = new StringContent("""{"id":"sub-456","payer_id":"payer-2"}""", Encoding.UTF8, "application/json")
-            };
-        });
+        var handler = CriarHandlerTrialMercadoPago(onSubscriptionRequest: payload => requestPayload = payload);
 
         var gateway = CriarGateway(handler, new MercadoPagoOptions
         {
@@ -370,16 +354,7 @@ public class GatewayPagamentoMercadoPagoTests
     public async Task CriarAssinaturaRecorrenteAsync_DeveUsarPayerEmailOverride_QuandoConfigurado()
     {
         string? requestPayload = null;
-        var handler = new StubHttpMessageHandler(request =>
-        {
-            requestPayload = request.Content is null
-                ? null
-                : request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-            return new HttpResponseMessage(HttpStatusCode.Created)
-            {
-                Content = new StringContent("""{"id":"sub-789","payer_id":"payer-3"}""", Encoding.UTF8, "application/json")
-            };
-        });
+        var handler = CriarHandlerTrialMercadoPago(onSubscriptionRequest: payload => requestPayload = payload);
 
         var gateway = CriarGateway(handler, new MercadoPagoOptions
         {
@@ -410,12 +385,56 @@ public class GatewayPagamentoMercadoPagoTests
     }
 
     [Fact]
-    public async Task CriarAssinaturaRecorrenteAsync_DeveUsarStartDateSemFreeTrial_QuandoTrialInternoEstiverAtivo()
+    public async Task CriarAssinaturaRecorrenteAsync_DeveCriarPlanoComFreeTrial_QuandoTrialEstiverAtivo()
     {
-        string? requestPayload = null;
+        string? planPayload = null;
+        string? subscriptionPayload = null;
+        var handler = CriarHandlerTrialMercadoPago(
+            onPlanRequest: payload => planPayload = payload,
+            onSubscriptionRequest: payload => subscriptionPayload = payload);
+
+        var gateway = CriarGateway(handler, new MercadoPagoOptions
+        {
+            AccessToken = "TEST-123",
+            ApiBaseUrl = "https://api.mercadopago.com"
+        });
+
+        var response = await gateway.CriarAssinaturaRecorrenteAsync(new CriarAssinaturaRecorrenteGatewayRequest(
+            Gateway: GatewayPagamento.MercadoPago,
+            ReferenciaInterna: "trial-plan",
+            Descricao: "Assinatura trial",
+            Valor: 99.90m,
+            Moeda: "BRL",
+            PagadorNome: "Cliente",
+            PagadorEmail: "cliente@email.com",
+            DiasTrial: 30,
+            PrimeiraCobrancaEm: new DateTime(2026, 7, 10, 0, 0, 0, DateTimeKind.Utc),
+            PagamentoTransparente: new PagamentoTransparenteGatewayRequest("visa", "card-token", null, 1, "CPF", "12345678901"),
+            Metadados: new Dictionary<string, string> { ["diaVencimento"] = "10" }));
+
+        Assert.True(response.Sucesso);
+        Assert.NotNull(planPayload);
+        Assert.NotNull(subscriptionPayload);
+
+        using var planDocument = JsonDocument.Parse(planPayload!);
+        var planAutoRecurring = planDocument.RootElement.GetProperty("auto_recurring");
+        Assert.Equal(30, planAutoRecurring.GetProperty("free_trial").GetProperty("frequency").GetInt32());
+        Assert.Equal("days", planAutoRecurring.GetProperty("free_trial").GetProperty("frequency_type").GetString());
+        Assert.Equal(10, planAutoRecurring.GetProperty("billing_day").GetInt32());
+
+        using var subscriptionDocument = JsonDocument.Parse(subscriptionPayload!);
+        Assert.Equal("plan-trial-1", subscriptionDocument.RootElement.GetProperty("preapproval_plan_id").GetString());
+        Assert.False(subscriptionDocument.RootElement.TryGetProperty("auto_recurring", out _));
+    }
+
+    [Fact]
+    public async Task CriarAssinaturaRecorrenteAsync_DeveReutilizarPlanoConfigurado_QuandoPreapprovalPlanIdEstiverDefinido()
+    {
+        string? subscriptionPayload = null;
         var handler = new StubHttpMessageHandler(request =>
         {
-            requestPayload = request.Content is null
+            Assert.Equal("https://api.mercadopago.com/preapproval", request.RequestUri?.ToString());
+            subscriptionPayload = request.Content is null
                 ? null
                 : request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
             return new HttpResponseMessage(HttpStatusCode.Created)
@@ -427,30 +446,55 @@ public class GatewayPagamentoMercadoPagoTests
         var gateway = CriarGateway(handler, new MercadoPagoOptions
         {
             AccessToken = "TEST-123",
-            ApiBaseUrl = "https://api.mercadopago.com"
+            ApiBaseUrl = "https://api.mercadopago.com",
+            PreapprovalPlanId = "plan-existente"
         });
 
         var response = await gateway.CriarAssinaturaRecorrenteAsync(new CriarAssinaturaRecorrenteGatewayRequest(
             Gateway: GatewayPagamento.MercadoPago,
-            ReferenciaInterna: "trial-start-date",
+            ReferenciaInterna: "trial-plan-reuse",
             Descricao: "Assinatura trial",
             Valor: 99.90m,
             Moeda: "BRL",
             PagadorNome: "Cliente",
             PagadorEmail: "cliente@email.com",
             DiasTrial: 30,
-            PrimeiraCobrancaEm: new DateTime(2026, 7, 10, 0, 0, 0, DateTimeKind.Utc),
+            PrimeiraCobrancaEm: DateTime.UtcNow.AddDays(30),
             PagamentoTransparente: new PagamentoTransparenteGatewayRequest("visa", "card-token", null, 1, "CPF", "12345678901"),
             Metadados: new Dictionary<string, string>()));
 
         Assert.True(response.Sucesso);
-        Assert.NotNull(requestPayload);
-        using var document = JsonDocument.Parse(requestPayload!);
-        var autoRecurring = document.RootElement.GetProperty("auto_recurring");
-        Assert.False(autoRecurring.TryGetProperty("free_trial", out _));
-        Assert.Equal("2026-07-10T12:00:00.000Z", autoRecurring.GetProperty("start_date").GetString());
-        Assert.Equal("2036-07-10T12:00:00.000Z", autoRecurring.GetProperty("end_date").GetString());
+        Assert.NotNull(subscriptionPayload);
+        using var document = JsonDocument.Parse(subscriptionPayload!);
+        Assert.Equal("plan-existente", document.RootElement.GetProperty("preapproval_plan_id").GetString());
     }
+
+    private static StubHttpMessageHandler CriarHandlerTrialMercadoPago(
+        Action<string>? onPlanRequest = null,
+        Action<string>? onSubscriptionRequest = null,
+        Action<HttpRequestMessage>? onSubscriptionHttpRequest = null) =>
+        new(request =>
+        {
+            var payload = request.Content is null
+                ? null
+                : request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+
+            if (request.RequestUri?.AbsolutePath.Contains("preapproval_plan", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                onPlanRequest?.Invoke(payload ?? string.Empty);
+                return new HttpResponseMessage(HttpStatusCode.Created)
+                {
+                    Content = new StringContent("""{"id":"plan-trial-1"}""", Encoding.UTF8, "application/json")
+                };
+            }
+
+            onSubscriptionRequest?.Invoke(payload ?? string.Empty);
+            onSubscriptionHttpRequest?.Invoke(request);
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent("""{"id":"sub-trial","payer_id":"payer-1"}""", Encoding.UTF8, "application/json")
+            };
+        });
 
     private static GatewayPagamentoMercadoPago CriarGateway(
         HttpMessageHandler handler,
