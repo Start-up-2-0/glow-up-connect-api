@@ -4,6 +4,8 @@ using GLOWAPI.Application.DTOs.Pagamentos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Pagamentos;
+using GLOWAPI.Application.Options;
+using Microsoft.Extensions.Options;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
@@ -20,8 +22,11 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
     private readonly IGatewayPagamentoResolver _gatewayPagamentoResolver;
     private readonly IAssinaturaHistoricoService _assinaturaHistoricoService;
     private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
+    private readonly IAssinaturaTitularContatoService _assinaturaTitularContatoService;
     private readonly ICicloCobrancaAssinaturaService _cicloCobrancaService;
     private readonly ICurrentUserContext _currentUser;
+    private readonly IAssinaturaOnboardingFinalizacaoService _assinaturaOnboardingFinalizacaoService;
+    private readonly MercadoPagoOptions _mercadoPagoOptions;
 
     public CobrancaAssinaturaService(
         IPagamentoRepository pagamentoRepository,
@@ -30,8 +35,11 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         IGatewayPagamentoResolver gatewayPagamentoResolver,
         IAssinaturaHistoricoService assinaturaHistoricoService,
         IAssinaturaNotificacaoService assinaturaNotificacaoService,
+        IAssinaturaTitularContatoService assinaturaTitularContatoService,
         ICicloCobrancaAssinaturaService cicloCobrancaService,
-        ICurrentUserContext currentUser)
+        ICurrentUserContext currentUser,
+        IAssinaturaOnboardingFinalizacaoService assinaturaOnboardingFinalizacaoService,
+        IOptions<MercadoPagoOptions> mercadoPagoOptions)
     {
         _pagamentoRepository = pagamentoRepository;
         _assinaturaRepository = assinaturaRepository;
@@ -39,8 +47,11 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         _gatewayPagamentoResolver = gatewayPagamentoResolver;
         _assinaturaHistoricoService = assinaturaHistoricoService;
         _assinaturaNotificacaoService = assinaturaNotificacaoService;
+        _assinaturaTitularContatoService = assinaturaTitularContatoService;
         _cicloCobrancaService = cicloCobrancaService;
         _currentUser = currentUser;
+        _assinaturaOnboardingFinalizacaoService = assinaturaOnboardingFinalizacaoService;
+        _mercadoPagoOptions = mercadoPagoOptions.Value;
     }
 
     public async Task<(Pagamento Pagamento, string? CheckoutUrl, string? QrCode)> GerarCobrancaInicialAsync(
@@ -56,7 +67,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
                 assinatura.ProximaDataAlerta ?? DateTime.UtcNow.Date)
             : _cicloCobrancaService.CalcularPrimeiroCiclo(assinatura.DiaVencimento, DateTime.UtcNow);
 
-        return await CriarCobrancaGatewayAsync(
+        var resultado = await CriarCobrancaGatewayAsync(
             assinatura,
             plano,
             plano.Preco,
@@ -67,6 +78,14 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             $"Assinatura {plano.Nome}",
             pagamentoTransparente,
             cancellationToken);
+
+        await NotificarCobrancaPendenteComLinkAsync(
+            assinatura,
+            resultado.Pagamento,
+            resultado.CheckoutUrl,
+            cancellationToken);
+
+        return resultado;
     }
 
     public async Task<Pagamento> GerarCobrancaRecorrenteAsync(
@@ -103,19 +122,12 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             assinatura.ProximaDataGeracaoCobranca ?? DateTime.UtcNow.Date,
             assinatura.ProximaDataAlerta ?? vencimento.AddDays(-3));
 
+        string? checkoutUrl = null;
         Pagamento pagamento;
-        if (!string.IsNullOrWhiteSpace(assinatura.GatewaySubscriptionId))
-        {
-            pagamento = CriarPagamentoInterno(
-                assinatura,
-                assinatura.Plano.Preco,
-                TipoCobrancaAssinatura.Recorrente,
-                numeroCiclo,
-                ciclo,
-                $"sub-{assinatura.GatewaySubscriptionId}-ciclo-{numeroCiclo}",
-                "subscription");
-        }
-        else
+        var usarLinkCheckoutPorCobranca = _mercadoPagoOptions.UsarCheckoutPro
+            || string.IsNullOrWhiteSpace(assinatura.GatewaySubscriptionId);
+
+        if (usarLinkCheckoutPorCobranca)
         {
             var resultado = await CriarCobrancaGatewayAsync(
                 assinatura,
@@ -129,6 +141,18 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
                 null,
                 cancellationToken);
             pagamento = resultado.Pagamento;
+            checkoutUrl = resultado.CheckoutUrl;
+        }
+        else
+        {
+            pagamento = CriarPagamentoInterno(
+                assinatura,
+                assinatura.Plano.Preco,
+                TipoCobrancaAssinatura.Recorrente,
+                numeroCiclo,
+                ciclo,
+                $"sub-{assinatura.GatewaySubscriptionId}-ciclo-{numeroCiclo}",
+                "subscription");
         }
 
         await _pagamentoRepository.AdicionarAsync(pagamento, cancellationToken);
@@ -150,6 +174,12 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             cancellationToken: cancellationToken);
         await _pagamentoRepository.SalvarAlteracoesAsync(cancellationToken);
 
+        await NotificarCobrancaPendenteComLinkAsync(
+            assinatura,
+            pagamento,
+            checkoutUrl,
+            cancellationToken);
+
         return pagamento;
     }
 
@@ -167,7 +197,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
                 assinatura.ProximaDataAlerta ?? DateTime.UtcNow.Date)
             : _cicloCobrancaService.CalcularPrimeiroCiclo(assinatura.DiaVencimento, DateTime.UtcNow);
 
-        return await CriarCobrancaGatewayAsync(
+        var resultado = await CriarCobrancaGatewayAsync(
             assinatura,
             novoPlano,
             novoPlano.Preco,
@@ -179,6 +209,14 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             pagamentoTransparente,
             cancellationToken,
             gateway);
+
+        await NotificarCobrancaPendenteComLinkAsync(
+            assinatura,
+            resultado.Pagamento,
+            resultado.CheckoutUrl,
+            cancellationToken);
+
+        return resultado;
     }
 
     public async Task ProcessarPagamentoAprovadoAsync(
@@ -213,6 +251,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         }
 
         var assinatura = pagamento.Assinatura;
+        await _assinaturaOnboardingFinalizacaoService.FinalizarSePendenteAsync(assinatura, cancellationToken);
         var statusAssinaturaAnterior = assinatura.Status;
 
         if (assinatura.PlanoAlteracaoPendenteId.HasValue)
@@ -413,14 +452,24 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
     {
         var gatewayPagamento = gatewayOverride ?? assinatura.Gateway;
         var gateway = _gatewayPagamentoResolver.Resolver(gatewayPagamento);
+        var titular = await _assinaturaTitularContatoService.ResolverAsync(assinatura, cancellationToken);
+        var pagadorNome = !string.IsNullOrWhiteSpace(titular.Nome)
+            ? titular.Nome
+            : !string.IsNullOrWhiteSpace(titular.NomeEstabelecimento)
+                ? titular.NomeEstabelecimento
+                : _currentUser.Email ?? "Usuario Glow";
+        var pagadorEmail = !string.IsNullOrWhiteSpace(titular.Email)
+            ? titular.Email
+            : _currentUser.Email ?? string.Empty;
+
         var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
             Gateway: gatewayPagamento,
             ReferenciaInterna: referenciaInterna,
             Descricao: descricao,
             Valor: valor,
             Moeda: "BRL",
-            PagadorNome: _currentUser.Email ?? "Usuario Glow",
-            PagadorEmail: _currentUser.Email ?? string.Empty,
+            PagadorNome: pagadorNome,
+            PagadorEmail: pagadorEmail,
             Metadados: new Dictionary<string, string>
             {
                 ["assinaturaId"] = assinatura.Id > 0 ? assinatura.Id.ToString() : string.Empty,
@@ -444,6 +493,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             AssinaturaId = assinatura.Id > 0 ? assinatura.Id : null,
             Gateway = gatewayPagamento,
             GatewayPaymentId = response.GatewayPaymentId,
+            ReferenciaInterna = referenciaInterna,
             MetodoPagamento = response.MetodoPagamento,
             Status = PagamentoStatus.Pendente,
             Valor = valor,
@@ -459,7 +509,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         return (pagamento, response.CheckoutUrl, response.QrCode);
     }
 
-    private static PagamentoTransparenteGatewayRequest? CriarPagamentoTransparenteRequest(
+    private PagamentoTransparenteGatewayRequest? CriarPagamentoTransparenteRequest(
         GatewayPagamento gateway,
         PagamentoTransparenteMercadoPagoDto? pagamento)
     {
@@ -470,6 +520,11 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
 
         if (pagamento is null)
         {
+            if (_mercadoPagoOptions.UsarCheckoutPro)
+            {
+                return null;
+            }
+
             throw new PagamentoAssinaturaInvalidoException(
                 "Dados do Checkout Transparente sao obrigatorios para pagamento via Mercado Pago.");
         }
@@ -486,6 +541,26 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             pagamento.Installments,
             pagamento.IdentificationType,
             pagamento.IdentificationNumber);
+    }
+
+    private async Task NotificarCobrancaPendenteComLinkAsync(
+        Assinatura assinatura,
+        Pagamento pagamento,
+        string? checkoutUrl,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(checkoutUrl))
+        {
+            return;
+        }
+
+        var titular = await _assinaturaTitularContatoService.ResolverAsync(assinatura, cancellationToken);
+        await _assinaturaNotificacaoService.CobrancaPendenteComLinkAsync(
+            assinatura,
+            pagamento,
+            checkoutUrl,
+            titular,
+            cancellationToken);
     }
 
     private static Pagamento CriarPagamentoInterno(

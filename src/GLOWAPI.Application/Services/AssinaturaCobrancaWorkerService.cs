@@ -8,15 +8,18 @@ public class AssinaturaCobrancaWorkerService : IAssinaturaCobrancaWorkerService
     private readonly IAssinaturaRepository _assinaturaRepository;
     private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
     private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
+    private readonly IAssinaturaTitularContatoService _assinaturaTitularContatoService;
 
     public AssinaturaCobrancaWorkerService(
         IAssinaturaRepository assinaturaRepository,
         ICobrancaAssinaturaService cobrancaAssinaturaService,
-        IAssinaturaNotificacaoService assinaturaNotificacaoService)
+        IAssinaturaNotificacaoService assinaturaNotificacaoService,
+        IAssinaturaTitularContatoService assinaturaTitularContatoService)
     {
         _assinaturaRepository = assinaturaRepository;
         _cobrancaAssinaturaService = cobrancaAssinaturaService;
         _assinaturaNotificacaoService = assinaturaNotificacaoService;
+        _assinaturaTitularContatoService = assinaturaTitularContatoService;
     }
 
     public async Task ProcessarCicloDiarioAsync(CancellationToken cancellationToken = default)
@@ -34,9 +37,10 @@ public class AssinaturaCobrancaWorkerService : IAssinaturaCobrancaWorkerService
 
         foreach (var assinatura in assinaturas)
         {
+            var titular = await _assinaturaTitularContatoService.ResolverAsync(assinatura, cancellationToken);
             await _assinaturaNotificacaoService.AlertaFaturaProximaAsync(
                 assinatura,
-                null,
+                titular.Email,
                 cancellationToken);
 
             assinatura.UltimoAlertaFaturaEm = dataReferenciaUtc;

@@ -26,6 +26,9 @@ public class PagamentoConfiguration : IEntityTypeConfiguration<Pagamento>
         builder.Property(pagamento => pagamento.GatewayPaymentId)
             .HasMaxLength(150);
 
+        builder.Property(pagamento => pagamento.ReferenciaInterna)
+            .HasMaxLength(120);
+
         builder.Property(pagamento => pagamento.MetodoPagamento)
             .HasMaxLength(80);
 
@@ -75,5 +78,6 @@ public class PagamentoConfiguration : IEntityTypeConfiguration<Pagamento>
         builder.HasIndex(pagamento => pagamento.AgendamentoId);
         builder.HasIndex(pagamento => pagamento.AssinaturaId);
         builder.HasIndex(pagamento => pagamento.GatewayPaymentId);
+        builder.HasIndex(pagamento => pagamento.ReferenciaInterna);
     }
 }

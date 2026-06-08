@@ -73,6 +73,7 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
         var data = dataReferenciaUtc.Date;
         return await DbSet
             .Include(assinatura => assinatura.Plano)
+            .Include(assinatura => assinatura.Estabelecimento)
             .Where(assinatura =>
                 (assinatura.Status == AssinaturaStatus.Ativa || assinatura.Status == AssinaturaStatus.Trial)
                 && assinatura.ProximaDataAlerta.HasValue
@@ -89,6 +90,7 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
         var data = dataReferenciaUtc.Date;
         return await DbSet
             .Include(assinatura => assinatura.Plano)
+            .Include(assinatura => assinatura.Estabelecimento)
             .Where(assinatura =>
                 (assinatura.Status == AssinaturaStatus.Ativa || assinatura.Status == AssinaturaStatus.Trial)
                 && assinatura.ProximaDataGeracaoCobranca.HasValue

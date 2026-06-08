@@ -9,6 +9,10 @@ public interface IPagamentoRepository : IRepository<Pagamento>
         string gatewayPaymentId,
         CancellationToken cancellationToken = default);
 
+    Task<Pagamento?> ObterPorReferenciaInternaAsync(
+        string referenciaInterna,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<Pagamento>> ListarPorAssinaturaAsync(int assinaturaId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Pagamento>> ListarPendentesVencidosAsync(DateTime dataReferenciaUtc, CancellationToken cancellationToken = default);

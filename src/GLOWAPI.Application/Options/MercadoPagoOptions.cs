@@ -4,6 +4,11 @@ public class MercadoPagoOptions
 {
     public const string SectionName = "MercadoPago";
 
+    /// <summary>
+    /// Quando true, cobranças usam Checkout Pro (POST /checkout/preferences) em vez de Checkout Transparente.
+    /// </summary>
+    public bool UsarCheckoutPro { get; set; }
+
     public string AccessToken { get; set; } = string.Empty;
     public string ApiBaseUrl { get; set; } = "https://api.mercadopago.com";
     public string NotificationUrl { get; set; } = string.Empty;

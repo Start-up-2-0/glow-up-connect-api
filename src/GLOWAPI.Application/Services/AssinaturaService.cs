@@ -1,7 +1,9 @@
+using System.Text.Json;
 using GLOWAPI.Application.DTOs.Assinaturas;
 using GLOWAPI.Application.DTOs.Pagamentos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Models.Assinaturas;
 using GLOWAPI.Application.Models.Pagamentos;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Entities;
@@ -90,16 +92,26 @@ public class AssinaturaService : IAssinaturaService
         ValidarTitular(request);
         _cicloCobrancaService.ValidarDiaVencimento(request.DiaVencimento);
 
-        var assinatura = request.TipoAssinatura switch
+        var onboardingPendente = DeveAdiarOnboarding(request);
+        Assinatura assinatura;
+        if (onboardingPendente)
         {
-            TipoAssinatura.Estabelecimento => await CriarParaEstabelecimentoAsync(request, userId, cancellationToken),
-            TipoAssinatura.ProfissionalAutonomo => await CriarParaProfissionalAutonomoAsync(request, userId, cancellationToken),
-            _ => throw new AssinaturaTitularInvalidoException()
-        };
+            assinatura = await CriarAssinaturaComOnboardingPendenteAsync(request, userId, cancellationToken);
+        }
+        else
+        {
+            assinatura = request.TipoAssinatura switch
+            {
+                TipoAssinatura.Estabelecimento => await CriarParaEstabelecimentoAsync(request, userId, cancellationToken),
+                TipoAssinatura.ProfissionalAutonomo => await CriarParaProfissionalAutonomoAsync(request, userId, cancellationToken),
+                _ => throw new AssinaturaTitularInvalidoException()
+            };
+        }
 
         assinatura.DiaVencimento = request.DiaVencimento;
 
-        if (await TentarIniciarComTrialAsync(assinatura, plano, request, cancellationToken))
+        if (!_mercadoPagoOptions.UsarCheckoutPro
+            && await TentarIniciarComTrialAsync(assinatura, plano, request, cancellationToken))
         {
             await _assinaturaRepository.AdicionarAsync(assinatura, cancellationToken);
             await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
@@ -119,7 +131,10 @@ public class AssinaturaService : IAssinaturaService
                 _currentUser.Email,
                 cancellationToken);
 
-            await PromoverRoleOnboardingAsync(userId, request.TipoAssinatura, cancellationToken);
+            if (!onboardingPendente)
+            {
+                await PromoverRoleOnboardingAsync(userId, request.TipoAssinatura, cancellationToken);
+            }
 
             return await MontarRespostaInicioAsync(assinatura, cancellationToken, diasTrial: diasTrial);
         }
@@ -180,7 +195,10 @@ public class AssinaturaService : IAssinaturaService
             _currentUser.Email,
             cancellationToken);
 
-        await PromoverRoleOnboardingAsync(userId, request.TipoAssinatura, cancellationToken);
+        if (!onboardingPendente)
+        {
+            await PromoverRoleOnboardingAsync(userId, request.TipoAssinatura, cancellationToken);
+        }
 
         return await MontarRespostaInicioAsync(
             assinatura,
@@ -329,6 +347,41 @@ public class AssinaturaService : IAssinaturaService
 
         return AssinaturaResponseDto.From(assinatura);
     }
+
+    private bool DeveAdiarOnboarding(IniciarAssinaturaRequestDto request) =>
+        _mercadoPagoOptions.UsarCheckoutPro
+        && (request.Estabelecimento is not null || request.ProfissionalAutonomo is not null);
+
+    private async Task<Assinatura> CriarAssinaturaComOnboardingPendenteAsync(
+        IniciarAssinaturaRequestDto request,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        if (request.TipoAssinatura == TipoAssinatura.Estabelecimento)
+        {
+            var vinculos = await _estabelecimentoUsuarioRepository.ListarAtivosPorUsuarioAsync(userId, cancellationToken)
+                ?? Array.Empty<EstabelecimentoUsuario>();
+            if (vinculos.Any(v =>
+                    v.RoleNoEstabelecimento == EstablishmentUserRole.Owner
+                    && v.Estabelecimento is not null
+                    && v.Estabelecimento.Ativo))
+            {
+                throw new EstabelecimentoOnboardingDuplicadoException();
+            }
+        }
+
+        var payload = new AssinaturaOnboardingPendentePayload(
+            userId,
+            request.TipoAssinatura,
+            request.Estabelecimento,
+            request.ProfissionalAutonomo);
+
+        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
+        assinatura.OnboardingPendenteJson = JsonSerializer.Serialize(payload, JsonOptions);
+        return assinatura;
+    }
+
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private async Task<Assinatura> CriarParaEstabelecimentoAsync(
         IniciarAssinaturaRequestDto request,

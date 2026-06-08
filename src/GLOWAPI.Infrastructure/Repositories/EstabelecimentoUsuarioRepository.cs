@@ -71,4 +71,17 @@ public class EstabelecimentoUsuarioRepository : Repository<EstabelecimentoUsuari
             .OrderBy(vinculo => vinculo.Estabelecimento!.Nome)
             .ToListAsync(cancellationToken);
     }
+
+    public Task<EstabelecimentoUsuario?> ObterOwnerAtivoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet
+            .Include(vinculo => vinculo.Usuario)
+            .FirstOrDefaultAsync(
+                vinculo => vinculo.EstabelecimentoId == estabelecimentoId
+                    && vinculo.Ativo
+                    && vinculo.RoleNoEstabelecimento == EstablishmentUserRole.Owner,
+                cancellationToken);
+    }
 }

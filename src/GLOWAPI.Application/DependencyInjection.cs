@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<ICobrancaAssinaturaService, CobrancaAssinaturaService>();
         services.AddScoped<IAssinaturaCobrancaWorkerService, AssinaturaCobrancaWorkerService>();
         services.AddScoped<IAssinaturaService, AssinaturaService>();
+        services.AddScoped<IAssinaturaOnboardingFinalizacaoService, AssinaturaOnboardingFinalizacaoService>();
         services.AddScoped<IAssinaturaOnboardingContextoService, AssinaturaOnboardingContextoService>();
         services.AddScoped<IAssinaturaHistoricoService, AssinaturaHistoricoService>();
         services.AddScoped<IEstabelecimentoPerfilService, EstabelecimentoPerfilService>();
@@ -57,6 +58,7 @@ public static class DependencyInjection
         services.AddScoped<IUsuarioNegocioContextoService, UsuarioNegocioContextoService>();
         services.AddScoped<IConviteNegocioService, ConviteNegocioService>();
         services.AddScoped<IAssinaturaNotificacaoService, AssinaturaNotificacaoService>();
+        services.AddScoped<IAssinaturaTitularContatoService, AssinaturaTitularContatoService>();
         services.AddScoped<IGatewayPagamentoResolver, GatewayPagamentoResolver>();
         services.AddScoped<IWebhookPagamentoService, WebhookPagamentoService>();
         services.AddScoped<IWebhookWhatsAppService, WebhookWhatsAppService>();

@@ -6,6 +6,7 @@ public record ConsultarPagamentoGatewayResponse(
     string Status,
     string ResponsePayload,
     string? PagadorEmail = null,
+    string? ReferenciaExterna = null,
     string? MensagemErro = null)
 {
     public static ConsultarPagamentoGatewayResponse Falha(

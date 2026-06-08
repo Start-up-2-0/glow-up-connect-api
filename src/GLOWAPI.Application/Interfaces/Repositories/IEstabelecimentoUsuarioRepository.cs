@@ -26,4 +26,8 @@ public interface IEstabelecimentoUsuarioRepository : IRepository<Estabelecimento
     Task<IReadOnlyList<EstabelecimentoUsuario>> ListarAtivosPorUsuarioAsync(
         int usuarioId,
         CancellationToken cancellationToken = default);
+
+    Task<EstabelecimentoUsuario?> ObterOwnerAtivoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default);
 }

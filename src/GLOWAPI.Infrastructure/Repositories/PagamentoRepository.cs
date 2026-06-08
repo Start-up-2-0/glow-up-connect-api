@@ -21,9 +21,27 @@ public class PagamentoRepository : Repository<Pagamento>, IPagamentoRepository
                 .ThenInclude(assinatura => assinatura!.Plano)
             .Include(pagamento => pagamento.Assinatura)
                 .ThenInclude(assinatura => assinatura!.PlanoAlteracaoPendente)
+            .Include(pagamento => pagamento.Assinatura)
+                .ThenInclude(assinatura => assinatura!.Estabelecimento)
             .FirstOrDefaultAsync(
                 pagamento => pagamento.Gateway == gateway
                     && pagamento.GatewayPaymentId == gatewayPaymentId,
+                cancellationToken);
+    }
+
+    public Task<Pagamento?> ObterPorReferenciaInternaAsync(
+        string referenciaInterna,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet
+            .Include(pagamento => pagamento.Assinatura)
+                .ThenInclude(assinatura => assinatura!.Plano)
+            .Include(pagamento => pagamento.Assinatura)
+                .ThenInclude(assinatura => assinatura!.PlanoAlteracaoPendente)
+            .Include(pagamento => pagamento.Assinatura)
+                .ThenInclude(assinatura => assinatura!.Estabelecimento)
+            .FirstOrDefaultAsync(
+                pagamento => pagamento.ReferenciaInterna == referenciaInterna,
                 cancellationToken);
     }
 

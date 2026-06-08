@@ -1,3 +1,4 @@
+using GLOWAPI.Application.Models.Assinaturas;
 using GLOWAPI.Domain.Entities;
 
 namespace GLOWAPI.Application.Interfaces.Services;
@@ -41,5 +42,12 @@ public interface IAssinaturaNotificacaoService
         Plano plano,
         int diasTrial,
         string? destinatario,
+        CancellationToken cancellationToken = default);
+
+    Task CobrancaPendenteComLinkAsync(
+        Assinatura assinatura,
+        Pagamento pagamento,
+        string checkoutUrl,
+        AssinaturaTitularContato titular,
         CancellationToken cancellationToken = default);
 }
