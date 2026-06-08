@@ -389,18 +389,11 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             ["currency_id"] = request.Moeda
         };
 
-        var possuiTrial = request.DiasTrial.HasValue && request.DiasTrial.Value > 0;
-        if (possuiTrial)
+        // Assinatura sem plano + pagamento autorizado: MP documenta start_date/end_date,
+        // nao free_trial (campo usado em preapproval_plan). Trial interno = adiar start_date.
+        if (request.PrimeiraCobrancaEm.HasValue)
         {
-            autoRecurring["free_trial"] = new
-            {
-                frequency = request.DiasTrial!.Value,
-                frequency_type = "days"
-            };
-        }
-        else if (request.PrimeiraCobrancaEm.HasValue)
-        {
-            var inicio = request.PrimeiraCobrancaEm.Value.ToUniversalTime();
+            var inicio = NormalizarDataInicioRecorrencia(request.PrimeiraCobrancaEm.Value);
             autoRecurring["start_date"] = FormatarDataMercadoPago(inicio);
             autoRecurring["end_date"] = FormatarDataMercadoPago(inicio.AddYears(10));
         }
@@ -434,6 +427,13 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
 
     private string ResolverPagadorEmail(string pagadorEmail) =>
         MercadoPagoPayerEmailResolver.Resolver(pagadorEmail, _options);
+
+    private static DateTime NormalizarDataInicioRecorrencia(DateTime data) =>
+        data.ToUniversalTime() switch
+        {
+            var utc when utc.TimeOfDay == TimeSpan.Zero => utc.AddHours(12),
+            var utc => utc
+        };
 
     private static string FormatarDataMercadoPago(DateTime dataUtc) =>
         dataUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);

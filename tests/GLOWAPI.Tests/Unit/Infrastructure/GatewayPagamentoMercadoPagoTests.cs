@@ -410,7 +410,7 @@ public class GatewayPagamentoMercadoPagoTests
     }
 
     [Fact]
-    public async Task CriarAssinaturaRecorrenteAsync_NaoDeveEnviarStartDate_QuandoTrialEstiverAtivo()
+    public async Task CriarAssinaturaRecorrenteAsync_DeveUsarStartDateSemFreeTrial_QuandoTrialInternoEstiverAtivo()
     {
         string? requestPayload = null;
         var handler = new StubHttpMessageHandler(request =>
@@ -439,7 +439,7 @@ public class GatewayPagamentoMercadoPagoTests
             PagadorNome: "Cliente",
             PagadorEmail: "cliente@email.com",
             DiasTrial: 30,
-            PrimeiraCobrancaEm: DateTime.UtcNow.AddDays(30),
+            PrimeiraCobrancaEm: new DateTime(2026, 7, 10, 0, 0, 0, DateTimeKind.Utc),
             PagamentoTransparente: new PagamentoTransparenteGatewayRequest("visa", "card-token", null, 1, "CPF", "12345678901"),
             Metadados: new Dictionary<string, string>()));
 
@@ -447,8 +447,9 @@ public class GatewayPagamentoMercadoPagoTests
         Assert.NotNull(requestPayload);
         using var document = JsonDocument.Parse(requestPayload!);
         var autoRecurring = document.RootElement.GetProperty("auto_recurring");
-        Assert.True(autoRecurring.TryGetProperty("free_trial", out _));
-        Assert.False(autoRecurring.TryGetProperty("start_date", out _));
+        Assert.False(autoRecurring.TryGetProperty("free_trial", out _));
+        Assert.Equal("2026-07-10T12:00:00.000Z", autoRecurring.GetProperty("start_date").GetString());
+        Assert.Equal("2036-07-10T12:00:00.000Z", autoRecurring.GetProperty("end_date").GetString());
     }
 
     private static GatewayPagamentoMercadoPago CriarGateway(
