@@ -43,6 +43,24 @@ public class GatewayPagamentoErrorDetailsTests
     }
 
     [Fact]
+    public void FromAssinaturaRecorrente_DeveIdentificarOperacaoDePlano_QuandoFalhaForNoPreapprovalPlan()
+    {
+        var response = CriarAssinaturaRecorrenteGatewayResponse.Falha(
+            """{"reason":"Plano trial"}""",
+            string.Empty,
+            "Mercado Pago retornou 503 ao criar plano de assinatura.",
+            new GatewayHttpFailureInfo(
+                503,
+                "https://api.mercadopago.com/preapproval_plan",
+                new Dictionary<string, string> { ["x-request-id"] = "req-plan" }));
+
+        var details = GatewayPagamentoErrorDetails.FromAssinaturaRecorrente(response);
+
+        Assert.Equal("criar_plano_assinatura", details.Operacao);
+        Assert.Equal("https://api.mercadopago.com/preapproval_plan", details.RequestUri);
+    }
+
+    [Fact]
     public void FromCobranca_DeveRetornarPayloadBruto_QuandoRespostaNaoForJson()
     {
         var response = CriarCobrancaGatewayResponse.Falha(

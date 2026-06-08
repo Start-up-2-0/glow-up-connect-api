@@ -973,7 +973,8 @@ public class AssinaturaServiceTests
             new CicloCobrancaAssinaturaService(Options.Create(new AssinaturaCobrancaOptions())),
             _cobrancaAssinaturaService.Object,
             new AvatarBase64Decoder(Options.Create(new AvatarOptions())),
-            _usuarioRepository.Object);
+            _usuarioRepository.Object,
+            Options.Create(new MercadoPagoOptions()));
 
     private static PagamentoTransparenteMercadoPagoDto PagamentoValido() =>
         new()

@@ -459,16 +459,18 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
 
     private object CriarPayloadPlanoTrial(CriarAssinaturaRecorrenteGatewayRequest request)
     {
+        var (freeTrialFrequency, freeTrialFrequencyType) = ResolverFreeTrial(request.DiasTrial);
         var autoRecurring = new Dictionary<string, object?>
         {
             ["frequency"] = 1,
             ["frequency_type"] = "months",
+            ["repetitions"] = 120,
             ["transaction_amount"] = request.Valor,
             ["currency_id"] = request.Moeda,
             ["free_trial"] = new Dictionary<string, object?>
             {
-                ["frequency"] = request.DiasTrial,
-                ["frequency_type"] = "days"
+                ["frequency"] = freeTrialFrequency,
+                ["frequency_type"] = freeTrialFrequencyType
             }
         };
 
@@ -476,7 +478,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         if (diaVencimento.HasValue)
         {
             autoRecurring["billing_day"] = diaVencimento.Value;
-            autoRecurring["billing_day_proportional"] = true;
+            autoRecurring["billing_day_proportional"] = false;
         }
 
         return new
@@ -486,6 +488,14 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             back_url = TextoOuNull(_options.SuccessUrl)
         };
     }
+
+    private static (int Frequency, string FrequencyType) ResolverFreeTrial(int? diasTrial) =>
+        diasTrial switch
+        {
+            30 => (1, "months"),
+            > 0 => (diasTrial.Value, "days"),
+            _ => (0, "days")
+        };
 
     private object CriarPayloadAssinatura(
         CriarAssinaturaRecorrenteGatewayRequest request,

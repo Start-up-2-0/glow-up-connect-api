@@ -49,7 +49,7 @@ public record GatewayPagamentoErrorDetails(
         var gatewayMessage = ExtrairMensagemGateway(responsePayload);
 
         return new GatewayPagamentoErrorDetails(
-            Operacao: operacao,
+            Operacao: InferirOperacao(operacao, mensagemErro, failureInfo),
             HttpStatusCode: failureInfo?.HttpStatusCode ?? ExtrairHttpStatus(mensagemErro),
             GatewayMessage: gatewayMessage,
             GatewayResponse: gatewayResponse,
@@ -58,6 +58,24 @@ public record GatewayPagamentoErrorDetails(
             RequestUri: failureInfo?.RequestUri,
             ResponseHeaders: failureInfo?.ResponseHeaders,
             RequestPayload: GatewayPagamentoRequestSanitizer.Sanitizar(requestPayload));
+    }
+
+    private static string InferirOperacao(
+        string operacaoPadrao,
+        string? mensagemErro,
+        GatewayHttpFailureInfo? failureInfo)
+    {
+        if (failureInfo?.RequestUri?.Contains("preapproval_plan", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return "criar_plano_assinatura";
+        }
+
+        if (mensagemErro?.Contains("plano de assinatura", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return "criar_plano_assinatura";
+        }
+
+        return operacaoPadrao;
     }
 
     private static int? ExtrairHttpStatus(string? mensagemErro)

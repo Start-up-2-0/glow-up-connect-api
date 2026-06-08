@@ -22,4 +22,10 @@ public class MercadoPagoOptions
     /// em vez de criar um novo via POST /preapproval_plan.
     /// </summary>
     public string PreapprovalPlanId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Quando true, o trial inicia sem criar assinatura recorrente no Mercado Pago.
+    /// Util em homolog quando o sandbox de subscriptions retorna 503.
+    /// </summary>
+    public bool PermitirTrialSemRecorrenciaNoGateway { get; set; }
 }

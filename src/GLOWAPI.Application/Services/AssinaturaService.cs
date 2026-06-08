@@ -3,10 +3,12 @@ using GLOWAPI.Application.DTOs.Pagamentos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Pagamentos;
+using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
 using GLOWAPI.Domain.Exceptions.Auth;
+using Microsoft.Extensions.Options;
 
 namespace GLOWAPI.Application.Services;
 
@@ -30,6 +32,7 @@ public class AssinaturaService : IAssinaturaService
     private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
     private readonly IAvatarBase64Decoder _avatarBase64Decoder;
     private readonly IUsuarioRepository _usuarioRepository;
+    private readonly MercadoPagoOptions _mercadoPagoOptions;
 
     public AssinaturaService(
         IAssinaturaRepository assinaturaRepository,
@@ -49,7 +52,8 @@ public class AssinaturaService : IAssinaturaService
         ICicloCobrancaAssinaturaService cicloCobrancaService,
         ICobrancaAssinaturaService cobrancaAssinaturaService,
         IAvatarBase64Decoder avatarBase64Decoder,
-        IUsuarioRepository usuarioRepository)
+        IUsuarioRepository usuarioRepository,
+        IOptions<MercadoPagoOptions> mercadoPagoOptions)
     {
         _assinaturaRepository = assinaturaRepository;
         _planoRepository = planoRepository;
@@ -69,6 +73,7 @@ public class AssinaturaService : IAssinaturaService
         _cobrancaAssinaturaService = cobrancaAssinaturaService;
         _avatarBase64Decoder = avatarBase64Decoder;
         _usuarioRepository = usuarioRepository;
+        _mercadoPagoOptions = mercadoPagoOptions.Value;
     }
 
     public async Task<AssinaturaResponseDto> IniciarAsync(
@@ -769,30 +774,40 @@ public class AssinaturaService : IAssinaturaService
 
         var gateway = _gatewayPagamentoResolver.Resolver(assinatura.Gateway);
         var referenciaInterna = $"trial-{Guid.NewGuid():N}";
-        var response = await gateway.CriarAssinaturaRecorrenteAsync(new CriarAssinaturaRecorrenteGatewayRequest(
-            Gateway: assinatura.Gateway,
-            ReferenciaInterna: referenciaInterna,
-            Descricao: $"Assinatura {plano.Nome} - trial {campanha.DiasTrial} dias",
-            Valor: plano.Preco,
-            Moeda: "BRL",
-            PagadorNome: _currentUser.Email ?? "Usuario Glow",
-            PagadorEmail: _currentUser.Email ?? string.Empty,
-            DiasTrial: campanha.DiasTrial,
-            PrimeiraCobrancaEm: ciclo.Vencimento,
-            PagamentoTransparente: CriarPagamentoTransparenteRequest(assinatura.Gateway, request.Pagamento),
-            Metadados: new Dictionary<string, string>
-            {
-                ["planoId"] = plano.Id.ToString(),
-                ["campanha"] = campanha.Codigo,
-                ["diaVencimento"] = request.DiaVencimento.ToString()
-            }),
-            cancellationToken);
+        CriarAssinaturaRecorrenteGatewayResponse? response = null;
+        var trialSemRecorrenciaNoGateway = _mercadoPagoOptions.PermitirTrialSemRecorrenciaNoGateway;
 
-        if (!response.Sucesso)
+        if (!trialSemRecorrenciaNoGateway)
         {
-            throw new GatewayPagamentoException(
-                response.MensagemErro ?? "Nao foi possivel criar assinatura recorrente no gateway.",
-                GatewayPagamentoErrorDetails.FromAssinaturaRecorrente(response));
+            response = await gateway.CriarAssinaturaRecorrenteAsync(new CriarAssinaturaRecorrenteGatewayRequest(
+                Gateway: assinatura.Gateway,
+                ReferenciaInterna: referenciaInterna,
+                Descricao: $"Assinatura {plano.Nome} - trial {campanha.DiasTrial} dias",
+                Valor: plano.Preco,
+                Moeda: "BRL",
+                PagadorNome: _currentUser.Email ?? "Usuario Glow",
+                PagadorEmail: _currentUser.Email ?? string.Empty,
+                DiasTrial: campanha.DiasTrial,
+                PrimeiraCobrancaEm: ciclo.Vencimento,
+                PagamentoTransparente: CriarPagamentoTransparenteRequest(assinatura.Gateway, request.Pagamento),
+                Metadados: new Dictionary<string, string>
+                {
+                    ["planoId"] = plano.Id.ToString(),
+                    ["campanha"] = campanha.Codigo,
+                    ["diaVencimento"] = request.DiaVencimento.ToString()
+                }),
+                cancellationToken);
+
+            if (!response.Sucesso && DeveAtivarTrialSemRecorrenciaNoGateway(response))
+            {
+                trialSemRecorrenciaNoGateway = true;
+            }
+            else if (!response.Sucesso)
+            {
+                throw new GatewayPagamentoException(
+                    response.MensagemErro ?? "Nao foi possivel criar assinatura recorrente no gateway.",
+                    GatewayPagamentoErrorDetails.FromAssinaturaRecorrente(response));
+            }
         }
 
         assinatura.Status = AssinaturaStatus.Trial;
@@ -800,17 +815,28 @@ public class AssinaturaService : IAssinaturaService
         assinatura.CampanhaPromocional = campanha;
         assinatura.Inicio = inicio;
         assinatura.Fim = ciclo.Vencimento;
-        assinatura.GatewaySubscriptionId = response.GatewaySubscriptionId;
-        assinatura.GatewayCustomerId = response.GatewayCustomerId ?? string.Empty;
+        assinatura.GatewaySubscriptionId = trialSemRecorrenciaNoGateway
+            ? string.Empty
+            : response!.GatewaySubscriptionId;
+        assinatura.GatewayCustomerId = trialSemRecorrenciaNoGateway
+            ? string.Empty
+            : response!.GatewayCustomerId ?? string.Empty;
         _cicloCobrancaService.AplicarCicloNaAssinatura(assinatura, ciclo);
+
+        var observacaoTrial = trialSemRecorrenciaNoGateway
+            ? $"Trial de {campanha.DiasTrial} dias iniciado via campanha {campanha.Codigo} sem recorrencia no gateway (sandbox/flag ativa)."
+            : $"Trial de {campanha.DiasTrial} dias iniciado via campanha {campanha.Codigo}.";
+        var payloadHistorico = trialSemRecorrenciaNoGateway
+            ? response?.ResponsePayload ?? "{}"
+            : response!.ResponsePayload;
 
         await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
             assinatura,
             "TrialIniciado",
             null,
             assinatura.Status,
-            observacao: $"Trial de {campanha.DiasTrial} dias iniciado via campanha {campanha.Codigo}.",
-            payloadJson: response.ResponsePayload,
+            observacao: observacaoTrial,
+            payloadJson: payloadHistorico,
             cancellationToken: cancellationToken);
         await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
             assinatura,
@@ -818,12 +844,39 @@ public class AssinaturaService : IAssinaturaService
             "Trial",
             cicloInicio: inicio,
             cicloFim: ciclo.Vencimento,
-            observacao: "Periodo de trial ativo com modulos liberados.",
-            payloadJson: response.ResponsePayload,
+            observacao: trialSemRecorrenciaNoGateway
+                ? "Periodo de trial ativo com modulos liberados. Cobranca recorrente sera criada no fim do trial."
+                : "Periodo de trial ativo com modulos liberados.",
+            payloadJson: payloadHistorico,
             cancellationToken: cancellationToken);
 
         return true;
     }
+
+    private bool DeveAtivarTrialSemRecorrenciaNoGateway(CriarAssinaturaRecorrenteGatewayResponse response)
+    {
+        if (_mercadoPagoOptions.PermitirTrialSemRecorrenciaNoGateway)
+        {
+            return true;
+        }
+
+        if (!TokenMercadoPagoSandboxAtivo())
+        {
+            return false;
+        }
+
+        var status = response.FailureInfo?.HttpStatusCode;
+        if (status is not (500 or 503))
+        {
+            return false;
+        }
+
+        return response.FailureInfo?.RequestUri?.Contains("preapproval", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private bool TokenMercadoPagoSandboxAtivo() =>
+        !string.IsNullOrWhiteSpace(_mercadoPagoOptions.AccessToken)
+        && _mercadoPagoOptions.AccessToken.TrimStart().StartsWith("TEST-", StringComparison.OrdinalIgnoreCase);
 
     private static bool PagamentoCompativelComTrial(PagamentoTransparenteMercadoPagoDto? pagamento) =>
         pagamento is not null

@@ -418,9 +418,11 @@ public class GatewayPagamentoMercadoPagoTests
 
         using var planDocument = JsonDocument.Parse(planPayload!);
         var planAutoRecurring = planDocument.RootElement.GetProperty("auto_recurring");
-        Assert.Equal(30, planAutoRecurring.GetProperty("free_trial").GetProperty("frequency").GetInt32());
-        Assert.Equal("days", planAutoRecurring.GetProperty("free_trial").GetProperty("frequency_type").GetString());
+        Assert.Equal(1, planAutoRecurring.GetProperty("free_trial").GetProperty("frequency").GetInt32());
+        Assert.Equal("months", planAutoRecurring.GetProperty("free_trial").GetProperty("frequency_type").GetString());
+        Assert.Equal(120, planAutoRecurring.GetProperty("repetitions").GetInt32());
         Assert.Equal(10, planAutoRecurring.GetProperty("billing_day").GetInt32());
+        Assert.False(planAutoRecurring.GetProperty("billing_day_proportional").GetBoolean());
 
         using var subscriptionDocument = JsonDocument.Parse(subscriptionPayload!);
         Assert.Equal("plan-trial-1", subscriptionDocument.RootElement.GetProperty("preapproval_plan_id").GetString());
