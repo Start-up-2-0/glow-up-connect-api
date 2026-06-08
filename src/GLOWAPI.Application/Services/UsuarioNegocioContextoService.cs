@@ -11,6 +11,7 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
 {
     private readonly IEstabelecimentoUsuarioRepository _estabelecimentoUsuarioRepository;
     private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
+    private readonly IProfissionalRepository _profissionalRepository;
     private readonly IMatrizPermissaoNegocioService _matrizPermissaoNegocioService;
     private readonly IModulosAssinaturaService _modulosAssinaturaService;
     private readonly IAssinaturaRepository _assinaturaRepository;
@@ -20,6 +21,7 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
     public UsuarioNegocioContextoService(
         IEstabelecimentoUsuarioRepository estabelecimentoUsuarioRepository,
         IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
+        IProfissionalRepository profissionalRepository,
         IMatrizPermissaoNegocioService matrizPermissaoNegocioService,
         IModulosAssinaturaService modulosAssinaturaService,
         IAssinaturaRepository assinaturaRepository,
@@ -28,6 +30,7 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
     {
         _estabelecimentoUsuarioRepository = estabelecimentoUsuarioRepository;
         _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
+        _profissionalRepository = profissionalRepository;
         _matrizPermissaoNegocioService = matrizPermissaoNegocioService;
         _modulosAssinaturaService = modulosAssinaturaService;
         _assinaturaRepository = assinaturaRepository;
@@ -68,6 +71,20 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
 
             var (diasTrial, _) = await ObterDiasTrialAsync(modulos.AssinaturaId, cancellationToken);
 
+            int? profissionalId = null;
+            Guid? profissionalPublicGuid = null;
+            if (possuiVinculoProfissional)
+            {
+                var profissional = await _profissionalRepository.ObterPorUsuarioIdAsync(
+                    usuarioId,
+                    cancellationToken);
+                if (profissional is not null)
+                {
+                    profissionalId = profissional.Id;
+                    profissionalPublicGuid = profissional.PublicGuid;
+                }
+            }
+
             response.Add(new EstabelecimentoAcessoResponseDto(
                 vinculo.EstabelecimentoId,
                 vinculo.Estabelecimento.PublicGuid,
@@ -75,6 +92,8 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
                 vinculo.Estabelecimento.Logo,
                 vinculo.RoleNoEstabelecimento.ToString(),
                 possuiVinculoProfissional,
+                profissionalId,
+                profissionalPublicGuid,
                 permissoes,
                 modulos.AssinaturaAtiva,
                 modulos.AssinaturaId,

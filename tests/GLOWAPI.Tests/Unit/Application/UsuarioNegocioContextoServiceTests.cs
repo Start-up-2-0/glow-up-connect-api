@@ -13,6 +13,7 @@ public class UsuarioNegocioContextoServiceTests
 {
     private readonly Mock<IEstabelecimentoUsuarioRepository> _estabelecimentoUsuarioRepository = new();
     private readonly Mock<IProfissionalEstabelecimentoRepository> _profissionalEstabelecimentoRepository = new();
+    private readonly Mock<IProfissionalRepository> _profissionalRepository = new();
     private readonly Mock<IMatrizPermissaoNegocioService> _matrizPermissaoNegocioService = new();
     private readonly Mock<IModulosAssinaturaService> _modulosAssinaturaService = new();
     private readonly Mock<IAssinaturaRepository> _assinaturaRepository = new();
@@ -49,6 +50,14 @@ public class UsuarioNegocioContextoServiceTests
         _profissionalEstabelecimentoRepository
             .Setup(r => r.ExisteAtivoPorUsuarioAsync(10, 20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        _profissionalRepository
+            .Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Profissional
+            {
+                Id = 70,
+                UsuarioId = 10,
+                PublicGuid = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+            });
         _matrizPermissaoNegocioService
             .Setup(s => s.ObterPermissoes(
                 EstablishmentUserRole.Profissional,
@@ -92,6 +101,8 @@ public class UsuarioNegocioContextoServiceTests
         Assert.Equal("Studio Glow", response[0].Nome);
         Assert.Equal("Profissional", response[0].Role);
         Assert.True(response[0].PossuiVinculoProfissional);
+        Assert.Equal(70, response[0].ProfissionalId);
+        Assert.Equal(Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"), response[0].ProfissionalPublicGuid);
         Assert.Contains(nameof(PermissaoNegocio.AgendaVisualizarPropria), response[0].Permissoes);
         Assert.True(response[0].AssinaturaAtiva);
         Assert.Equal("Plus", response[0].PlanoNome);
@@ -137,6 +148,9 @@ public class UsuarioNegocioContextoServiceTests
         _profissionalEstabelecimentoRepository
             .Setup(r => r.ExisteAtivoPorUsuarioAsync(10, 20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        _profissionalRepository
+            .Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Profissional?)null);
         _matrizPermissaoNegocioService
             .Setup(s => s.ObterPermissoes(
                 EstablishmentUserRole.Profissional,
@@ -175,6 +189,7 @@ public class UsuarioNegocioContextoServiceTests
         Assert.Single(response);
         Assert.Equal(20, response[0].EstabelecimentoId);
         Assert.Equal(nameof(EstablishmentUserRole.Profissional), response[0].Role);
+        Assert.Null(response[0].ProfissionalId);
     }
 
     [Fact]
@@ -198,6 +213,7 @@ public class UsuarioNegocioContextoServiceTests
         new(
             _estabelecimentoUsuarioRepository.Object,
             _profissionalEstabelecimentoRepository.Object,
+            _profissionalRepository.Object,
             _matrizPermissaoNegocioService.Object,
             _modulosAssinaturaService.Object,
             _assinaturaRepository.Object,

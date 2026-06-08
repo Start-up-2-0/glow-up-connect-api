@@ -399,9 +399,9 @@ public class ConviteNegocioService : IConviteNegocioService
             if (!vinculoUsuario.Ativo)
             {
                 await ValidarLimiteUsuariosAsync(convite.EstabelecimentoId, cancellationToken);
-                vinculoUsuario.RoleNoEstabelecimento = convite.RoleSugerida;
             }
 
+            vinculoUsuario.RoleNoEstabelecimento = convite.RoleSugerida;
             vinculoUsuario.Ativo = true;
             vinculoUsuario.UpdatedAt = DateTime.UtcNow;
             _estabelecimentoUsuarioRepository.Atualizar(vinculoUsuario);

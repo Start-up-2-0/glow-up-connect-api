@@ -9,6 +9,8 @@ public record EstabelecimentoAcessoResponseDto(
     string Logo,
     string Role,
     bool PossuiVinculoProfissional,
+    int? ProfissionalId,
+    Guid? ProfissionalPublicGuid,
     IReadOnlyList<string> Permissoes,
     bool AssinaturaAtiva,
     int? AssinaturaId,
