@@ -108,16 +108,90 @@ public class UsuarioNegocioContextoServiceTests
     }
 
     [Fact]
-    public async Task ListarEstabelecimentosAsync_DeveLancarForbidden_QuandoUsuarioForCliente()
+    public async Task ListarEstabelecimentosAsync_DeveRetornarVinculos_QuandoClienteTiverEstabelecimentoUsuario()
+    {
+        var estabelecimento = new Estabelecimento
+        {
+            Id = 20,
+            PublicGuid = Guid.NewGuid(),
+            Nome = "Studio Glow",
+            Logo = "logo.png",
+            Ativo = true
+        };
+
+        _currentUserContext.SetupGet(c => c.IsAuthenticated).Returns(true);
+        _currentUserContext.SetupGet(c => c.UserId).Returns(10);
+        _currentUserContext.SetupGet(c => c.Role).Returns(UserRole.Cliente);
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ListarAtivosPorUsuarioAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([
+                new EstabelecimentoUsuario
+                {
+                    EstabelecimentoId = 20,
+                    UsuarioId = 10,
+                    RoleNoEstabelecimento = EstablishmentUserRole.Profissional,
+                    Ativo = true,
+                    Estabelecimento = estabelecimento
+                }
+            ]);
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ExisteAtivoPorUsuarioAsync(10, 20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _matrizPermissaoNegocioService
+            .Setup(s => s.ObterPermissoes(
+                EstablishmentUserRole.Profissional,
+                true,
+                false))
+            .Returns(new HashSet<PermissaoNegocio>
+            {
+                PermissaoNegocio.AgendaVisualizarPropria
+            });
+        _modulosAssinaturaService
+            .Setup(s => s.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ModulosAssinaturaResponseDto.Liberado(
+                new Assinatura
+                {
+                    Id = 30,
+                    EstabelecimentoId = 20,
+                    PlanoId = 40,
+                    Status = AssinaturaStatus.Ativa,
+                    Plano = new Plano { Id = 40, Nome = "Plus" }
+                },
+                [ModuloAssinatura.Agenda, ModuloAssinatura.Profissionais]));
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdAsync(30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Assinatura
+            {
+                Id = 30,
+                EstabelecimentoId = 20,
+                PlanoId = 40,
+                Status = AssinaturaStatus.Ativa
+            });
+
+        var service = CreateService();
+
+        var response = await service.ListarEstabelecimentosAsync();
+
+        Assert.Single(response);
+        Assert.Equal(20, response[0].EstabelecimentoId);
+        Assert.Equal(nameof(EstablishmentUserRole.Profissional), response[0].Role);
+    }
+
+    [Fact]
+    public async Task ListarEstabelecimentosAsync_DeveRetornarListaVazia_QuandoClienteNaoTiverVinculo()
     {
         _currentUserContext.SetupGet(c => c.IsAuthenticated).Returns(true);
         _currentUserContext.SetupGet(c => c.UserId).Returns(10);
         _currentUserContext.SetupGet(c => c.Role).Returns(UserRole.Cliente);
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ListarAtivosPorUsuarioAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
 
         var service = CreateService();
 
-        await Assert.ThrowsAsync<ClienteSemAcessoNegocioException>(() =>
-            service.ListarEstabelecimentosAsync());
+        var response = await service.ListarEstabelecimentosAsync();
+
+        Assert.Empty(response);
     }
 
     private UsuarioNegocioContextoService CreateService() =>

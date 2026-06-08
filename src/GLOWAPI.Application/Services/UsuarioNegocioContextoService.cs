@@ -97,11 +97,6 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
         {
             throw new UnauthorizedException();
         }
-
-        if (_currentUserContext.Role == UserRole.Cliente)
-        {
-            throw new ClienteSemAcessoNegocioException();
-        }
     }
 
     private async Task<DateTime?> ObterProximaDataVencimentoAsync(

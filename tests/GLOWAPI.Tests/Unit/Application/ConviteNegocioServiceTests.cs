@@ -166,8 +166,8 @@ public class ConviteNegocioServiceTests
         Assert.NotNull(vinculoProfissional);
         Assert.Equal(70, vinculoProfissional!.ProfissionalId);
         Assert.True(vinculoProfissional.PodeReceberAgendamento);
-        Assert.Equal(UserRole.ProfissionalEstabelecimento, usuario.Role);
-        _usuarioRepository.Verify(r => r.Atualizar(usuario), Times.Once);
+        Assert.Equal(UserRole.Cliente, usuario.Role);
+        _usuarioRepository.Verify(r => r.Atualizar(usuario), Times.Never);
     }
 
     [Fact]
@@ -477,8 +477,8 @@ public class ConviteNegocioServiceTests
         Assert.Equal("Aceito", response.Status);
         Assert.NotNull(vinculoUsuario);
         Assert.Equal(EstablishmentUserRole.Manager, vinculoUsuario!.RoleNoEstabelecimento);
-        Assert.Equal(UserRole.DonoEstabelecimento, usuario.Role);
-        _usuarioRepository.Verify(r => r.Atualizar(usuario), Times.Once);
+        Assert.Equal(UserRole.Cliente, usuario.Role);
+        _usuarioRepository.Verify(r => r.Atualizar(usuario), Times.Never);
         _profissionalRepository.Verify(
             r => r.AdicionarAsync(It.IsAny<Profissional>(), It.IsAny<CancellationToken>()),
             Times.Never);

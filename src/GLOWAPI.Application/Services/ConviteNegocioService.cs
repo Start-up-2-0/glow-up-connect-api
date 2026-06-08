@@ -216,8 +216,6 @@ public class ConviteNegocioService : IConviteNegocioService
             await AuditarAsync(convite, TipoAcaoAuditoriaNegocio.ProfissionalConvidado, cancellationToken);
         }
 
-        await PromoverRoleGlobalSeNecessarioAsync(usuario, convite, cancellationToken);
-
         _conviteRepository.Atualizar(convite);
         await _conviteRepository.SalvarAlteracoesAsync(cancellationToken);
 
@@ -581,24 +579,6 @@ public class ConviteNegocioService : IConviteNegocioService
         {
             throw new ConviteNegocioInvalidoException("Convite pertence a outro destinatario.");
         }
-    }
-
-    private async Task PromoverRoleGlobalSeNecessarioAsync(
-        Usuario usuario,
-        ConviteNegocio convite,
-        CancellationToken cancellationToken)
-    {
-        if (usuario.Role != UserRole.Cliente)
-        {
-            return;
-        }
-
-        usuario.Role = convite.TipoConvite == TipoConviteNegocio.Profissional
-            ? UserRole.ProfissionalEstabelecimento
-            : UserRole.DonoEstabelecimento;
-        usuario.UpdatedAt = DateTime.UtcNow;
-        _usuarioRepository.Atualizar(usuario);
-        await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
     }
 
     private async Task ValidarUsuarioExistenteParaConviteAsync(
