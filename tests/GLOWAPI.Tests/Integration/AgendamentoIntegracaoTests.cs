@@ -46,6 +46,13 @@ public class AgendamentoIntegracaoTests : IClassFixture<GlowApiWebApplicationFac
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
         Assert.Equal("PendenteConfirmacao", body.GetProperty("data").GetProperty("status").GetString());
         Assert.True(body.GetProperty("data").GetProperty("valorTotal").GetDecimal() > 0);
+
+        var inicio = body.GetProperty("data").GetProperty("inicio").GetDateTime();
+        Assert.Equal(segunda.Year, inicio.Year);
+        Assert.Equal(segunda.Month, inicio.Month);
+        Assert.Equal(segunda.Day, inicio.Day);
+        Assert.Equal(10, inicio.Hour);
+        Assert.Equal(0, inicio.Minute);
     }
 
     [Fact]

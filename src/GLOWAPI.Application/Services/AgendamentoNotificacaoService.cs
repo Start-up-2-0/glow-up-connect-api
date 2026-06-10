@@ -36,7 +36,7 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             agendamento,
             cancellationToken);
 
-        var inicio = agendamento.Itens.OrderBy(item => item.Inicio).FirstOrDefault()?.Inicio;
+        var inicio = AgendamentoHorarioHelper.ObterInicio(agendamento);
         await EnfileirarClienteContatoAsync(
             agendamento,
             estabelecimento,
@@ -103,7 +103,7 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
         string linkResposta,
         CancellationToken cancellationToken = default)
     {
-        var inicioAtual = agendamento.Itens.OrderBy(item => item.Inicio).FirstOrDefault()?.Inicio;
+        var inicioAtual = AgendamentoHorarioHelper.ObterInicio(agendamento);
         var mensagem =
             $"A loja {estabelecimento.Nome} sugeriu um novo horario para seu agendamento: " +
             $"{proposta.DataSugerida:dd/MM/yyyy} as {proposta.HorarioInicioSugerido:HH:mm}. " +
@@ -223,7 +223,7 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
                     evento,
                     agendamentoId = agendamento.Id,
                     cliente = agendamento.ClienteNome ?? agendamento.UsuarioCliente?.Nome,
-                    inicio = agendamento.Itens.OrderBy(item => item.Inicio).FirstOrDefault()?.Inicio,
+                    inicio = AgendamentoHorarioHelper.ObterInicio(agendamento),
                     valorTotal = agendamento.ValorTotal
                 })
             }, cancellationToken);
@@ -312,7 +312,7 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             {
                 evento,
                 agendamentoId = agendamento.Id,
-                inicio = agendamento.Itens.OrderBy(item => item.Inicio).FirstOrDefault()?.Inicio
+                inicio = AgendamentoHorarioHelper.ObterInicio(agendamento)
             })
         }, cancellationToken);
     }
@@ -323,7 +323,7 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
         Profissional profissional)
     {
         var cliente = agendamento.ClienteNome ?? agendamento.UsuarioCliente?.Nome ?? "Cliente";
-        var inicio = agendamento.Itens.OrderBy(item => item.Inicio).FirstOrDefault()?.Inicio;
+        var inicio = AgendamentoHorarioHelper.ObterInicio(agendamento);
         var servicos = string.Join(", ", agendamento.Itens.Select(item => item.Servico?.Nome ?? "Servico"));
 
         return $"Novo agendamento em {estabelecimento.Nome} com {profissional.NomePublico}. Cliente: {cliente}. Data: {inicio:dd/MM/yyyy HH:mm}. Servicos: {servicos}. Valor: R$ {agendamento.ValorTotal:F2}.";
@@ -332,7 +332,7 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
     private static string MontarMensagemStatus(Agendamento agendamento, string acao)
     {
         var cliente = agendamento.ClienteNome ?? agendamento.UsuarioCliente?.Nome ?? "Cliente";
-        var inicio = agendamento.Itens.OrderBy(item => item.Inicio).FirstOrDefault()?.Inicio;
+        var inicio = AgendamentoHorarioHelper.ObterInicio(agendamento);
         return $"Agendamento {acao} para {cliente} em {inicio:dd/MM/yyyy HH:mm}. Valor: R$ {agendamento.ValorTotal:F2}.";
     }
 }

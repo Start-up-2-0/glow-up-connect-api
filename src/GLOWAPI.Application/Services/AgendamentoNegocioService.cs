@@ -1,6 +1,7 @@
 using System.Text.Json;
 using GLOWAPI.Application.DTOs.Agendamento;
 using GLOWAPI.Application.DTOs.Estabelecimentos;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Agendamento;
@@ -439,7 +440,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             throw new AgendamentoStatusInvalidoException("Somente agendamentos confirmados podem ser marcados como nao compareceu.");
         }
 
-        var inicio = agendamento.Itens.Min(item => item.Inicio);
+        var inicio = AgendamentoHorarioHelper.ObterInicio(agendamento);
         if (inicio > DateTime.UtcNow)
         {
             throw new AgendamentoStatusInvalidoException("Agendamento ainda nao iniciou.");
@@ -541,6 +542,8 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             Origem = origem,
             Status = AgendamentoStatus.PendenteConfirmacao,
             ValorTotal = preparacao.ValorTotal,
+            Inicio = preparacao.Inicio,
+            Fim = preparacao.Fim,
             Observacao = request.Observacao?.Trim() ?? string.Empty,
             CreateAd = DateTime.UtcNow
         };
@@ -862,6 +865,8 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         var statusAnterior = agendamento.Status;
         agendamento.Status = AgendamentoStatus.Remarcado;
         agendamento.ValorTotal = preparacao.ValorTotal;
+        agendamento.Inicio = preparacao.Inicio;
+        agendamento.Fim = preparacao.Fim;
         agendamento.UpdatedAt = DateTime.UtcNow;
 
         _agendamentoRepository.Atualizar(agendamento);

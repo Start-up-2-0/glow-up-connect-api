@@ -21,6 +21,8 @@ public class AgendamentoRepositoryTests
             Id = 1,
             EstabelecimentoId = 20,
             UsuarioClienteId = 10,
+            Inicio = new DateTime(2026, 5, 1, 10, 0, 0, DateTimeKind.Utc),
+            Fim = new DateTime(2026, 5, 10, 11, 0, 0, DateTimeKind.Utc),
             Itens =
             [
                 new AgendamentoItem

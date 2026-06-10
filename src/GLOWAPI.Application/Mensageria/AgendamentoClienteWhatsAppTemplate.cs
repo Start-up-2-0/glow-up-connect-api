@@ -1,3 +1,4 @@
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 
@@ -25,8 +26,11 @@ public static class AgendamentoClienteWhatsAppTemplate
         return $"Seu agendamento em {estabelecimento.Nome} foi remarcado para {inicio:dd/MM/yyyy HH:mm}. Servicos: {servicos}.";
     }
 
-    private static DateTime ObterInicio(Agendamento agendamento) =>
-        agendamento.Itens.OrderBy(item => item.Inicio).FirstOrDefault()?.Inicio ?? DateTime.UtcNow;
+    private static DateTime ObterInicio(Agendamento agendamento)
+    {
+        var inicio = AgendamentoHorarioHelper.ObterInicio(agendamento);
+        return inicio == default ? DateTime.UtcNow : inicio;
+    }
 
     private static string ObterServicos(Agendamento agendamento) =>
         string.Join(", ", agendamento.Itens.Select(item => item.Servico?.Nome ?? "Servico"));

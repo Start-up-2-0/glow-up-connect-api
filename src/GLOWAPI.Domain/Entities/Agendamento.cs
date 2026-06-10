@@ -10,6 +10,8 @@ public class Agendamento
     public AgendamentoStatus Status { get; set; } = AgendamentoStatus.PendenteConfirmacao;
     public OrigemAgendamento Origem { get; set; }
     public decimal ValorTotal { get; set; }
+    public DateTime Inicio { get; set; }
+    public DateTime Fim { get; set; }
     public string? ClienteNome { get; set; }
     public string? ClienteEmail { get; set; }
     public string? ClienteTelefone { get; set; }

@@ -9,7 +9,10 @@ public class AgendamentoConfiguration : IEntityTypeConfiguration<Agendamento>
 {
     public void Configure(EntityTypeBuilder<Agendamento> builder)
     {
-        builder.ToTable("Agendamentos");
+        builder.ToTable("Agendamentos", table =>
+        {
+            table.HasCheckConstraint("CK_Agendamentos_Horario", "\"Inicio\" < \"Fim\"");
+        });
 
         builder.HasKey(agendamento => agendamento.Id);
 
@@ -29,6 +32,12 @@ public class AgendamentoConfiguration : IEntityTypeConfiguration<Agendamento>
 
         builder.Property(agendamento => agendamento.ValorTotal)
             .HasPrecision(12, 2)
+            .IsRequired();
+
+        builder.Property(agendamento => agendamento.Inicio)
+            .IsRequired();
+
+        builder.Property(agendamento => agendamento.Fim)
             .IsRequired();
 
         builder.Property(agendamento => agendamento.ClienteNome)
@@ -63,5 +72,7 @@ public class AgendamentoConfiguration : IEntityTypeConfiguration<Agendamento>
         builder.HasIndex(agendamento => agendamento.UsuarioClienteId);
 
         builder.HasIndex(agendamento => agendamento.EstabelecimentoId);
+
+        builder.HasIndex(agendamento => agendamento.Inicio);
     }
 }

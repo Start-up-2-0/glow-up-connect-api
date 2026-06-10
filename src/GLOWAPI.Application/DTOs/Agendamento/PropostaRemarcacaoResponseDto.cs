@@ -1,3 +1,5 @@
+using GLOWAPI.Application.Helpers;
+
 namespace GLOWAPI.Application.DTOs.Agendamento;
 
 public class PropostaRemarcacaoResponseDto
@@ -19,7 +21,8 @@ public class PropostaRemarcacaoResponseDto
         Domain.Entities.Agendamento agendamento,
         Domain.Entities.Profissional? profissional)
     {
-        var inicioAtual = agendamento.Itens.OrderBy(item => item.Inicio).FirstOrDefault()?.Inicio;
+        var inicioAtualValor = AgendamentoHorarioHelper.ObterInicio(agendamento);
+        DateTime? inicioAtual = inicioAtualValor == default ? null : inicioAtualValor;
 
         return new PropostaRemarcacaoResponseDto
         {
