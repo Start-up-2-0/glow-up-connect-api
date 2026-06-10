@@ -310,15 +310,7 @@ public class AgendamentoValidador : IAgendamentoValidador
 
         if (horariosProfissional.Count == 0)
         {
-            var cabeNoFuncionamento = funcionamentos.Any(funcionamento =>
-                horaInicio >= funcionamento.HoraInicio && horaFim <= funcionamento.HoraFim);
-
-            if (!cabeNoFuncionamento)
-            {
-                throw new HorarioIndisponivelException("Horario fora do funcionamento do estabelecimento.");
-            }
-
-            return;
+            throw new HorarioIndisponivelException("Profissional nao atende neste dia.");
         }
 
         var cabeNaAgenda = false;
