@@ -7,5 +7,6 @@ public class CriarAgendamentoLogadoRequestDto
     public int[] ServicoIds { get; set; } = [];
     public DateOnly Data { get; set; }
     public TimeOnly HorarioInicio { get; set; }
+    public DateTime? InicioSelecionado { get; set; }
     public string? Observacao { get; set; }
 }

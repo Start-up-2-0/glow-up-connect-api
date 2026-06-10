@@ -53,6 +53,7 @@ public class AgendamentoValidador : IAgendamentoValidador
         CriarAgendamentoRequestDto? dadosVisitante,
         int? usuarioClienteId,
         int? agendamentoIgnorarId = null,
+        DateTime? inicioSelecionado = null,
         CancellationToken cancellationToken = default)
     {
         if (servicoIds.Length == 0)
@@ -172,7 +173,7 @@ public class AgendamentoValidador : IAgendamentoValidador
             }
         }
 
-        var inicio = data.ToDateTime(horarioInicio, DateTimeKind.Utc);
+        var inicio = AgendaDateTimeHelper.ResolverInicio(data, horarioInicio, inicioSelecionado);
         if (inicio < DateTime.UtcNow)
         {
             throw new HorarioIndisponivelException("Nao e possivel agendar horarios no passado.");

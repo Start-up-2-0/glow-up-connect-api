@@ -71,6 +71,7 @@ public class AgendamentoNegocioServiceTests
                 It.IsAny<CriarAgendamentoRequestDto>(),
                 null,
                 10,
+                It.IsAny<DateTime?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(preparacao);
 
@@ -96,6 +97,7 @@ public class AgendamentoNegocioServiceTests
                 It.IsAny<CriarAgendamentoRequestDto>(),
                 null,
                 10,
+                It.IsAny<DateTime?>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -136,6 +138,7 @@ public class AgendamentoNegocioServiceTests
                 It.IsAny<CriarAgendamentoRequestDto>(),
                 null,
                 It.IsAny<int?>(),
+                It.IsAny<DateTime?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(CriarPreparacao(estabelecimento, profissional));
 

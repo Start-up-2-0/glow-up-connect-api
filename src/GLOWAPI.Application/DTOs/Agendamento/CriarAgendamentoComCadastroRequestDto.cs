@@ -8,6 +8,7 @@ public class CriarAgendamentoComCadastroRequestDto
     public int[] ServicoIds { get; set; } = [];
     public DateOnly Data { get; set; }
     public TimeOnly HorarioInicio { get; set; }
+    public DateTime? InicioSelecionado { get; set; }
     public string? Observacao { get; set; }
     public CadastrarClienteDto Cadastro { get; set; } = new();
 }

@@ -124,6 +124,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             ServicoIds = request.ServicoIds,
             Data = request.Data,
             HorarioInicio = request.HorarioInicio,
+            InicioSelecionado = request.InicioSelecionado,
             Observacao = request.Observacao
         };
 
@@ -233,6 +234,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             ServicoIds = request.ServicoIds,
             Data = request.Data,
             HorarioInicio = request.HorarioInicio,
+            InicioSelecionado = request.InicioSelecionado,
             Observacao = request.Observacao
         };
 
@@ -520,6 +522,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             usuarioClienteId.HasValue ? null : request,
             usuarioClienteId,
             agendamentoIgnorarId: null,
+            inicioSelecionado: request.InicioSelecionado,
             cancellationToken);
 
         await _agendamentoValidador.ValidarConflitoAsync(
@@ -860,6 +863,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             dadosVisitante,
             agendamento.UsuarioClienteId,
             agendamentoIgnorarId: agendamento.Id,
+            inicioSelecionado: request.InicioSelecionado,
             cancellationToken);
 
         var statusAnterior = agendamento.Status;
