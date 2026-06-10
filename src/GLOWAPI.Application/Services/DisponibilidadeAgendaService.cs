@@ -426,9 +426,8 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
 
         if (horariosProfissional.Count == 0)
         {
-            return funcionamentos
-                .Select(funcionamento => (funcionamento.HoraInicio, funcionamento.HoraFim))
-                .ToList();
+            // Sem agenda do profissional neste dia da semana — não usar só o horário da loja.
+            return [];
         }
 
         var janelas = new List<(TimeOnly Inicio, TimeOnly Fim)>();

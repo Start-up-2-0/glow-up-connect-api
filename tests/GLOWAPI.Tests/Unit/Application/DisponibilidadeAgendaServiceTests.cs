@@ -97,6 +97,45 @@ public class DisponibilidadeAgendaServiceTests
     }
 
     [Fact]
+    public async Task ConsultarPorEstabelecimentoAsync_NaoDeveUsarHorarioDaLoja_QuandoProfissionalNaoAtendeNoDia()
+    {
+        var segunda = ObterProximaSegunda();
+        var terca = segunda.AddDays(1);
+        ConfigurarCenarioBasico(segunda);
+
+        _horarioFuncionamentoRepository
+            .Setup(r => r.ListarAtivosPorEstabelecimentoEDiaAsync(20, DayOfWeek.Tuesday, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([
+                new HorarioFuncionamentoEstabelecimento
+                {
+                    DiaSemana = DayOfWeek.Tuesday,
+                    HoraInicio = new TimeOnly(8, 0),
+                    HoraFim = new TimeOnly(18, 0),
+                    Ativo = true
+                }
+            ]);
+
+        _horarioAtendimentoRepository
+            .Setup(r => r.ListarPorEstabelecimentoAsync(20, 40, DayOfWeek.Tuesday, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var service = CreateService();
+        var response = await service.ConsultarPorEstabelecimentoAsync(
+            20,
+            new ConsultarDisponibilidadeAgendaDto
+            {
+                DataInicio = segunda,
+                DataFim = terca,
+                ServicoId = 5,
+                ProfissionalId = 40
+            });
+
+        Assert.Contains(segunda, response.DatasAtendimento);
+        Assert.DoesNotContain(terca, response.DatasAtendimento);
+        Assert.All(response.Slots, slot => Assert.Equal(DayOfWeek.Monday, DateOnly.FromDateTime(slot.Inicio).DayOfWeek));
+    }
+
+    [Fact]
     public async Task ConsultarPorEstabelecimentoAsync_DeveUsarDuracaoEfetivaDoVinculo()
     {
         var segunda = ObterProximaSegunda();
