@@ -85,6 +85,7 @@ public class ExceptionMiddleware
                     or AgendamentoDadosClienteInvalidosException
                     or AgendamentoStatusInvalidoException
                     or AgendamentoServicosInvalidosException
+                    or AgendaPeriodoConsultaInvalidoException
                     or EnderecoOperacaoInvalidoException
                     or LocalizacaoClienteInvalidaException => HttpStatusCode.BadRequest,
                 HorarioIndisponivelException => HttpStatusCode.Conflict,
