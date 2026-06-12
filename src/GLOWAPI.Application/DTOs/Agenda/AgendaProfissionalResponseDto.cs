@@ -13,7 +13,8 @@ public record AgendaProfissionalResponseDto(
     string ServicoNome,
     DateTime Inicio,
     DateTime Fim,
-    string Status)
+    string Status,
+    string AgendamentoStatus)
 {
     public static AgendaProfissionalResponseDto From(AgendamentoItem item) =>
         new(
@@ -27,5 +28,6 @@ public record AgendaProfissionalResponseDto(
             item.Servico?.Nome ?? string.Empty,
             item.Inicio,
             item.Fim,
-            item.Status.ToString());
+            item.Status.ToString(),
+            item.Agendamento?.Status.ToString() ?? string.Empty);
 }

@@ -11,16 +11,34 @@ namespace GLOWAPI.Tests.Unit.Application;
 public class AtendimentoProfissionalServiceTests
 {
     private readonly Mock<IAgendamentoItemRepository> _agendamentoItemRepository = new();
+    private readonly Mock<IAgendamentoHistoricoRepository> _agendamentoHistoricoRepository = new();
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
     private readonly Mock<IProfissionalEscopoAcessoService> _profissionalEscopoAcessoService = new();
+    private readonly Mock<ICurrentUserContext> _currentUserContext = new();
 
     public AtendimentoProfissionalServiceTests()
     {
+        _currentUserContext.SetupGet(c => c.IsAuthenticated).Returns(true);
+        _currentUserContext.SetupGet(c => c.UserId).Returns(10);
+
         _autorizacaoNegocioService
             .Setup(s => s.AutorizarAsync(
                 20,
                 It.IsAny<PermissaoNegocio>(),
                 It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GLOWAPI.Application.Models.Autorizacao.AutorizacaoNegocioResultado(
+                20,
+                10,
+                EstablishmentUserRole.Profissional,
+                true,
+                new HashSet<PermissaoNegocio>
+                {
+                    PermissaoNegocio.AtendimentoIniciar,
+                    PermissaoNegocio.AtendimentoFinalizar
+                }));
+
+        _autorizacaoNegocioService
+            .Setup(s => s.ObterContextoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new GLOWAPI.Application.Models.Autorizacao.AutorizacaoNegocioResultado(
                 20,
                 10,
@@ -44,6 +62,10 @@ public class AtendimentoProfissionalServiceTests
         _agendamentoItemRepository
             .Setup(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
+
+        _agendamentoHistoricoRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<AgendamentoHistorico>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
     }
 
     [Fact]
@@ -63,13 +85,46 @@ public class AtendimentoProfissionalServiceTests
         Assert.NotNull(item.UpdatedAt);
         Assert.Equal("EmAtendimento", response.StatusItem);
         _agendamentoItemRepository.Verify(r => r.Atualizar(item), Times.Once);
-        _agendamentoItemRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _agendamentoHistoricoRepository.Verify(
+            r => r.AdicionarAsync(It.IsAny<AgendamentoHistorico>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
     public async Task IniciarAsync_DeveLancarExcecao_QuandoStatusNaoForConfirmado()
     {
         var item = CriarItem(AgendamentoItemStatus.Pendente);
+        _agendamentoItemRepository
+            .Setup(r => r.ObterPorIdComAgendamentoAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(item);
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<AtendimentoStatusInvalidoException>(() =>
+            service.IniciarAsync(20, 100));
+    }
+
+    [Fact]
+    public async Task IniciarAsync_DeveLancarExcecao_QuandoHorarioAindaNaoChegou()
+    {
+        var item = CriarItem(AgendamentoItemStatus.Confirmado);
+        item.Inicio = DateTime.UtcNow.AddHours(2);
+        item.Fim = DateTime.UtcNow.AddHours(3);
+        _agendamentoItemRepository
+            .Setup(r => r.ObterPorIdComAgendamentoAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(item);
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<AtendimentoStatusInvalidoException>(() =>
+            service.IniciarAsync(20, 100));
+    }
+
+    [Fact]
+    public async Task IniciarAsync_DeveLancarExcecao_QuandoAgendamentoCancelado()
+    {
+        var item = CriarItem(AgendamentoItemStatus.Confirmado);
+        item.Agendamento!.Status = AgendamentoStatus.Cancelado;
         _agendamentoItemRepository
             .Setup(r => r.ObterPorIdComAgendamentoAsync(100, It.IsAny<CancellationToken>()))
             .ReturnsAsync(item);
@@ -98,10 +153,41 @@ public class AtendimentoProfissionalServiceTests
     }
 
     [Fact]
+    public async Task IniciarAsync_DevePermitirLojaSemEscopoProfissional()
+    {
+        _autorizacaoNegocioService
+            .Setup(s => s.ObterContextoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GLOWAPI.Application.Models.Autorizacao.AutorizacaoNegocioResultado(
+                20,
+                10,
+                EstablishmentUserRole.Owner,
+                false,
+                new HashSet<PermissaoNegocio>
+                {
+                    PermissaoNegocio.AgendaVisualizarGeral,
+                    PermissaoNegocio.AtendimentoIniciar
+                }));
+
+        var item = CriarItem(AgendamentoItemStatus.Confirmado);
+        _agendamentoItemRepository
+            .Setup(r => r.ObterPorIdComAgendamentoAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(item);
+
+        var service = CreateService();
+
+        await service.IniciarAsync(20, 100);
+
+        _profissionalEscopoAcessoService.Verify(
+            s => s.AutorizarAgendamentoItemAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task FinalizarAsync_DeveConcluirAgendamento_QuandoTodosItensConcluidos()
     {
         var item = CriarItem(AgendamentoItemStatus.EmAtendimento);
-        item.Agendamento!.Itens.Add(new AgendamentoItem
+        item.Agendamento!.Status = AgendamentoStatus.EmAtendimento;
+        item.Agendamento.Itens.Add(new AgendamentoItem
         {
             Id = 101,
             AgendamentoId = item.AgendamentoId,
@@ -120,13 +206,17 @@ public class AtendimentoProfissionalServiceTests
         Assert.Equal(AgendamentoStatus.Concluido, item.Agendamento.Status);
         Assert.Equal("Concluido", response.StatusItem);
         Assert.Equal("Concluido", response.StatusAgendamento);
+        _agendamentoHistoricoRepository.Verify(
+            r => r.AdicionarAsync(It.IsAny<AgendamentoHistorico>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
     public async Task FinalizarAsync_DeveManterAgendamentoEmAtendimento_QuandoAindaHaItensNaoConcluidos()
     {
         var item = CriarItem(AgendamentoItemStatus.EmAtendimento);
-        item.Agendamento!.Itens.Add(new AgendamentoItem
+        item.Agendamento!.Status = AgendamentoStatus.EmAtendimento;
+        item.Agendamento.Itens.Add(new AgendamentoItem
         {
             Id = 101,
             AgendamentoId = item.AgendamentoId,
@@ -194,18 +284,23 @@ public class AtendimentoProfissionalServiceTests
 
     private static AgendamentoItem CriarItem(AgendamentoItemStatus status)
     {
+        var agora = DateTime.UtcNow;
         var item = new AgendamentoItem
         {
             Id = 100,
             AgendamentoId = 50,
             ProfissionalId = 70,
             Status = status,
+            Inicio = agora.AddMinutes(-10),
+            Fim = agora.AddMinutes(50),
             Agendamento = new Agendamento
             {
                 Id = 50,
                 EstabelecimentoId = 20,
                 UsuarioClienteId = 200,
-                Status = AgendamentoStatus.Confirmado
+                Status = status == AgendamentoItemStatus.EmAtendimento
+                    ? AgendamentoStatus.EmAtendimento
+                    : AgendamentoStatus.Confirmado
             }
         };
 
@@ -216,6 +311,8 @@ public class AtendimentoProfissionalServiceTests
     private AtendimentoProfissionalService CreateService() =>
         new(
             _agendamentoItemRepository.Object,
+            _agendamentoHistoricoRepository.Object,
             _autorizacaoNegocioService.Object,
-            _profissionalEscopoAcessoService.Object);
+            _profissionalEscopoAcessoService.Object,
+            _currentUserContext.Object);
 }

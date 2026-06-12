@@ -21,6 +21,8 @@ public class MatrizPermissaoNegocioService : IMatrizPermissaoNegocioService
         PermissaoNegocio.AgendaCriar,
         PermissaoNegocio.AgendaReagendar,
         PermissaoNegocio.AgendaCancelar,
+        PermissaoNegocio.AtendimentoIniciar,
+        PermissaoNegocio.AtendimentoFinalizar,
         PermissaoNegocio.ClienteVisualizarGeral,
         PermissaoNegocio.CaixaVisualizar,
         PermissaoNegocio.CaixaGerenciar
@@ -40,6 +42,8 @@ public class MatrizPermissaoNegocioService : IMatrizPermissaoNegocioService
         PermissaoNegocio.AgendaCriar,
         PermissaoNegocio.AgendaReagendar,
         PermissaoNegocio.AgendaCancelar,
+        PermissaoNegocio.AtendimentoIniciar,
+        PermissaoNegocio.AtendimentoFinalizar,
         PermissaoNegocio.ClienteVisualizarGeral
     };
 
@@ -52,6 +56,8 @@ public class MatrizPermissaoNegocioService : IMatrizPermissaoNegocioService
         PermissaoNegocio.AgendaCriar,
         PermissaoNegocio.AgendaReagendar,
         PermissaoNegocio.AgendaCancelar,
+        PermissaoNegocio.AtendimentoIniciar,
+        PermissaoNegocio.AtendimentoFinalizar,
         PermissaoNegocio.ClienteVisualizarGeral
     };
 
