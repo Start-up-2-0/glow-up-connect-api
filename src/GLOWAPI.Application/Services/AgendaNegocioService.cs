@@ -36,7 +36,10 @@ public class AgendaNegocioService : IAgendaNegocioService
             PermissaoNegocio.AgendaVisualizarGeral,
             cancellationToken);
 
-        var (inicio, fim) = AgendaPeriodoConsulta.ResolverIntervaloMesAtualUtc(filtro.Inicio, filtro.Fim);
+        var (inicio, fim) = AgendaPeriodoConsulta.ResolverIntervaloMesAtualUtc(
+            filtro.Inicio,
+            filtro.Fim,
+            filtro.IntervaloPersonalizado);
         var (pagina, tamanhoPagina) = AgendaPeriodoConsulta.ResolverPaginacao(filtro.Pagina, filtro.TamanhoPagina);
 
         var (agendamentos, total) = await _agendamentoRepository.ListarAgendaGeralAsync(
@@ -73,7 +76,10 @@ public class AgendaNegocioService : IAgendaNegocioService
             estabelecimentoId,
             cancellationToken);
 
-        var (inicio, fim) = AgendaPeriodoConsulta.ResolverIntervaloMesAtualUtc(filtro.Inicio, filtro.Fim);
+        var (inicio, fim) = AgendaPeriodoConsulta.ResolverIntervaloMesAtualUtc(
+            filtro.Inicio,
+            filtro.Fim,
+            filtro.IntervaloPersonalizado);
         var (pagina, tamanhoPagina) = AgendaPeriodoConsulta.ResolverPaginacao(filtro.Pagina, filtro.TamanhoPagina);
 
         var (itens, total) = await _agendamentoItemRepository.ListarAgendaProfissionalAsync(

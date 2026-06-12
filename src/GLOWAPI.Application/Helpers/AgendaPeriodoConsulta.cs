@@ -12,10 +12,7 @@ public static class AgendaPeriodoConsulta
         var fimDate = ParaDataCalendario(fim);
         var hoje = ParaDataCalendario(referenciaUtc ?? DateTime.UtcNow);
 
-        if (fimDate < inicioDate)
-        {
-            throw new AgendaPeriodoConsultaInvalidoException("A data final nao pode ser anterior a data inicial.");
-        }
+        ValidarOrdemIntervalo(inicioDate, fimDate);
 
         if (fimDate > hoje)
         {
@@ -28,11 +25,22 @@ public static class AgendaPeriodoConsulta
         }
     }
 
-    public static (DateTime Inicio, DateTime Fim) ResolverIntervaloMesAtualUtc(DateTime? inicio, DateTime? fim)
+    public static (DateTime Inicio, DateTime Fim) ResolverIntervaloMesAtualUtc(
+        DateTime? inicio,
+        DateTime? fim,
+        bool intervaloPersonalizado = false)
     {
         if (inicio.HasValue && fim.HasValue)
         {
-            ValidarIntervaloPersonalizado(inicio.Value, fim.Value);
+            if (intervaloPersonalizado)
+            {
+                ValidarIntervaloPersonalizado(inicio.Value, fim.Value);
+            }
+            else
+            {
+                ValidarOrdemIntervalo(ParaDataCalendario(inicio.Value), ParaDataCalendario(fim.Value));
+            }
+
             return (inicio.Value, fim.Value);
         }
 
@@ -44,6 +52,14 @@ public static class AgendaPeriodoConsulta
 
     public static (int Pagina, int TamanhoPagina) ResolverPaginacao(int pagina, int tamanhoPagina) =>
         (Math.Max(1, pagina), Math.Clamp(tamanhoPagina, 1, 50));
+
+    private static void ValidarOrdemIntervalo(DateOnly inicioDate, DateOnly fimDate)
+    {
+        if (fimDate < inicioDate)
+        {
+            throw new AgendaPeriodoConsultaInvalidoException("A data final nao pode ser anterior a data inicial.");
+        }
+    }
 
     private static DateOnly ParaDataCalendario(DateTime value) =>
         new(value.Year, value.Month, value.Day);

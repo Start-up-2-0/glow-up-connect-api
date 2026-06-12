@@ -52,12 +52,24 @@ public class AgendaPeriodoConsultaTests
     }
 
     [Fact]
-    public void ResolverIntervaloMesAtualUtc_DeveValidarQuandoAmbasDatasInformadas()
+    public void ResolverIntervaloMesAtualUtc_DeveValidarQuandoIntervaloPersonalizado()
     {
         var inicio = new DateTime(2024, 2, 12, 0, 0, 0, DateTimeKind.Utc);
         var fim = new DateTime(2025, 2, 11, 23, 59, 59, DateTimeKind.Utc);
 
         Assert.Throws<AgendaPeriodoConsultaInvalidoException>(() =>
-            AgendaPeriodoConsulta.ResolverIntervaloMesAtualUtc(inicio, fim));
+            AgendaPeriodoConsulta.ResolverIntervaloMesAtualUtc(inicio, fim, intervaloPersonalizado: true));
+    }
+
+    [Fact]
+    public void ResolverIntervaloMesAtualUtc_DeveAceitarMesCompletoSemIntervaloPersonalizado()
+    {
+        var inicio = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc);
+        var fim = new DateTime(2026, 6, 30, 23, 59, 59, DateTimeKind.Utc);
+
+        var (inicioResolvido, fimResolvido) = AgendaPeriodoConsulta.ResolverIntervaloMesAtualUtc(inicio, fim);
+
+        Assert.Equal(inicio, inicioResolvido);
+        Assert.Equal(fim, fimResolvido);
     }
 }

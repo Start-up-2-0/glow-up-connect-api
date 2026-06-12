@@ -756,7 +756,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             }
         }
 
-        if (filtroDto.DataInicio.HasValue && filtroDto.DataFim.HasValue)
+        if (filtroDto.DataInicio.HasValue && filtroDto.DataFim.HasValue && filtroDto.IntervaloPersonalizado)
         {
             AgendaPeriodoConsulta.ValidarIntervaloPersonalizado(
                 filtroDto.DataInicio.Value,
