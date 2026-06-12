@@ -6,7 +6,7 @@ namespace GLOWAPI.Application.Interfaces.Repositories;
 
 public interface IAgendamentoItemRepository : IRepository<AgendamentoItem>
 {
-    Task<IReadOnlyList<AgendamentoItem>> ListarAgendaProfissionalAsync(
+    Task<(IReadOnlyList<AgendamentoItem> Itens, int Total)> ListarAgendaProfissionalAsync(
         AgendaProfissionalFiltro filtro,
         CancellationToken cancellationToken = default);
 

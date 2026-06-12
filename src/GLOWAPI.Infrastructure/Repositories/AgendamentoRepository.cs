@@ -1,3 +1,4 @@
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Models.Agenda;
 using GLOWAPI.Application.Models.Agendamento;
@@ -12,10 +13,13 @@ public class AgendamentoRepository : Repository<Agendamento>, IAgendamentoReposi
     {
     }
 
-    public async Task<IReadOnlyList<Agendamento>> ListarAgendaGeralAsync(
+    public async Task<(IReadOnlyList<Agendamento> Itens, int Total)> ListarAgendaGeralAsync(
         AgendaGeralFiltro filtro,
         CancellationToken cancellationToken = default)
     {
+        var (inicio, fim) = AgendaPeriodoConsulta.ResolverIntervaloMesAtualUtc(filtro.Inicio, filtro.Fim);
+        var (pagina, tamanhoPagina) = AgendaPeriodoConsulta.ResolverPaginacao(filtro.Pagina, filtro.TamanhoPagina);
+
         var query = DbSet
             .AsNoTracking()
             .Include(agendamento => agendamento.UsuarioCliente)
@@ -35,18 +39,21 @@ public class AgendamentoRepository : Repository<Agendamento>, IAgendamentoReposi
             query = query.Where(agendamento => agendamento.Status == filtro.Status.Value);
         }
 
-        if (filtro.ProfissionalId.HasValue || filtro.Inicio.HasValue || filtro.Fim.HasValue)
-        {
-            query = query.Where(agendamento => agendamento.Itens.Any(item =>
-                (!filtro.ProfissionalId.HasValue || item.ProfissionalId == filtro.ProfissionalId.Value)
-                && (!filtro.Inicio.HasValue || item.Inicio >= filtro.Inicio.Value)
-                && (!filtro.Fim.HasValue || item.Inicio < filtro.Fim.Value)));
-        }
+        query = query.Where(agendamento => agendamento.Itens.Any(item =>
+            (!filtro.ProfissionalId.HasValue || item.ProfissionalId == filtro.ProfissionalId.Value)
+            && item.Inicio >= inicio
+            && item.Inicio < fim));
 
-        return await query
-            .OrderBy(agendamento => agendamento.Itens.Min(item => item.Inicio))
-            .ThenBy(agendamento => agendamento.Id)
+        var total = await query.CountAsync(cancellationToken);
+        var skip = (pagina - 1) * tamanhoPagina;
+
+        var itens = await AgendaOrdenacaoConsulta
+            .AplicarOrdenacaoAgendamentos(query, filtro.Ordenacao)
+            .Skip(skip)
+            .Take(tamanhoPagina)
             .ToListAsync(cancellationToken);
+
+        return (itens, total);
     }
 
     public Task<Agendamento?> ObterPorIdEEstabelecimentoComItensAsync(
@@ -137,13 +144,10 @@ public class AgendamentoRepository : Repository<Agendamento>, IAgendamentoReposi
 
         var total = await query.CountAsync(cancellationToken);
 
-        query = filtro.OrdenarPorProximos
-            ? query.OrderBy(agendamento => agendamento.Itens.Min(item => item.Inicio))
-            : query.OrderByDescending(agendamento => agendamento.CreateAd);
-
-        var pagina = Math.Max(1, filtro.Pagina);
-        var tamanhoPagina = Math.Clamp(filtro.TamanhoPagina, 1, 50);
+        var (pagina, tamanhoPagina) = AgendaPeriodoConsulta.ResolverPaginacao(filtro.Pagina, filtro.TamanhoPagina);
         var skip = (pagina - 1) * tamanhoPagina;
+
+        query = AgendaOrdenacaoConsulta.AplicarOrdenacaoAgendamentos(query, filtro.Ordenacao);
 
         var itens = await query
             .Skip(skip)

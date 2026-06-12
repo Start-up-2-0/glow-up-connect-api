@@ -48,14 +48,18 @@ public class AgendamentoRepositoryTests
 
         var repository = new AgendamentoRepository(context);
 
-        var resultado = await repository.ListarAgendaGeralAsync(new AgendaGeralFiltro(
+        var (resultado, total) = await repository.ListarAgendaGeralAsync(new AgendaGeralFiltro(
             EstabelecimentoId: 20,
             ProfissionalId: null,
             ClienteId: null,
             Status: null,
             Inicio: new DateTime(2026, 5, 5, 0, 0, 0, DateTimeKind.Utc),
-            Fim: new DateTime(2026, 5, 6, 0, 0, 0, DateTimeKind.Utc)));
+            Fim: new DateTime(2026, 5, 6, 0, 0, 0, DateTimeKind.Utc),
+            Pagina: 1,
+            TamanhoPagina: 12,
+            Ordenacao: "atendimento_desc"));
 
         Assert.Empty(resultado);
+        Assert.Equal(0, total);
     }
 }

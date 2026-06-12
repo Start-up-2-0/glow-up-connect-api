@@ -1,4 +1,5 @@
 using GLOWAPI.Application.DTOs.Agenda;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Agenda;
@@ -56,7 +57,7 @@ public class AgendaNegocioServiceTests
     {
         _agendamentoRepository
             .Setup(r => r.ListarAgendaGeralAsync(It.IsAny<AgendaGeralFiltro>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([
+            .ReturnsAsync(([
                 new Agendamento
                 {
                     Id = 100,
@@ -65,6 +66,8 @@ public class AgendaNegocioServiceTests
                     UsuarioCliente = new Usuario { Id = 200, Nome = "Cliente Teste" },
                     Status = AgendamentoStatus.Confirmado,
                     ValorTotal = 120,
+                    Inicio = new DateTime(2026, 5, 29, 10, 0, 0, DateTimeKind.Utc),
+                    Fim = new DateTime(2026, 5, 29, 11, 0, 0, DateTimeKind.Utc),
                     Observacao = "obs",
                     Itens =
                     [
@@ -82,19 +85,20 @@ public class AgendaNegocioServiceTests
                         }
                     ]
                 }
-            ]);
+            ], 1));
 
         var service = CreateService();
 
         var response = await service.ListarAgendaGeralAsync(20, new AgendaGeralFiltroDto());
 
-        Assert.Single(response);
-        Assert.Equal(100, response[0].Id);
-        Assert.Equal("Cliente Teste", response[0].ClienteNome);
-        Assert.Equal("Confirmado", response[0].Status);
-        Assert.Single(response[0].Itens);
-        Assert.Equal("Corte", response[0].Itens[0].ServicoNome);
-        Assert.Equal("Maria", response[0].Itens[0].ProfissionalNome);
+        Assert.Equal(1, response.Total);
+        Assert.Single(response.Itens);
+        Assert.Equal(100, response.Itens[0].Id);
+        Assert.Equal("Cliente Teste", response.Itens[0].ClienteNome);
+        Assert.Equal("Confirmado", response.Itens[0].Status);
+        Assert.Single(response.Itens[0].Itens);
+        Assert.Equal("Corte", response.Itens[0].Itens[0].ServicoNome);
+        Assert.Equal("Maria", response.Itens[0].Itens[0].ProfissionalNome);
     }
 
     [Fact]
@@ -107,7 +111,7 @@ public class AgendaNegocioServiceTests
         _agendamentoRepository
             .Setup(r => r.ListarAgendaGeralAsync(It.IsAny<AgendaGeralFiltro>(), It.IsAny<CancellationToken>()))
             .Callback<AgendaGeralFiltro, CancellationToken>((filtro, _) => filtroCapturado = filtro)
-            .ReturnsAsync([]);
+            .ReturnsAsync(([], 0));
 
         var service = CreateService();
 
@@ -117,7 +121,10 @@ public class AgendaNegocioServiceTests
             ClienteId = 30,
             Status = AgendamentoStatus.Confirmado,
             Inicio = inicio,
-            Fim = fim
+            Fim = fim,
+            Pagina = 2,
+            TamanhoPagina = 8,
+            Ordenacao = AgendaOrdenacaoConsulta.CriacaoAsc
         });
 
         Assert.NotNull(filtroCapturado);
@@ -127,6 +134,9 @@ public class AgendaNegocioServiceTests
         Assert.Equal(AgendamentoStatus.Confirmado, filtroCapturado.Status);
         Assert.Equal(inicio, filtroCapturado.Inicio);
         Assert.Equal(fim, filtroCapturado.Fim);
+        Assert.Equal(2, filtroCapturado.Pagina);
+        Assert.Equal(8, filtroCapturado.TamanhoPagina);
+        Assert.Equal(AgendaOrdenacaoConsulta.CriacaoAsc, filtroCapturado.Ordenacao);
     }
 
     [Fact]
@@ -154,7 +164,7 @@ public class AgendaNegocioServiceTests
     {
         _agendamentoItemRepository
             .Setup(r => r.ListarAgendaProfissionalAsync(It.IsAny<AgendaProfissionalFiltro>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([
+            .ReturnsAsync(([
                 new AgendamentoItem
                 {
                     Id = 300,
@@ -174,19 +184,20 @@ public class AgendaNegocioServiceTests
                     Valor = 999,
                     Status = AgendamentoItemStatus.Confirmado
                 }
-            ]);
+            ], 1));
 
         var service = CreateService();
 
         var response = await service.ListarAgendaProfissionalAsync(20, new AgendaProfissionalFiltroDto());
 
-        Assert.Single(response);
-        Assert.Equal(300, response[0].AgendamentoItemId);
-        Assert.Equal(100, response[0].AgendamentoId);
-        Assert.Equal(200, response[0].UsuarioClienteId);
-        Assert.Equal("Cliente Teste", response[0].ClienteNome);
-        Assert.Equal("Corte", response[0].ServicoNome);
-        Assert.Equal("Confirmado", response[0].Status);
+        Assert.Equal(1, response.Total);
+        Assert.Single(response.Itens);
+        Assert.Equal(300, response.Itens[0].AgendamentoItemId);
+        Assert.Equal(100, response.Itens[0].AgendamentoId);
+        Assert.Equal(200, response.Itens[0].UsuarioClienteId);
+        Assert.Equal("Cliente Teste", response.Itens[0].ClienteNome);
+        Assert.Equal("Corte", response.Itens[0].ServicoNome);
+        Assert.Equal("Confirmado", response.Itens[0].Status);
     }
 
     [Fact]
@@ -199,23 +210,29 @@ public class AgendaNegocioServiceTests
         _agendamentoItemRepository
             .Setup(r => r.ListarAgendaProfissionalAsync(It.IsAny<AgendaProfissionalFiltro>(), It.IsAny<CancellationToken>()))
             .Callback<AgendaProfissionalFiltro, CancellationToken>((filtro, _) => filtroCapturado = filtro)
-            .ReturnsAsync([]);
+            .ReturnsAsync(([], 0));
 
         var service = CreateService();
 
         await service.ListarAgendaProfissionalAsync(20, new AgendaProfissionalFiltroDto
         {
-            Status = AgendamentoItemStatus.Confirmado,
+            Status = AgendamentoStatus.Confirmado,
             Inicio = inicio,
-            Fim = fim
+            Fim = fim,
+            Pagina = 3,
+            TamanhoPagina = 6,
+            Ordenacao = AgendaOrdenacaoConsulta.AtendimentoAsc
         });
 
         Assert.NotNull(filtroCapturado);
         Assert.Equal(20, filtroCapturado!.EstabelecimentoId);
         Assert.Equal(70, filtroCapturado.ProfissionalId);
-        Assert.Equal(AgendamentoItemStatus.Confirmado, filtroCapturado.Status);
+        Assert.Equal(AgendamentoStatus.Confirmado, filtroCapturado.Status);
         Assert.Equal(inicio, filtroCapturado.Inicio);
         Assert.Equal(fim, filtroCapturado.Fim);
+        Assert.Equal(3, filtroCapturado.Pagina);
+        Assert.Equal(6, filtroCapturado.TamanhoPagina);
+        Assert.Equal(AgendaOrdenacaoConsulta.AtendimentoAsc, filtroCapturado.Ordenacao);
     }
 
     [Fact]

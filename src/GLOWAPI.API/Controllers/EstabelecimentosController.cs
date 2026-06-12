@@ -341,7 +341,7 @@ public class EstabelecimentosController : ControllerBase
             filtro,
             cancellationToken);
 
-        return Ok(ApiSuccessResponse<IReadOnlyList<AgendaGeralResponseDto>>.From(
+        return Ok(ApiSuccessResponse<AgendaPaginadaResponseDto<AgendaGeralResponseDto>>.From(
             "Agenda geral listada com sucesso.",
             agenda));
     }
@@ -359,7 +359,7 @@ public class EstabelecimentosController : ControllerBase
             filtro,
             cancellationToken);
 
-        return Ok(ApiSuccessResponse<IReadOnlyList<AgendaProfissionalResponseDto>>.From(
+        return Ok(ApiSuccessResponse<AgendaPaginadaResponseDto<AgendaProfissionalResponseDto>>.From(
             "Agenda do profissional listada com sucesso.",
             agenda));
     }

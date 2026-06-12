@@ -756,18 +756,15 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             }
         }
 
-        var ordenacao = filtroDto.Ordenacao?.Trim().ToLowerInvariant();
-        var ordenarPorProximos = ordenacao != "recentes";
-
-        return new AgendamentoClienteFiltro(
+        return AgendamentoClienteFiltro.Criar(
             userId,
             filtroDto.Status,
             filtroDto.DataInicio,
             filtroDto.DataFim,
             estabelecimentoId,
-            Math.Max(1, filtroDto.Pagina),
-            Math.Clamp(filtroDto.TamanhoPagina, 1, 50),
-            ordenarPorProximos);
+            filtroDto.Pagina,
+            filtroDto.TamanhoPagina,
+            filtroDto.Ordenacao);
     }
 
     private async Task ExecutarCancelamentoAsync(

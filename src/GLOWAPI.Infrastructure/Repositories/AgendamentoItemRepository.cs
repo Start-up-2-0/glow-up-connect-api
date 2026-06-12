@@ -1,4 +1,5 @@
 using GLOWAPI.Application.DTOs.Horarios;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Models.Agenda;
 using GLOWAPI.Domain.Entities;
@@ -13,10 +14,13 @@ public class AgendamentoItemRepository : Repository<AgendamentoItem>, IAgendamen
     {
     }
 
-    public async Task<IReadOnlyList<AgendamentoItem>> ListarAgendaProfissionalAsync(
+    public async Task<(IReadOnlyList<AgendamentoItem> Itens, int Total)> ListarAgendaProfissionalAsync(
         AgendaProfissionalFiltro filtro,
         CancellationToken cancellationToken = default)
     {
+        var (inicio, fim) = AgendaPeriodoConsulta.ResolverIntervaloMesAtualUtc(filtro.Inicio, filtro.Fim);
+        var (pagina, tamanhoPagina) = AgendaPeriodoConsulta.ResolverPaginacao(filtro.Pagina, filtro.TamanhoPagina);
+
         var query = DbSet
             .AsNoTracking()
             .Include(item => item.Servico)
@@ -28,23 +32,21 @@ public class AgendamentoItemRepository : Repository<AgendamentoItem>, IAgendamen
 
         if (filtro.Status.HasValue)
         {
-            query = query.Where(item => item.Status == filtro.Status.Value);
+            query = query.Where(item => item.Agendamento!.Status == filtro.Status.Value);
         }
 
-        if (filtro.Inicio.HasValue)
-        {
-            query = query.Where(item => item.Inicio >= filtro.Inicio.Value);
-        }
+        query = query.Where(item => item.Inicio >= inicio && item.Inicio < fim);
 
-        if (filtro.Fim.HasValue)
-        {
-            query = query.Where(item => item.Inicio < filtro.Fim.Value);
-        }
+        var total = await query.CountAsync(cancellationToken);
+        var skip = (pagina - 1) * tamanhoPagina;
 
-        return await query
-            .OrderBy(item => item.Inicio)
-            .ThenBy(item => item.Id)
+        var itens = await AgendaOrdenacaoConsulta
+            .AplicarOrdenacaoItens(query, filtro.Ordenacao)
+            .Skip(skip)
+            .Take(tamanhoPagina)
             .ToListAsync(cancellationToken);
+
+        return (itens, total);
     }
 
     public Task<AgendamentoItem?> ObterPorIdComAgendamentoAsync(

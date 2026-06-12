@@ -10,5 +10,5 @@ public class AgendamentoClienteFiltroDto
     public Guid? EstabelecimentoPublicGuid { get; set; }
     public int Pagina { get; set; } = 1;
     public int TamanhoPagina { get; set; } = 20;
-    public string Ordenacao { get; set; } = "proximos";
+    public string Ordenacao { get; set; } = "atendimento_desc";
 }
