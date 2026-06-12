@@ -187,15 +187,9 @@ public class AtendimentoProfissionalService : IAtendimentoProfissionalService
             throw new AtendimentoStatusInvalidoException("Agendamento nao pode ser iniciado no status atual.");
         }
 
-        var agora = DateTime.UtcNow;
-        if (agora < item.Inicio)
+        if (DateTime.UtcNow < item.Inicio)
         {
             throw new AtendimentoStatusInvalidoException("O horario do atendimento ainda nao chegou.");
-        }
-
-        if (agora > item.Fim)
-        {
-            throw new AtendimentoStatusInvalidoException("O horario do atendimento ja encerrou.");
         }
     }
 

@@ -121,6 +121,24 @@ public class AtendimentoProfissionalServiceTests
     }
 
     [Fact]
+    public async Task IniciarAsync_DevePermitirInicio_AposHorarioFimDoSlot()
+    {
+        var item = CriarItem(AgendamentoItemStatus.Confirmado);
+        item.Inicio = DateTime.UtcNow.AddHours(-5);
+        item.Fim = DateTime.UtcNow.AddHours(-4);
+        _agendamentoItemRepository
+            .Setup(r => r.ObterPorIdComAgendamentoAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(item);
+
+        var service = CreateService();
+
+        var response = await service.IniciarAsync(20, 100);
+
+        Assert.Equal(AgendamentoItemStatus.EmAtendimento, item.Status);
+        Assert.Equal("EmAtendimento", response.StatusItem);
+    }
+
+    [Fact]
     public async Task IniciarAsync_DeveLancarExcecao_QuandoAgendamentoCancelado()
     {
         var item = CriarItem(AgendamentoItemStatus.Confirmado);
