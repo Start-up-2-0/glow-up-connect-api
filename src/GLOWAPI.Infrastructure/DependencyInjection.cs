@@ -3,6 +3,7 @@ using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Infrastructure.Database;
 using GLOWAPI.Infrastructure.Geolocalizacao;
+using GLOWAPI.Infrastructure.Mensageria;
 using GLOWAPI.Infrastructure.Mensageria.Provedores;
 using GLOWAPI.Infrastructure.Pagamentos;
 using GLOWAPI.Infrastructure.Repositories;
@@ -88,6 +89,8 @@ public static class DependencyInjection
         services.AddTransient<IResend, ResendClient>();
         services.Configure<MensageriaWhatsAppOptions>(configuration.GetSection(MensageriaWhatsAppOptions.SectionName));
         services.AddHttpClient<ProvedorMensagemWhatsApp>();
+        services.AddHttpClient<WhatsAppEnvioImediatoService>();
+        services.AddScoped<IWhatsAppEnvioImediatoService, WhatsAppEnvioImediatoService>();
         services.AddScoped<IProvedorMensagem, ProvedorMensagemEmail>();
         services.AddScoped<IProvedorMensagem>(sp => sp.GetRequiredService<ProvedorMensagemWhatsApp>());
         services.AddScoped<IProvedorMensagem, ProvedorMensagemSms>();

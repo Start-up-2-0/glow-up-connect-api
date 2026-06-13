@@ -5,6 +5,18 @@ namespace GLOWAPI.Tests.Unit.Application;
 public class EvolutionDestinoHelperTests
 {
     [Fact]
+    public void CriarCandidatosDestinoOutbound_DevePriorizarRemoteJidAlt_QuandoDisponivel()
+    {
+        var candidatos = EvolutionDestinoHelper.CriarCandidatosDestinoOutbound(
+            "79998755111",
+            "60348602310753@lid",
+            "5579998755111@s.whatsapp.net");
+
+        Assert.Equal("5579998755111@s.whatsapp.net", candidatos[0]);
+        Assert.Contains("5579998755111", candidatos);
+    }
+
+    [Fact]
     public void ResolverDestinoOutbound_DeveUsarTelefone_QuandoConversaEhLid()
     {
         var destino = EvolutionDestinoHelper.ResolverDestinoOutbound(

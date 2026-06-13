@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Net.Http.Json;
 using System.Text.Json;
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Services;
@@ -7,6 +6,7 @@ using GLOWAPI.Application.Models.Mensageria;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
+using GLOWAPI.Infrastructure.Mensageria;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -78,8 +78,11 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
 
         try
         {
-            var destinatario = ResolverDestinatarioEnvio(mensagem);
-            if (string.IsNullOrWhiteSpace(destinatario))
+            var candidatos = EvolutionDestinoHelper.CriarCandidatosDestinoOutboundDeMensagem(
+                mensagem.Destinatario,
+                mensagem.PayloadJson);
+
+            if (candidatos.Count == 0)
             {
                 sw.Stop();
                 _logger.LogWarning(
@@ -96,59 +99,24 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
                     TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
             }
 
-            var url = $"{_options.ApiUrl.TrimEnd('/')}/message/sendText/{Uri.EscapeDataString(_options.InstanceName)}";
-            var (response, responseBody) = await EnviarTextoEvolutionAsync(
-                url,
-                destinatario,
+            var envio = new EvolutionWhatsAppTextoEnvio(
+                _httpClient,
+                Options.Create(_options),
+                _logger);
+
+            var (sucesso, responseBody, destinatarioUsado, formatoUsado) = await envio.EnviarAsync(
+                candidatos,
                 mensagem.Conteudo,
                 cancellationToken);
 
-            if (!response.IsSuccessStatusCode
-                && !_options.UsarApiV2
-                && DeveTentarPayloadV2(responseBody))
-            {
-                _logger.LogInformation(
-                    "Evolution sendText v1 falhou; tentando payload v2. MensagemGuid={MensagemGuid}",
-                    mensagem.Guid);
-
-                (response, responseBody) = await EnviarTextoEvolutionAsync(
-                    url,
-                    destinatario,
-                    mensagem.Conteudo,
-                    cancellationToken,
-                    usarApiV2: true);
-            }
-
-            if (!response.IsSuccessStatusCode
-                && EvolutionWebhookParser.EhRemoteJidLid(mensagem.Destinatario)
-                && DeveTentarTelefoneFallback(responseBody))
-            {
-                var telefoneFallback = EvolutionDestinoHelper.ExtrairTelefoneFallbackDoPayload(mensagem.PayloadJson);
-                if (!string.IsNullOrWhiteSpace(telefoneFallback)
-                    && !string.Equals(telefoneFallback, destinatario, StringComparison.Ordinal))
-                {
-                    _logger.LogInformation(
-                        "Evolution sendText @lid falhou; tentando telefone cadastrado. MensagemGuid={MensagemGuid}, Telefone={Telefone}",
-                        mensagem.Guid,
-                        telefoneFallback);
-
-                    (response, responseBody) = await EnviarTextoEvolutionAsync(
-                        url,
-                        telefoneFallback,
-                        mensagem.Conteudo,
-                        cancellationToken);
-                }
-            }
-
             sw.Stop();
 
-            if (!response.IsSuccessStatusCode)
+            if (!sucesso)
             {
                 _logger.LogWarning(
-                    "Evolution sendText falhou. MensagemGuid={MensagemGuid}, StatusCode={StatusCode}, Destinatario={Destinatario}, Response={Response}",
+                    "Evolution sendText falhou. MensagemGuid={MensagemGuid}, Destinatario={Destinatario}, Response={Response}",
                     mensagem.Guid,
-                    (int)response.StatusCode,
-                    destinatario,
+                    destinatarioUsado,
                     responseBody);
 
                 return new ResultadoEnvioMensagem(
@@ -156,19 +124,20 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
                     RequestPayload: requestPayload,
                     ResponsePayload: responseBody,
                     RespostaProvedor: null,
-                    MensagemErro: $"Evolution API retornou {(int)response.StatusCode}.",
+                    MensagemErro: "Evolution API nao confirmou entrega do texto.",
                     TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
             }
 
             _logger.LogInformation(
-                "WhatsApp enviado via Evolution API. MensagemGuid={MensagemGuid}",
-                mensagem.Guid);
+                "WhatsApp enviado via Evolution API. MensagemGuid={MensagemGuid}, Formato={Formato}",
+                mensagem.Guid,
+                formatoUsado);
 
             return new ResultadoEnvioMensagem(
                 Sucesso: true,
                 RequestPayload: requestPayload,
                 ResponsePayload: responseBody,
-                RespostaProvedor: "evolution-whatsapp",
+                RespostaProvedor: $"evolution-whatsapp-{formatoUsado}",
                 MensagemErro: null,
                 TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
         }
@@ -185,67 +154,5 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
                 MensagemErro: ex.Message,
                 TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
         }
-    }
-
-    private async Task<(HttpResponseMessage Response, string Body)> EnviarTextoEvolutionAsync(
-        string url,
-        string destinatario,
-        string conteudo,
-        CancellationToken cancellationToken,
-        bool? usarApiV2 = null)
-    {
-        var apiV2 = usarApiV2 ?? _options.UsarApiV2;
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, url);
-        request.Headers.Add("apikey", _options.ApiKey);
-        request.Content = JsonContent.Create(
-            apiV2
-                ? (object)new { number = destinatario, text = conteudo }
-                : new { number = destinatario, textMessage = new { text = conteudo } });
-
-        var response = await _httpClient.SendAsync(request, cancellationToken);
-        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-        return (response, responseBody);
-    }
-
-    private static bool DeveTentarPayloadV2(string responseBody) =>
-        responseBody.Contains("requires property \"text\"", StringComparison.OrdinalIgnoreCase)
-        || responseBody.Contains("textMessage", StringComparison.OrdinalIgnoreCase);
-
-    private static bool DeveTentarTelefoneFallback(string responseBody) =>
-        responseBody.Contains("@lid", StringComparison.OrdinalIgnoreCase)
-        || responseBody.Contains("\"exists\":false", StringComparison.OrdinalIgnoreCase);
-
-    private static string ResolverDestinatarioEnvio(MensagemNotificacao mensagem)
-    {
-        if (EvolutionWebhookParser.EhRemoteJidLid(mensagem.Destinatario))
-        {
-            var telefoneFallback = EvolutionDestinoHelper.ExtrairTelefoneFallbackDoPayload(mensagem.PayloadJson);
-            if (!string.IsNullOrWhiteSpace(telefoneFallback))
-            {
-                return telefoneFallback;
-            }
-
-            return string.Empty;
-        }
-
-        return NormalizarDestinatarioEvolution(mensagem.Destinatario);
-    }
-
-    private static string NormalizarDestinatarioEvolution(string destinatario)
-    {
-        if (string.IsNullOrWhiteSpace(destinatario)
-            || EvolutionWebhookParser.EhRemoteJidLid(destinatario))
-        {
-            return string.Empty;
-        }
-
-        if (destinatario.Contains('@', StringComparison.Ordinal))
-        {
-            var prefixo = destinatario.Split('@')[0];
-            return TelefoneHelper.NormalizarParaWhatsApp(prefixo);
-        }
-
-        return TelefoneHelper.NormalizarParaWhatsApp(destinatario);
     }
 }

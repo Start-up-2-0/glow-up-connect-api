@@ -148,6 +148,19 @@ public static class EvolutionWebhookParser
         return null;
     }
 
+    public static string? ExtrairRemoteJidAlt(JsonElement payload)
+    {
+        if (payload.TryGetProperty("data", out var data)
+            && data.TryGetProperty("key", out var key)
+            && key.TryGetProperty("remoteJidAlt", out var remoteJidAlt))
+        {
+            var jid = remoteJidAlt.GetString();
+            return string.IsNullOrWhiteSpace(jid) ? null : jid;
+        }
+
+        return null;
+    }
+
     public static bool EhRemoteJidLid(string? remoteJid) =>
         !string.IsNullOrWhiteSpace(remoteJid)
         && remoteJid.Contains("@lid", StringComparison.OrdinalIgnoreCase);

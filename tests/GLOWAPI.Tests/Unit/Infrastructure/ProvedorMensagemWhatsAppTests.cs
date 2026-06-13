@@ -36,10 +36,7 @@ public class ProvedorMensagemWhatsAppTests
             bodyCapturado = message.Content is null
                 ? null
                 : await message.Content.ReadAsStringAsync();
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("""{"status":"sent"}""")
-            };
+            return OkComTexto("Mensagem teste");
         });
 
         var client = new HttpClient(handler) { BaseAddress = new Uri("https://evolution.test/") };
@@ -54,8 +51,8 @@ public class ProvedorMensagemWhatsAppTests
         Assert.Contains("/message/sendText/instancia-teste", requestCapturado.RequestUri!.ToString());
 
         Assert.NotNull(bodyCapturado);
-        Assert.Contains("textMessage", bodyCapturado);
         Assert.Contains("Mensagem teste", bodyCapturado);
+        Assert.Contains("textMessage", bodyCapturado);
         Assert.DoesNotContain("\"text\":\"Mensagem teste\"", bodyCapturado!.Replace(" ", string.Empty));
     }
 
@@ -68,10 +65,7 @@ public class ProvedorMensagemWhatsAppTests
             bodyCapturado = message.Content is null
                 ? null
                 : await message.Content.ReadAsStringAsync();
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("""{"status":"sent"}""")
-            };
+            return OkComTexto("Mensagem teste");
         });
 
         var client = new HttpClient(handler) { BaseAddress = new Uri("https://evolution.test/") };
@@ -111,10 +105,7 @@ public class ProvedorMensagemWhatsAppTests
             bodyCapturado = message.Content is null
                 ? null
                 : await message.Content.ReadAsStringAsync();
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("""{"status":"sent"}""")
-            };
+            return OkComTexto("Mensagem teste");
         });
 
         var client = new HttpClient(handler) { BaseAddress = new Uri("https://evolution.test/") };
@@ -130,7 +121,6 @@ public class ProvedorMensagemWhatsAppTests
         Assert.Equal(1, handler.CallCount);
         Assert.NotNull(bodyCapturado);
         Assert.Contains("5579998755111", bodyCapturado);
-        Assert.Contains("textMessage", bodyCapturado);
         Assert.DoesNotContain("@lid", bodyCapturado);
     }
 
@@ -148,8 +138,14 @@ public class ProvedorMensagemWhatsAppTests
         var resultado = await provedor.EnviarAsync(CriarMensagem());
 
         Assert.False(resultado.Sucesso);
-        Assert.Contains("400", resultado.MensagemErro);
+        Assert.Contains("nao confirmou", resultado.MensagemErro!, StringComparison.OrdinalIgnoreCase);
     }
+
+    private static HttpResponseMessage OkComTexto(string texto) =>
+        new(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{\"message\":{\"extendedTextMessage\":{\"text\":\"" + texto + "\"}}}")
+        };
 
     private static ProvedorMensagemWhatsApp CriarProvedor(HttpClient client, bool habilitado, bool usarApiV2 = false) =>
         new(

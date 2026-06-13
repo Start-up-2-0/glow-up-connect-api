@@ -16,10 +16,30 @@ public class WebhookWhatsAppServiceTests
     private readonly Mock<IConfirmacaoWhatsAppService> _confirmacaoWhatsAppService = new();
     private readonly Mock<IConfirmacaoWhatsAppEstabelecimentoService> _confirmacaoEstabelecimentoService = new();
     private readonly Mock<IMensagemNotificacaoService> _mensagemService = new();
+    private readonly Mock<IWhatsAppEnvioImediatoService> _envioImediatoService = new();
 
     public WebhookWhatsAppServiceTests()
     {
         ConfigurarResolverDestinoPadrao();
+        ConfigurarEnvioImediatoSucesso();
+    }
+
+    private void ConfigurarEnvioImediatoSucesso()
+    {
+        _envioImediatoService
+            .Setup(s => s.EnviarTextoAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>()))
+            .ReturnsAsync(new ResultadoEnvioMensagem(
+                Sucesso: true,
+                RequestPayload: "{}",
+                ResponsePayload: """{"message":{"extendedTextMessage":{"text":"ok"}}}""",
+                RespostaProvedor: "evolution-whatsapp-v1-text",
+                MensagemErro: null,
+                TempoExecucaoMs: 10));
     }
 
     private void ConfigurarResolverDestinoPadrao()
@@ -70,23 +90,21 @@ public class WebhookWhatsAppServiceTests
 
         await service.ProcessarMensagemRecebidaAsync(payload);
 
-        _mensagemService.Verify(
-            m => m.RegistrarAsync(
-                It.Is<RegistrarMensagemNotificacaoDto>(dto =>
-                    dto.Canal == CanalMensagemNotificacao.WhatsApp
-                    && dto.Destinatario == "5511988887777"
-                    && dto.Assunto == "Confirmacao WhatsApp em processamento"),
-                It.IsAny<CancellationToken>()),
-            Times.Once);
+        _envioImediatoService.Verify(
+            s => s.EnviarTextoAsync(
+                It.Is<string>(destino => destino == "5511988887777"),
+                It.Is<string>(conteudo => conteudo.Contains("processando") || conteudo.Contains("confirmado")),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>()),
+            Times.AtLeastOnce);
 
         _mensagemService.Verify(
             m => m.RegistrarAsync(
                 It.Is<RegistrarMensagemNotificacaoDto>(dto =>
-                    dto.Canal == CanalMensagemNotificacao.WhatsApp
-                    && dto.Destinatario == "5511988887777"
-                    && dto.Assunto == "Confirmacao WhatsApp aprovada"),
+                    dto.Canal == CanalMensagemNotificacao.WhatsApp),
                 It.IsAny<CancellationToken>()),
-            Times.Once);
+            Times.Never);
     }
 
     [Fact]
@@ -152,13 +170,21 @@ public class WebhookWhatsAppServiceTests
 
         await service.ProcessarMensagemRecebidaAsync(payload);
 
+        _envioImediatoService.Verify(
+            s => s.EnviarTextoAsync(
+                "5511988887777",
+                It.Is<string>(conteudo => conteudo.Contains("Nao conseguimos confirmar")),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>()),
+            Times.Once);
+
         _mensagemService.Verify(
             m => m.RegistrarAsync(
                 It.Is<RegistrarMensagemNotificacaoDto>(dto =>
-                    dto.Canal == CanalMensagemNotificacao.WhatsApp
-                    && dto.Assunto == "Confirmacao WhatsApp nao concluida"),
+                    dto.Canal == CanalMensagemNotificacao.WhatsApp),
                 It.IsAny<CancellationToken>()),
-            Times.Once);
+            Times.Never);
 
         _mensagemService.Verify(
             m => m.RegistrarAsync(
@@ -189,11 +215,13 @@ public class WebhookWhatsAppServiceTests
 
         await service.ProcessarMensagemRecebidaAsync(payload);
 
-        _mensagemService.Verify(
-            m => m.RegistrarAsync(
-                It.Is<RegistrarMensagemNotificacaoDto>(dto =>
-                    dto.Assunto == "WhatsApp ja confirmado"),
-                It.IsAny<CancellationToken>()),
+        _envioImediatoService.Verify(
+            s => s.EnviarTextoAsync(
+                "5511988887777",
+                It.Is<string>(conteudo => conteudo.Contains("ja esta confirmado")),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>()),
             Times.Once);
 
         _mensagemService.Verify(
@@ -315,21 +343,51 @@ public class WebhookWhatsAppServiceTests
                 It.IsAny<CancellationToken>()),
             Times.Once);
 
-        _mensagemService.Verify(
-            m => m.RegistrarAsync(
-                It.Is<RegistrarMensagemNotificacaoDto>(dto =>
-                    dto.Destinatario == "5579998755111"
-                    && dto.Assunto == "Confirmacao WhatsApp em processamento"
-                    && dto.Conteudo.Contains("Thiago")),
-                It.IsAny<CancellationToken>()),
-            Times.Once);
+        _envioImediatoService.Verify(
+            m => m.EnviarTextoAsync(
+                It.Is<string>(destino => destino == "5579998755111"),
+                It.Is<string>(conteudo => conteudo.Contains("Thiago")),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>()),
+            Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task ProcessarMensagemRecebidaAsync_DeveEnfileirarRetry_QuandoEnvioImediatoFalhar()
+    {
+        _envioImediatoService
+            .Setup(s => s.EnviarTextoAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>()))
+            .ReturnsAsync(new ResultadoEnvioMensagem(
+                Sucesso: false,
+                RequestPayload: "{}",
+                ResponsePayload: """{"status":400}""",
+                RespostaProvedor: null,
+                MensagemErro: "falhou",
+                TempoExecucaoMs: 10));
+
+        _confirmacaoWhatsAppService
+            .Setup(s => s.TentarConfirmarPorMensagemInboundAsync(
+                "5511988887777",
+                "GLOW 482913",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.SucessoUsuario("Maria", "5511988887777", 1));
+
+        var service = CreateService();
+        var payload = CriarPayloadMensagem("5511988887777", "GLOW 482913", fromMe: false);
+
+        await service.ProcessarMensagemRecebidaAsync(payload);
 
         _mensagemService.Verify(
             m => m.RegistrarAsync(
                 It.Is<RegistrarMensagemNotificacaoDto>(dto =>
-                    dto.Destinatario == "5579998755111"
-                    && dto.Assunto == "Confirmacao WhatsApp aprovada"
-                    && dto.Conteudo.Contains("Thiago")),
+                    dto.Canal == CanalMensagemNotificacao.WhatsApp
+                    && dto.Assunto == "Confirmacao WhatsApp aprovada"),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -370,16 +428,21 @@ public class WebhookWhatsAppServiceTests
 
         await service.ProcessarMensagemRecebidaAsync(payload);
 
+        _envioImediatoService.Verify(
+            s => s.EnviarTextoAsync(
+                "5579998755111",
+                It.Is<string>(conteudo => conteudo.Contains("confirmado")),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>()),
+            Times.Once);
+
         _mensagemService.Verify(
             m => m.RegistrarAsync(
                 It.Is<RegistrarMensagemNotificacaoDto>(dto =>
-                    dto.Destinatario == "5579998755111"
-                    && dto.Assunto == "Confirmacao WhatsApp aprovada"
-                    && dto.Conteudo.Contains("confirmado")
-                    && dto.PayloadJson != null
-                    && dto.PayloadJson.Contains("60348602310753@lid")),
+                    dto.Canal == CanalMensagemNotificacao.WhatsApp),
                 It.IsAny<CancellationToken>()),
-            Times.Once);
+            Times.Never);
     }
 
     [Fact]
@@ -458,6 +521,7 @@ public class WebhookWhatsAppServiceTests
             _confirmacaoWhatsAppService.Object,
             _confirmacaoEstabelecimentoService.Object,
             _mensagemService.Object,
-            Options.Create(new MensageriaWhatsAppOptions()),
+            _envioImediatoService.Object,
+            Options.Create(new MensageriaWhatsAppOptions { Habilitado = true }),
             NullLogger<WebhookWhatsAppService>.Instance);
 }
