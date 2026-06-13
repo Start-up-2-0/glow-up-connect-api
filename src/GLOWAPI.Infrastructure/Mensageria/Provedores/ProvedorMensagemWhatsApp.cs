@@ -193,13 +193,22 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
 
     private static string NormalizarDestinatarioEvolution(string destinatario)
     {
-        if (string.IsNullOrWhiteSpace(destinatario)
-            || destinatario.Contains("@lid", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(destinatario))
         {
             return string.Empty;
         }
 
-        var prefixo = destinatario.Split('@')[0];
-        return TelefoneHelper.NormalizarParaWhatsApp(prefixo);
+        if (EvolutionWebhookParser.EhRemoteJidLid(destinatario))
+        {
+            return destinatario.Trim();
+        }
+
+        if (destinatario.Contains('@', StringComparison.Ordinal))
+        {
+            var prefixo = destinatario.Split('@')[0];
+            return TelefoneHelper.NormalizarParaWhatsApp(prefixo);
+        }
+
+        return TelefoneHelper.NormalizarParaWhatsApp(destinatario);
     }
 }

@@ -86,9 +86,22 @@ public class ProvedorMensagemWhatsAppTests
     }
 
     [Fact]
-    public async Task EnviarAsync_DeveRetornarFalha_QuandoDestinatarioEhLid()
+    public async Task EnviarAsync_DeveEnviarParaLid_QuandoDestinatarioEhLid()
     {
-        var handler = new RecordingHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        HttpRequestMessage? requestCapturado = null;
+        string? bodyCapturado = null;
+        var handler = new RecordingHandler(async message =>
+        {
+            requestCapturado = message;
+            bodyCapturado = message.Content is null
+                ? null
+                : await message.Content.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"status":"sent"}""")
+            };
+        });
+
         var client = new HttpClient(handler) { BaseAddress = new Uri("https://evolution.test/") };
         var provedor = CriarProvedor(client, habilitado: true);
 
@@ -97,9 +110,12 @@ public class ProvedorMensagemWhatsAppTests
 
         var resultado = await provedor.EnviarAsync(mensagem);
 
-        Assert.False(resultado.Sucesso);
-        Assert.Contains("invalido", resultado.MensagemErro!, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(0, handler.CallCount);
+        Assert.True(resultado.Sucesso);
+        Assert.Equal(1, handler.CallCount);
+        Assert.NotNull(bodyCapturado);
+        Assert.Contains("60348602310753@lid", bodyCapturado);
+        Assert.Contains("textMessage", bodyCapturado);
+        Assert.Contains("Mensagem teste", bodyCapturado);
     }
 
     [Fact]

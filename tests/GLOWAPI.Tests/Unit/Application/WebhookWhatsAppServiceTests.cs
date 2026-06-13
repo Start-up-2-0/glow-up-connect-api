@@ -318,7 +318,7 @@ public class WebhookWhatsAppServiceTests
         _mensagemService.Verify(
             m => m.RegistrarAsync(
                 It.Is<RegistrarMensagemNotificacaoDto>(dto =>
-                    dto.Destinatario == "5579998755111"
+                    dto.Destinatario == "60348602310753@lid"
                     && dto.Assunto == "Confirmacao WhatsApp em processamento"
                     && dto.Conteudo.Contains("Thiago")),
                 It.IsAny<CancellationToken>()),
@@ -327,9 +327,55 @@ public class WebhookWhatsAppServiceTests
         _mensagemService.Verify(
             m => m.RegistrarAsync(
                 It.Is<RegistrarMensagemNotificacaoDto>(dto =>
-                    dto.Destinatario == "5579998755111"
+                    dto.Destinatario == "60348602310753@lid"
                     && dto.Assunto == "Confirmacao WhatsApp aprovada"
                     && dto.Conteudo.Contains("Thiago")),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessarMensagemRecebidaAsync_DeveResponderNoLid_QuandoMensagemContemTokenBase64()
+    {
+        const string token = "NTU3OTk5ODc1NTExMQ==";
+
+        _confirmacaoWhatsAppService
+            .Setup(s => s.ResolverDestinoRespostaInboundAsync(
+                string.Empty,
+                token,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WhatsAppConfirmacaoInboundRespostaDestino("5579998755111", "Thiago"));
+
+        _confirmacaoWhatsAppService
+            .Setup(s => s.TentarConfirmarPorMensagemInboundAsync(
+                string.Empty,
+                token,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(WhatsAppConfirmacaoInboundResultado.SucessoUsuario("Thiago", "5579998755111", 13));
+
+        var service = CreateService();
+        var payload = JsonDocument.Parse($$"""
+            {
+              "data": {
+                "key": {
+                  "remoteJid": "60348602310753@lid",
+                  "fromMe": false
+                },
+                "message": {
+                  "conversation": "{{token}}"
+                }
+              }
+            }
+            """).RootElement;
+
+        await service.ProcessarMensagemRecebidaAsync(payload);
+
+        _mensagemService.Verify(
+            m => m.RegistrarAsync(
+                It.Is<RegistrarMensagemNotificacaoDto>(dto =>
+                    dto.Destinatario == "60348602310753@lid"
+                    && dto.Assunto == "Confirmacao WhatsApp aprovada"
+                    && dto.Conteudo.Contains("confirmado")),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
