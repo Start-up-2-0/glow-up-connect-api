@@ -35,11 +35,11 @@ public class ConfirmacaoWhatsAppInboundServiceTests
 
         _notificacaoService.Verify(
             s => s.EnfileirarRespostaProcessandoAsync(
-                "5511988887777",
-                null,
-                null,
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<ConfirmacaoWhatsAppInboundContexto?>(),
                 It.IsAny<CancellationToken>()),
-            Times.Once);
+            Times.Never);
 
         _notificacaoService.Verify(
             s => s.EnfileirarRespostaConfirmacaoSucessoAsync(

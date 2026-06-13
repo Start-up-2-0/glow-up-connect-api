@@ -51,17 +51,6 @@ public class ConfirmacaoWhatsAppInboundService : IConfirmacaoWhatsAppInboundServ
             textoMensagem,
             cancellationToken);
 
-        if (destinoResposta is not null && !string.IsNullOrWhiteSpace(destinoResposta.Telefone))
-        {
-            LogarDestinoRespostaAutomatica(telefoneRemetente, destinoResposta);
-
-            await _notificacaoService.EnfileirarRespostaProcessandoAsync(
-                destinoResposta.Telefone,
-                destinoResposta.Nome,
-                contextoConversa,
-                cancellationToken);
-        }
-
         var resultadoUsuario = await _confirmacaoWhatsAppService.TentarConfirmarPorMensagemInboundAsync(
             telefoneRemetente,
             textoMensagem,

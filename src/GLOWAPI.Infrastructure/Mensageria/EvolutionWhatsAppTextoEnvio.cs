@@ -118,7 +118,7 @@ internal sealed class EvolutionWhatsAppTextoEnvio
         string conteudo,
         CancellationToken cancellationToken) =>
         EnviarAsync(
-            EvolutionDestinoHelper.CriarCandidatosDestinoOutbound(destinatarioBruto, remoteJidConversa: null, remoteJidAlt: null),
+            EvolutionDestinoHelper.CriarCandidatosDestinoOutbound(destinatarioBruto),
             conteudo,
             cancellationToken);
 

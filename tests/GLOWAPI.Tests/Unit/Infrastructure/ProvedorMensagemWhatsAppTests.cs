@@ -113,14 +113,14 @@ public class ProvedorMensagemWhatsAppTests
 
         var mensagem = CriarMensagem();
         mensagem.Destinatario = "60348602310753@lid";
-        mensagem.PayloadJson = """{"telefoneFallback":"5579998755111","remoteJidConversa":"60348602310753@lid"}""";
+        mensagem.PayloadJson = """{"telefoneFallback":"5579998755111"}""";
 
         var resultado = await provedor.EnviarAsync(mensagem);
 
         Assert.True(resultado.Sucesso);
         Assert.Equal(1, handler.CallCount);
         Assert.NotNull(bodyCapturado);
-        Assert.Contains("557998755111", bodyCapturado);
+        Assert.Contains("5579998755111", bodyCapturado);
     }
 
     [Fact]

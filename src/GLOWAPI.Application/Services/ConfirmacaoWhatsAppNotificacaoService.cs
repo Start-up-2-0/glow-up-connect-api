@@ -33,7 +33,6 @@ public class ConfirmacaoWhatsAppNotificacaoService : IConfirmacaoWhatsAppNotific
 
         return EnfileirarWhatsAppAsync(
             telefoneDestino,
-            contextoConversa,
             "Confirmacao WhatsApp em processamento",
             conteudo,
             estabelecimentoId: null,
@@ -57,7 +56,6 @@ public class ConfirmacaoWhatsAppNotificacaoService : IConfirmacaoWhatsAppNotific
 
         return EnfileirarWhatsAppAsync(
             resultado.TelefoneResposta,
-            contextoConversa,
             "Confirmacao WhatsApp aprovada",
             conteudo,
             resultado.EstabelecimentoId,
@@ -74,7 +72,6 @@ public class ConfirmacaoWhatsAppNotificacaoService : IConfirmacaoWhatsAppNotific
 
         return EnfileirarWhatsAppAsync(
             resultado.TelefoneResposta,
-            contextoConversa,
             "WhatsApp ja confirmado",
             conteudo,
             resultado.EstabelecimentoId,
@@ -97,7 +94,6 @@ public class ConfirmacaoWhatsAppNotificacaoService : IConfirmacaoWhatsAppNotific
         {
             await EnfileirarWhatsAppAsync(
                 telefoneResposta,
-                contextoConversa,
                 "Confirmacao WhatsApp nao concluida",
                 conteudoWhatsApp,
                 resultado.EstabelecimentoId,
@@ -131,7 +127,6 @@ public class ConfirmacaoWhatsAppNotificacaoService : IConfirmacaoWhatsAppNotific
 
     private async Task EnfileirarWhatsAppAsync(
         string telefoneDestino,
-        ConfirmacaoWhatsAppInboundContexto? contextoConversa,
         string assunto,
         string conteudo,
         int? estabelecimentoId,
@@ -139,29 +134,15 @@ public class ConfirmacaoWhatsAppNotificacaoService : IConfirmacaoWhatsAppNotific
         CancellationToken cancellationToken)
     {
         var telefoneCadastrado = TelefoneHelper.NormalizarParaWhatsApp(telefoneDestino) ?? telefoneDestino;
-        var payloadJson = EvolutionDestinoHelper.CriarPayloadOutbound(
-            telefoneCadastrado,
-            contextoConversa?.RemoteJidConversa,
-            contextoConversa?.RemoteJidAlt);
 
         if (string.IsNullOrWhiteSpace(telefoneCadastrado) || string.IsNullOrWhiteSpace(conteudo))
         {
             _logger.LogWarning(
-                "WhatsApp outbound ignorado: destinatario ou conteudo ausente. Assunto={Assunto}, TelefoneCadastradoPresente={TelefoneCadastradoPresente}, ConteudoPresente={ConteudoPresente}, RemoteJid={RemoteJid}",
+                "WhatsApp outbound ignorado: destinatario ou conteudo ausente. Assunto={Assunto}, TelefoneCadastradoPresente={TelefoneCadastradoPresente}, ConteudoPresente={ConteudoPresente}",
                 assunto,
                 !string.IsNullOrWhiteSpace(telefoneCadastrado),
-                !string.IsNullOrWhiteSpace(conteudo),
-                contextoConversa?.RemoteJidConversa ?? "(ausente)");
+                !string.IsNullOrWhiteSpace(conteudo));
             return;
-        }
-
-        if (EvolutionWebhookParser.EhRemoteJidLid(contextoConversa?.RemoteJidConversa))
-        {
-            _logger.LogInformation(
-                "WhatsApp outbound enfileirado para telefone cadastrado (thread @lid). Assunto={Assunto}, RemoteJid={RemoteJid}, TelefoneCadastrado={TelefoneCadastrado}",
-                assunto,
-                contextoConversa!.RemoteJidConversa,
-                telefoneCadastrado);
         }
 
         await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
@@ -170,7 +151,6 @@ public class ConfirmacaoWhatsAppNotificacaoService : IConfirmacaoWhatsAppNotific
             Destinatario = telefoneCadastrado,
             Assunto = assunto,
             Conteudo = conteudo,
-            PayloadJson = payloadJson,
             EstabelecimentoId = estabelecimentoId,
             Prioridade = prioridade
         }, cancellationToken);
