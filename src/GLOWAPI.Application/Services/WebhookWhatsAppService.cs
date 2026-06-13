@@ -92,7 +92,14 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
 
         var remoteJidConversa = EvolutionWebhookParser.ExtrairRemoteJidConversa(payload);
         var remoteJidAlt = EvolutionWebhookParser.ExtrairRemoteJidAlt(payload);
-        await ProcessarConfirmacaoInboundAsync(telefone, remoteJidConversa, remoteJidAlt, textoMensagem, cancellationToken);
+        var contextoResposta = EvolutionWebhookParser.ExtrairContextoRespostaInbound(payload);
+        await ProcessarConfirmacaoInboundAsync(
+            telefone,
+            remoteJidConversa,
+            remoteJidAlt,
+            contextoResposta,
+            textoMensagem,
+            cancellationToken);
     }
 
     public Task ProcessarMensagemEnviadaAsync(
@@ -125,6 +132,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         string telefoneRemetente,
         string? remoteJidConversa,
         string? remoteJidAlt,
+        EvolutionWhatsAppContextoResposta contextoResposta,
         string textoMensagem,
         CancellationToken cancellationToken)
     {
@@ -157,6 +165,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
                 destinoResposta.Telefone,
                 remoteJidConversa,
                 remoteJidAlt,
+                contextoResposta,
                 destinoResposta.Nome,
                 cancellationToken);
         }
@@ -173,6 +182,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
                 ObterDestinatarioRespostaAutomatica(resultadoUsuario),
                 remoteJidConversa,
                 remoteJidAlt,
+                contextoResposta,
                 cancellationToken);
             return;
         }
@@ -186,6 +196,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
                 ObterDestinatarioRespostaAutomatica(resultadoUsuario),
                 remoteJidConversa,
                 remoteJidAlt,
+                contextoResposta,
                 cancellationToken);
             return;
         }
@@ -202,6 +213,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
                 ObterDestinatarioRespostaAutomatica(resultadoEstabelecimento),
                 remoteJidConversa,
                 remoteJidAlt,
+                contextoResposta,
                 cancellationToken);
             return;
         }
@@ -215,6 +227,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
                 ObterDestinatarioRespostaAutomatica(resultadoEstabelecimento),
                 remoteJidConversa,
                 remoteJidAlt,
+                contextoResposta,
                 cancellationToken);
             return;
         }
@@ -225,6 +238,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             ObterDestinatarioRespostaAutomatica(resultadoFalha),
             remoteJidConversa,
             remoteJidAlt,
+            contextoResposta,
             cancellationToken);
     }
 
@@ -366,6 +380,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         string telefoneRemetente,
         string? remoteJidConversa,
         string? remoteJidAlt,
+        EvolutionWhatsAppContextoResposta contextoResposta,
         string? nomeDestinatario,
         CancellationToken cancellationToken)
     {
@@ -377,6 +392,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             telefoneRemetente,
             remoteJidConversa,
             remoteJidAlt,
+            contextoResposta,
             "Confirmacao WhatsApp em processamento",
             conteudo,
             estabelecimentoId: null,
@@ -389,6 +405,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         string destinatario,
         string? remoteJidConversa,
         string? remoteJidAlt,
+        EvolutionWhatsAppContextoResposta contextoResposta,
         CancellationToken cancellationToken)
     {
         var conteudo = ConfirmacaoWhatsAppTemplate.RespostaConfirmacaoSucesso(resultado.NomeDestinatario);
@@ -397,6 +414,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             destinatario,
             remoteJidConversa,
             remoteJidAlt,
+            contextoResposta,
             "Confirmacao WhatsApp aprovada",
             conteudo,
             resultado.EstabelecimentoId,
@@ -416,6 +434,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         string destinatario,
         string? remoteJidConversa,
         string? remoteJidAlt,
+        EvolutionWhatsAppContextoResposta contextoResposta,
         CancellationToken cancellationToken)
     {
         var conteudo = ConfirmacaoWhatsAppTemplate.RespostaConfirmacaoJaRealizada(resultado.NomeDestinatario);
@@ -424,6 +443,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             destinatario,
             remoteJidConversa,
             remoteJidAlt,
+            contextoResposta,
             "WhatsApp ja confirmado",
             conteudo,
             resultado.EstabelecimentoId,
@@ -436,6 +456,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         string destinatario,
         string? remoteJidConversa,
         string? remoteJidAlt,
+        EvolutionWhatsAppContextoResposta contextoResposta,
         CancellationToken cancellationToken)
     {
         var telefoneResposta = ObterTelefoneResposta(resultado, destinatario);
@@ -449,6 +470,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
                 telefoneResposta,
                 remoteJidConversa,
                 remoteJidAlt,
+                contextoResposta,
                 "Confirmacao WhatsApp nao concluida",
                 conteudoWhatsApp,
                 resultado.EstabelecimentoId,
@@ -484,20 +506,21 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         string telefoneDestino,
         string? remoteJidConversa,
         string? remoteJidAlt,
+        EvolutionWhatsAppContextoResposta contextoResposta,
         string assunto,
         string conteudo,
         int? estabelecimentoId,
         int prioridade,
         CancellationToken cancellationToken)
     {
-        var destinatario = EvolutionDestinoHelper.ResolverDestinoOutbound(telefoneDestino, remoteJidConversa);
+        var destinatarioPreferido = EvolutionDestinoHelper.ResolverDestinoOutbound(telefoneDestino, remoteJidConversa);
 
-        if (string.IsNullOrWhiteSpace(destinatario) || string.IsNullOrWhiteSpace(conteudo))
+        if (string.IsNullOrWhiteSpace(destinatarioPreferido) || string.IsNullOrWhiteSpace(conteudo))
         {
             _logger.LogWarning(
                 "WhatsApp outbound ignorado: destinatario ou conteudo ausente. Assunto={Assunto}, DestinatarioPresente={DestinatarioPresente}, ConteudoPresente={ConteudoPresente}, RemoteJid={RemoteJid}",
                 assunto,
-                !string.IsNullOrWhiteSpace(destinatario),
+                !string.IsNullOrWhiteSpace(destinatarioPreferido),
                 !string.IsNullOrWhiteSpace(conteudo),
                 remoteJidConversa ?? "(ausente)");
             return;
@@ -506,25 +529,28 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         if (EvolutionWebhookParser.EhRemoteJidLid(remoteJidConversa))
         {
             _logger.LogInformation(
-                "WhatsApp outbound via telefone cadastrado (conversa @lid). Assunto={Assunto}, RemoteJid={RemoteJid}, Telefone={Telefone}",
+                "WhatsApp outbound via telefone cadastrado (conversa @lid). Assunto={Assunto}, RemoteJid={RemoteJid}, Telefone={Telefone}, DestinatarioPreferido={DestinatarioPreferido}, TemQuoted={TemQuoted}",
                 assunto,
                 remoteJidConversa,
-                destinatario);
+                telefoneDestino,
+                destinatarioPreferido,
+                contextoResposta.TemQuoted);
         }
 
         var resultadoImediato = await _envioImediatoService.EnviarTextoAsync(
-            destinatario,
+            telefoneDestino,
             conteudo,
             cancellationToken,
             remoteJidConversa,
-            remoteJidAlt);
+            remoteJidAlt,
+            contextoResposta);
 
         if (resultadoImediato.Sucesso)
         {
             _logger.LogInformation(
                 "WhatsApp enviado imediatamente no webhook. Assunto={Assunto}, Destinatario={Destinatario}, Provedor={Provedor}",
                 assunto,
-                destinatario,
+                destinatarioPreferido,
                 resultadoImediato.RespostaProvedor);
             return;
         }
@@ -532,13 +558,13 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         _logger.LogWarning(
             "WhatsApp imediato falhou; enfileirando retry. Assunto={Assunto}, Destinatario={Destinatario}, Erro={Erro}",
             assunto,
-            destinatario,
+            destinatarioPreferido,
             resultadoImediato.MensagemErro);
 
         await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
         {
             Canal = CanalMensagemNotificacao.WhatsApp,
-            Destinatario = destinatario,
+            Destinatario = destinatarioPreferido,
             Assunto = assunto,
             Conteudo = conteudo,
             PayloadJson = EvolutionDestinoHelper.CriarPayloadOutbound(telefoneDestino, remoteJidConversa, remoteJidAlt),

@@ -30,7 +30,8 @@ public class WhatsAppEnvioImediatoService : IWhatsAppEnvioImediatoService
         string conteudo,
         CancellationToken cancellationToken = default,
         string? remoteJidConversa = null,
-        string? remoteJidAlt = null)
+        string? remoteJidAlt = null,
+        EvolutionWhatsAppContextoResposta? contextoResposta = null)
     {
         var sw = Stopwatch.StartNew();
         var candidatos = EvolutionDestinoHelper.CriarCandidatosDestinoOutbound(
@@ -43,7 +44,9 @@ public class WhatsAppEnvioImediatoService : IWhatsAppEnvioImediatoService
             Destinatario = destinatario,
             Candidatos = candidatos,
             TextoLength = conteudo.Length,
-            ApiVersion = _options.UsarApiV2 ? "v2" : "v1"
+            ApiVersion = _options.UsarApiV2 ? "v2" : "v1",
+            TemQuoted = contextoResposta?.TemQuoted == true,
+            RemoteJidConversa = remoteJidConversa
         });
 
         if (!_options.Habilitado)
@@ -66,6 +69,7 @@ public class WhatsAppEnvioImediatoService : IWhatsAppEnvioImediatoService
         var (sucesso, responseBody, _, formatoUsado) = await envio.EnviarAsync(
             candidatos,
             conteudo,
+            contextoResposta,
             cancellationToken);
 
         sw.Stop();

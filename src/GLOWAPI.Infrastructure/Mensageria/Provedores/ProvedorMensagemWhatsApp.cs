@@ -107,6 +107,7 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
             var (sucesso, responseBody, destinatarioUsado, formatoUsado) = await envio.EnviarAsync(
                 candidatos,
                 mensagem.Conteudo,
+                contextoResposta: null,
                 cancellationToken);
 
             sw.Stop();

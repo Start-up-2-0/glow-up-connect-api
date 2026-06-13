@@ -9,5 +9,6 @@ public interface IWhatsAppEnvioImediatoService
         string conteudo,
         CancellationToken cancellationToken = default,
         string? remoteJidConversa = null,
-        string? remoteJidAlt = null);
+        string? remoteJidAlt = null,
+        EvolutionWhatsAppContextoResposta? contextoResposta = null);
 }

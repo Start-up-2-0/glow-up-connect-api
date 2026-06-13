@@ -32,7 +32,8 @@ public class WebhookWhatsAppServiceTests
                 It.IsAny<string>(),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<string?>(),
-                It.IsAny<string?>()))
+                It.IsAny<string?>(),
+                It.IsAny<EvolutionWhatsAppContextoResposta?>()))
             .ReturnsAsync(new ResultadoEnvioMensagem(
                 Sucesso: true,
                 RequestPayload: "{}",
@@ -92,11 +93,12 @@ public class WebhookWhatsAppServiceTests
 
         _envioImediatoService.Verify(
             s => s.EnviarTextoAsync(
-                It.Is<string>(destino => destino == "551188887777"),
+                It.Is<string>(destino => destino == "5511988887777"),
                 It.Is<string>(conteudo => conteudo.Contains("processando") || conteudo.Contains("confirmado")),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<string?>(),
-                It.IsAny<string?>()),
+                It.IsAny<string?>(),
+                It.IsAny<EvolutionWhatsAppContextoResposta?>()),
             Times.AtLeastOnce);
 
         _mensagemService.Verify(
@@ -172,11 +174,12 @@ public class WebhookWhatsAppServiceTests
 
         _envioImediatoService.Verify(
             s => s.EnviarTextoAsync(
-                "551188887777",
+                "5511988887777",
                 It.Is<string>(conteudo => conteudo.Contains("Nao conseguimos confirmar")),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<string?>(),
-                It.IsAny<string?>()),
+                It.IsAny<string?>(),
+                It.IsAny<EvolutionWhatsAppContextoResposta?>()),
             Times.Once);
 
         _mensagemService.Verify(
@@ -217,11 +220,12 @@ public class WebhookWhatsAppServiceTests
 
         _envioImediatoService.Verify(
             s => s.EnviarTextoAsync(
-                "551188887777",
+                "5511988887777",
                 It.Is<string>(conteudo => conteudo.Contains("ja esta confirmado")),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<string?>(),
-                It.IsAny<string?>()),
+                It.IsAny<string?>(),
+                It.IsAny<EvolutionWhatsAppContextoResposta?>()),
             Times.Once);
 
         _mensagemService.Verify(
@@ -345,11 +349,12 @@ public class WebhookWhatsAppServiceTests
 
         _envioImediatoService.Verify(
             m => m.EnviarTextoAsync(
-                It.Is<string>(destino => destino == "557998755111"),
+                It.Is<string>(destino => destino == "5579998755111"),
                 It.Is<string>(conteudo => conteudo.Contains("Thiago")),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<string?>(),
-                It.IsAny<string?>()),
+                It.IsAny<string?>(),
+                It.IsAny<EvolutionWhatsAppContextoResposta?>()),
             Times.AtLeastOnce);
     }
 
@@ -362,7 +367,8 @@ public class WebhookWhatsAppServiceTests
                 It.IsAny<string>(),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<string?>(),
-                It.IsAny<string?>()))
+                It.IsAny<string?>(),
+                It.IsAny<EvolutionWhatsAppContextoResposta?>()))
             .ReturnsAsync(new ResultadoEnvioMensagem(
                 Sucesso: false,
                 RequestPayload: "{}",
@@ -430,11 +436,12 @@ public class WebhookWhatsAppServiceTests
 
         _envioImediatoService.Verify(
             s => s.EnviarTextoAsync(
-                "557998755111",
+                "5579998755111",
                 It.Is<string>(conteudo => conteudo.Contains("confirmado")),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<string?>(),
-                It.IsAny<string?>()),
+                It.IsAny<string?>(),
+                It.IsAny<EvolutionWhatsAppContextoResposta?>()),
             Times.Once);
 
         _mensagemService.Verify(

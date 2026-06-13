@@ -161,6 +161,40 @@ public static class EvolutionWebhookParser
         return null;
     }
 
+    public static string? ExtrairMessageId(JsonElement payload)
+    {
+        if (payload.TryGetProperty("data", out var data)
+            && data.TryGetProperty("key", out var key)
+            && key.TryGetProperty("id", out var messageId))
+        {
+            var id = messageId.GetString();
+            return string.IsNullOrWhiteSpace(id) ? null : id;
+        }
+
+        return null;
+    }
+
+    public static EvolutionWhatsAppContextoResposta ExtrairContextoRespostaInbound(JsonElement payload)
+    {
+        var remoteJidConversa = ExtrairRemoteJidConversa(payload);
+        var textoMensagem = ExtrairTextoMensagem(payload);
+
+        if (!EhRemoteJidLid(remoteJidConversa))
+        {
+            return new EvolutionWhatsAppContextoResposta(
+                MessageId: null,
+                RemoteJidConversa: remoteJidConversa,
+                FromMe: null,
+                TextoMensagemReferencia: null);
+        }
+
+        return new EvolutionWhatsAppContextoResposta(
+            MessageId: ExtrairMessageId(payload),
+            RemoteJidConversa: remoteJidConversa,
+            FromMe: ExtrairFromMe(payload),
+            TextoMensagemReferencia: textoMensagem);
+    }
+
     public static bool EhRemoteJidLid(string? remoteJid) =>
         !string.IsNullOrWhiteSpace(remoteJid)
         && remoteJid.Contains("@lid", StringComparison.OrdinalIgnoreCase);

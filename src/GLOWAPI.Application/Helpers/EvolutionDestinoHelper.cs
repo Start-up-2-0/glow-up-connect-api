@@ -26,6 +26,11 @@ public static class EvolutionDestinoHelper
             AdicionarCandidato(candidatos, remoteJidAlt);
         }
 
+        if (EvolutionWebhookParser.EhRemoteJidLid(remoteJidConversa))
+        {
+            AdicionarCandidatoJid(candidatos, remoteJidConversa);
+        }
+
         var telefoneEvolution = TelefoneHelper.NormalizarParaEvolutionEnvio(telefoneCadastrado);
         if (!string.IsNullOrWhiteSpace(telefoneEvolution))
         {
@@ -40,8 +45,6 @@ public static class EvolutionDestinoHelper
             AdicionarCandidato(candidatos, telefone);
             AdicionarCandidato(candidatos, $"{telefone}@s.whatsapp.net");
         }
-
-        _ = remoteJidConversa;
 
         return candidatos;
     }
@@ -151,6 +154,19 @@ public static class EvolutionDestinoHelper
         }
 
         return null;
+    }
+
+    private static void AdicionarCandidatoJid(List<string> candidatos, string? jid)
+    {
+        if (string.IsNullOrWhiteSpace(jid))
+        {
+            return;
+        }
+
+        if (!candidatos.Contains(jid, StringComparer.Ordinal))
+        {
+            candidatos.Add(jid);
+        }
     }
 
     private static void AdicionarCandidato(List<string> candidatos, string destino)

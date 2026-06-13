@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GLOWAPI.Application.Helpers;
+using GLOWAPI.Application.Models.Mensageria;
 using GLOWAPI.Application.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -25,6 +26,7 @@ internal sealed class EvolutionWhatsAppTextoEnvio
     public async Task<(bool Sucesso, string? ResponseBody, string DestinatarioUsado, string FormatoUsado)> EnviarAsync(
         IReadOnlyList<string> candidatosDestino,
         string conteudo,
+        EvolutionWhatsAppContextoResposta? contextoResposta,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(_options.ApiUrl)
@@ -39,7 +41,7 @@ internal sealed class EvolutionWhatsAppTextoEnvio
             return (false, null, string.Empty, "destino-invalido");
         }
 
-        var formatos = CriarFormatosPayload(conteudo);
+        var formatos = CriarFormatosPayload(conteudo, contextoResposta).ToList();
 
         var ultimoBody = string.Empty;
         HttpResponseMessage? ultimaResponse = null;
@@ -85,6 +87,8 @@ internal sealed class EvolutionWhatsAppTextoEnvio
 
                 if (ConsiderarSucessoAposHttpOk(nomeFormato, responseBody, conteudo))
                 {
+                    LogarRoteamentoResposta(candidato, contextoResposta, responseBody);
+
                     _logger.LogInformation(
                         "Evolution sendText ok. Destinatario={Destinatario}, Formato={Formato}, Response={Response}",
                         candidato,
@@ -120,22 +124,113 @@ internal sealed class EvolutionWhatsAppTextoEnvio
         EnviarAsync(
             EvolutionDestinoHelper.CriarCandidatosDestinoOutbound(destinatarioBruto, remoteJidConversa: null, remoteJidAlt: null),
             conteudo,
+            contextoResposta: null,
             cancellationToken);
 
-    private IEnumerable<(string Nome, Func<string, object> Payload)> CriarFormatosPayload(string conteudo)
+    private IEnumerable<(string Nome, Func<string, object> Payload)> CriarFormatosPayload(
+        string conteudo,
+        EvolutionWhatsAppContextoResposta? contextoResposta)
     {
+        var quoted = CriarQuotedPayload(contextoResposta);
+
         if (_options.UsarApiV2)
         {
+            if (quoted is not null)
+            {
+                yield return ("v2-text-quoted", destino => new { number = destino, text = conteudo, quoted });
+            }
+
             yield return ("v2-text", destino => new { number = destino, text = conteudo });
             yield break;
         }
 
+        if (quoted is not null)
+        {
+            yield return ("v1-textMessage-quoted", destino => new
+            {
+                number = destino,
+                textMessage = new { text = conteudo },
+                options = new { quoted }
+            });
+            yield return ("v1-text-quoted", destino => new { number = destino, text = conteudo, quoted });
+        }
+
         yield return ("v1-textMessage", destino => new { number = destino, textMessage = new { text = conteudo } });
+        yield return ("v1-text", destino => new { number = destino, text = conteudo });
+    }
+
+    private static object? CriarQuotedPayload(EvolutionWhatsAppContextoResposta? contextoResposta)
+    {
+        if (contextoResposta?.TemQuoted != true)
+        {
+            return null;
+        }
+
+        return new
+        {
+            key = new
+            {
+                remoteJid = contextoResposta.RemoteJidConversa,
+                fromMe = contextoResposta.FromMe ?? false,
+                id = contextoResposta.MessageId
+            },
+            message = new
+            {
+                conversation = contextoResposta.TextoMensagemReferencia
+            }
+        };
+    }
+
+    private void LogarRoteamentoResposta(
+        string destinatarioSolicitado,
+        EvolutionWhatsAppContextoResposta? contextoResposta,
+        string responseBody)
+    {
+        if (contextoResposta?.RemoteJidConversa is null)
+        {
+            return;
+        }
+
+        var remoteJidResposta = ExtrairRemoteJidDaResposta(responseBody);
+        if (string.IsNullOrWhiteSpace(remoteJidResposta))
+        {
+            return;
+        }
+
+        if (!string.Equals(remoteJidResposta, contextoResposta.RemoteJidConversa, StringComparison.OrdinalIgnoreCase)
+            && EvolutionWebhookParser.EhRemoteJidLid(contextoResposta.RemoteJidConversa))
+        {
+            _logger.LogWarning(
+                "Evolution sendText roteou para JID diferente da conversa @lid. Conversa={Conversa}, DestinatarioSolicitado={Destinatario}, RemoteJidResposta={RemoteJidResposta}",
+                contextoResposta.RemoteJidConversa,
+                destinatarioSolicitado,
+                remoteJidResposta);
+        }
+    }
+
+    private static string? ExtrairRemoteJidDaResposta(string responseBody)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(responseBody);
+            if (document.RootElement.TryGetProperty("key", out var key)
+                && key.TryGetProperty("remoteJid", out var remoteJid)
+                && remoteJid.ValueKind == JsonValueKind.String)
+            {
+                return remoteJid.GetString();
+            }
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        return null;
     }
 
     private static bool ConsiderarSucessoAposHttpOk(string nomeFormato, string responseBody, string conteudo)
     {
-        if (string.Equals(nomeFormato, "v1-textMessage", StringComparison.Ordinal))
+        if (nomeFormato.StartsWith("v1-textMessage", StringComparison.Ordinal))
         {
             return true;
         }

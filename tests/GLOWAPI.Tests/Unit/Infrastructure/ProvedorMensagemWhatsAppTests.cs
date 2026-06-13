@@ -120,8 +120,7 @@ public class ProvedorMensagemWhatsAppTests
         Assert.True(resultado.Sucesso);
         Assert.Equal(1, handler.CallCount);
         Assert.NotNull(bodyCapturado);
-        Assert.Contains("557998755111", bodyCapturado);
-        Assert.DoesNotContain("@lid", bodyCapturado);
+        Assert.Contains("60348602310753@lid", bodyCapturado);
     }
 
     [Fact]

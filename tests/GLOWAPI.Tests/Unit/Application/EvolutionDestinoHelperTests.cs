@@ -23,7 +23,7 @@ public class EvolutionDestinoHelperTests
             "79998755111",
             "60348602310753@lid");
 
-        Assert.Equal("557998755111", destino);
+        Assert.Equal("60348602310753@lid", destino);
     }
 
     [Fact]
@@ -37,11 +37,23 @@ public class EvolutionDestinoHelperTests
     }
 
     [Fact]
-    public void CriarCandidatosDestinoOutbound_DevePriorizarTelefoneSemNonoDigito_ParaEvolution()
+    public void CriarCandidatosDestinoOutbound_DevePriorizarRemoteJidLid_QuandoConversaEhLid()
     {
         var candidatos = EvolutionDestinoHelper.CriarCandidatosDestinoOutbound(
             "79991917634",
             "67268163698795@lid",
+            remoteJidAlt: null);
+
+        Assert.Equal("67268163698795@lid", candidatos[0]);
+        Assert.Equal("557991917634", candidatos[1]);
+    }
+
+    [Fact]
+    public void CriarCandidatosDestinoOutbound_DevePriorizarTelefoneSemNonoDigito_ParaEvolution()
+    {
+        var candidatos = EvolutionDestinoHelper.CriarCandidatosDestinoOutbound(
+            "79991917634",
+            remoteJidConversa: null,
             remoteJidAlt: null);
 
         Assert.Equal("557991917634", candidatos[0]);
