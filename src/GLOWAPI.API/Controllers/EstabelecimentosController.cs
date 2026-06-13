@@ -1,6 +1,8 @@
 using GLOWAPI.API.Attributes;
 using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Agendamento;
+using GLOWAPI.Application.DTOs.Auditoria;
+using GLOWAPI.Application.DTOs.Clientes;
 using GLOWAPI.Application.DTOs.Agenda;
 using GLOWAPI.Application.DTOs.Caixa;
 using GLOWAPI.Application.DTOs.Financeiro;
@@ -30,6 +32,8 @@ public class EstabelecimentosController : ControllerBase
     private readonly IDisponibilidadeAgendaService _disponibilidadeAgendaService;
     private readonly IAgendamentoNegocioService _agendamentoNegocioService;
     private readonly IFinanceiroNegocioService _financeiroNegocioService;
+    private readonly IClienteNegocioService _clienteNegocioService;
+    private readonly IAuditoriaConsultaNegocioService _auditoriaConsultaNegocioService;
 
     public EstabelecimentosController(
         IEstabelecimentoPerfilService estabelecimentoPerfilService,
@@ -43,7 +47,9 @@ public class EstabelecimentosController : ControllerBase
         IHorarioProfissionalNegocioService horarioProfissionalNegocioService,
         IDisponibilidadeAgendaService disponibilidadeAgendaService,
         IAgendamentoNegocioService agendamentoNegocioService,
-        IFinanceiroNegocioService financeiroNegocioService)
+        IFinanceiroNegocioService financeiroNegocioService,
+        IClienteNegocioService clienteNegocioService,
+        IAuditoriaConsultaNegocioService auditoriaConsultaNegocioService)
     {
         _estabelecimentoPerfilService = estabelecimentoPerfilService;
         _equipeNegocioService = equipeNegocioService;
@@ -57,6 +63,8 @@ public class EstabelecimentosController : ControllerBase
         _disponibilidadeAgendaService = disponibilidadeAgendaService;
         _agendamentoNegocioService = agendamentoNegocioService;
         _financeiroNegocioService = financeiroNegocioService;
+        _clienteNegocioService = clienteNegocioService;
+        _auditoriaConsultaNegocioService = auditoriaConsultaNegocioService;
     }
 
     [HttpGet("{estabelecimentoId:int}/perfil")]
@@ -916,5 +924,39 @@ public class EstabelecimentosController : ControllerBase
         return Ok(ApiSuccessResponse<IReadOnlyList<AgendamentoHistoricoResponseDto>>.From(
             "Historico do agendamento listado com sucesso.",
             historico));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/clientes")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Clientes, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ClienteVisualizarGeral, "estabelecimentoId")]
+    public async Task<IActionResult> ListarClientes(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var clientes = await _clienteNegocioService.ListarPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<ClienteNegocioResponseDto>>.From(
+            "Clientes listados com sucesso.",
+            clientes));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/auditoria")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.NegocioVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarAuditoria(
+        int estabelecimentoId,
+        [FromQuery] int limite = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var registros = await _auditoriaConsultaNegocioService.ListarRecentesAsync(
+            estabelecimentoId,
+            limite,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<AuditoriaNegocioResponseDto>>.From(
+            "Auditoria listada com sucesso.",
+            registros));
     }
 }

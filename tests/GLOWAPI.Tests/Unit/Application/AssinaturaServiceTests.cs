@@ -17,6 +17,7 @@ namespace GLOWAPI.Tests.Unit.Application;
 public class AssinaturaServiceTests
 {
     private readonly Mock<IAssinaturaRepository> _assinaturaRepository = new();
+    private readonly Mock<IAssinaturaEstabelecimentoRepository> _assinaturaEstabelecimentoRepository = new();
     private readonly Mock<IPlanoRepository> _planoRepository = new();
     private readonly Mock<IEstabelecimentoRepository> _estabelecimentoRepository = new();
     private readonly Mock<IEstabelecimentoUsuarioRepository> _estabelecimentoUsuarioRepository = new();
@@ -954,9 +955,119 @@ public class AssinaturaServiceTests
             service.CancelarAsync(30));
     }
 
+    [Fact]
+    public async Task AdicionarEstabelecimentoAsync_DeveVincularFilial_QuandoPremiumComVagas()
+    {
+        var assinatura = new Assinatura
+        {
+            Id = 50,
+            EstabelecimentoId = 20,
+            Status = AssinaturaStatus.Ativa,
+            PlanoId = 3,
+            Plano = new Plano
+            {
+                Id = 3,
+                Nome = "Premium",
+                LimiteEstabelecimentos = 5,
+                Ativo = true
+            }
+        };
+
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdComPlanoAsync(50, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(assinatura);
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10 });
+        _assinaturaEstabelecimentoRepository
+            .Setup(r => r.ContarPorAssinaturaAsync(50, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _estabelecimentoRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Estabelecimento>(), It.IsAny<CancellationToken>()))
+            .Callback<Estabelecimento, CancellationToken>((estabelecimento, _) => estabelecimento.Id = 99)
+            .Returns(Task.CompletedTask);
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<EstabelecimentoUsuario>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _assinaturaEstabelecimentoRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<AssinaturaEstabelecimento>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _assinaturaEstabelecimentoRepository
+            .Setup(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        var service = CreateService();
+
+        var response = await service.AdicionarEstabelecimentoAsync(
+            50,
+            new AdicionarEstabelecimentoAssinaturaRequestDto
+            {
+                Estabelecimento = new CriarEstabelecimentoAssinaturaDto
+                {
+                    Nome = "Filial Centro",
+                    Descricao = "Segunda unidade",
+                    Logo = "data:image/png;base64,iVBORw0KGgo=",
+                    Telefone = "11999999999",
+                    Email = "filial@teste.com",
+                    Endereco = EnderecoOperacaoDtoBuilder.Criar()
+                }
+            });
+
+        Assert.Equal(99, response.EstabelecimentoId);
+        Assert.Equal(50, response.AssinaturaId);
+    }
+
+    [Fact]
+    public async Task AdicionarEstabelecimentoAsync_DeveLancarExcecao_QuandoLimiteAtingido()
+    {
+        var assinatura = new Assinatura
+        {
+            Id = 50,
+            EstabelecimentoId = 20,
+            Status = AssinaturaStatus.Ativa,
+            PlanoId = 3,
+            Plano = new Plano
+            {
+                Id = 3,
+                Nome = "Premium",
+                LimiteEstabelecimentos = 5,
+                Ativo = true
+            }
+        };
+
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdComPlanoAsync(50, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(assinatura);
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10 });
+        _assinaturaEstabelecimentoRepository
+            .Setup(r => r.ContarPorAssinaturaAsync(50, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(5);
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<LimiteEstabelecimentosExcedidoException>(() =>
+            service.AdicionarEstabelecimentoAsync(
+                50,
+                new AdicionarEstabelecimentoAssinaturaRequestDto
+                {
+                    Estabelecimento = new CriarEstabelecimentoAssinaturaDto
+                    {
+                        Nome = "Filial",
+                        Descricao = "Desc",
+                        Logo = "data:image/png;base64,iVBORw0KGgo=",
+                        Telefone = "11999999999",
+                        Email = "filial@teste.com",
+                        Endereco = EnderecoOperacaoDtoBuilder.Criar()
+                    }
+                }));
+    }
+
     private AssinaturaService CreateService() =>
         new(
             _assinaturaRepository.Object,
+            _assinaturaEstabelecimentoRepository.Object,
             _planoRepository.Object,
             _estabelecimentoRepository.Object,
             _estabelecimentoUsuarioRepository.Object,

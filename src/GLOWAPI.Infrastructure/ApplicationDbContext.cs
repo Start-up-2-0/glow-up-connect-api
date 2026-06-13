@@ -28,6 +28,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Plano> Planos { get; set; }
     public DbSet<CampanhaPromocional> CampanhasPromocionais { get; set; }
     public DbSet<Assinatura> Assinaturas { get; set; }
+    public DbSet<AssinaturaEstabelecimento> AssinaturaEstabelecimentos { get; set; }
     public DbSet<AssinaturaHistorico> AssinaturasHistorico { get; set; }
     public DbSet<AssinaturaRecorrenciaHistorico> AssinaturasRecorrenciasHistorico { get; set; }
     public DbSet<Pagamento> Pagamentos { get; set; }

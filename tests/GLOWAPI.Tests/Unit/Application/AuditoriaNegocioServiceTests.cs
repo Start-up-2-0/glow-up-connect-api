@@ -9,7 +9,7 @@ namespace GLOWAPI.Tests.Unit.Application;
 
 public class AuditoriaNegocioServiceTests
 {
-    private readonly Mock<IRepository<AuditoriaNegocio>> _auditoriaRepository = new();
+    private readonly Mock<IAuditoriaNegocioRepository> _auditoriaRepository = new();
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
 
     [Fact]

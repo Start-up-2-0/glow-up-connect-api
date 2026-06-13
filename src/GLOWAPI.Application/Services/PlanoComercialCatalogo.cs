@@ -33,13 +33,23 @@ public static class PlanoComercialCatalogo
         "Relatorios basicos"
     ];
 
-    private static readonly IReadOnlyList<string> FuncionalidadesPremium =
+    private static readonly IReadOnlyList<string> FuncionalidadesEssencial =
     [
         .. FuncionalidadesPlus,
+        "Operacao completa para uma unidade"
+    ];
+
+    private static readonly IReadOnlyList<string> FuncionalidadesPremium =
+    [
+        .. FuncionalidadesEssencial,
+        "Ate 5 unidades na mesma assinatura",
+        "Painel consolidado da rede",
         "Controle de caixa",
         "Fluxo financeiro",
         "Comissao automatica",
         "Relatorios financeiros",
+        "CRM de clientes",
+        "Auditoria de operacoes",
         "Dashboard avancado",
         "Metricas do estabelecimento",
         "Historico financeiro",
@@ -63,12 +73,15 @@ public static class PlanoComercialCatalogo
         ModuloAssinatura.WhatsApp
     ];
 
+    private static readonly IReadOnlyList<ModuloAssinatura> ModulosEssencial = ModulosPlus;
+
     private static readonly IReadOnlyList<ModuloAssinatura> ModulosPremium =
     [
-        .. ModulosPlus,
+        .. ModulosEssencial,
         ModuloAssinatura.Caixa,
         ModuloAssinatura.Financeiro,
-        ModuloAssinatura.ComissaoProfissionais
+        ModuloAssinatura.ComissaoProfissionais,
+        ModuloAssinatura.Clientes
     ];
 
     public static PlanoComercialPerfil Obter(Plano? plano)
@@ -88,6 +101,16 @@ public static class PlanoComercialCatalogo
                 PrioridadeListagemPublica: true,
                 Modulos: ModulosPremium,
                 Funcionalidades: FuncionalidadesPremium);
+        }
+
+        if (nomeNormalizado.Contains("essencial", StringComparison.Ordinal))
+        {
+            return new PlanoComercialPerfil(
+                LimiteUsuarios: null,
+                LimiteAgendamentosPorDia: null,
+                PrioridadeListagemPublica: false,
+                Modulos: ModulosEssencial,
+                Funcionalidades: FuncionalidadesEssencial);
         }
 
         if (nomeNormalizado.Contains("plus", StringComparison.Ordinal))
@@ -118,6 +141,12 @@ public static class PlanoComercialCatalogo
             Modulos: ModulosBasic,
             Funcionalidades: FuncionalidadesBasic);
     }
+
+    public static bool PermiteMultiLoja(Plano? plano) =>
+        plano?.LimiteEstabelecimentos is > 1;
+
+    public static bool EhPlanoPremium(Plano? plano) =>
+        plano is not null && Normalizar(plano.Nome).Contains("premium", StringComparison.Ordinal);
 
     private static string Normalizar(string valor)
     {

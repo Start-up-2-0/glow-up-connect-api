@@ -46,6 +46,29 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<Assinatura?> ObterAssinaturaEfetivaPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        var direta = await ObterAtualPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
+        if (direta?.Status is AssinaturaStatus.Ativa or AssinaturaStatus.Trial)
+        {
+            return direta;
+        }
+
+        var vinculo = await Context.Set<AssinaturaEstabelecimento>()
+            .Include(v => v.Assinatura)
+                .ThenInclude(assinatura => assinatura!.Plano)
+            .FirstOrDefaultAsync(v => v.EstabelecimentoId == estabelecimentoId, cancellationToken);
+
+        if (vinculo?.Assinatura?.Status is AssinaturaStatus.Ativa or AssinaturaStatus.Trial)
+        {
+            return vinculo.Assinatura;
+        }
+
+        return direta;
+    }
+
     public Task<bool> ExisteAtivaOuPendentePorEstabelecimentoAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default)

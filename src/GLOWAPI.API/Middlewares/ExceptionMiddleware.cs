@@ -50,6 +50,8 @@ public class ExceptionMiddleware
                     or MensagemNotificacaoNaoCancelavelException
                     or AssinaturaDuplicadaException
                     or EstabelecimentoOnboardingDuplicadoException
+                    or LimiteEstabelecimentosExcedidoException
+                    or DowngradeComMultiplasLojasException
                     or UsuarioEquipeNegocioDuplicadoException
                     or ProfissionalNegocioDuplicadoException
                     or ProfissionalServicoDuplicadoException

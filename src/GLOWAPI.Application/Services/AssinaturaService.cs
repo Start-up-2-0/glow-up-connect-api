@@ -18,6 +18,7 @@ namespace GLOWAPI.Application.Services;
 public class AssinaturaService : IAssinaturaService
 {
     private readonly IAssinaturaRepository _assinaturaRepository;
+    private readonly IAssinaturaEstabelecimentoRepository _assinaturaEstabelecimentoRepository;
     private readonly IPlanoRepository _planoRepository;
     private readonly IEstabelecimentoRepository _estabelecimentoRepository;
     private readonly IEstabelecimentoUsuarioRepository _estabelecimentoUsuarioRepository;
@@ -39,6 +40,7 @@ public class AssinaturaService : IAssinaturaService
 
     public AssinaturaService(
         IAssinaturaRepository assinaturaRepository,
+        IAssinaturaEstabelecimentoRepository assinaturaEstabelecimentoRepository,
         IPlanoRepository planoRepository,
         IEstabelecimentoRepository estabelecimentoRepository,
         IEstabelecimentoUsuarioRepository estabelecimentoUsuarioRepository,
@@ -59,6 +61,7 @@ public class AssinaturaService : IAssinaturaService
         IOptions<MercadoPagoOptions> mercadoPagoOptions)
     {
         _assinaturaRepository = assinaturaRepository;
+        _assinaturaEstabelecimentoRepository = assinaturaEstabelecimentoRepository;
         _planoRepository = planoRepository;
         _estabelecimentoRepository = estabelecimentoRepository;
         _estabelecimentoUsuarioRepository = estabelecimentoUsuarioRepository;
@@ -123,6 +126,8 @@ public class AssinaturaService : IAssinaturaService
                 assinatura.EstabelecimentoId = assinatura.Estabelecimento.Id;
             }
 
+            await GarantirVinculoMatrizAsync(assinatura, cancellationToken);
+
             var diasTrial = diasTrialIniciado.Value;
 
             await _assinaturaNotificacaoService.TrialIniciadoAsync(
@@ -185,6 +190,8 @@ public class AssinaturaService : IAssinaturaService
             assinatura.EstabelecimentoId = assinatura.Estabelecimento.Id;
         }
 
+        await GarantirVinculoMatrizAsync(assinatura, cancellationToken);
+
         if (!pagamentoInicial.Pagamento.AssinaturaId.HasValue)
         {
             pagamentoInicial.Pagamento.AssinaturaId = assinatura.Id;
@@ -235,6 +242,8 @@ public class AssinaturaService : IAssinaturaService
         {
             throw new TrocaPlanoAssinaturaInvalidaException("Assinatura ja esta vinculada ao plano informado.");
         }
+
+        await ValidarDowngradeMultiLojaAsync(assinatura, novoPlano, cancellationToken);
 
         if (TrocaExigeCobranca(assinatura.Plano, novoPlano))
         {
@@ -364,7 +373,7 @@ public class AssinaturaService : IAssinaturaService
             throw new UsuarioSemPermissaoAssinaturaException();
         }
 
-        var assinatura = await _assinaturaRepository.ObterAtualPorEstabelecimentoAsync(
+        var assinatura = await _assinaturaRepository.ObterAssinaturaEfetivaPorEstabelecimentoAsync(
             estabelecimentoId,
             cancellationToken);
 
@@ -383,6 +392,116 @@ public class AssinaturaService : IAssinaturaService
         }
 
         return AssinaturaResponseDto.From(assinatura, diasTrial: diasTrial);
+    }
+
+    public async Task<AdicionarEstabelecimentoAssinaturaResponseDto> AdicionarEstabelecimentoAsync(
+        int assinaturaId,
+        AdicionarEstabelecimentoAssinaturaRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = ObterUserIdAutenticado();
+        var assinatura = await _assinaturaRepository.ObterPorIdComPlanoAsync(assinaturaId, cancellationToken);
+        if (assinatura is null)
+        {
+            throw new AssinaturaNaoEncontradaException();
+        }
+
+        await ValidarPermissaoGerenciarAssinaturaAsync(assinatura, userId, cancellationToken);
+
+        if (assinatura.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Trial))
+        {
+            throw new TrocaPlanoAssinaturaInvalidaException(
+                "Somente assinatura ativa ou em trial pode receber novas unidades.");
+        }
+
+        if (!PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano))
+        {
+            throw new TrocaPlanoAssinaturaInvalidaException(
+                "O plano atual nao permite multiplas unidades.");
+        }
+
+        var lojasVinculadas = await _assinaturaEstabelecimentoRepository.ContarPorAssinaturaAsync(
+            assinaturaId,
+            cancellationToken);
+        var limite = assinatura.Plano?.LimiteEstabelecimentos;
+        if (!limite.HasValue || lojasVinculadas >= limite.Value)
+        {
+            throw new LimiteEstabelecimentosExcedidoException();
+        }
+
+        var estabelecimento = CriarEstabelecimento(request.Estabelecimento);
+        await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
+        await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
+
+        await _estabelecimentoUsuarioRepository.AdicionarAsync(new EstabelecimentoUsuario
+        {
+            Estabelecimento = estabelecimento,
+            UsuarioId = userId,
+            RoleNoEstabelecimento = EstablishmentUserRole.Owner,
+            Ativo = true
+        }, cancellationToken);
+
+        await _assinaturaEstabelecimentoRepository.AdicionarAsync(new AssinaturaEstabelecimento
+        {
+            AssinaturaId = assinaturaId,
+            Estabelecimento = estabelecimento,
+            EhMatriz = false
+        }, cancellationToken);
+
+        await _assinaturaEstabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        return new AdicionarEstabelecimentoAssinaturaResponseDto(
+            estabelecimento.Id,
+            estabelecimento.Nome,
+            assinaturaId);
+    }
+
+    private async Task GarantirVinculoMatrizAsync(
+        Assinatura assinatura,
+        CancellationToken cancellationToken)
+    {
+        if (!assinatura.EstabelecimentoId.HasValue
+            || !PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano))
+        {
+            return;
+        }
+
+        var vinculoExistente = await _assinaturaEstabelecimentoRepository.ObterPorEstabelecimentoAsync(
+            assinatura.EstabelecimentoId.Value,
+            cancellationToken);
+        if (vinculoExistente is not null)
+        {
+            return;
+        }
+
+        await _assinaturaEstabelecimentoRepository.AdicionarAsync(new AssinaturaEstabelecimento
+        {
+            AssinaturaId = assinatura.Id,
+            EstabelecimentoId = assinatura.EstabelecimentoId.Value,
+            EhMatriz = true
+        }, cancellationToken);
+
+        await _assinaturaEstabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
+    }
+
+    private async Task ValidarDowngradeMultiLojaAsync(
+        Assinatura assinatura,
+        Plano novoPlano,
+        CancellationToken cancellationToken)
+    {
+        if (!PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano)
+            || PlanoComercialCatalogo.PermiteMultiLoja(novoPlano))
+        {
+            return;
+        }
+
+        var lojasVinculadas = await _assinaturaEstabelecimentoRepository.ContarPorAssinaturaAsync(
+            assinatura.Id,
+            cancellationToken);
+        if (lojasVinculadas > 1)
+        {
+            throw new DowngradeComMultiplasLojasException();
+        }
     }
 
     private bool DeveAdiarOnboarding(IniciarAssinaturaRequestDto request, bool elegivelTrial) =>

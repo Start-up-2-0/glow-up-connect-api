@@ -27,4 +27,14 @@ public interface IAgendamentoRepository : IRepository<Agendamento>
     Task<(IReadOnlyList<Agendamento> Itens, int Total)> ListarPorUsuarioClienteComFiltroAsync(
         AgendamentoClienteFiltro filtro,
         CancellationToken cancellationToken = default);
+
+    Task<int> ContarPorEstabelecimentoNoPeriodoAsync(
+        int estabelecimentoId,
+        DateTime inicio,
+        DateTime fim,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ClienteAgendamentoResumo>> ListarClientesResumoPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default);
 }

@@ -19,6 +19,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
     private readonly IProfissionalRepository _profissionalRepository;
     private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
     private readonly IAssinaturaRepository _assinaturaRepository;
+    private readonly IAssinaturaEstabelecimentoRepository _assinaturaEstabelecimentoRepository;
     private readonly IUsuarioRepository _usuarioRepository;
     private readonly IEnderecoGeocodificacaoService _enderecoGeocodificacaoService;
     private readonly IAvatarBase64Decoder _avatarBase64Decoder;
@@ -29,6 +30,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
         IProfissionalRepository profissionalRepository,
         IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
         IAssinaturaRepository assinaturaRepository,
+        IAssinaturaEstabelecimentoRepository assinaturaEstabelecimentoRepository,
         IUsuarioRepository usuarioRepository,
         IEnderecoGeocodificacaoService enderecoGeocodificacaoService,
         IAvatarBase64Decoder avatarBase64Decoder)
@@ -38,6 +40,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
         _profissionalRepository = profissionalRepository;
         _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
         _assinaturaRepository = assinaturaRepository;
+        _assinaturaEstabelecimentoRepository = assinaturaEstabelecimentoRepository;
         _usuarioRepository = usuarioRepository;
         _enderecoGeocodificacaoService = enderecoGeocodificacaoService;
         _avatarBase64Decoder = avatarBase64Decoder;
@@ -132,6 +135,12 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
 
         await PromoverRoleSeNecessarioAsync(payload.UsuarioId, payload.TipoAssinatura, cancellationToken);
         await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        var assinaturaComPlano = await _assinaturaRepository.ObterPorIdComPlanoAsync(assinatura.Id, cancellationToken);
+        if (assinaturaComPlano is not null)
+        {
+            await GarantirVinculoMatrizAsync(assinaturaComPlano, cancellationToken);
+        }
     }
 
     private async Task PromoverRoleSeNecessarioAsync(
@@ -236,5 +245,33 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
         {
             throw new ProfissionalAutonomoAssinaturaInvalidoException("Biografia do profissional deve ter no maximo 1000 caracteres.");
         }
+    }
+
+    private async Task GarantirVinculoMatrizAsync(
+        Assinatura assinatura,
+        CancellationToken cancellationToken)
+    {
+        if (!assinatura.EstabelecimentoId.HasValue
+            || !PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano))
+        {
+            return;
+        }
+
+        var vinculoExistente = await _assinaturaEstabelecimentoRepository.ObterPorEstabelecimentoAsync(
+            assinatura.EstabelecimentoId.Value,
+            cancellationToken);
+        if (vinculoExistente is not null)
+        {
+            return;
+        }
+
+        await _assinaturaEstabelecimentoRepository.AdicionarAsync(new AssinaturaEstabelecimento
+        {
+            AssinaturaId = assinatura.Id,
+            EstabelecimentoId = assinatura.EstabelecimentoId.Value,
+            EhMatriz = true
+        }, cancellationToken);
+
+        await _assinaturaEstabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
     }
 }

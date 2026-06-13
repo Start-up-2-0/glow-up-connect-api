@@ -79,6 +79,7 @@ public class UsuarioNegocioContextoServiceTests
                     Status = AssinaturaStatus.Ativa,
                     Plano = new Plano { Id = 40, Nome = "Plus" }
                 },
+                20,
                 [ModuloAssinatura.Agenda, ModuloAssinatura.Profissionais]));
         _assinaturaRepository
             .Setup(r => r.ObterPorIdAsync(30, It.IsAny<CancellationToken>()))
@@ -171,6 +172,7 @@ public class UsuarioNegocioContextoServiceTests
                     Status = AssinaturaStatus.Ativa,
                     Plano = new Plano { Id = 40, Nome = "Plus" }
                 },
+                20,
                 [ModuloAssinatura.Agenda, ModuloAssinatura.Profissionais]));
         _assinaturaRepository
             .Setup(r => r.ObterPorIdAsync(30, It.IsAny<CancellationToken>()))

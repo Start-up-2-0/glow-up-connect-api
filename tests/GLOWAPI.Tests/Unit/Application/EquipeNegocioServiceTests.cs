@@ -964,11 +964,13 @@ public class EquipeNegocioServiceTests
     private static ModulosAssinaturaResponseDto CriarModulosPlus() =>
         ModulosAssinaturaResponseDto.Liberado(
             CriarAssinatura("Plus"),
+            20,
             [ModuloAssinatura.Profissionais]);
 
     private static ModulosAssinaturaResponseDto CriarModulosBasic() =>
         ModulosAssinaturaResponseDto.Liberado(
             CriarAssinatura("Basic"),
+            20,
             [ModuloAssinatura.Agenda, ModuloAssinatura.HorariosAtendimento]);
 
     private void ConfigurarModulosBasicSemProfissionais()

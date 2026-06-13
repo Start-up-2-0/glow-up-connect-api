@@ -74,6 +74,29 @@ public class AssinaturasController : ControllerBase
             assinatura));
     }
 
+    [HttpPost("{assinaturaId:int}/estabelecimentos")]
+    public async Task<IActionResult> AdicionarEstabelecimento(
+        int assinaturaId,
+        [FromBody] AdicionarEstabelecimentoAssinaturaRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Unauthorized();
+        }
+
+        var resultado = await _assinaturaService.AdicionarEstabelecimentoAsync(
+            assinaturaId,
+            request,
+            cancellationToken);
+
+        return StatusCode(
+            StatusCodes.Status201Created,
+            ApiSuccessResponse<AdicionarEstabelecimentoAssinaturaResponseDto>.From(
+                "Unidade vinculada com sucesso.",
+                resultado));
+    }
+
     [HttpGet("atual")]
     public async Task<IActionResult> ObterAtual(
         [FromQuery] int estabelecimentoId,

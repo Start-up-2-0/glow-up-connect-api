@@ -14,7 +14,7 @@ public class ModulosAssinaturaServiceTests
     public async Task ObterPorEstabelecimentoAsync_DeveLiberarModulosELimites_QuandoAssinaturaAtiva()
     {
         _assinaturaRepository
-            .Setup(r => r.ObterAtualPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterAssinaturaEfetivaPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Assinatura
             {
                 Id = 1,
@@ -60,7 +60,7 @@ public class ModulosAssinaturaServiceTests
     public async Task ObterPorEstabelecimentoAsync_DeveBloquearModulos_QuandoAssinaturaNaoEstaAtiva()
     {
         _assinaturaRepository
-            .Setup(r => r.ObterAtualPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterAssinaturaEfetivaPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Assinatura
             {
                 Id = 1,
@@ -93,7 +93,7 @@ public class ModulosAssinaturaServiceTests
     public async Task ObterPorEstabelecimentoAsync_DeveLiberarModulos_QuandoAssinaturaEmTrial()
     {
         _assinaturaRepository
-            .Setup(r => r.ObterAtualPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterAssinaturaEfetivaPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Assinatura
             {
                 Id = 1,
@@ -120,7 +120,7 @@ public class ModulosAssinaturaServiceTests
         AssinaturaStatus status)
     {
         _assinaturaRepository
-            .Setup(r => r.ObterAtualPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterAssinaturaEfetivaPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Assinatura
             {
                 Id = 1,
@@ -140,7 +140,7 @@ public class ModulosAssinaturaServiceTests
     public async Task ObterPorEstabelecimentoAsync_DeveLiberarPlanoBasicParaTenantAutonomo_QuandoAssinaturaAtiva()
     {
         _assinaturaRepository
-            .Setup(r => r.ObterAtualPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterAssinaturaEfetivaPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Assinatura
             {
                 Id = 3,
@@ -187,7 +187,7 @@ public class ModulosAssinaturaServiceTests
     public async Task PossuiModuloPorEstabelecimentoAsync_DeveRetornarTrue_ParaTenantAutonomoQuandoModuloEstaLiberado()
     {
         _assinaturaRepository
-            .Setup(r => r.ObterAtualPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterAssinaturaEfetivaPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Assinatura
             {
                 Id = 3,
@@ -209,7 +209,7 @@ public class ModulosAssinaturaServiceTests
     public async Task ObterPorEstabelecimentoAsync_DeveLiberarPlanoPlusSemFinanceiro()
     {
         _assinaturaRepository
-            .Setup(r => r.ObterAtualPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterAssinaturaEfetivaPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Assinatura
             {
                 Id = 1,
@@ -236,7 +236,7 @@ public class ModulosAssinaturaServiceTests
     public async Task PossuiModuloPorEstabelecimentoAsync_DeveRetornarFalse_QuandoPlanoBasicNaoLiberaCaixa()
     {
         _assinaturaRepository
-            .Setup(r => r.ObterAtualPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterAssinaturaEfetivaPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Assinatura
             {
                 Id = 1,
@@ -256,7 +256,7 @@ public class ModulosAssinaturaServiceTests
     public async Task ObterPorEstabelecimentoAsync_DeveRetornarBloqueado_QuandoNaoExistirAssinatura()
     {
         _assinaturaRepository
-            .Setup(r => r.ObterAtualPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterAssinaturaEfetivaPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Assinatura?)null);
 
         var service = CreateService();
@@ -270,6 +270,35 @@ public class ModulosAssinaturaServiceTests
         Assert.Null(resultado.Limites.Profissionais);
         Assert.Null(resultado.Limites.Servicos);
         Assert.Null(resultado.Limites.Agendamentos);
+    }
+
+    [Fact]
+    public async Task ObterPorEstabelecimentoAsync_DeveHerdarModulosDaAssinaturaTitular_QuandoFilialVinculada()
+    {
+        _assinaturaRepository
+            .Setup(r => r.ObterAssinaturaEfetivaPorEstabelecimentoAsync(99, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Assinatura
+            {
+                Id = 50,
+                EstabelecimentoId = 20,
+                Status = AssinaturaStatus.Ativa,
+                Plano = new Plano
+                {
+                    Id = 3,
+                    Nome = "Premium",
+                    LimiteEstabelecimentos = 5
+                }
+            });
+
+        var service = CreateService();
+
+        var resultado = await service.ObterPorEstabelecimentoAsync(99);
+
+        Assert.True(resultado.AssinaturaAtiva);
+        Assert.Equal(50, resultado.AssinaturaId);
+        Assert.Equal(99, resultado.EstabelecimentoId);
+        Assert.Contains("Financeiro", resultado.Modulos);
+        Assert.Equal(5, resultado.Limites.Estabelecimentos);
     }
 
     private ModulosAssinaturaService CreateService() =>

@@ -56,6 +56,9 @@ public static class DependencyInjection
         services.AddScoped<IAgendamentoConfirmacaoContaService, AgendamentoConfirmacaoContaService>();
         services.AddScoped<IAgendamentoNotificacaoService, AgendamentoNotificacaoService>();
         services.AddScoped<IAuditoriaNegocioService, AuditoriaNegocioService>();
+        services.AddScoped<IAuditoriaConsultaNegocioService, AuditoriaConsultaNegocioService>();
+        services.AddScoped<IClienteNegocioService, ClienteNegocioService>();
+        services.AddScoped<IRedeNegocioService, RedeNegocioService>();
         services.AddScoped<IEquipeNotificacaoService, EquipeNotificacaoService>();
         services.AddScoped<IUsuarioNegocioContextoService, UsuarioNegocioContextoService>();
         services.AddScoped<IConviteNegocioService, ConviteNegocioService>();

@@ -16,7 +16,7 @@ public record ModulosAssinaturaResponseDto(
     IReadOnlyList<string> Modulos,
     LimitesAssinaturaDto Limites)
 {
-    public static ModulosAssinaturaResponseDto Bloqueado(Assinatura? assinatura = null) =>
+    public static ModulosAssinaturaResponseDto Bloqueado(Assinatura? assinatura = null, int? estabelecimentoId = null) =>
         new(
             AssinaturaAtiva: false,
             AssinaturaId: assinatura?.Id,
@@ -24,13 +24,14 @@ public record ModulosAssinaturaResponseDto(
             PlanoNome: assinatura?.Plano?.Nome,
             Status: assinatura?.Status.ToString(),
             TipoAssinatura: ObterTipoAssinatura(assinatura),
-            EstabelecimentoId: assinatura?.EstabelecimentoId,
+            EstabelecimentoId: estabelecimentoId ?? assinatura?.EstabelecimentoId,
             ProfissionalAutonomoId: null,
             Modulos: Array.Empty<string>(),
             Limites: CriarLimites(assinatura?.Plano));
 
     public static ModulosAssinaturaResponseDto Liberado(
         Assinatura assinatura,
+        int estabelecimentoId,
         IReadOnlyList<ModuloAssinatura> modulos) =>
         new(
             AssinaturaAtiva: true,
@@ -39,7 +40,7 @@ public record ModulosAssinaturaResponseDto(
             PlanoNome: assinatura.Plano?.Nome,
             Status: assinatura.Status.ToString(),
             TipoAssinatura: ObterTipoAssinatura(assinatura),
-            EstabelecimentoId: assinatura.EstabelecimentoId,
+            EstabelecimentoId: estabelecimentoId,
             ProfissionalAutonomoId: null,
             Modulos: modulos.Select(modulo => modulo.ToString()).ToList(),
             Limites: CriarLimites(assinatura.Plano));
@@ -54,6 +55,7 @@ public record ModulosAssinaturaResponseDto(
             plano?.LimiteAgendamentos,
             perfil.LimiteUsuarios,
             perfil.LimiteAgendamentosPorDia,
+            plano?.LimiteEstabelecimentos,
             perfil.PrioridadeListagemPublica);
     }
 

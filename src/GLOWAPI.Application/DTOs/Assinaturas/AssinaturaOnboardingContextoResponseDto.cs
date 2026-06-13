@@ -12,4 +12,8 @@ public record AssinaturaOnboardingContextoResponseDto(
     bool TemEstabelecimentoProprio,
     IReadOnlyList<EstabelecimentoOnboardingContextoDto> Estabelecimentos,
     string ProximaEtapa,
-    int? EstabelecimentoIdSugerido);
+    int? EstabelecimentoIdSugerido,
+    bool PodeAdicionarLoja,
+    int LojasVinculadas,
+    int? LimiteLojas,
+    int? AssinaturaPremiumId);

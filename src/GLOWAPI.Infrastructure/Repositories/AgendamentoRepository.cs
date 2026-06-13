@@ -156,4 +156,49 @@ public class AgendamentoRepository : Repository<Agendamento>, IAgendamentoReposi
 
         return (itens, total);
     }
+
+    public Task<int> ContarPorEstabelecimentoNoPeriodoAsync(
+        int estabelecimentoId,
+        DateTime inicio,
+        DateTime fim,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet.CountAsync(
+            agendamento => agendamento.EstabelecimentoId == estabelecimentoId
+                && agendamento.Itens.Any(item => item.Inicio >= inicio && item.Inicio <= fim),
+            cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ClienteAgendamentoResumo>> ListarClientesResumoPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        var agendamentos = await DbSet
+            .AsNoTracking()
+            .Where(agendamento => agendamento.EstabelecimentoId == estabelecimentoId)
+            .Select(agendamento => new
+            {
+                agendamento.ClienteNome,
+                agendamento.ClienteEmail,
+                agendamento.ClienteTelefone,
+                agendamento.CreateAd
+            })
+            .ToListAsync(cancellationToken);
+
+        return agendamentos
+            .GroupBy(agendamento => new
+            {
+                Nome = agendamento.ClienteNome ?? "Cliente",
+                Email = agendamento.ClienteEmail,
+                Telefone = agendamento.ClienteTelefone
+            })
+            .Select(grupo => new ClienteAgendamentoResumo(
+                grupo.Key.Nome,
+                grupo.Key.Email,
+                grupo.Key.Telefone,
+                grupo.Count(),
+                grupo.Max(item => (DateTime?)item.CreateAd)))
+            .OrderByDescending(cliente => cliente.UltimoAgendamentoEm)
+            .ToList();
+    }
 }

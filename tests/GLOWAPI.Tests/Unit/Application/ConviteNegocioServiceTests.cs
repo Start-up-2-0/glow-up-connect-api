@@ -55,6 +55,7 @@ public class ConviteNegocioServiceTests
                     Status = AssinaturaStatus.Ativa,
                     Plano = new Plano { Id = 2, Nome = "Plus" }
                 },
+                20,
                 [ModuloAssinatura.Profissionais]));
         _usuarioRepository
             .Setup(r => r.ObterPorEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -244,6 +245,7 @@ public class ConviteNegocioServiceTests
                     Status = AssinaturaStatus.Ativa,
                     Plano = new Plano { Id = 2, Nome = "Basic" }
                 },
+                20,
                 [ModuloAssinatura.Profissionais]));
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ContarAtivosAsync(20, It.IsAny<CancellationToken>()))
@@ -273,6 +275,7 @@ public class ConviteNegocioServiceTests
                     Status = AssinaturaStatus.Ativa,
                     Plano = new Plano { Id = 2, Nome = "Limitado", LimiteProfissionais = 1 }
                 },
+                20,
                 [ModuloAssinatura.Profissionais]));
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterPorUsuarioAsync(20, 10, It.IsAny<CancellationToken>()))

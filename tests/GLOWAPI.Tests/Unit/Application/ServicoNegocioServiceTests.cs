@@ -42,6 +42,7 @@ public class ServicoNegocioServiceTests
             .Setup(s => s.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(ModulosAssinaturaResponseDto.Liberado(
                 new Assinatura { Id = 1, Plano = new Plano { LimiteServicos = 10 } },
+                20,
                 [ModuloAssinatura.Servicos]));
 
         _servicoRepository
