@@ -40,7 +40,8 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
         var requestPayload = JsonSerializer.Serialize(new
         {
             mensagem.Destinatario,
-            mensagem.Assunto
+            mensagem.Assunto,
+            TextoLength = mensagem.Conteudo.Length
         });
 
         if (!_options.Habilitado
@@ -100,8 +101,7 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
             request.Content = JsonContent.Create(new
             {
                 number = destinatario,
-                text = mensagem.Conteudo,
-                textMessage = new { text = mensagem.Conteudo }
+                text = mensagem.Conteudo
             });
 
             var response = await _httpClient.SendAsync(request, cancellationToken);

@@ -53,9 +53,9 @@ public class ProvedorMensagemWhatsAppTests
         Assert.Equal(HttpMethod.Post, requestCapturado!.Method);
         Assert.Contains("/message/sendText/instancia-teste", requestCapturado.RequestUri!.ToString());
 
-        Assert.Contains("textMessage", bodyCapturado);
-        Assert.Contains("\"text\":", bodyCapturado);
+        Assert.NotNull(bodyCapturado);
         Assert.Contains("Mensagem teste", bodyCapturado);
+        Assert.DoesNotContain("textMessage", bodyCapturado);
     }
 
     [Fact]
