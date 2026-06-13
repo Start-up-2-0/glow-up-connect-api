@@ -8,5 +8,10 @@ public interface IMensagemNotificacaoService
         RegistrarMensagemNotificacaoDto dto,
         CancellationToken cancellationToken = default);
 
+    Task<MensagemNotificacaoResponseDto> RegistrarEnviadoAsync(
+        RegistrarMensagemNotificacaoDto dto,
+        string provedor,
+        CancellationToken cancellationToken = default);
+
     Task CancelarPorGuidAsync(Guid guid, CancellationToken cancellationToken = default);
 }

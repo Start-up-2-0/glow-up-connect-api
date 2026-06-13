@@ -1,4 +1,5 @@
 using System.Text.Json;
+using GLOWAPI.Application.Models.Mensageria;
 
 namespace GLOWAPI.Application.Helpers;
 
@@ -26,11 +27,6 @@ public static class EvolutionDestinoHelper
             AdicionarCandidato(candidatos, remoteJidAlt);
         }
 
-        if (EvolutionWebhookParser.EhRemoteJidLid(remoteJidConversa))
-        {
-            AdicionarCandidatoJid(candidatos, remoteJidConversa);
-        }
-
         var telefoneEvolution = TelefoneHelper.NormalizarParaEvolutionEnvio(telefoneCadastrado);
         if (!string.IsNullOrWhiteSpace(telefoneEvolution))
         {
@@ -46,13 +42,19 @@ public static class EvolutionDestinoHelper
             AdicionarCandidato(candidatos, $"{telefone}@s.whatsapp.net");
         }
 
+        if (EvolutionWebhookParser.EhRemoteJidLid(remoteJidConversa))
+        {
+            AdicionarCandidatoJid(candidatos, remoteJidConversa);
+        }
+
         return candidatos;
     }
 
     public static string? CriarPayloadOutbound(
         string telefoneCadastrado,
         string? remoteJidConversa,
-        string? remoteJidAlt = null)
+        string? remoteJidAlt = null,
+        EvolutionWhatsAppContextoResposta? contextoResposta = null)
     {
         if (!EvolutionWebhookParser.EhRemoteJidLid(remoteJidConversa))
         {
@@ -63,7 +65,10 @@ public static class EvolutionDestinoHelper
         {
             telefoneFallback = TelefoneHelper.NormalizarParaWhatsApp(telefoneCadastrado),
             remoteJidConversa,
-            remoteJidAlt
+            remoteJidAlt,
+            quotedMessageId = contextoResposta?.MessageId,
+            quotedFromMe = contextoResposta?.FromMe,
+            quotedTexto = contextoResposta?.TextoMensagemReferencia
         });
     }
 
@@ -120,15 +125,71 @@ public static class EvolutionDestinoHelper
         string destinatario,
         string? payloadJson)
     {
+        var telefoneFallback = ExtrairTelefoneFallbackDoPayload(payloadJson);
+        var remoteJidConversa = ExtrairRemoteJidConversaDoPayload(payloadJson);
+        var remoteJidAlt = ExtrairRemoteJidAltDoPayload(payloadJson);
+
         if (EvolutionWebhookParser.EhRemoteJidLid(destinatario))
         {
-            var telefoneFallback = ExtrairTelefoneFallbackDoPayload(payloadJson);
-            var remoteJidConversa = ExtrairRemoteJidConversaDoPayload(payloadJson);
-            var remoteJidAlt = ExtrairRemoteJidAltDoPayload(payloadJson);
             return CriarCandidatosDestinoOutbound(telefoneFallback ?? string.Empty, remoteJidConversa, remoteJidAlt);
         }
 
+        if (!string.IsNullOrWhiteSpace(telefoneFallback) || !string.IsNullOrWhiteSpace(remoteJidConversa))
+        {
+            var telefoneBase = telefoneFallback
+                ?? TelefoneHelper.NormalizarParaWhatsApp(destinatario)
+                ?? destinatario;
+
+            return CriarCandidatosDestinoOutbound(telefoneBase, remoteJidConversa, remoteJidAlt);
+        }
+
         return CriarCandidatosDestinoOutbound(destinatario, remoteJidConversa: null, remoteJidAlt: null);
+    }
+
+    public static EvolutionWhatsAppContextoResposta? ExtrairContextoRespostaDoPayload(string? payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(payloadJson);
+            var root = document.RootElement;
+
+            var remoteJidConversa = root.TryGetProperty("remoteJidConversa", out var remoteJid)
+                && remoteJid.ValueKind == JsonValueKind.String
+                ? remoteJid.GetString()
+                : null;
+
+            if (!EvolutionWebhookParser.EhRemoteJidLid(remoteJidConversa))
+            {
+                return null;
+            }
+
+            var messageId = root.TryGetProperty("quotedMessageId", out var quotedId)
+                && quotedId.ValueKind == JsonValueKind.String
+                ? quotedId.GetString()
+                : null;
+
+            var texto = root.TryGetProperty("quotedTexto", out var quotedTexto)
+                && quotedTexto.ValueKind == JsonValueKind.String
+                ? quotedTexto.GetString()
+                : null;
+
+            bool? fromMe = root.TryGetProperty("quotedFromMe", out var quotedFromMe)
+                && (quotedFromMe.ValueKind == JsonValueKind.True || quotedFromMe.ValueKind == JsonValueKind.False)
+                ? quotedFromMe.GetBoolean()
+                : null;
+
+            var contexto = new EvolutionWhatsAppContextoResposta(messageId, remoteJidConversa, fromMe, texto);
+            return contexto.TemQuoted ? contexto : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static string? ExtrairRemoteJidConversaDoPayload(string? payloadJson)

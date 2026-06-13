@@ -51,6 +51,37 @@ public class MensagemNotificacaoService : IMensagemNotificacaoService
         return MensagemNotificacaoResponseDto.From(mensagem);
     }
 
+    public async Task<MensagemNotificacaoResponseDto> RegistrarEnviadoAsync(
+        RegistrarMensagemNotificacaoDto dto,
+        string provedor,
+        CancellationToken cancellationToken = default)
+    {
+        var utcNow = DateTime.UtcNow;
+
+        var mensagem = new MensagemNotificacao
+        {
+            Guid = Guid.NewGuid(),
+            EstabelecimentoId = dto.EstabelecimentoId,
+            Canal = dto.Canal,
+            Destinatario = dto.Destinatario.Trim(),
+            Assunto = dto.Assunto?.Trim() ?? string.Empty,
+            Conteudo = dto.Conteudo,
+            PayloadJson = string.IsNullOrWhiteSpace(dto.PayloadJson) ? "{}" : dto.PayloadJson,
+            MaximoTentativas = dto.MaximoTentativas ?? _options.MaximoTentativasPadrao,
+            Prioridade = dto.Prioridade,
+            Provedor = string.IsNullOrWhiteSpace(provedor) ? dto.Provedor : provedor,
+            AgendadoPara = dto.AgendadoPara,
+            CriadoEm = utcNow
+        };
+
+        mensagem.MarcarEnviada(utcNow);
+
+        await _repository.AdicionarAsync(mensagem, cancellationToken);
+        await _repository.SalvarAlteracoesAsync(cancellationToken);
+
+        return MensagemNotificacaoResponseDto.From(mensagem);
+    }
+
     public async Task CancelarPorGuidAsync(Guid guid, CancellationToken cancellationToken = default)
     {
         var mensagem = await _repository.ObterPorGuidAsync(guid, cancellationToken);

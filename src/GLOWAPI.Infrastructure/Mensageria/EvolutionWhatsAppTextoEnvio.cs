@@ -166,6 +166,24 @@ internal sealed class EvolutionWhatsAppTextoEnvio
             return null;
         }
 
+        if (EvolutionWebhookParser.EhRemoteJidLid(contextoResposta.RemoteJidConversa))
+        {
+            return new
+            {
+                key = new
+                {
+                    remoteJid = contextoResposta.RemoteJidConversa,
+                    fromMe = contextoResposta.FromMe ?? false,
+                    id = contextoResposta.MessageId,
+                    participant = contextoResposta.RemoteJidConversa
+                },
+                message = new
+                {
+                    conversation = contextoResposta.TextoMensagemReferencia
+                }
+            };
+        }
+
         return new
         {
             key = new
@@ -200,12 +218,36 @@ internal sealed class EvolutionWhatsAppTextoEnvio
         if (!string.Equals(remoteJidResposta, contextoResposta.RemoteJidConversa, StringComparison.OrdinalIgnoreCase)
             && EvolutionWebhookParser.EhRemoteJidLid(contextoResposta.RemoteJidConversa))
         {
+            var participantResposta = ExtrairParticipantDaResposta(responseBody);
             _logger.LogWarning(
-                "Evolution sendText roteou para JID diferente da conversa @lid. Conversa={Conversa}, DestinatarioSolicitado={Destinatario}, RemoteJidResposta={RemoteJidResposta}",
+                "Evolution sendText roteou para JID diferente da conversa @lid. Conversa={Conversa}, DestinatarioSolicitado={Destinatario}, RemoteJidResposta={RemoteJidResposta}, ParticipantResposta={ParticipantResposta}",
                 contextoResposta.RemoteJidConversa,
                 destinatarioSolicitado,
-                remoteJidResposta);
+                remoteJidResposta,
+                participantResposta ?? "(ausente)");
         }
+    }
+
+    private static string? ExtrairParticipantDaResposta(string responseBody)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(responseBody);
+            if (document.RootElement.TryGetProperty("message", out var message)
+                && message.TryGetProperty("extendedTextMessage", out var extended)
+                && extended.TryGetProperty("contextInfo", out var contextInfo)
+                && contextInfo.TryGetProperty("participant", out var participant)
+                && participant.ValueKind == JsonValueKind.String)
+            {
+                return participant.GetString();
+            }
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        return null;
     }
 
     private static string? ExtrairRemoteJidDaResposta(string responseBody)

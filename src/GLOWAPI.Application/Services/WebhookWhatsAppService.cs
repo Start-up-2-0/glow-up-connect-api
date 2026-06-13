@@ -513,14 +513,20 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         int prioridade,
         CancellationToken cancellationToken)
     {
-        var destinatarioPreferido = EvolutionDestinoHelper.ResolverDestinoOutbound(telefoneDestino, remoteJidConversa);
+        var telefoneCadastrado = TelefoneHelper.NormalizarParaWhatsApp(telefoneDestino) ?? telefoneDestino;
+        var destinoEvolution = EvolutionDestinoHelper.ResolverDestinoOutbound(telefoneCadastrado, remoteJidConversa);
+        var payloadJson = EvolutionDestinoHelper.CriarPayloadOutbound(
+            telefoneCadastrado,
+            remoteJidConversa,
+            remoteJidAlt,
+            contextoResposta);
 
-        if (string.IsNullOrWhiteSpace(destinatarioPreferido) || string.IsNullOrWhiteSpace(conteudo))
+        if (string.IsNullOrWhiteSpace(telefoneCadastrado) || string.IsNullOrWhiteSpace(conteudo))
         {
             _logger.LogWarning(
-                "WhatsApp outbound ignorado: destinatario ou conteudo ausente. Assunto={Assunto}, DestinatarioPresente={DestinatarioPresente}, ConteudoPresente={ConteudoPresente}, RemoteJid={RemoteJid}",
+                "WhatsApp outbound ignorado: destinatario ou conteudo ausente. Assunto={Assunto}, TelefoneCadastradoPresente={TelefoneCadastradoPresente}, ConteudoPresente={ConteudoPresente}, RemoteJid={RemoteJid}",
                 assunto,
-                !string.IsNullOrWhiteSpace(destinatarioPreferido),
+                !string.IsNullOrWhiteSpace(telefoneCadastrado),
                 !string.IsNullOrWhiteSpace(conteudo),
                 remoteJidConversa ?? "(ausente)");
             return;
@@ -529,16 +535,27 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         if (EvolutionWebhookParser.EhRemoteJidLid(remoteJidConversa))
         {
             _logger.LogInformation(
-                "WhatsApp outbound via telefone cadastrado (conversa @lid). Assunto={Assunto}, RemoteJid={RemoteJid}, Telefone={Telefone}, DestinatarioPreferido={DestinatarioPreferido}, TemQuoted={TemQuoted}",
+                "WhatsApp outbound para telefone cadastrado (thread @lid). Assunto={Assunto}, RemoteJid={RemoteJid}, TelefoneCadastrado={TelefoneCadastrado}, DestinoEvolution={DestinoEvolution}, TemQuoted={TemQuoted}",
                 assunto,
                 remoteJidConversa,
-                telefoneDestino,
-                destinatarioPreferido,
+                telefoneCadastrado,
+                destinoEvolution,
                 contextoResposta.TemQuoted);
         }
 
+        var dtoMensagem = new RegistrarMensagemNotificacaoDto
+        {
+            Canal = CanalMensagemNotificacao.WhatsApp,
+            Destinatario = telefoneCadastrado,
+            Assunto = assunto,
+            Conteudo = conteudo,
+            PayloadJson = payloadJson,
+            EstabelecimentoId = estabelecimentoId,
+            Prioridade = prioridade
+        };
+
         var resultadoImediato = await _envioImediatoService.EnviarTextoAsync(
-            telefoneDestino,
+            telefoneCadastrado,
             conteudo,
             cancellationToken,
             remoteJidConversa,
@@ -547,30 +564,26 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
 
         if (resultadoImediato.Sucesso)
         {
+            await _mensagemNotificacaoService.RegistrarEnviadoAsync(
+                dtoMensagem,
+                resultadoImediato.RespostaProvedor ?? "evolution-whatsapp-imediato",
+                cancellationToken);
+
             _logger.LogInformation(
-                "WhatsApp enviado imediatamente no webhook. Assunto={Assunto}, Destinatario={Destinatario}, Provedor={Provedor}",
+                "WhatsApp enviado imediatamente no webhook. Assunto={Assunto}, TelefoneCadastrado={TelefoneCadastrado}, Provedor={Provedor}",
                 assunto,
-                destinatarioPreferido,
+                telefoneCadastrado,
                 resultadoImediato.RespostaProvedor);
             return;
         }
 
         _logger.LogWarning(
-            "WhatsApp imediato falhou; enfileirando retry. Assunto={Assunto}, Destinatario={Destinatario}, Erro={Erro}",
+            "WhatsApp imediato falhou; enfileirando retry. Assunto={Assunto}, TelefoneCadastrado={TelefoneCadastrado}, Erro={Erro}",
             assunto,
-            destinatarioPreferido,
+            telefoneCadastrado,
             resultadoImediato.MensagemErro);
 
-        await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
-        {
-            Canal = CanalMensagemNotificacao.WhatsApp,
-            Destinatario = destinatarioPreferido,
-            Assunto = assunto,
-            Conteudo = conteudo,
-            PayloadJson = EvolutionDestinoHelper.CriarPayloadOutbound(telefoneDestino, remoteJidConversa, remoteJidAlt),
-            EstabelecimentoId = estabelecimentoId,
-            Prioridade = prioridade
-        }, cancellationToken);
+        await _mensagemNotificacaoService.RegistrarAsync(dtoMensagem, cancellationToken);
     }
 
     private static string ObterTelefoneResposta(

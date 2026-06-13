@@ -34,6 +34,30 @@ public class MensagemNotificacaoServiceTests
     }
 
     [Fact]
+    public async Task RegistrarEnviadoAsync_DevePersistirMensagemEnviada()
+    {
+        var repo = new Mock<IMensagemNotificacaoRepository>();
+        var service = CreateService(repo.Object);
+
+        var resultado = await service.RegistrarEnviadoAsync(
+            new RegistrarMensagemNotificacaoDto
+            {
+                Canal = CanalMensagemNotificacao.WhatsApp,
+                Destinatario = "5579991917634",
+                Assunto = "Confirmacao WhatsApp aprovada",
+                Conteudo = "Confirmado"
+            },
+            "evolution-whatsapp-v1-textMessage-quoted");
+
+        Assert.Equal(StatusMensagemNotificacao.Enviado, resultado.Status);
+        repo.Verify(r => r.AdicionarAsync(
+            It.Is<MensagemNotificacao>(m =>
+                m.Status == StatusMensagemNotificacao.Enviado
+                && m.Destinatario == "5579991917634"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task CancelarPorGuidAsync_DeveLancar_QuandoNaoEncontrada()
     {
         var repo = new Mock<IMensagemNotificacaoRepository>();

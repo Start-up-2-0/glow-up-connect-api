@@ -23,7 +23,7 @@ public class EvolutionDestinoHelperTests
             "79998755111",
             "60348602310753@lid");
 
-        Assert.Equal("60348602310753@lid", destino);
+        Assert.Equal("557998755111", destino);
     }
 
     [Fact]
@@ -37,15 +37,16 @@ public class EvolutionDestinoHelperTests
     }
 
     [Fact]
-    public void CriarCandidatosDestinoOutbound_DevePriorizarRemoteJidLid_QuandoConversaEhLid()
+    public void CriarCandidatosDestinoOutbound_DevePriorizarTelefoneAntesDeLid_QuandoConversaEhLid()
     {
         var candidatos = EvolutionDestinoHelper.CriarCandidatosDestinoOutbound(
             "79991917634",
             "67268163698795@lid",
             remoteJidAlt: null);
 
-        Assert.Equal("67268163698795@lid", candidatos[0]);
-        Assert.Equal("557991917634", candidatos[1]);
+        Assert.Equal("557991917634", candidatos[0]);
+        Assert.Equal("557991917634@s.whatsapp.net", candidatos[1]);
+        Assert.Equal("67268163698795@lid", candidatos[^1]);
     }
 
     [Fact]
@@ -59,6 +60,48 @@ public class EvolutionDestinoHelperTests
         Assert.Equal("557991917634", candidatos[0]);
         Assert.Equal("557991917634@s.whatsapp.net", candidatos[1]);
         Assert.Contains("5579991917634", candidatos);
+    }
+
+    [Fact]
+    public void CriarCandidatosDestinoOutboundDeMensagem_DeveUsarPayloadLid_QuandoDestinatarioEhTelefoneCadastrado()
+    {
+        const string payload = """
+            {
+              "telefoneFallback":"5579991917634",
+              "remoteJidConversa":"67268163698795@lid",
+              "quotedMessageId":"ABC123",
+              "quotedFromMe":true,
+              "quotedTexto":"token"
+            }
+            """;
+
+        var candidatos = EvolutionDestinoHelper.CriarCandidatosDestinoOutboundDeMensagem(
+            "5579991917634",
+            payload);
+
+        Assert.Equal("557991917634", candidatos[0]);
+        Assert.Equal("67268163698795@lid", candidatos[^1]);
+    }
+
+    [Fact]
+    public void ExtrairContextoRespostaDoPayload_DeveMontarQuoted_QuandoPayloadTemDados()
+    {
+        const string payload = """
+            {
+              "telefoneFallback":"5579991917634",
+              "remoteJidConversa":"67268163698795@lid",
+              "quotedMessageId":"ABC123",
+              "quotedFromMe":true,
+              "quotedTexto":"token"
+            }
+            """;
+
+        var contexto = EvolutionDestinoHelper.ExtrairContextoRespostaDoPayload(payload);
+
+        Assert.NotNull(contexto);
+        Assert.True(contexto!.TemQuoted);
+        Assert.Equal("ABC123", contexto.MessageId);
+        Assert.Equal("67268163698795@lid", contexto.RemoteJidConversa);
     }
 
     [Fact]
