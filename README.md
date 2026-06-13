@@ -113,7 +113,7 @@ Content-Type: application/json
 - Sempre cria usuario com role `Cliente` (nao envie `role` no body).
 - Conta inicia com `ativo: false` ate confirmar o e-mail.
 - `avatarBase64`: opcional; aceita data URI (`data:image/jpeg;base64,...`) ou base64 puro com `avatarContentType`.
-- O avatar e **validado** e persistido como data URI no MySQL (`Usuarios.AvatarBase64`, tipo `text`) — **sem pasta nem arquivo em disco**.
+- O avatar e **validado** e persistido como data URI no MySQL (`Usuarios.AvatarBase64`, tipo `longtext`) — **sem pasta nem arquivo em disco**.
 - Limite: 5 MB decodificado; tipos `image/jpeg`, `image/png`, `image/webp`.
 
 ```http
