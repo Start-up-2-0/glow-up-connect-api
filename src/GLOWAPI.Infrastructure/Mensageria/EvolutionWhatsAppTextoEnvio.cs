@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Options;
@@ -52,9 +51,18 @@ internal sealed class EvolutionWhatsAppTextoEnvio
             foreach (var (nomeFormato, payload) in formatos)
             {
                 var url = $"{_options.ApiUrl.TrimEnd('/')}/message/sendText/{Uri.EscapeDataString(_options.InstanceName)}";
+                var requestBody = JsonSerializer.Serialize(payload(candidato));
+
+                _logger.LogInformation(
+                    "Evolution sendText request. Url={Url}, Destinatario={Destinatario}, Formato={Formato}, Body={Body}",
+                    url,
+                    candidato,
+                    nomeFormato,
+                    requestBody);
+
                 using var request = new HttpRequestMessage(HttpMethod.Post, url);
                 request.Headers.Add("apikey", _options.ApiKey);
-                request.Content = JsonContent.Create(payload(candidato));
+                request.Content = new StringContent(requestBody, System.Text.Encoding.UTF8, "application/json");
 
                 var response = await _httpClient.SendAsync(request, cancellationToken);
                 var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -66,7 +74,7 @@ internal sealed class EvolutionWhatsAppTextoEnvio
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogDebug(
+                    _logger.LogWarning(
                         "Evolution sendText tentativa falhou. StatusCode={StatusCode}, Destinatario={Destinatario}, Formato={Formato}, Response={Response}",
                         (int)response.StatusCode,
                         candidato,
@@ -75,12 +83,13 @@ internal sealed class EvolutionWhatsAppTextoEnvio
                     continue;
                 }
 
-                if (RespostaIndicaTextoEntregue(responseBody, conteudo))
+                if (ConsiderarSucessoAposHttpOk(nomeFormato, responseBody, conteudo))
                 {
                     _logger.LogInformation(
-                        "Evolution sendText ok. Destinatario={Destinatario}, Formato={Formato}",
+                        "Evolution sendText ok. Destinatario={Destinatario}, Formato={Formato}, Response={Response}",
                         candidato,
-                        nomeFormato);
+                        nomeFormato,
+                        responseBody);
 
                     return (true, responseBody, candidato, nomeFormato);
                 }
@@ -122,7 +131,16 @@ internal sealed class EvolutionWhatsAppTextoEnvio
         }
 
         yield return ("v1-textMessage", destino => new { number = destino, textMessage = new { text = conteudo } });
-        yield return ("v1-text", destino => new { number = destino, text = conteudo });
+    }
+
+    private static bool ConsiderarSucessoAposHttpOk(string nomeFormato, string responseBody, string conteudo)
+    {
+        if (string.Equals(nomeFormato, "v1-textMessage", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return RespostaIndicaTextoEntregue(responseBody, conteudo);
     }
 
     private static bool RespostaIndicaTextoEntregue(string responseBody, string conteudo)
