@@ -40,43 +40,72 @@ public class ConfirmacaoWhatsAppNotificacaoService : IConfirmacaoWhatsAppNotific
             cancellationToken);
     }
 
-    public Task EnfileirarRespostaConfirmacaoSucessoAsync(
+    public async Task EnfileirarRespostaConfirmacaoSucessoAsync(
         WhatsAppConfirmacaoInboundResultado resultado,
         ConfirmacaoWhatsAppInboundContexto? contextoConversa,
         CancellationToken cancellationToken = default)
     {
-        var conteudo = ConfirmacaoWhatsAppTemplate.RespostaConfirmacaoSucesso(resultado.NomeDestinatario);
+        if (string.IsNullOrWhiteSpace(resultado.EmailDestinatario))
+        {
+            _logger.LogWarning(
+                "Confirmacao WhatsApp aprovada sem e-mail cadastrado para notificacao. Tipo={Tipo}, UsuarioId={UsuarioId}, EstabelecimentoId={EstabelecimentoId}, Telefone={Telefone}",
+                resultado.Tipo,
+                resultado.UsuarioId,
+                resultado.EstabelecimentoId,
+                resultado.TelefoneResposta);
+            return;
+        }
+
+        var conteudo = ConfirmacaoWhatsAppEmailTemplate.CriarConfirmacaoSucesso(
+            resultado.NomeDestinatario,
+            resultado.TelefoneResposta);
 
         _logger.LogInformation(
-            "Enfileirando confirmacao WhatsApp aprovada. Tipo={Tipo}, UsuarioId={UsuarioId}, EstabelecimentoId={EstabelecimentoId}, Destinatario={Destinatario}",
+            "Enfileirando confirmacao WhatsApp aprovada por e-mail. Tipo={Tipo}, UsuarioId={UsuarioId}, EstabelecimentoId={EstabelecimentoId}, Email={Email}, Telefone={Telefone}",
             resultado.Tipo,
             resultado.UsuarioId,
             resultado.EstabelecimentoId,
+            resultado.EmailDestinatario,
             resultado.TelefoneResposta);
 
-        return EnfileirarWhatsAppAsync(
-            resultado.TelefoneResposta,
-            "Confirmacao WhatsApp aprovada",
-            conteudo,
-            resultado.EstabelecimentoId,
-            prioridade: 2,
-            cancellationToken);
+        await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
+        {
+            Canal = CanalMensagemNotificacao.Email,
+            Destinatario = resultado.EmailDestinatario,
+            Assunto = "WhatsApp confirmado no Glow Up Connect",
+            Conteudo = conteudo,
+            EstabelecimentoId = resultado.EstabelecimentoId,
+            Prioridade = 2
+        }, cancellationToken);
     }
 
-    public Task EnfileirarRespostaJaConfirmadoAsync(
+    public async Task EnfileirarRespostaJaConfirmadoAsync(
         WhatsAppConfirmacaoInboundResultado resultado,
         ConfirmacaoWhatsAppInboundContexto? contextoConversa,
         CancellationToken cancellationToken = default)
     {
-        var conteudo = ConfirmacaoWhatsAppTemplate.RespostaConfirmacaoJaRealizada(resultado.NomeDestinatario);
+        if (string.IsNullOrWhiteSpace(resultado.EmailDestinatario))
+        {
+            _logger.LogWarning(
+                "WhatsApp ja confirmado sem e-mail cadastrado para notificacao. Tipo={Tipo}, UsuarioId={UsuarioId}, EstabelecimentoId={EstabelecimentoId}, Telefone={Telefone}",
+                resultado.Tipo,
+                resultado.UsuarioId,
+                resultado.EstabelecimentoId,
+                resultado.TelefoneResposta);
+            return;
+        }
 
-        return EnfileirarWhatsAppAsync(
-            resultado.TelefoneResposta,
-            "WhatsApp ja confirmado",
-            conteudo,
-            resultado.EstabelecimentoId,
-            prioridade: 2,
-            cancellationToken);
+        var conteudo = ConfirmacaoWhatsAppEmailTemplate.CriarConfirmacaoJaRealizada(resultado.NomeDestinatario);
+
+        await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
+        {
+            Canal = CanalMensagemNotificacao.Email,
+            Destinatario = resultado.EmailDestinatario,
+            Assunto = "WhatsApp ja confirmado no Glow Up Connect",
+            Conteudo = conteudo,
+            EstabelecimentoId = resultado.EstabelecimentoId,
+            Prioridade = 2
+        }, cancellationToken);
     }
 
     public async Task EnfileirarRespostaFalhaAsync(

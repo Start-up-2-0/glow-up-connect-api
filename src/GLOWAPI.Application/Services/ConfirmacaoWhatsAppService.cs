@@ -425,7 +425,11 @@ public class ConfirmacaoWhatsAppService : IConfirmacaoWhatsAppService
 
         await ConfirmarUsuarioAsync(usuario, cancellationToken);
 
-        return WhatsAppConfirmacaoInboundResultado.SucessoUsuario(usuario.Nome, telefoneCadastrado, usuario.Id);
+        return WhatsAppConfirmacaoInboundResultado.SucessoUsuario(
+            usuario.Nome,
+            telefoneCadastrado,
+            usuario.Id,
+            usuario.Email);
     }
 
     private async Task<WhatsAppConfirmacaoInboundResultado> ProcessarConfirmacaoInboundDoUsuarioPorCodigoAsync(
@@ -471,7 +475,11 @@ public class ConfirmacaoWhatsAppService : IConfirmacaoWhatsAppService
 
         await ConfirmarUsuarioAsync(usuario, cancellationToken);
 
-        return WhatsAppConfirmacaoInboundResultado.SucessoUsuario(usuario.Nome, telefoneCadastrado, usuario.Id);
+        return WhatsAppConfirmacaoInboundResultado.SucessoUsuario(
+            usuario.Nome,
+            telefoneCadastrado,
+            usuario.Id,
+            usuario.Email);
     }
 
     private static string ObterTelefoneCadastradoNormalizado(Usuario usuario) =>

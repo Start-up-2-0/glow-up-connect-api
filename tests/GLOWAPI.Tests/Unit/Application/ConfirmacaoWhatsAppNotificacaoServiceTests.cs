@@ -13,18 +13,49 @@ public class ConfirmacaoWhatsAppNotificacaoServiceTests
     private readonly Mock<IMensagemNotificacaoService> _mensagemService = new();
 
     [Fact]
-    public async Task EnfileirarRespostaConfirmacaoSucessoAsync_DeveRegistrarNaFila()
+    public async Task EnfileirarRespostaConfirmacaoSucessoAsync_DeveRegistrarEmailNaFila()
     {
         _mensagemService
             .Setup(m => m.RegistrarAsync(It.IsAny<RegistrarMensagemNotificacaoDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MensagemNotificacaoResponseDto
             {
                 Guid = Guid.NewGuid(),
-                Canal = CanalMensagemNotificacao.WhatsApp,
+                Canal = CanalMensagemNotificacao.Email,
                 Status = StatusMensagemNotificacao.Pendente,
                 CriadoEm = DateTime.UtcNow
             });
 
+        var service = CreateService();
+        var resultado = WhatsAppConfirmacaoInboundResultado.SucessoUsuario(
+            "Maria",
+            "5511988887777",
+            1,
+            "maria@email.com");
+
+        await service.EnfileirarRespostaConfirmacaoSucessoAsync(resultado, null);
+
+        _mensagemService.Verify(
+            m => m.RegistrarAsync(
+                It.Is<RegistrarMensagemNotificacaoDto>(dto =>
+                    dto.Canal == CanalMensagemNotificacao.Email
+                    && dto.Destinatario == "maria@email.com"
+                    && dto.Assunto == "WhatsApp confirmado no Glow Up Connect"
+                    && dto.Conteudo.Contains("Maria")
+                    && dto.Conteudo.Contains("5511988887777")),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _mensagemService.Verify(
+            m => m.RegistrarAsync(
+                It.Is<RegistrarMensagemNotificacaoDto>(dto =>
+                    dto.Canal == CanalMensagemNotificacao.WhatsApp),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task EnfileirarRespostaConfirmacaoSucessoAsync_NaoDeveRegistrar_QuandoEmailAusente()
+    {
         var service = CreateService();
         var resultado = WhatsAppConfirmacaoInboundResultado.SucessoUsuario("Maria", "5511988887777", 1);
 
@@ -32,18 +63,47 @@ public class ConfirmacaoWhatsAppNotificacaoServiceTests
 
         _mensagemService.Verify(
             m => m.RegistrarAsync(
+                It.IsAny<RegistrarMensagemNotificacaoDto>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task EnfileirarRespostaJaConfirmadoAsync_DeveRegistrarEmailNaFila()
+    {
+        _mensagemService
+            .Setup(m => m.RegistrarAsync(It.IsAny<RegistrarMensagemNotificacaoDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MensagemNotificacaoResponseDto
+            {
+                Guid = Guid.NewGuid(),
+                Canal = CanalMensagemNotificacao.Email,
+                Status = StatusMensagemNotificacao.Pendente,
+                CriadoEm = DateTime.UtcNow
+            });
+
+        var service = CreateService();
+        var resultado = WhatsAppConfirmacaoInboundResultado.Ignorado(
+            WhatsAppConfirmacaoInboundMotivoIgnorado.JaConfirmado,
+            "Maria",
+            "5511988887777",
+            "maria@email.com");
+
+        await service.EnfileirarRespostaJaConfirmadoAsync(resultado, null);
+
+        _mensagemService.Verify(
+            m => m.RegistrarAsync(
                 It.Is<RegistrarMensagemNotificacaoDto>(dto =>
-                    dto.Canal == CanalMensagemNotificacao.WhatsApp
-                    && dto.Destinatario == "5511988887777"
-                    && dto.Assunto == "Confirmacao WhatsApp aprovada"
+                    dto.Canal == CanalMensagemNotificacao.Email
+                    && dto.Destinatario == "maria@email.com"
+                    && dto.Assunto == "WhatsApp ja confirmado no Glow Up Connect"
                     && dto.Conteudo.Contains("Maria")),
                 It.IsAny<CancellationToken>()),
             Times.Once);
 
         _mensagemService.Verify(
-            m => m.RegistrarEnviadoAsync(
-                It.IsAny<RegistrarMensagemNotificacaoDto>(),
-                It.IsAny<string>(),
+            m => m.RegistrarAsync(
+                It.Is<RegistrarMensagemNotificacaoDto>(dto =>
+                    dto.Canal == CanalMensagemNotificacao.WhatsApp),
                 It.IsAny<CancellationToken>()),
             Times.Never);
     }

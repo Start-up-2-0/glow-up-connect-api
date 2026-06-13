@@ -5,6 +5,27 @@ namespace GLOWAPI.Tests.Unit.Application;
 public class ConfirmacaoWhatsAppEmailTemplateTests
 {
     [Fact]
+    public void CriarConfirmacaoJaRealizada_DeveIncluirNome()
+    {
+        var html = ConfirmacaoWhatsAppEmailTemplate.CriarConfirmacaoJaRealizada("Maria");
+
+        Assert.Contains("Maria", html);
+        Assert.Contains("ja esta confirmado", html);
+    }
+
+    [Fact]
+    public void CriarConfirmacaoSucesso_DeveIncluirNomeETelefone()
+    {
+        var html = ConfirmacaoWhatsAppEmailTemplate.CriarConfirmacaoSucesso(
+            "Maria",
+            "5579991917634");
+
+        Assert.Contains("Maria", html);
+        Assert.Contains("5579991917634", html);
+        Assert.Contains("confirmado", html, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Criar_DeveIncluirLinksConfirmacaoEWhatsApp()
     {
         var html = ConfirmacaoWhatsAppEmailTemplate.Criar(

@@ -18,6 +18,20 @@ public static class ConfirmacaoWhatsAppEmailTemplate
             <p>Verifique se o telefone esta cadastrado no perfil e use o link mais recente enviado por WhatsApp ou e-mail.</p>
             """;
 
+    public static string CriarConfirmacaoSucesso(string nome, string telefonePerfil) =>
+        $"""
+            <p>Ola {Html(nome)},</p>
+            <p>Seu WhatsApp <strong>{Html(telefonePerfil)}</strong> foi confirmado no Glow Up Connect.</p>
+            <p>Voce passara a receber alertas de agendamento por este numero.</p>
+            """;
+
+    public static string CriarConfirmacaoJaRealizada(string nome) =>
+        $"""
+            <p>Ola {Html(nome)},</p>
+            <p>Seu WhatsApp ja esta confirmado no Glow Up Connect.</p>
+            <p>Nao e necessario enviar uma nova mensagem de confirmacao.</p>
+            """;
+
     private const string CorAmarela = "#ffbf00";
     private const string CorEscura = "#282828";
     private const string CorTextoSuave = "rgba(40,40,40,0.6)";

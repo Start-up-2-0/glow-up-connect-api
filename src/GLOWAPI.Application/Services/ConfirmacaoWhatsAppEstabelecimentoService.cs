@@ -418,7 +418,8 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
         return WhatsAppConfirmacaoInboundResultado.SucessoEstabelecimento(
             estabelecimento.Nome,
             telefoneCadastrado,
-            estabelecimento.Id);
+            estabelecimento.Id,
+            estabelecimento.Email);
     }
 
     private async Task<WhatsAppConfirmacaoInboundResultado> ProcessarConfirmacaoInboundDoEstabelecimentoPorCodigoAsync(
@@ -467,7 +468,8 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
         return WhatsAppConfirmacaoInboundResultado.SucessoEstabelecimento(
             estabelecimento.Nome,
             telefoneCadastrado,
-            estabelecimento.Id);
+            estabelecimento.Id,
+            estabelecimento.Email);
     }
 
     private static string ObterTelefoneCadastradoNormalizado(Estabelecimento estabelecimento) =>
