@@ -75,6 +75,19 @@ public class TelefoneHelperTests
     }
 
     [Fact]
+    public void NormalizarParaEvolutionEnvio_DeveRemoverNonoDigito_QuandoTelefoneTem13Digitos()
+    {
+        Assert.Equal("557991917634", TelefoneHelper.NormalizarParaEvolutionEnvio("5579991917634"));
+        Assert.Equal("557991917634", TelefoneHelper.NormalizarParaEvolutionEnvio("79991917634"));
+    }
+
+    [Fact]
+    public void NormalizarParaEvolutionEnvio_DeveManterTelefone_QuandoJaEstaSemNonoDigito()
+    {
+        Assert.Equal("557991917634", TelefoneHelper.NormalizarParaEvolutionEnvio("557991917634"));
+    }
+
+    [Fact]
     public void SaoEquivalentes_NaoDeveEquivalerDddsDiferentes()
     {
         Assert.False(TelefoneHelper.SaoEquivalentes("5511988887777", "5521988887777"));

@@ -28,6 +28,26 @@ public static class TelefoneHelper
     }
 
     /// <summary>
+    /// Formato preferido para envio Evolution/WhatsApp: celular BR sem o nono digito apos DDI+DDD, quando aplicavel.
+    /// </summary>
+    public static string NormalizarParaEvolutionEnvio(string telefone)
+    {
+        var normalizado = NormalizarParaWhatsApp(telefone);
+        if (string.IsNullOrEmpty(normalizado))
+        {
+            return string.Empty;
+        }
+
+        var semNonoDigito = ObterVarianteCelularBrasilSemNonoDigito(normalizado);
+        if (semNonoDigito is not null && normalizado.Length > semNonoDigito.Length)
+        {
+            return semNonoDigito;
+        }
+
+        return normalizado;
+    }
+
+    /// <summary>
     /// Normaliza telefone para persistencia no banco (sempre com DDI 55 para numeros brasileiros locais).
     /// </summary>
     public static string NormalizarParaArmazenamento(string? telefone)

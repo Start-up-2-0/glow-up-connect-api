@@ -92,7 +92,7 @@ public class WebhookWhatsAppServiceTests
 
         _envioImediatoService.Verify(
             s => s.EnviarTextoAsync(
-                It.Is<string>(destino => destino == "5511988887777"),
+                It.Is<string>(destino => destino == "551188887777"),
                 It.Is<string>(conteudo => conteudo.Contains("processando") || conteudo.Contains("confirmado")),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<string?>(),
@@ -172,7 +172,7 @@ public class WebhookWhatsAppServiceTests
 
         _envioImediatoService.Verify(
             s => s.EnviarTextoAsync(
-                "5511988887777",
+                "551188887777",
                 It.Is<string>(conteudo => conteudo.Contains("Nao conseguimos confirmar")),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<string?>(),
@@ -217,7 +217,7 @@ public class WebhookWhatsAppServiceTests
 
         _envioImediatoService.Verify(
             s => s.EnviarTextoAsync(
-                "5511988887777",
+                "551188887777",
                 It.Is<string>(conteudo => conteudo.Contains("ja esta confirmado")),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<string?>(),
@@ -345,7 +345,7 @@ public class WebhookWhatsAppServiceTests
 
         _envioImediatoService.Verify(
             m => m.EnviarTextoAsync(
-                It.Is<string>(destino => destino == "5579998755111"),
+                It.Is<string>(destino => destino == "557998755111"),
                 It.Is<string>(conteudo => conteudo.Contains("Thiago")),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<string?>(),
@@ -430,7 +430,7 @@ public class WebhookWhatsAppServiceTests
 
         _envioImediatoService.Verify(
             s => s.EnviarTextoAsync(
-                "5579998755111",
+                "557998755111",
                 It.Is<string>(conteudo => conteudo.Contains("confirmado")),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<string?>(),

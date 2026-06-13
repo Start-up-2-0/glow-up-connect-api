@@ -26,8 +26,16 @@ public static class EvolutionDestinoHelper
             AdicionarCandidato(candidatos, remoteJidAlt);
         }
 
+        var telefoneEvolution = TelefoneHelper.NormalizarParaEvolutionEnvio(telefoneCadastrado);
+        if (!string.IsNullOrWhiteSpace(telefoneEvolution))
+        {
+            AdicionarCandidato(candidatos, telefoneEvolution);
+            AdicionarCandidato(candidatos, $"{telefoneEvolution}@s.whatsapp.net");
+        }
+
         var telefone = TelefoneHelper.NormalizarParaWhatsApp(telefoneCadastrado);
-        if (!string.IsNullOrWhiteSpace(telefone))
+        if (!string.IsNullOrWhiteSpace(telefone)
+            && !string.Equals(telefone, telefoneEvolution, StringComparison.Ordinal))
         {
             AdicionarCandidato(candidatos, telefone);
             AdicionarCandidato(candidatos, $"{telefone}@s.whatsapp.net");
