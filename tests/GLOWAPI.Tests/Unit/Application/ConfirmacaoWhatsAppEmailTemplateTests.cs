@@ -5,12 +5,14 @@ namespace GLOWAPI.Tests.Unit.Application;
 public class ConfirmacaoWhatsAppEmailTemplateTests
 {
     [Fact]
-    public void CriarConfirmacaoJaRealizada_DeveIncluirNome()
+    public void CriarConfirmacaoJaRealizada_DeveIncluirNomeELayoutPadrao()
     {
         var html = ConfirmacaoWhatsAppEmailTemplate.CriarConfirmacaoJaRealizada("Maria");
 
         Assert.Contains("Maria", html);
         Assert.Contains("ja esta confirmado", html);
+        Assert.Contains("<!doctype html>", html);
+        Assert.Contains("GlowUp Connect", html);
     }
 
     [Fact]
@@ -23,6 +25,7 @@ public class ConfirmacaoWhatsAppEmailTemplateTests
         Assert.Contains("Maria", html);
         Assert.Contains("5579991917634", html);
         Assert.Contains("confirmado", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("<!doctype html>", html);
     }
 
     [Fact]
@@ -40,5 +43,6 @@ public class ConfirmacaoWhatsAppEmailTemplateTests
         Assert.Contains("https://wa.me/5511999999999?text=NTUxMTk4ODg4Nzc3Nw%3D%3D", html);
         Assert.Contains("Confirmar no WhatsApp", html);
         Assert.Contains("Abrir confirmacao", html);
+        Assert.Contains($"cid:{EmailTemplateInlineAssets.LogoContentId}", html);
     }
 }

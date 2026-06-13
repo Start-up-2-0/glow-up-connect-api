@@ -1,6 +1,7 @@
 using System.Text.Json;
 using GLOWAPI.Application.DTOs.Mensageria;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Mensageria;
 using GLOWAPI.Application.Models.Assinaturas;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
@@ -149,6 +150,21 @@ public class AssinaturaNotificacaoService : IAssinaturaNotificacaoService
             checkoutUrl = checkoutUrl.Trim()
         });
 
+        var conteudoEmail = TransacionalEmailTemplate.Criar(
+            assunto,
+            assunto,
+            [
+                $"Sua cobranca de assinatura no valor de {pagamento.Valor:C} com vencimento em {vencimento} esta disponivel.",
+                "Pague pelo Mercado Pago usando o botao abaixo."
+            ],
+            botao: new EmailTemplateBotao
+            {
+                Texto = "Pagar assinatura",
+                Url = checkoutUrl.Trim(),
+                Estilo = EmailTemplateBotaoEstilo.Link
+            },
+            linkFallback: checkoutUrl.Trim());
+
         if (!string.IsNullOrWhiteSpace(titular.Email))
         {
             await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
@@ -156,7 +172,7 @@ public class AssinaturaNotificacaoService : IAssinaturaNotificacaoService
                 Canal = CanalMensagemNotificacao.Email,
                 Destinatario = titular.Email.Trim(),
                 Assunto = assunto,
-                Conteudo = conteudo,
+                Conteudo = conteudoEmail,
                 EstabelecimentoId = titular.EstabelecimentoId ?? assinatura.EstabelecimentoId,
                 Prioridade = 1,
                 PayloadJson = payload
@@ -198,7 +214,7 @@ public class AssinaturaNotificacaoService : IAssinaturaNotificacaoService
             Canal = CanalMensagemNotificacao.Email,
             Destinatario = destinatario.Trim(),
             Assunto = assunto,
-            Conteudo = conteudo,
+            Conteudo = TransacionalEmailTemplate.Criar(assunto, assunto, [conteudo]),
             EstabelecimentoId = estabelecimentoId ?? assinatura?.EstabelecimentoId,
             Prioridade = prioridade,
             PayloadJson = JsonSerializer.Serialize(new

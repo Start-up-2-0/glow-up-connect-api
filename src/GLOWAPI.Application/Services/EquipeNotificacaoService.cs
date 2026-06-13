@@ -1,6 +1,7 @@
 using System.Text.Json;
 using GLOWAPI.Application.DTOs.Mensageria;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Mensageria;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 
@@ -155,7 +156,7 @@ public class EquipeNotificacaoService : IEquipeNotificacaoService
             Canal = CanalMensagemNotificacao.Email,
             Destinatario = destinatario.Trim(),
             Assunto = assunto,
-            Conteudo = conteudo,
+            Conteudo = TransacionalEmailTemplate.Criar(assunto, assunto, [conteudo]),
             EstabelecimentoId = estabelecimentoId,
             Prioridade = 2,
             PayloadJson = JsonSerializer.Serialize(new

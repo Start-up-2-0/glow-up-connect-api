@@ -2,6 +2,7 @@ using GLOWAPI.Application.DTOs.Convites;
 using GLOWAPI.Application.DTOs.Mensageria;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Mensageria;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
@@ -531,7 +532,17 @@ public class ConviteNegocioService : IConviteNegocioService
             Canal = CanalMensagemNotificacao.Email,
             Destinatario = convite.Email,
             Assunto = "Convite para integrar a equipe",
-            Conteudo = $"{mensagem} Acesse: {link}",
+            Conteudo = TransacionalEmailTemplate.Criar(
+                "Convite para integrar a equipe",
+                "Voce recebeu um convite para integrar a equipe no Glow Up Connect.",
+                [mensagem],
+                botao: new EmailTemplateBotao
+                {
+                    Texto = "Aceitar convite",
+                    Url = link,
+                    Estilo = EmailTemplateBotaoEstilo.Link
+                },
+                linkFallback: link),
             EstabelecimentoId = convite.EstabelecimentoId,
             Prioridade = 2
         }, cancellationToken);

@@ -42,6 +42,7 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             estabelecimento,
             "Agendamento recebido",
             $"Recebemos seu pedido de agendamento em {estabelecimento.Nome} com {profissional.NomePublico} para {inicio:dd/MM/yyyy HH:mm}. Aguarde a confirmacao da loja.",
+            AgendamentoClienteEmailTemplate.Criado(agendamento, estabelecimento, profissional),
             "agendamento-cliente-criado",
             cancellationToken);
     }
@@ -66,6 +67,7 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             estabelecimento,
             "Agendamento confirmado",
             AgendamentoClienteWhatsAppTemplate.Confirmado(agendamento, estabelecimento),
+            AgendamentoClienteEmailTemplate.Confirmado(agendamento, estabelecimento),
             "agendamento-cliente-confirmado",
             cancellationToken);
     }
@@ -91,6 +93,7 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             estabelecimento,
             "Agendamento cancelado",
             AgendamentoClienteWhatsAppTemplate.Cancelado(agendamento, estabelecimento, motivo),
+            AgendamentoClienteEmailTemplate.Cancelado(agendamento, estabelecimento, motivo),
             "agendamento-cliente-cancelado",
             cancellationToken);
     }
@@ -115,6 +118,13 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             estabelecimento,
             "Sugestao de reagendamento",
             mensagem,
+            AgendamentoClienteEmailTemplate.PropostaRemarcacao(
+                agendamento,
+                estabelecimento,
+                proposta.DataSugerida,
+                proposta.HorarioInicioSugerido,
+                proposta.Motivo,
+                linkResposta),
             "agendamento-proposta-remarcacao",
             cancellationToken);
     }
@@ -164,6 +174,7 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             estabelecimento,
             "Agendamento remarcado",
             AgendamentoClienteWhatsAppTemplate.Remarcado(agendamento, estabelecimento),
+            AgendamentoClienteEmailTemplate.Remarcado(agendamento, estabelecimento),
             "agendamento-cliente-remarcado",
             cancellationToken);
     }
@@ -234,14 +245,16 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
         Agendamento agendamento,
         Estabelecimento estabelecimento,
         string assunto,
-        string conteudo,
+        string conteudoWhatsApp,
+        string conteudoEmail,
         string evento,
         CancellationToken cancellationToken) =>
         EnfileirarClienteContatoAsync(
             agendamento,
             estabelecimento,
             assunto,
-            conteudo,
+            conteudoWhatsApp,
+            conteudoEmail,
             evento,
             cancellationToken);
 
@@ -249,7 +262,8 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
         Agendamento agendamento,
         Estabelecimento estabelecimento,
         string assunto,
-        string conteudo,
+        string conteudoWhatsApp,
+        string conteudoEmail,
         string evento,
         CancellationToken cancellationToken)
     {
@@ -266,7 +280,7 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
                 Canal = CanalMensagemNotificacao.Email,
                 Destinatario = email.Trim(),
                 Assunto = assunto,
-                Conteudo = conteudo,
+                Conteudo = conteudoEmail,
                 EstabelecimentoId = estabelecimento.Id,
                 Prioridade = 1,
                 PayloadJson = JsonSerializer.Serialize(new
@@ -305,7 +319,7 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             Canal = CanalMensagemNotificacao.WhatsApp,
             Destinatario = telefone,
             Assunto = assunto,
-            Conteudo = conteudo,
+            Conteudo = conteudoWhatsApp,
             EstabelecimentoId = estabelecimento.Id,
             Prioridade = 1,
             PayloadJson = JsonSerializer.Serialize(new

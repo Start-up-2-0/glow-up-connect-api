@@ -39,6 +39,7 @@ public class EquipeNotificacaoServiceTests
         Assert.Equal(2, mensagem.Prioridade);
         Assert.Contains("usuario-equipe-convidado", mensagem.PayloadJson);
         Assert.Contains("Receptionist", mensagem.Conteudo);
+        Assert.Contains("<!doctype html>", mensagem.Conteudo);
     }
 
     [Fact]

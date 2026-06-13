@@ -39,9 +39,10 @@ public class ConfirmacaoWhatsAppNotificacaoServiceTests
                 It.Is<RegistrarMensagemNotificacaoDto>(dto =>
                     dto.Canal == CanalMensagemNotificacao.Email
                     && dto.Destinatario == "maria@email.com"
-                    && dto.Assunto == "WhatsApp confirmado no Glow Up Connect"
+                    &&                     dto.Assunto == "WhatsApp confirmado no Glow Up Connect"
                     && dto.Conteudo.Contains("Maria")
-                    && dto.Conteudo.Contains("5511988887777")),
+                    && dto.Conteudo.Contains("5511988887777")
+                    && dto.Conteudo.Contains("<!doctype html>")),
                 It.IsAny<CancellationToken>()),
             Times.Once);
 
