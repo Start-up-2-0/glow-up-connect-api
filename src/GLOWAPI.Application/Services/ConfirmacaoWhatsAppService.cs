@@ -103,6 +103,12 @@ public class ConfirmacaoWhatsAppService : IConfirmacaoWhatsAppService
             return resultadoPorCodigo;
         }
 
+        var usuarioPorToken = await BuscarUsuarioPorTokenNaMensagemAsync(textoMensagem, cancellationToken);
+        if (usuarioPorToken is not null)
+        {
+            return await ProcessarConfirmacaoInboundDoUsuarioAsync(usuarioPorToken, cancellationToken);
+        }
+
         if (!ConfirmacaoWhatsAppTokenHelper.MensagemContemTokenConfirmacao(textoMensagem, telefoneRemetente))
         {
             return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido);
@@ -136,6 +142,15 @@ public class ConfirmacaoWhatsAppService : IConfirmacaoWhatsAppService
         if (destinoPorCodigo is not null)
         {
             return destinoPorCodigo;
+        }
+
+        var usuarioPorToken = await BuscarUsuarioPorTokenNaMensagemAsync(textoMensagem, cancellationToken);
+        if (usuarioPorToken is not null)
+        {
+            return new WhatsAppConfirmacaoInboundRespostaDestino(
+                ObterTelefoneCadastradoNormalizado(usuarioPorToken),
+                usuarioPorToken.Nome,
+                UsuarioId: usuarioPorToken.Id);
         }
 
         if (!ConfirmacaoWhatsAppTokenHelper.MensagemContemTokenConfirmacao(textoMensagem, telefoneRemetente))
@@ -332,6 +347,35 @@ public class ConfirmacaoWhatsAppService : IConfirmacaoWhatsAppService
         }
 
         return await _usuarioRepository.ObterPorTelefoneNormalizadoAsync(telefoneInbound, cancellationToken);
+    }
+
+    private async Task<Usuario?> BuscarUsuarioPorTokenNaMensagemAsync(
+        string textoMensagem,
+        CancellationToken cancellationToken)
+    {
+        foreach (var token in ConfirmacaoWhatsAppTokenHelper.ExtrairTokensCandidatos(textoMensagem))
+        {
+            if (!ConfirmacaoWhatsAppTokenHelper.TokenPareceTelefoneBrasileiro(token))
+            {
+                continue;
+            }
+
+            var hash = _tokenService.HashToken(token);
+            var usuario = await _usuarioRepository.ObterPorWhatsAppConfirmacaoTokenHashAsync(hash, cancellationToken);
+            if (usuario is null)
+            {
+                continue;
+            }
+
+            if (!TelefoneHelper.TokenCorrespondeTelefone(token, usuario.Telefone))
+            {
+                continue;
+            }
+
+            return usuario;
+        }
+
+        return null;
     }
 
     private async Task<Usuario?> BuscarUsuarioPorCodigoNaMensagemAsync(

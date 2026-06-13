@@ -97,6 +97,32 @@ public class ConfirmacaoWhatsAppServiceTests
     }
 
     [Fact]
+    public async Task TentarConfirmarPorMensagemInboundAsync_DeveConfirmarPorToken_QuandoTelefoneRemetenteVazio()
+    {
+        const string token = "NTU3OTk5ODc1NTExMQ==";
+        var usuario = new Usuario
+        {
+            Id = 9,
+            Nome = "Joao",
+            Email = "joao@email.com",
+            Telefone = "79998755111",
+            Role = UserRole.Cliente,
+            Ativo = true,
+            WhatsAppConfirmacaoTokenHash = $"hash-{token}"
+        };
+
+        _usuarioRepository
+            .Setup(r => r.ObterPorWhatsAppConfirmacaoTokenHashAsync($"hash-{token}", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usuario);
+
+        var service = CreateService();
+        var resultado = await service.TentarConfirmarPorMensagemInboundAsync(string.Empty, token);
+
+        Assert.True(resultado.Confirmado);
+        Assert.NotNull(usuario.WhatsAppConfirmadoEm);
+    }
+
+    [Fact]
     public async Task TentarConfirmarPorMensagemInboundAsync_DeveConfirmarPorCodigoLegado_QuandoMensagemGlow()
     {
         var usuario = CriarUsuarioPendenteWhatsAppLegado();

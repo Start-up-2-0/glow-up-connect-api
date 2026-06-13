@@ -41,7 +41,8 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
         {
             mensagem.Destinatario,
             mensagem.Assunto,
-            TextoLength = mensagem.Conteudo.Length
+            TextoLength = mensagem.Conteudo.Length,
+            ApiVersion = _options.UsarApiV2 ? "v2" : "v1"
         });
 
         if (!_options.Habilitado
@@ -96,16 +97,28 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
             }
 
             var url = $"{_options.ApiUrl.TrimEnd('/')}/message/sendText/{Uri.EscapeDataString(_options.InstanceName)}";
-            using var request = new HttpRequestMessage(HttpMethod.Post, url);
-            request.Headers.Add("apikey", _options.ApiKey);
-            request.Content = JsonContent.Create(new
-            {
-                number = destinatario,
-                text = mensagem.Conteudo
-            });
+            var (response, responseBody) = await EnviarTextoEvolutionAsync(
+                url,
+                destinatario,
+                mensagem.Conteudo,
+                cancellationToken);
 
-            var response = await _httpClient.SendAsync(request, cancellationToken);
-            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode
+                && !_options.UsarApiV2
+                && DeveTentarPayloadV2(responseBody))
+            {
+                _logger.LogInformation(
+                    "Evolution sendText v1 falhou; tentando payload v2. MensagemGuid={MensagemGuid}",
+                    mensagem.Guid);
+
+                (response, responseBody) = await EnviarTextoEvolutionAsync(
+                    url,
+                    destinatario,
+                    mensagem.Conteudo,
+                    cancellationToken,
+                    usarApiV2: true);
+            }
+
             sw.Stop();
 
             if (!response.IsSuccessStatusCode)
@@ -152,6 +165,31 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
                 TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
         }
     }
+
+    private async Task<(HttpResponseMessage Response, string Body)> EnviarTextoEvolutionAsync(
+        string url,
+        string destinatario,
+        string conteudo,
+        CancellationToken cancellationToken,
+        bool? usarApiV2 = null)
+    {
+        var apiV2 = usarApiV2 ?? _options.UsarApiV2;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, url);
+        request.Headers.Add("apikey", _options.ApiKey);
+        request.Content = JsonContent.Create(
+            apiV2
+                ? (object)new { number = destinatario, text = conteudo }
+                : new { number = destinatario, textMessage = new { text = conteudo } });
+
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        return (response, responseBody);
+    }
+
+    private static bool DeveTentarPayloadV2(string responseBody) =>
+        responseBody.Contains("requires property \"text\"", StringComparison.OrdinalIgnoreCase)
+        || responseBody.Contains("textMessage", StringComparison.OrdinalIgnoreCase);
 
     private static string NormalizarDestinatarioEvolution(string destinatario)
     {

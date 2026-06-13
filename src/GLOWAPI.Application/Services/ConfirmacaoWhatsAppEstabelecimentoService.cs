@@ -105,6 +105,12 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
             return resultadoPorCodigo;
         }
 
+        var estabelecimentoPorToken = await BuscarEstabelecimentoPorTokenNaMensagemAsync(textoMensagem, cancellationToken);
+        if (estabelecimentoPorToken is not null)
+        {
+            return await ProcessarConfirmacaoInboundDoEstabelecimentoAsync(estabelecimentoPorToken, cancellationToken);
+        }
+
         if (!ConfirmacaoWhatsAppTokenHelper.MensagemContemTokenConfirmacao(textoMensagem, telefoneRemetente))
         {
             return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido);
@@ -138,6 +144,15 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
         if (destinoPorCodigo is not null)
         {
             return destinoPorCodigo;
+        }
+
+        var estabelecimentoPorToken = await BuscarEstabelecimentoPorTokenNaMensagemAsync(textoMensagem, cancellationToken);
+        if (estabelecimentoPorToken is not null)
+        {
+            return new WhatsAppConfirmacaoInboundRespostaDestino(
+                ObterTelefoneCadastradoNormalizado(estabelecimentoPorToken),
+                estabelecimentoPorToken.Nome,
+                EstabelecimentoId: estabelecimentoPorToken.Id);
         }
 
         if (!ConfirmacaoWhatsAppTokenHelper.MensagemContemTokenConfirmacao(textoMensagem, telefoneRemetente))
@@ -316,6 +331,38 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
         }
 
         return await _estabelecimentoRepository.ObterPorTelefoneNormalizadoAsync(telefoneInbound, cancellationToken);
+    }
+
+    private async Task<Estabelecimento?> BuscarEstabelecimentoPorTokenNaMensagemAsync(
+        string textoMensagem,
+        CancellationToken cancellationToken)
+    {
+        foreach (var token in ConfirmacaoWhatsAppTokenHelper.ExtrairTokensCandidatos(textoMensagem))
+        {
+            if (!ConfirmacaoWhatsAppTokenHelper.TokenPareceTelefoneBrasileiro(token))
+            {
+                continue;
+            }
+
+            var hash = _tokenService.HashToken(token);
+            var estabelecimento = await _estabelecimentoRepository.ObterPorWhatsAppConfirmacaoTokenHashAsync(
+                hash,
+                cancellationToken);
+
+            if (estabelecimento is null)
+            {
+                continue;
+            }
+
+            if (!TelefoneHelper.TokenCorrespondeTelefone(token, estabelecimento.Telefone))
+            {
+                continue;
+            }
+
+            return estabelecimento;
+        }
+
+        return null;
     }
 
     private async Task<Estabelecimento?> BuscarEstabelecimentoPorCodigoNaMensagemAsync(

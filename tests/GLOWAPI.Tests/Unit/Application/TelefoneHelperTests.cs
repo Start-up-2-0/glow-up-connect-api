@@ -22,6 +22,26 @@ public class TelefoneHelperTests
     }
 
     [Fact]
+    public void DecodificarTokenConfirmacao_DeveDecodificarTokenDoUsuario()
+    {
+        const string token = "NTU3OTk5ODc1NTExMQ==";
+
+        var telefone = TelefoneHelper.DecodificarTokenConfirmacao(token);
+
+        Assert.Equal("5579998755111", telefone);
+        Assert.True(TelefoneHelper.TokenCorrespondeTelefone(token, "79998755111"));
+        Assert.True(TelefoneHelper.TokenCorrespondeTelefone(token, "5579998755111"));
+    }
+
+    [Fact]
+    public void GerarTokenConfirmacao_DeveGerarTokenDoUsuario799()
+    {
+        var token = TelefoneHelper.GerarTokenConfirmacao("79998755111");
+
+        Assert.Equal("NTU3OTk5ODc1NTExMQ==", token);
+    }
+
+    [Fact]
     public void GerarTokenConfirmacao_DeveInserirNonoDigito_QuandoTelefoneTem12Digitos()
     {
         var token = TelefoneHelper.GerarTokenConfirmacao("551188887777");

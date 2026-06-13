@@ -95,6 +95,41 @@ public static class TelefoneHelper
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(normalizado));
     }
 
+    public static string? DecodificarTokenConfirmacao(string tokenBase64)
+    {
+        if (string.IsNullOrWhiteSpace(tokenBase64))
+        {
+            return null;
+        }
+
+        try
+        {
+            var normalizado = Encoding.UTF8.GetString(Convert.FromBase64String(tokenBase64.Trim()));
+            var digitos = new string(normalizado.Where(char.IsDigit).ToArray());
+            if (string.IsNullOrEmpty(digitos))
+            {
+                return null;
+            }
+
+            return NormalizarParaConfirmacaoInbound(digitos);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
+    public static bool TokenCorrespondeTelefone(string tokenBase64, string telefone)
+    {
+        var telefoneDoToken = DecodificarTokenConfirmacao(tokenBase64);
+        if (string.IsNullOrWhiteSpace(telefoneDoToken))
+        {
+            return false;
+        }
+
+        return SaoEquivalentes(telefoneDoToken, telefone);
+    }
+
     public static string CriarLinkConfirmacao(string frontendBaseUrl, string tokenConfirmacao)
     {
         if (string.IsNullOrWhiteSpace(frontendBaseUrl) || string.IsNullOrWhiteSpace(tokenConfirmacao))

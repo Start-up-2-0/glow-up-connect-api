@@ -54,6 +54,33 @@ public class ProvedorMensagemWhatsAppTests
         Assert.Contains("/message/sendText/instancia-teste", requestCapturado.RequestUri!.ToString());
 
         Assert.NotNull(bodyCapturado);
+        Assert.Contains("textMessage", bodyCapturado);
+        Assert.Contains("Mensagem teste", bodyCapturado);
+        Assert.DoesNotContain("\"text\":\"Mensagem teste\"", bodyCapturado!.Replace(" ", string.Empty));
+    }
+
+    [Fact]
+    public async Task EnviarAsync_DeveUsarPayloadV2_QuandoConfigurado()
+    {
+        string? bodyCapturado = null;
+        var handler = new RecordingHandler(async message =>
+        {
+            bodyCapturado = message.Content is null
+                ? null
+                : await message.Content.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"status":"sent"}""")
+            };
+        });
+
+        var client = new HttpClient(handler) { BaseAddress = new Uri("https://evolution.test/") };
+        var provedor = CriarProvedor(client, habilitado: true, usarApiV2: true);
+
+        var resultado = await provedor.EnviarAsync(CriarMensagem());
+
+        Assert.True(resultado.Sucesso);
+        Assert.NotNull(bodyCapturado);
         Assert.Contains("Mensagem teste", bodyCapturado);
         Assert.DoesNotContain("textMessage", bodyCapturado);
     }
@@ -92,7 +119,7 @@ public class ProvedorMensagemWhatsAppTests
         Assert.Contains("400", resultado.MensagemErro);
     }
 
-    private static ProvedorMensagemWhatsApp CriarProvedor(HttpClient client, bool habilitado) =>
+    private static ProvedorMensagemWhatsApp CriarProvedor(HttpClient client, bool habilitado, bool usarApiV2 = false) =>
         new(
             client,
             Options.Create(new MensageriaWhatsAppOptions
@@ -100,7 +127,8 @@ public class ProvedorMensagemWhatsAppTests
                 ApiUrl = "https://evolution.test",
                 ApiKey = "api-key-teste",
                 InstanceName = "instancia-teste",
-                Habilitado = habilitado
+                Habilitado = habilitado,
+                UsarApiV2 = usarApiV2
             }),
             NullLogger<ProvedorMensagemWhatsApp>.Instance);
 
