@@ -5,15 +5,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
 namespace GLOWAPI.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260529011219_UnifyCommercialModelToTenant")]
-    partial class UnifyCommercialModelToTenant
+    [Migration("20260613175441_InitialMySql")]
+    partial class InitialMySql
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -21,96 +20,162 @@ namespace GLOWAPI.Infrastructure.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "8.0.0")
-                .HasAnnotation("Relational:MaxIdentifierLength", 63);
-
-            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+                .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Agendamento", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("CanceladoEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ClienteEmail")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("ClienteNome")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("ClienteTelefone")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int?>("EstabelecimentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Fim")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("Inicio")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Observacao")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Origem")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
-                    b.Property<int>("UsuarioClienteId")
-                        .HasColumnType("integer");
+                    b.Property<int?>("UsuarioClienteId")
+                        .HasColumnType("int");
 
                     b.Property<decimal>("ValorTotal")
                         .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
+                        .HasColumnType("decimal(12,2)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("EstabelecimentoId");
 
+                    b.HasIndex("Inicio");
+
                     b.HasIndex("UsuarioClienteId");
 
-                    b.ToTable("Agendamentos", (string)null);
+                    b.ToTable("Agendamentos", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Agendamentos_Horario", "`Inicio` < `Fim`");
+                        });
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.AgendamentoHistorico", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<int>("AgendamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("json");
+
+                    b.Property<string>("StatusAnterior")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("StatusNovo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<int?>("UsuarioExecutorId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgendamentoId");
+
+                    b.HasIndex("CriadoEm");
+
+                    b.HasIndex("UsuarioExecutorId");
+
+                    b.ToTable("AgendamentosHistorico", (string)null);
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.AgendamentoItem", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<int>("AgendamentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("Fim")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("Inicio")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("ProfissionalId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int?>("RepassadoDeProfissionalId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int>("ServicoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<decimal>("Valor")
                         .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
+                        .HasColumnType("decimal(12,2)");
 
                     b.HasKey("Id");
 
@@ -124,71 +189,142 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.ToTable("AgendamentoItens", null, t =>
                         {
-                            t.HasCheckConstraint("CK_AgendamentoItens_Horario", "\"Inicio\" < \"Fim\"");
+                            t.HasCheckConstraint("CK_AgendamentoItens_Horario", "`Inicio` < `Fim`");
                         });
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.AgendamentoPropostaRemarcacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<int>("AgendamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateOnly>("DataSugerida")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("ExpiraEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<TimeOnly>("HorarioInicioSugerido")
+                        .HasColumnType("time(6)");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime?>("RespondidoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TokenPublico")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int?>("UsuarioExecutorId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgendamentoId");
+
+                    b.HasIndex("TokenPublico")
+                        .IsUnique();
+
+                    b.HasIndex("UsuarioExecutorId");
+
+                    b.ToTable("AgendamentosPropostasRemarcacao", (string)null);
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Assinatura", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<int?>("CampanhaPromocionalId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("CanceladoEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("DiaVencimento")
+                        .HasColumnType("int");
 
                     b.Property<int?>("EstabelecimentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("Fim")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Gateway")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("GatewayCustomerId")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
+                        .HasColumnType("varchar(150)");
 
                     b.Property<string>("GatewaySubscriptionId")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
+                        .HasColumnType("varchar(150)");
 
                     b.Property<DateTime>("Inicio")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("OnboardingPendenteJson")
+                        .HasColumnType("text");
 
                     b.Property<int?>("PlanoAlteracaoPendenteId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int>("PlanoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ProximaDataAlerta")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ProximaDataGeracaoCobranca")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ProximaDataVencimento")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<bool>("RenovacaoAutomatica")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
+                        .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("UltimoAlertaFaturaEm")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int?>("UltimoPagamentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CampanhaPromocionalId");
 
                     b.HasIndex("EstabelecimentoId");
 
@@ -203,47 +339,45 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<int>("AssinaturaId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Evento")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Observacao")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("varchar(500)");
 
                     b.Property<int?>("PagamentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("PayloadJson")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<int?>("PlanoAlteracaoPendenteId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int?>("PlanoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("StatusAnterior")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("StatusNovo")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.HasKey("Id");
 
@@ -260,46 +394,44 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<int>("AssinaturaId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("CicloFim")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime?>("CicloInicio")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Evento")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Observacao")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("varchar(500)");
 
                     b.Property<int?>("PagamentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("PayloadJson")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("RenovacaoAutomatica")
-                        .HasColumnType("boolean");
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
+                        .HasColumnType("varchar(80)");
 
                     b.HasKey("Id");
 
@@ -312,34 +444,77 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.ToTable("AssinaturasRecorrenciasHistorico", (string)null);
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.AuditoriaNegocio", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Entidade")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<int?>("EntidadeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EstabelecimentoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("json");
+
+                    b.Property<string>("TipoAcao")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<int?>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CriadoEm");
+
+                    b.HasIndex("EstabelecimentoId");
+
+                    b.HasIndex("TipoAcao");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("AuditoriasNegocio", (string)null);
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Caixa", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int?>("EstabelecimentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<decimal>("SaldoDisponivel")
                         .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("SaldoRetido")
                         .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("SaldoTotal")
                         .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -349,46 +524,85 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.ToTable("Caixas", (string)null);
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.CampanhaPromocional", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Ativa")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<DateTime>("CreateAd")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("DiasTrial")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Limite")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Utilizados")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique();
+
+                    b.ToTable("CampanhasPromocionais", (string)null);
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.ComissaoProfissional", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<bool>("Ativo")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
+                        .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime?>("FimVigencia")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("InicioVigencia")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<decimal?>("Percentual")
                         .HasPrecision(5, 2)
-                        .HasColumnType("numeric(5,2)");
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<int>("ProfissionalEstabelecimentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("TipoComissao")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<decimal?>("ValorFixo")
                         .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
+                        .HasColumnType("decimal(12,2)");
 
                     b.HasKey("Id");
 
@@ -397,62 +611,152 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.ToTable("ComissoesProfissional", (string)null);
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.ConviteNegocio", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<int?>("AceitoPorUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CriadoPorUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("EstabelecimentoId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ExpiraEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("NomePublico")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<bool>("PodeReceberAgendamento")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("RespondidoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("RoleSugerida")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("Telefone")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("TipoConvite")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AceitoPorUsuarioId");
+
+                    b.HasIndex("CriadoPorUsuarioId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("EstabelecimentoId", "Email", "TipoConvite", "Status");
+
+                    b.ToTable("ConvitesNegocio", (string)null);
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Endereco", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<string>("Bairro")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Cep")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("varchar(20)");
 
                     b.Property<string>("Cidade")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Complemento")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int?>("EstabelecimentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("Estado")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("GeocodificadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
 
                     b.Property<string>("Logradouro")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
 
                     b.Property<string>("Numero")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("varchar(20)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("EstabelecimentoId")
                         .IsUnique();
+
+                    b.HasIndex("Cidade", "Estado");
 
                     b.ToTable("Enderecos", (string)null);
                 });
@@ -461,53 +765,73 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<bool>("Ativo")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
+                        .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Descricao")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("varchar(500)");
 
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Logo")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
+                        .HasColumnType("varchar(150)");
 
                     b.Property<Guid>("PublicGuid")
-                        .HasColumnType("uuid");
+                        .HasColumnType("char(36)");
 
                     b.Property<string>("Telefone")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("varchar(20)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("WhatsAppConfirmacaoCodigoHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime?>("WhatsAppConfirmacaoExpiraEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("WhatsAppConfirmacaoTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime?>("WhatsAppConfirmadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("WhatsAppOptIn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
 
                     b.HasKey("Id");
 
                     b.HasIndex("PublicGuid")
                         .IsUnique();
+
+                    b.HasIndex("WhatsAppConfirmacaoCodigoHash");
+
+                    b.HasIndex("WhatsAppConfirmacaoTokenHash");
 
                     b.ToTable("Estabelecimentos", (string)null);
                 });
@@ -516,31 +840,29 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<bool>("Ativo")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
+                        .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("EstabelecimentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("RoleNoEstabelecimento")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("UsuarioId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -556,35 +878,33 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<bool>("Ativo")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
+                        .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("DiaSemana")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int?>("EstabelecimentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<TimeOnly>("HoraFim")
-                        .HasColumnType("time without time zone");
+                        .HasColumnType("time(6)");
 
                     b.Property<TimeOnly>("HoraInicio")
-                        .HasColumnType("time without time zone");
+                        .HasColumnType("time(6)");
 
                     b.Property<int>("ProfissionalId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -595,7 +915,7 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.ToTable("HorariosAtendimentoProfissional", null, t =>
                         {
-                            t.HasCheckConstraint("CK_HorariosAtendimentoProfissional_Horario", "\"HoraInicio\" < \"HoraFim\"");
+                            t.HasCheckConstraint("CK_HorariosAtendimentoProfissional_Horario", "`HoraInicio` < `HoraFim`");
                         });
                 });
 
@@ -603,32 +923,30 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<bool>("Ativo")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
+                        .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("DiaSemana")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int>("EstabelecimentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<TimeOnly>("HoraFim")
-                        .HasColumnType("time without time zone");
+                        .HasColumnType("time(6)");
 
                     b.Property<TimeOnly>("HoraInicio")
-                        .HasColumnType("time without time zone");
+                        .HasColumnType("time(6)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -637,7 +955,7 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.ToTable("HorariosFuncionamentoEstabelecimento", null, t =>
                         {
-                            t.HasCheckConstraint("CK_HorariosFuncionamentoEstabelecimento_Horario", "\"HoraInicio\" < \"HoraFim\"");
+                            t.HasCheckConstraint("CK_HorariosFuncionamentoEstabelecimento_Horario", "`HoraInicio` < `HoraFim`");
                         });
                 });
 
@@ -645,38 +963,36 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<int?>("AgendamentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int>("CaixaId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Descricao")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("varchar(500)");
 
                     b.Property<int?>("PagamentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int?>("ProfissionalId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("Tipo")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<decimal>("Valor")
                         .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
+                        .HasColumnType("decimal(12,2)");
 
                     b.HasKey("Id");
 
@@ -695,37 +1011,35 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Detalhes")
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("varchar(1000)");
 
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Evento")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("Ip")
                         .HasMaxLength(45)
-                        .HasColumnType("character varying(45)");
+                        .HasColumnType("varchar(45)");
 
                     b.Property<string>("UserAgent")
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
+                        .HasColumnType("varchar(512)");
 
                     b.Property<int?>("UsuarioId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -742,82 +1056,80 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("AgendadoPara")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Assunto")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("varchar(500)");
 
                     b.Property<DateTime?>("AtualizadoEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Canal")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("Conteudo")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Destinatario")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("varchar(500)");
 
                     b.Property<DateTime?>("EnviadoEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int?>("EstabelecimentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("FalhouEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<Guid>("Guid")
-                        .HasColumnType("uuid");
+                        .HasColumnType("char(36)");
 
                     b.Property<string>("InstanciaWorker")
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasColumnType("varchar(128)");
 
                     b.Property<int>("MaximoTentativas")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("MensagemErro")
                         .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
+                        .HasColumnType("varchar(2000)");
 
                     b.Property<string>("PayloadJson")
                         .IsRequired()
-                        .HasColumnType("jsonb");
+                        .HasColumnType("json");
 
                     b.Property<int>("Prioridade")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("ProcessamentoIniciadoEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Provedor")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<int>("Tentativas")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -839,19 +1151,17 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("MensagemErro")
                         .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
+                        .HasColumnType("varchar(2000)");
 
                     b.Property<int>("MensagemNotificacaoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("RequestPayload")
                         .HasColumnType("text");
@@ -861,18 +1171,18 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.Property<string>("RespostaProvedor")
                         .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
+                        .HasColumnType("varchar(2000)");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<int>("TempoExecucaoMs")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int>("Tentativa")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -887,41 +1197,39 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("FimPeriodo")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("InicioPeriodo")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("ProfissionalEstabelecimentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int?>("QuantidadeAtendimentos")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("TipoMeta")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<decimal?>("ValorFaturamento")
                         .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
+                        .HasColumnType("decimal(12,2)");
 
                     b.HasKey("Id");
 
@@ -936,56 +1244,80 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<int?>("AgendamentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int?>("AssinaturaId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CicloFim")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("CicloInicio")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DataGeracao")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DataVencimento")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime?>("ExpiraEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Gateway")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("GatewayPaymentId")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
+                        .HasColumnType("varchar(150)");
 
                     b.Property<string>("MetodoPagamento")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
+                        .HasColumnType("varchar(80)");
 
                     b.Property<string>("Moeda")
                         .IsRequired()
                         .HasMaxLength(3)
-                        .HasColumnType("character varying(3)");
+                        .HasColumnType("varchar(3)");
+
+                    b.Property<int>("NumeroCiclo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
 
                     b.Property<DateTime?>("PagoEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ReferenciaInterna")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("TipoCobranca")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<decimal>("Valor")
                         .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
+                        .HasColumnType("decimal(12,2)");
 
                     b.HasKey("Id");
 
@@ -995,9 +1327,11 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.HasIndex("GatewayPaymentId");
 
+                    b.HasIndex("ReferenciaInterna");
+
                     b.ToTable("Pagamentos", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Pagamentos_Origem", "((\"AgendamentoId\" IS NOT NULL AND \"AssinaturaId\" IS NULL) OR (\"AgendamentoId\" IS NULL AND \"AssinaturaId\" IS NOT NULL))");
+                            t.HasCheckConstraint("CK_Pagamentos_Origem", "((`AgendamentoId` IS NOT NULL AND `AssinaturaId` IS NULL) OR (`AgendamentoId` IS NULL AND `AssinaturaId` IS NOT NULL))");
                         });
                 });
 
@@ -1005,48 +1339,46 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<int?>("AssinaturaId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Evento")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Gateway")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("GatewayPaymentId")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
+                        .HasColumnType("varchar(150)");
 
                     b.Property<string>("MetodoPagamento")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
+                        .HasColumnType("varchar(80)");
 
                     b.Property<string>("Moeda")
                         .IsRequired()
                         .HasMaxLength(3)
-                        .HasColumnType("character varying(3)");
+                        .HasColumnType("varchar(3)");
 
                     b.Property<string>("Observacao")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("varchar(500)");
 
                     b.Property<int>("PagamentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("PayloadJson")
                         .IsRequired()
@@ -1054,16 +1386,16 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.Property<string>("StatusAnterior")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("StatusNovo")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<decimal>("Valor")
                         .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
+                        .HasColumnType("decimal(12,2)");
 
                     b.HasKey("Id");
 
@@ -1080,48 +1412,46 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<bool>("Ativo")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
+                        .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Descricao")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("varchar(500)");
 
                     b.Property<int?>("LimiteAgendamentos")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int?>("LimiteProfissionais")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int?>("LimiteServicos")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
+                        .HasColumnType("varchar(120)");
 
                     b.Property<string>("Periodo")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
+                        .HasColumnType("varchar(30)");
 
                     b.Property<decimal>("Preco")
                         .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -1135,56 +1465,53 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<bool>("Ativo")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
+                        .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
 
                     b.Property<string>("Biografia")
                         .IsRequired()
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("varchar(1000)");
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Logo")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("text");
 
                     b.Property<string>("NomePublico")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
+                        .HasColumnType("varchar(150)");
 
                     b.Property<Guid>("PublicGuid")
-                        .HasColumnType("uuid");
+                        .HasColumnType("char(36)");
 
                     b.Property<string>("Telefone")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("varchar(20)");
 
                     b.Property<string>("TipoProfissional")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
-                    b.Property<int>("UsuarioId")
-                        .HasColumnType("integer");
+                    b.Property<int?>("UsuarioId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -1192,7 +1519,8 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("UsuarioId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("`UsuarioId` IS NOT NULL");
 
                     b.ToTable("Profissionais", (string)null);
                 });
@@ -1201,37 +1529,40 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<bool>("Ativo")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
+                        .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("DataEntrada")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime?>("DataSaida")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("EstabelecimentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<bool>("PodeReceberAgendamento")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
+                        .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
 
                     b.Property<int>("ProfissionalId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
+
+                    b.Property<bool>("SomenteExibicao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -1246,33 +1577,31 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<bool>("Ativo")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
+                        .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("DuracaoMinutos")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<decimal>("Preco")
                         .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<int>("ProfissionalId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int>("ServicoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -1288,40 +1617,38 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<bool>("Ativo")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
+                        .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Descricao")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("varchar(500)");
 
                     b.Property<int>("DuracaoMinutos")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<int?>("EstabelecimentoId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
+                        .HasColumnType("varchar(150)");
 
                     b.Property<decimal>("PrecoBase")
                         .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -1334,52 +1661,50 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("AccessTokenExpiraEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("AccessTokenHash")
                         .IsRequired()
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasColumnType("varchar(128)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("ExpiraEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Ip")
                         .HasMaxLength(45)
-                        .HasColumnType("character varying(45)");
+                        .HasColumnType("varchar(45)");
 
                     b.Property<DateTime>("LoginEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("MetadataJson")
                         .IsRequired()
-                        .HasColumnType("jsonb");
+                        .HasColumnType("json");
 
                     b.Property<string>("RefreshTokenHash")
                         .IsRequired()
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasColumnType("varchar(128)");
 
                     b.Property<DateTime?>("RevogadoEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime?>("UltimaRenovacaoEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("UserAgent")
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
+                        .HasColumnType("varchar(512)");
 
                     b.Property<int>("UsuarioId")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -1399,67 +1724,84 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<bool>("Ativo")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
+                        .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
 
                     b.Property<string>("AvatarBase64")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("BloqueadoAte")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("ConfirmacaoCodigoHash")
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasColumnType("varchar(128)");
 
                     b.Property<DateTime?>("ConfirmacaoExpiraEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("ConfirmacaoTokenHash")
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasColumnType("varchar(128)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
+                        .HasColumnType("varchar(150)");
 
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("Senha")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Telefone")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("varchar(20)");
 
                     b.Property<int>("Tentativas")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("WhatsAppConfirmacaoCodigoHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime?>("WhatsAppConfirmacaoExpiraEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("WhatsAppConfirmacaoTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime?>("WhatsAppConfirmadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("WhatsAppOptIn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
 
                     b.HasKey("Id");
 
@@ -1470,6 +1812,10 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
+                    b.HasIndex("WhatsAppConfirmacaoCodigoHash");
+
+                    b.HasIndex("WhatsAppConfirmacaoTokenHash");
+
                     b.ToTable("Usuarios", (string)null);
                 });
 
@@ -1477,32 +1823,30 @@ namespace GLOWAPI.Infrastructure.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreateAd")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("ErroProcessamento")
                         .IsRequired()
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("varchar(1000)");
 
                     b.Property<string>("EventId")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
+                        .HasColumnType("varchar(150)");
 
                     b.Property<string>("EventType")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
+                        .HasColumnType("varchar(120)");
 
                     b.Property<string>("Gateway")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("Payload")
                         .IsRequired()
@@ -1510,11 +1854,11 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.Property<bool>("Processado")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
+                        .HasColumnType("tinyint(1)")
                         .HasDefaultValue(false);
 
                     b.Property<DateTime?>("ProcessadoEm")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -1534,12 +1878,29 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.HasOne("GLOWAPI.Domain.Entities.Usuario", "UsuarioCliente")
                         .WithMany("Agendamentos")
                         .HasForeignKey("UsuarioClienteId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Estabelecimento");
 
                     b.Navigation("UsuarioCliente");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.AgendamentoHistorico", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Agendamento", "Agendamento")
+                        .WithMany("Historico")
+                        .HasForeignKey("AgendamentoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Usuario", "UsuarioExecutor")
+                        .WithMany()
+                        .HasForeignKey("UsuarioExecutorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Agendamento");
+
+                    b.Navigation("UsuarioExecutor");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.AgendamentoItem", b =>
@@ -1576,8 +1937,31 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Navigation("Servico");
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.AgendamentoPropostaRemarcacao", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Agendamento", "Agendamento")
+                        .WithMany()
+                        .HasForeignKey("AgendamentoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Usuario", "UsuarioExecutor")
+                        .WithMany()
+                        .HasForeignKey("UsuarioExecutorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Agendamento");
+
+                    b.Navigation("UsuarioExecutor");
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Assinatura", b =>
                 {
+                    b.HasOne("GLOWAPI.Domain.Entities.CampanhaPromocional", "CampanhaPromocional")
+                        .WithMany("Assinaturas")
+                        .HasForeignKey("CampanhaPromocionalId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
                         .WithMany("Assinaturas")
                         .HasForeignKey("EstabelecimentoId")
@@ -1593,6 +1977,8 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasForeignKey("PlanoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("CampanhaPromocional");
 
                     b.Navigation("Estabelecimento");
 
@@ -1637,6 +2023,24 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Navigation("Pagamento");
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.AuditoriaNegocio", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
+                        .WithMany()
+                        .HasForeignKey("EstabelecimentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Estabelecimento");
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Caixa", b =>
                 {
                     b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
@@ -1656,6 +2060,32 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("ProfissionalEstabelecimento");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.ConviteNegocio", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Usuario", "AceitoPorUsuario")
+                        .WithMany()
+                        .HasForeignKey("AceitoPorUsuarioId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Usuario", "CriadoPorUsuario")
+                        .WithMany()
+                        .HasForeignKey("CriadoPorUsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
+                        .WithMany()
+                        .HasForeignKey("EstabelecimentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AceitoPorUsuario");
+
+                    b.Navigation("CriadoPorUsuario");
+
+                    b.Navigation("Estabelecimento");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Endereco", b =>
@@ -1820,8 +2250,7 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.HasOne("GLOWAPI.Domain.Entities.Usuario", "Usuario")
                         .WithOne()
                         .HasForeignKey("GLOWAPI.Domain.Entities.Profissional", "UsuarioId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Usuario");
                 });
@@ -1887,6 +2316,8 @@ namespace GLOWAPI.Infrastructure.Migrations
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Agendamento", b =>
                 {
+                    b.Navigation("Historico");
+
                     b.Navigation("Itens");
 
                     b.Navigation("LancamentosCaixa");
@@ -1906,6 +2337,11 @@ namespace GLOWAPI.Infrastructure.Migrations
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Caixa", b =>
                 {
                     b.Navigation("Lancamentos");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.CampanhaPromocional", b =>
+                {
+                    b.Navigation("Assinaturas");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Estabelecimento", b =>

@@ -234,7 +234,7 @@ public class AssinaturaServiceTests
         Assert.Equal("Studio Glow", estabelecimentoCriado!.Nome);
         Assert.Equal("Salao premium", estabelecimentoCriado.Descricao);
         Assert.StartsWith("data:image/png;base64,", estabelecimentoCriado!.Logo);
-        Assert.Equal("11999999999", estabelecimentoCriado.Telefone);
+        Assert.Equal("5511999999999", estabelecimentoCriado.Telefone);
         Assert.Equal("studio@email.com", estabelecimentoCriado.Email);
         Assert.NotNull(estabelecimentoCriado.Endereco);
         Assert.Equal("Sao Paulo", estabelecimentoCriado.Endereco!.Cidade);
@@ -352,7 +352,7 @@ public class AssinaturaServiceTests
         Assert.Equal("Maria Glow", profissionalCriado.NomePublico);
         Assert.Equal("Especialista em beleza", profissionalCriado.Biografia);
         Assert.StartsWith("data:image/png;base64,", profissionalCriado!.Logo);
-        Assert.Equal("11988888888", profissionalCriado.Telefone);
+        Assert.Equal("5511988888888", profissionalCriado.Telefone);
         Assert.Equal("maria@email.com", profissionalCriado.Email);
         Assert.Equal(ProfessionalType.Autonomo, profissionalCriado.TipoProfissional);
         Assert.True(profissionalCriado.Ativo);
@@ -440,7 +440,7 @@ public class AssinaturaServiceTests
         Assert.Equal("Novo nome", profissional.NomePublico);
         Assert.Equal("Nova bio", profissional.Biografia);
         Assert.StartsWith("data:image/png;base64,", profissional.Logo);
-        Assert.Equal("11977777777", profissional.Telefone);
+        Assert.Equal("5511977777777", profissional.Telefone);
         Assert.Equal("novo@email.com", profissional.Email);
         Assert.True(profissional.Ativo);
         Assert.NotNull(profissional.UpdatedAt);

@@ -8,13 +8,13 @@ Guia para configurar homologacao no **mesmo projeto Railway** da producao, com i
 2. **Settings → Environments → New Environment** → nome `staging`.
 3. Alterne para o environment `staging` (seletor no topo).
 
-## 2. PostgreSQL dedicado (staging)
+## 2. MySQL dedicado (staging)
 
-1. No environment `staging`, clique **+ New → Database → PostgreSQL**.
+1. No environment `staging`, clique **+ New → Database → MySQL**.
 2. Aguarde provisionamento.
-3. No servico Postgres, copie as variaveis (`PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`) ou use **Connect → Variables**.
+3. No servico MySQL, copie as variaveis (`MYSQLHOST`, `MYSQLPORT`, `MYSQLDATABASE`, `MYSQLUSER`, `MYSQLPASSWORD`) ou use **Connect → Variables**.
 
-> Producao deve manter seu proprio Postgres no environment `production`. Nunca compartilhe `POSTGSL` entre ambientes.
+> Producao deve manter seu proprio MySQL no environment `production`. Nunca compartilhe `MYSQL_CS` entre ambientes.
 
 ## 3. Servico da API (staging)
 
@@ -30,7 +30,7 @@ Guia para configurar homologacao no **mesmo projeto Railway** da producao, com i
 |----------|--------|
 | `ASPNETCORE_ENVIRONMENT` | `Staging` |
 | `ASPNETCORE_URLS` | `http://0.0.0.0:$PORT` (opcional; entrypoint ja ajusta `PORT`) |
-| `POSTGSL` | Ver abaixo |
+| `MYSQL_CS` | Ver abaixo |
 | `Auth__TokenSalt` | Salt unico staging (minimo 32 caracteres) |
 | `Auth__TokenHeaderName` | `x-glow-token` |
 | `Auth__FrontendBaseUrl` | URL do front staging (links nos e-mails) |
@@ -45,15 +45,15 @@ Com `MercadoPago__UsarCheckoutPro=true`, as URLs de retorno do Checkout Pro sao 
 
 > O remetente (`Mensageria__Email__From`) deve usar um dominio verificado em [resend.com/domains](https://resend.com/domains). Nao commite token nem `From` no `appsettings.json` do repositorio.
 
-### Montar `POSTGSL`
+### Montar `MYSQL_CS`
 
-No servico API (staging), adicione variavel `POSTGSL`:
+No servico API (staging), adicione variavel `MYSQL_CS`:
 
 ```text
-Host=${{Postgres.PGHOST}};Port=${{Postgres.PGPORT}};Database=${{Postgres.PGDATABASE}};Username=${{Postgres.PGUSER}};Password=${{Postgres.PGPASSWORD}};SSL Mode=Require;Trust Server Certificate=true
+Server=${{MySQL.MYSQLHOST}};Port=${{MySQL.MYSQLPORT}};Database=${{MySQL.MYSQLDATABASE}};User=${{MySQL.MYSQLUSER}};Password=${{MySQL.MYSQLPASSWORD}};SslMode=Required;
 ```
 
-Substitua `Postgres` pelo nome do servico PostgreSQL no Railway, se diferente.
+Substitua `MySQL` pelo nome do servico MySQL no Railway, se diferente.
 
 ## 5. Deploy automatico
 
@@ -109,7 +109,7 @@ Swagger em staging: `https://<dominio>/swagger`.
 ## 9. Checklist pos-deploy
 
 - [ ] `GET /health` → 200
-- [ ] Logs sem erro de `POSTGSL`, `TokenSalt`, `RESEND_APITOKEN` ou `Mensageria__Email__From`
+- [ ] Logs sem erro de `MYSQL_CS`, `TokenSalt`, `RESEND_APITOKEN` ou `Mensageria__Email__From`
 - [ ] Migrations em `__EFMigrationsHistory`
 - [ ] Push em `staging` nao redeploya producao
 - [ ] `Auth__TokenSalt` staging diferente de producao
@@ -122,7 +122,7 @@ No environment `production`:
 | Variavel | Valor |
 |----------|--------|
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
-| `POSTGSL` | Connection string do Postgres de **producao** |
+| `MYSQL_CS` | Connection string do MySQL de **producao** |
 | `Auth__TokenSalt` | Salt proprio de producao |
 | `Auth__FrontendBaseUrl` | URL do front de producao |
 | `RESEND_APITOKEN` | API key Resend de producao |

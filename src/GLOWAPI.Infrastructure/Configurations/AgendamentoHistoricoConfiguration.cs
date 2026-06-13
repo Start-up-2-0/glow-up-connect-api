@@ -27,7 +27,7 @@ public class AgendamentoHistoricoConfiguration : IEntityTypeConfiguration<Agenda
             .HasMaxLength(500);
 
         builder.Property(historico => historico.PayloadJson)
-            .HasColumnType("jsonb")
+            .HasColumnType("json")
             .IsRequired();
 
         builder.Property(historico => historico.CriadoEm)

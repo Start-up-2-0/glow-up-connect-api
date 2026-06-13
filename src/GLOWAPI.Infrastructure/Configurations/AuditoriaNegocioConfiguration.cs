@@ -22,7 +22,7 @@ public class AuditoriaNegocioConfiguration : IEntityTypeConfiguration<AuditoriaN
             .IsRequired();
 
         builder.Property(auditoria => auditoria.PayloadJson)
-            .HasColumnType("jsonb")
+            .HasColumnType("json")
             .IsRequired();
 
         builder.Property(auditoria => auditoria.CriadoEm)

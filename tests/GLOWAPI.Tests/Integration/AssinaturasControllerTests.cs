@@ -206,7 +206,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         Assert.NotNull(estabelecimento);
         Assert.Equal("Studio Glow", estabelecimento!.Nome);
         Assert.StartsWith("data:image/png;base64,", estabelecimento!.Logo);
-        Assert.Equal("11999999999", estabelecimento.Telefone);
+        Assert.Equal("5511999999999", estabelecimento.Telefone);
         Assert.Equal("studio@email.com", estabelecimento.Email);
         Assert.NotEqual(Guid.Empty, estabelecimento.PublicGuid);
 
@@ -320,7 +320,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         Assert.Equal(seed.UsuarioId, profissional!.UsuarioId);
         Assert.Equal("Maria Glow", profissional.NomePublico);
         Assert.StartsWith("data:image/png;base64,", profissional!.Logo);
-        Assert.Equal("11988888888", profissional.Telefone);
+        Assert.Equal("5511988888888", profissional.Telefone);
         Assert.Equal("maria@email.com", profissional.Email);
         Assert.Equal(ProfessionalType.Autonomo, profissional.TipoProfissional);
         Assert.True(profissional.Ativo);

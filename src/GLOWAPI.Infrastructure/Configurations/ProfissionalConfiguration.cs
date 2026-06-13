@@ -58,6 +58,6 @@ public class ProfissionalConfiguration : IEntityTypeConfiguration<Profissional>
 
         builder.HasIndex(profissional => profissional.UsuarioId)
             .IsUnique()
-            .HasFilter("\"UsuarioId\" IS NOT NULL");
+            .HasFilter("`UsuarioId` IS NOT NULL");
     }
 }

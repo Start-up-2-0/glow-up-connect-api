@@ -11,24 +11,24 @@ namespace GLOWAPI.Infrastructure.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql("""
-                DELETE FROM "Planos" AS p
-                WHERE p."Nome" NOT IN ('Basic', 'Plus', 'Premium')
+                DELETE p FROM `Planos` AS p
+                WHERE p.`Nome` NOT IN ('Basic', 'Plus', 'Premium')
                   AND NOT EXISTS (
                       SELECT 1
-                      FROM "Assinaturas" AS a
-                      WHERE a."PlanoId" = p."Id");
+                      FROM `Assinaturas` AS a
+                      WHERE a.`PlanoId` = p.`Id`);
 
-                INSERT INTO "Planos" (
-                    "Id",
-                    "Nome",
-                    "Descricao",
-                    "Preco",
-                    "Periodo",
-                    "LimiteProfissionais",
-                    "LimiteServicos",
-                    "LimiteAgendamentos",
-                    "Ativo",
-                    "CreateAd")
+                INSERT INTO `Planos` (
+                    `Id`,
+                    `Nome`,
+                    `Descricao`,
+                    `Preco`,
+                    `Periodo`,
+                    `LimiteProfissionais`,
+                    `LimiteServicos`,
+                    `LimiteAgendamentos`,
+                    `Ativo`,
+                    `CreateAd`)
                 VALUES
                     (
                         1,
@@ -40,7 +40,7 @@ namespace GLOWAPI.Infrastructure.Migrations
                         10,
                         10,
                         TRUE,
-                        NOW()
+                        UTC_TIMESTAMP()
                     ),
                     (
                         2,
@@ -52,7 +52,7 @@ namespace GLOWAPI.Infrastructure.Migrations
                         NULL,
                         NULL,
                         TRUE,
-                        NOW()
+                        UTC_TIMESTAMP()
                     ),
                     (
                         3,
@@ -64,23 +64,23 @@ namespace GLOWAPI.Infrastructure.Migrations
                         NULL,
                         NULL,
                         TRUE,
-                        NOW()
+                        UTC_TIMESTAMP()
                     )
-                ON CONFLICT ("Nome") DO UPDATE SET
-                    "Descricao" = EXCLUDED."Descricao",
-                    "Preco" = EXCLUDED."Preco",
-                    "Periodo" = EXCLUDED."Periodo",
-                    "LimiteProfissionais" = EXCLUDED."LimiteProfissionais",
-                    "LimiteServicos" = EXCLUDED."LimiteServicos",
-                    "LimiteAgendamentos" = EXCLUDED."LimiteAgendamentos",
-                    "Ativo" = EXCLUDED."Ativo",
-                    "UpdatedAt" = NOW();
+                ON DUPLICATE KEY UPDATE
+                    `Descricao` = VALUES(`Descricao`),
+                    `Preco` = VALUES(`Preco`),
+                    `Periodo` = VALUES(`Periodo`),
+                    `LimiteProfissionais` = VALUES(`LimiteProfissionais`),
+                    `LimiteServicos` = VALUES(`LimiteServicos`),
+                    `LimiteAgendamentos` = VALUES(`LimiteAgendamentos`),
+                    `Ativo` = VALUES(`Ativo`),
+                    `UpdatedAt` = UTC_TIMESTAMP();
 
-                SELECT setval(
-                    pg_get_serial_sequence('"Planos"', 'Id'),
-                    GREATEST(
-                        (SELECT COALESCE(MAX("Id"), 1) FROM "Planos"),
-                        3));
+                SET @max_plano_id = (SELECT COALESCE(MAX(`Id`), 1) FROM `Planos`);
+                SET @sql = CONCAT('ALTER TABLE `Planos` AUTO_INCREMENT = ', GREATEST(@max_plano_id, 3));
+                PREPARE stmt FROM @sql;
+                EXECUTE stmt;
+                DEALLOCATE PREPARE stmt;
                 """);
         }
 
@@ -88,12 +88,12 @@ namespace GLOWAPI.Infrastructure.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql("""
-                DELETE FROM "Planos" AS p
-                WHERE p."Nome" IN ('Basic', 'Plus', 'Premium')
+                DELETE p FROM `Planos` AS p
+                WHERE p.`Nome` IN ('Basic', 'Plus', 'Premium')
                   AND NOT EXISTS (
                       SELECT 1
-                      FROM "Assinaturas" AS a
-                      WHERE a."PlanoId" = p."Id");
+                      FROM `Assinaturas` AS a
+                      WHERE a.`PlanoId` = p.`Id`);
                 """);
         }
     }

@@ -33,7 +33,7 @@ public class SessaoAutenticacaoConfiguration : IEntityTypeConfiguration<SessaoAu
 
         builder.Property(s => s.MetadataJson)
             .IsRequired()
-            .HasColumnType("jsonb");
+            .HasColumnType("json");
 
         builder.Property(s => s.LoginEm).IsRequired();
         builder.Property(s => s.AccessTokenExpiraEm).IsRequired();

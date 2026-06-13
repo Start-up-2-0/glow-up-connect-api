@@ -89,7 +89,7 @@ public class EstabelecimentoPerfilServiceTests
 
         Assert.Equal("Studio Novo", response.Nome);
         Assert.StartsWith("data:image/png;base64,", response.Logo);
-        Assert.Equal("11999999999", response.Telefone);
+        Assert.Equal("5511999999999", response.Telefone);
         Assert.Equal("novo@email.com", response.Email);
         Assert.Equal("Sao Paulo", response.Endereco.Cidade);
         Assert.Equal("SP", response.Endereco.Estado);

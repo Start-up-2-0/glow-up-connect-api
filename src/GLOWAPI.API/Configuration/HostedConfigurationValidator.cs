@@ -16,9 +16,9 @@ public static class HostedConfigurationValidator
 
         var faltando = new List<string>();
 
-        if (string.IsNullOrWhiteSpace(configuration["POSTGSL"]))
+        if (string.IsNullOrWhiteSpace(configuration["MYSQL_CS"]))
         {
-            faltando.Add("POSTGSL");
+            faltando.Add("MYSQL_CS");
         }
 
         if (string.IsNullOrWhiteSpace(configuration["RESEND_APITOKEN"]))

@@ -13,7 +13,7 @@ public class PagamentoConfiguration : IEntityTypeConfiguration<Pagamento>
         {
             table.HasCheckConstraint(
                 "CK_Pagamentos_Origem",
-                """(("AgendamentoId" IS NOT NULL AND "AssinaturaId" IS NULL) OR ("AgendamentoId" IS NULL AND "AssinaturaId" IS NOT NULL))""");
+                "((`AgendamentoId` IS NOT NULL AND `AssinaturaId` IS NULL) OR (`AgendamentoId` IS NULL AND `AssinaturaId` IS NOT NULL))");
         });
 
         builder.HasKey(pagamento => pagamento.Id);

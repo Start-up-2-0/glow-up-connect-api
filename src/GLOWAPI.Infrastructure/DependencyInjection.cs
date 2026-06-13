@@ -1,6 +1,7 @@
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Options;
+using GLOWAPI.Infrastructure.Database;
 using GLOWAPI.Infrastructure.Geolocalizacao;
 using GLOWAPI.Infrastructure.Mensageria.Provedores;
 using GLOWAPI.Infrastructure.Pagamentos;
@@ -22,27 +23,25 @@ public static class DependencyInjection
         IConfiguration configuration,
         string environmentName)
     {
-        var provider = configuration.GetValue<string>("Database:Provider") ?? "PostgreSQL";
-        var isHosted = string.Equals(environmentName, "Production", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(environmentName, "Staging", StringComparison.OrdinalIgnoreCase);
-        var connectionString = isHosted
-            ? configuration["POSTGSL"]
-            : configuration.GetConnectionString("DefaultConnection");
+        var provider = DatabaseConnectionResolver.ResolveProvider(configuration);
+        var connectionString = DatabaseConnectionResolver.ResolveConnectionString(configuration, environmentName);
 
-        if (!provider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase))
+        if (!provider.Equals(DatabaseConnectionResolver.ProviderMySql, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("O provedor de banco configurado para o projeto deve ser PostgreSQL.");
+            throw new InvalidOperationException("O provedor de banco configurado para o projeto deve ser MySQL.");
         }
 
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new InvalidOperationException(
-                "Connection string do PostgreSQL nao configurada. Use ConnectionStrings:DefaultConnection em desenvolvimento ou a variavel de ambiente POSTGSL em staging/producao.");
+                "Connection string do MySQL nao configurada. Use ConnectionStrings:DefaultConnection em desenvolvimento ou a variavel de ambiente MYSQL_CS em staging/producao.");
         }
+
+        var serverVersion = ServerVersion.Parse("8.0.36-mysql");
 
         services.AddDbContext<ApplicationDbContext>(options =>
         {
-            options.UseNpgsql(connectionString);
+            options.UseMySql(connectionString, serverVersion);
         });
 
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));

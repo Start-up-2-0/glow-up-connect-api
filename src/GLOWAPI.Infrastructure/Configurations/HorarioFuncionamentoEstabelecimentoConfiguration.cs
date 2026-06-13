@@ -10,7 +10,7 @@ public class HorarioFuncionamentoEstabelecimentoConfiguration : IEntityTypeConfi
     {
         builder.ToTable("HorariosFuncionamentoEstabelecimento", table =>
         {
-            table.HasCheckConstraint("CK_HorariosFuncionamentoEstabelecimento_Horario", "\"HoraInicio\" < \"HoraFim\"");
+            table.HasCheckConstraint("CK_HorariosFuncionamentoEstabelecimento_Horario", "`HoraInicio` < `HoraFim`");
         });
 
         builder.HasKey(horario => horario.Id);

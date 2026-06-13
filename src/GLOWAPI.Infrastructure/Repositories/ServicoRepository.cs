@@ -69,8 +69,8 @@ public class ServicoRepository : Repository<Servico>, IServicoRepository
 
         if (!string.IsNullOrWhiteSpace(nome))
         {
-            var termo = nome.Trim();
-            query = query.Where(servico => EF.Functions.ILike(servico.Nome, $"%{termo}%"));
+            var termo = nome.Trim().ToLowerInvariant();
+            query = query.Where(servico => servico.Nome.ToLower().Contains(termo));
         }
 
         return await query

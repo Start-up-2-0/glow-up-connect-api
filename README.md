@@ -1,6 +1,6 @@
 # Glow Up Connect API
 
-API backend do **Glow Up Connect** — marketplace de agendamentos — desenvolvida em **.NET 8** com **Clean Architecture**, **PostgreSQL** e autenticação customizada via header `x-glow-token`.
+API backend do **Glow Up Connect** — marketplace de agendamentos — desenvolvida em **.NET 8** com **Clean Architecture**, **MySQL** e autenticação customizada via header `x-glow-token`.
 
 ## Stack
 
@@ -8,7 +8,7 @@ API backend do **Glow Up Connect** — marketplace de agendamentos — desenvolv
 |---|---|
 | .NET 8 | Runtime e SDK |
 | Entity Framework Core 8 | ORM e migrations |
-| PostgreSQL | Banco de dados |
+| MySQL 8+ | Banco de dados (Pomelo EF Core) |
 | BCrypt | Hash de senhas |
 | Swagger (OpenAPI) | Documentação da API |
 | xUnit + Moq + FluentAssertions | Testes unitários e de integração |
@@ -113,7 +113,7 @@ Content-Type: application/json
 - Sempre cria usuario com role `Cliente` (nao envie `role` no body).
 - Conta inicia com `ativo: false` ate confirmar o e-mail.
 - `avatarBase64`: opcional; aceita data URI (`data:image/jpeg;base64,...`) ou base64 puro com `avatarContentType`.
-- O avatar e **validado** e persistido como data URI no PostgreSQL (`Usuarios.AvatarBase64`, tipo `text`) — **sem pasta nem arquivo em disco**.
+- O avatar e **validado** e persistido como data URI no MySQL (`Usuarios.AvatarBase64`, tipo `text`) — **sem pasta nem arquivo em disco**.
 - Limite: 5 MB decodificado; tipos `image/jpeg`, `image/png`, `image/webp`.
 
 ```http
@@ -188,10 +188,10 @@ Crie `src/GLOWAPI.API/appsettings.Development.json` localmente (arquivo ignorado
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=glowapi_db;Username=postgres;Password=postgres"
+    "DefaultConnection": "Server=localhost;Port=3306;Database=glowapi_db;User=root;Password=;"
   },
   "Database": {
-    "Provider": "PostgreSQL"
+    "Provider": "MySQL"
   },
   "Auth": {
     "MaxLoginAttempts": 5,
@@ -219,10 +219,10 @@ dotnet user-secrets set "Auth:TokenSalt" "seu-salt-com-minimo-32-chars" --projec
 
 ### Staging e produção (Railway)
 
-Quando `ASPNETCORE_ENVIRONMENT` é `Staging` ou `Production`, a connection string vem **somente** da variável `POSTGSL` (valores distintos por ambiente no Railway):
+Quando `ASPNETCORE_ENVIRONMENT` é `Staging` ou `Production`, a connection string vem **somente** da variável `MYSQL_CS` (valores distintos por ambiente no Railway):
 
 ```bash
-POSTGSL="Host=<host>;Port=<port>;Database=<database>;Username=<user>;Password=<password>;SSL Mode=Require;Trust Server Certificate=true"
+MYSQL_CS="Server=<host>;Port=<port>;Database=<database>;User=<user>;Password=<password>;SslMode=Required;"
 ```
 
 `ConnectionStrings__DefaultConnection` é ignorada nesses ambientes para evitar fallback acidental.
@@ -237,7 +237,7 @@ Variáveis obrigatórias no Railway (API):
 
 | Variável | Staging | Produção |
 |----------|---------|----------|
-| `POSTGSL` | Postgres do environment staging | Postgres do environment production |
+| `MYSQL_CS` | MySQL do environment staging | MySQL do environment production |
 | `Auth__TokenSalt` | Salt próprio (≥ 32 chars) | Salt próprio (diferente) |
 | `Auth__FrontendBaseUrl` | URL do front staging | URL do front produção |
 | `RESEND_APITOKEN` | API key Resend | API key Resend (produção) |
@@ -257,7 +257,7 @@ O repositório inclui [`Dockerfile`](Dockerfile), [`.dockerignore`](.dockerignor
 docker build -t glowapi-api .
 docker run -p 8080:8080 \
   -e ASPNETCORE_ENVIRONMENT=Staging \
-  -e POSTGSL="Host=..." \
+  -e MYSQL_CS="Server=..." \
   -e Auth__TokenSalt="seu-salt-staging-com-minimo-32-chars" \
   glowapi-api
 ```
@@ -275,7 +275,7 @@ CI (GitHub Actions): workflows separados — [`ci-staging.yml`](.github/workflow
 ### Pré-requisitos
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- PostgreSQL acessível
+- MySQL 8+ acessível
 - EF Core CLI:
 
 ```bash
