@@ -102,41 +102,10 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("confirmar-whatsapp")]
-    public async Task<IActionResult> ConfirmarWhatsApp(
-        [FromBody] ConfirmarWhatsAppRequestDto request,
-        CancellationToken cancellationToken)
-    {
-        var temToken = !string.IsNullOrWhiteSpace(request.Token);
-        var temCodigo = !string.IsNullOrWhiteSpace(request.Codigo);
-
-        if (temToken == temCodigo)
-        {
-            return BadRequest(ApiErrorResponse.From(
-                "Informe exatamente token ou codigo.",
-                "CONFIRMACAO_WHATSAPP_INVALIDA"));
-        }
-
-        if (temToken)
-        {
-            await _confirmacaoWhatsAppService.ConfirmarPorTokenAsync(request.Token!, cancellationToken);
-        }
-        else
-        {
-            if (string.IsNullOrWhiteSpace(request.Telefone))
-            {
-                return BadRequest(ApiErrorResponse.From(
-                    "Telefone e obrigatorio para confirmacao por codigo.",
-                    "CONFIRMACAO_WHATSAPP_INVALIDA"));
-            }
-
-            await _confirmacaoWhatsAppService.ConfirmarPorCodigoAsync(
-                request.Telefone,
-                request.Codigo!,
-                cancellationToken);
-        }
-
-        return Ok(ApiSuccessResponse.From("WhatsApp confirmado com sucesso."));
-    }
+    public IActionResult ConfirmarWhatsApp() =>
+        StatusCode(StatusCodes.Status410Gone, ApiErrorResponse.From(
+            "Confirmacao manual por codigo foi descontinuada. Use o link enviado por WhatsApp ou e-mail.",
+            "CONFIRMACAO_WHATSAPP_DESCONTINUADA"));
 
     [AllowAnonymous]
     [HttpPost("reenviar-confirmacao-whatsapp")]
@@ -146,7 +115,7 @@ public class AuthController : ControllerBase
     {
         await _confirmacaoWhatsAppService.ReenviarConfirmacaoAsync(request.Email, cancellationToken);
         return Ok(ApiSuccessResponse.From(
-            "Se o e-mail estiver cadastrado e pendente de confirmacao WhatsApp, enviaremos um novo codigo."));
+            "Se o e-mail estiver cadastrado e pendente de confirmacao WhatsApp, enviaremos novas instrucoes."));
     }
 
     [AllowAnonymous]

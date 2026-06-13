@@ -1,6 +1,7 @@
 using System.Text.Json;
 using GLOWAPI.Application.DTOs.Assinaturas;
 using GLOWAPI.Application.DTOs.Pagamentos;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Assinaturas;
@@ -661,7 +662,8 @@ public class AssinaturaService : IAssinaturaService
                 "Logo do estabelecimento",
                 _avatarBase64Decoder,
                 CriarExcecao),
-            Telefone = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Telefone, "Telefone do estabelecimento", 20, CriarExcecao),
+            Telefone = TelefoneHelper.NormalizarParaArmazenamento(
+                OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Telefone, "Telefone do estabelecimento", 20, CriarExcecao)),
             Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Email, "Email do estabelecimento", 255, CriarExcecao),
             Ativo = true,
             Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao)
@@ -678,7 +680,7 @@ public class AssinaturaService : IAssinaturaService
             Nome = dto.NomePublico.Trim(),
             Descricao = dto.Biografia.Trim(),
             Logo = logo,
-            Telefone = dto.Telefone.Trim(),
+            Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone),
             Email = dto.Email.Trim(),
             Ativo = true,
             Endereco = OperacaoPerfilValidation.CriarEndereco(
@@ -695,7 +697,7 @@ public class AssinaturaService : IAssinaturaService
             Nome = profissional.NomePublico.Trim(),
             Descricao = profissional.Biografia.Trim(),
             Logo = profissional.Logo.Trim(),
-            Telefone = profissional.Telefone.Trim(),
+            Telefone = TelefoneHelper.NormalizarParaArmazenamento(profissional.Telefone),
             Email = profissional.Email.Trim(),
             Ativo = true,
             Caixa = new Caixa()
@@ -711,7 +713,7 @@ public class AssinaturaService : IAssinaturaService
         estabelecimento.Nome = dto.NomePublico.Trim();
         estabelecimento.Descricao = dto.Biografia.Trim();
         estabelecimento.Logo = logo;
-        estabelecimento.Telefone = dto.Telefone.Trim();
+        estabelecimento.Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone);
         estabelecimento.Email = dto.Email.Trim();
         estabelecimento.Ativo = true;
         estabelecimento.UpdatedAt = DateTime.UtcNow;
@@ -737,7 +739,7 @@ public class AssinaturaService : IAssinaturaService
             NomePublico = dto.NomePublico.Trim(),
             Biografia = dto.Biografia.Trim(),
             Logo = logo,
-            Telefone = dto.Telefone.Trim(),
+            Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone),
             Email = dto.Email.Trim(),
             TipoProfissional = ProfessionalType.Autonomo,
             Ativo = true
@@ -753,7 +755,7 @@ public class AssinaturaService : IAssinaturaService
         profissional.NomePublico = dto.NomePublico.Trim();
         profissional.Biografia = dto.Biografia.Trim();
         profissional.Logo = logo;
-        profissional.Telefone = dto.Telefone.Trim();
+        profissional.Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone);
         profissional.Email = dto.Email.Trim();
         profissional.TipoProfissional = ProfessionalType.Autonomo;
         profissional.Ativo = true;

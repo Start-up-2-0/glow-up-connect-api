@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GLOWAPI.Application.DTOs.Assinaturas;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Assinaturas;
@@ -179,7 +180,8 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
             Nome = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Nome, "Nome do estabelecimento", 150, CriarExcecao),
             Descricao = dto.Descricao.Trim(),
             Logo = OperacaoPerfilValidation.ValidarLogoBase64(dto.Logo, "Logo do estabelecimento", _avatarBase64Decoder, CriarExcecao),
-            Telefone = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Telefone, "Telefone do estabelecimento", 20, CriarExcecao),
+            Telefone = TelefoneHelper.NormalizarParaArmazenamento(
+                OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Telefone, "Telefone do estabelecimento", 20, CriarExcecao)),
             Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Email, "Email do estabelecimento", 255, CriarExcecao),
             Ativo = true,
             Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao)
@@ -192,7 +194,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
             Nome = dto.NomePublico.Trim(),
             Descricao = dto.Biografia.Trim(),
             Logo = dto.Logo?.Trim(),
-            Telefone = dto.Telefone.Trim(),
+            Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone),
             Email = dto.Email.Trim(),
             Ativo = true,
             Endereco = OperacaoPerfilValidation.CriarEndereco(
@@ -216,7 +218,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
             NomePublico = dto.NomePublico.Trim(),
             Biografia = dto.Biografia.Trim(),
             Logo = logo,
-            Telefone = dto.Telefone.Trim(),
+            Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone),
             Email = dto.Email.Trim(),
             TipoProfissional = ProfessionalType.Autonomo,
             Ativo = true

@@ -8,14 +8,14 @@ public static class ConfirmacaoWhatsAppEmailTemplate
         $"""
             <p>Ola {Html(nome)},</p>
             <p>Nao conseguimos confirmar seu WhatsApp no Glow Up Connect.</p>
-            <p>Verifique o codigo mais recente no e-mail de confirmacao ou solicite uma nova confirmacao pelo app.</p>
+            <p>Verifique o link mais recente no WhatsApp ou e-mail de confirmacao ou solicite uma nova confirmacao pelo app.</p>
             <p>Se o problema persistir, confira se a mensagem foi enviada do mesmo numero cadastrado no perfil.</p>
             """;
 
     public static string CriarFalhaConfirmacaoGenerica() =>
         """
             <p>Nao conseguimos confirmar seu WhatsApp no Glow Up Connect.</p>
-            <p>Verifique se o telefone esta cadastrado no perfil e use o codigo mais recente enviado por e-mail.</p>
+            <p>Verifique se o telefone esta cadastrado no perfil e use o link mais recente enviado por WhatsApp ou e-mail.</p>
             """;
 
     private const string CorAmarela = "#ffbf00";
@@ -30,17 +30,13 @@ public static class ConfirmacaoWhatsAppEmailTemplate
     public static string Criar(
         string nome,
         string telefonePerfil,
-        string linkWhatsApp,
-        string codigo,
-        string mensagemSugerida,
-        int validadeHoras)
+        string linkConfirmacao,
+        string linkWhatsApp)
     {
         var nomeSeguro = Html(nome);
         var telefoneSeguro = Html(telefonePerfil);
-        var linkSeguro = Html(linkWhatsApp);
-        var codigoSeguro = Html(codigo);
-        var mensagemSegura = Html(mensagemSugerida);
-        var validadeTexto = validadeHoras == 1 ? "1 hora" : $"{validadeHoras} horas";
+        var linkConfirmacaoSeguro = Html(linkConfirmacao);
+        var linkWhatsAppSeguro = Html(linkWhatsApp);
         var logoSrc = EmailTemplateInlineAssets.LogoSrc;
         var clockSrc = EmailTemplateInlineAssets.ClockSrc;
         var warningSrc = EmailTemplateInlineAssets.WarningSrc;
@@ -68,7 +64,7 @@ public static class ConfirmacaoWhatsAppEmailTemplate
             </head>
             <body style="margin:0; padding:0; background-color:#ffffff; font-family:'Poppins', Arial, Helvetica, sans-serif; color:{{CorEscura}};">
               <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
-                Confirme seu WhatsApp no GlowUp Connect. Codigo {{codigoSeguro}}.
+                Confirme seu WhatsApp no GlowUp Connect.
               </div>
 
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff; margin:0; padding:24px 12px;">
@@ -111,14 +107,14 @@ public static class ConfirmacaoWhatsAppEmailTemplate
                                   <tr>
                                     <td style="padding:32px 28px;">
                                       <p style="margin:0 0 24px; color:{{CorEscura}}; font-size:18px; line-height:26px; text-align:center;">
-                                        Toque no botao abaixo para abrir o WhatsApp da plataforma com a mensagem pronta. Envie usando o numero cadastrado no perfil.
+                                        Toque no botao abaixo para abrir a pagina de confirmacao. Em seguida, envie a mensagem pelo WhatsApp usando o numero cadastrado no perfil.
                                       </p>
 
                                       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                                         <tr>
                                           <td align="center" style="padding:0 0 20px;">
-                                            <a class="button" href="{{linkSeguro}}" target="_blank" style="display:inline-block; background:{{CorWhatsApp}}; color:#ffffff; text-decoration:none; font-size:18px; font-weight:700; padding:14px 32px; border-radius:12px; min-width:220px; text-align:center;">
-                                              Confirmar no WhatsApp
+                                            <a class="button" href="{{linkConfirmacaoSeguro}}" target="_blank" style="display:inline-block; background:{{CorLink}}; color:#ffffff; text-decoration:none; font-size:18px; font-weight:700; padding:14px 32px; border-radius:12px; min-width:220px; text-align:center;">
+                                              Abrir confirmacao
                                             </a>
                                           </td>
                                         </tr>
@@ -132,43 +128,18 @@ public static class ConfirmacaoWhatsAppEmailTemplate
                                         </tr>
                                       </table>
 
-                                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:20px;">
+                                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                                         <tr>
-                                          <td align="center" style="padding:22px 16px; background:{{CorEscura}}; border:2px dashed {{CorAmarela}}; border-radius:20px;">
-                                            <div style="color:{{CorAmarela}}; font-size:14px; font-weight:300; letter-spacing:0.04em; text-transform:uppercase;">
-                                              Codigo de confirmacao
-                                            </div>
-                                            <div class="confirm-code" style="margin-top:10px; color:{{CorAmarela}}; font-size:32px; line-height:40px; font-weight:500; letter-spacing:7px;">
-                                              {{codigoSeguro}}
-                                            </div>
+                                          <td align="center" style="padding:0 0 20px;">
+                                            <a class="button" href="{{linkWhatsAppSeguro}}" target="_blank" style="display:inline-block; background:{{CorWhatsApp}}; color:#ffffff; text-decoration:none; font-size:18px; font-weight:700; padding:14px 32px; border-radius:12px; min-width:220px; text-align:center;">
+                                              Confirmar no WhatsApp
+                                            </a>
                                           </td>
                                         </tr>
                                       </table>
 
-                                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:20px;">
-                                        <tr>
-                                          <td style="padding:12px 14px; border:0.5px solid {{CorAlerta}}; border-radius:12px;">
-                                            <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-                                              <tr>
-                                                <td width="30" valign="middle">
-                                                  <img src="{{clockSrc}}" alt="" width="20" height="20" style="display:block; width:20px; height:20px; border:0;">
-                                                </td>
-                                                <td valign="middle">
-                                                  <p style="margin:0; color:{{CorAlerta}}; font-size:12px; line-height:18px;">
-                                                    Este codigo expira em <strong>{{validadeTexto}}</strong>
-                                                  </p>
-                                                </td>
-                                              </tr>
-                                            </table>
-                                          </td>
-                                        </tr>
-                                      </table>
-
-                                      <p style="margin:0 0 8px; color:{{CorTextoSuave}}; font-size:14px; line-height:22px; text-align:center;">
-                                        Mensagem sugerida: <strong>{{mensagemSegura}}</strong>
-                                      </p>
                                       <p style="margin:0; color:{{CorTextoSuave}}; font-size:12px; line-height:19px; text-align:center;">
-                                        Se o botao nao funcionar, copie a mensagem e envie manualmente para o WhatsApp da plataforma.
+                                        Se os botoes nao funcionarem, copie e abra este link no celular: {{linkConfirmacaoSeguro}}
                                       </p>
 
                                       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:24px;">
@@ -182,7 +153,7 @@ public static class ConfirmacaoWhatsAppEmailTemplate
                                                 <td valign="top">
                                                   <p style="margin:0; color:{{CorSeguranca}}; font-size:14px; line-height:20px; font-weight:700;">Aviso de seguranca</p>
                                                   <p style="margin:6px 0 0; color:{{CorSeguranca}}; font-size:12px; line-height:18px; font-weight:300;">
-                                                    Nunca compartilhe este e-mail, link ou codigo. A equipe GlowUp Connect nunca pedira a sua senha.
+                                                    Nunca compartilhe este e-mail ou link. A equipe GlowUp Connect nunca pedira a sua senha.
                                                   </p>
                                                 </td>
                                               </tr>

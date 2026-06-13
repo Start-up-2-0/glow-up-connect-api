@@ -5,21 +5,19 @@ namespace GLOWAPI.Tests.Unit.Application;
 public class ConfirmacaoWhatsAppEmailTemplateTests
 {
     [Fact]
-    public void Criar_DeveIncluirCodigoLinkWaMeETelefone()
+    public void Criar_DeveIncluirLinksConfirmacaoEWhatsApp()
     {
         var html = ConfirmacaoWhatsAppEmailTemplate.Criar(
             "Maria",
             "11988887777",
-            "https://wa.me/5511999999999?text=GLOW%20482913",
-            "482913",
-            "GLOW 482913",
-            24);
+            "http://localhost:3000/c/NTUxMTk4ODg4Nzc3Nw==",
+            "https://wa.me/5511999999999?text=NTUxMTk4ODg4Nzc3Nw%3D%3D");
 
         Assert.Contains("Maria", html);
         Assert.Contains("11988887777", html);
-        Assert.Contains("482913", html);
-        Assert.Contains("https://wa.me/5511999999999?text=GLOW%20482913", html);
+        Assert.Contains("http://localhost:3000/c/NTUxMTk4ODg4Nzc3Nw==", html);
+        Assert.Contains("https://wa.me/5511999999999?text=NTUxMTk4ODg4Nzc3Nw%3D%3D", html);
         Assert.Contains("Confirmar no WhatsApp", html);
-        Assert.Contains("GLOW 482913", html);
+        Assert.Contains("Abrir confirmacao", html);
     }
 }

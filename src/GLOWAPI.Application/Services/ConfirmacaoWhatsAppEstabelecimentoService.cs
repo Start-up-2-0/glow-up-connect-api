@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using GLOWAPI.Application.DTOs.Mensageria;
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
@@ -48,12 +47,11 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
             throw new ConfirmacaoWhatsAppInvalidaException();
         }
 
-        var tokenPlano = _tokenService.GerarRefreshToken();
-        var codigoPlano = GerarCodigoNumerico(_authOptions.ConfirmacaoCodigoDigitos);
+        var tokenConfirmacao = TelefoneHelper.GerarTokenConfirmacao(estabelecimento.Telefone);
 
-        estabelecimento.WhatsAppConfirmacaoTokenHash = _tokenService.HashToken(tokenPlano);
-        estabelecimento.WhatsAppConfirmacaoCodigoHash = _tokenService.HashToken(codigoPlano);
-        estabelecimento.WhatsAppConfirmacaoExpiraEm = DateTime.UtcNow.AddHours(_authOptions.ConfirmacaoWhatsAppHoras);
+        estabelecimento.WhatsAppConfirmacaoTokenHash = _tokenService.HashToken(tokenConfirmacao);
+        estabelecimento.WhatsAppConfirmacaoCodigoHash = null;
+        estabelecimento.WhatsAppConfirmacaoExpiraEm = null;
         estabelecimento.UpdatedAt = DateTime.UtcNow;
 
         _estabelecimentoRepository.Atualizar(estabelecimento);
@@ -61,11 +59,18 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
 
         var instrucoes = ConfirmacaoWhatsAppInstrucoesBuilder.Criar(
             _whatsAppOptions,
-            codigoPlano,
-            estabelecimento.WhatsAppConfirmacaoExpiraEm.Value,
+            _authOptions,
+            estabelecimento.Telefone,
+            whatsAppEnviado: false,
             emailEnviado: false);
 
-        var emailEnviado = await EnviarEmailsConfirmacaoAsync(
+        instrucoes.WhatsAppEnviado = await EnviarWhatsAppConfirmacaoAsync(
+            estabelecimento.Telefone,
+            instrucoes.LinkConfirmacao,
+            estabelecimento.Id,
+            cancellationToken);
+
+        instrucoes.EmailEnviado = await EnviarEmailsConfirmacaoAsync(
             emailsDestino,
             estabelecimento.Nome,
             estabelecimento.Telefone,
@@ -73,81 +78,55 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
             estabelecimento.Id,
             cancellationToken);
 
-        instrucoes.EmailEnviado = emailEnviado;
         return instrucoes;
     }
 
-    public async Task ConfirmarPorCodigoAsync(
+    public Task ConfirmarPorCodigoAsync(
         int estabelecimentoId,
         string codigo,
-        CancellationToken cancellationToken = default)
-    {
-        await _autorizacaoNegocioService.AutorizarAsync(
-            estabelecimentoId,
-            PermissaoNegocio.NegocioEditar,
-            cancellationToken);
+        CancellationToken cancellationToken = default) =>
+        throw new ConfirmacaoWhatsAppInvalidaException();
 
-        if (string.IsNullOrWhiteSpace(codigo))
-        {
-            throw new ConfirmacaoWhatsAppInvalidaException();
-        }
-
-        var hash = _tokenService.HashToken(codigo.Trim());
-        var estabelecimento = await _estabelecimentoRepository.ObterPorWhatsAppConfirmacaoCodigoHashAsync(hash, cancellationToken);
-
-        if (estabelecimento is null || estabelecimento.Id != estabelecimentoId)
-        {
-            throw new ConfirmacaoWhatsAppInvalidaException();
-        }
-
-        await ConfirmarEstabelecimentoAsync(estabelecimento, cancellationToken);
-    }
-
-    public async Task ConfirmarPorTokenAsync(string token, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            throw new ConfirmacaoWhatsAppInvalidaException();
-        }
-
-        var hash = _tokenService.HashToken(token.Trim());
-        var estabelecimento = await _estabelecimentoRepository.ObterPorWhatsAppConfirmacaoTokenHashAsync(hash, cancellationToken);
-        await ConfirmarEstabelecimentoAsync(estabelecimento, cancellationToken);
-    }
+    public Task ConfirmarPorTokenAsync(string token, CancellationToken cancellationToken = default) =>
+        throw new ConfirmacaoWhatsAppInvalidaException();
 
     public async Task<WhatsAppConfirmacaoInboundResultado> TentarConfirmarPorMensagemInboundAsync(
         string telefoneRemetente,
         string textoMensagem,
         CancellationToken cancellationToken = default)
     {
-        var estabelecimentoPorCodigo = await BuscarEstabelecimentoPorCodigoNaMensagemAsync(
+        var resultadoPorCodigo = await TentarConfirmarPorCodigoLegadoAsync(
+            telefoneRemetente,
             textoMensagem,
             cancellationToken);
 
-        if (estabelecimentoPorCodigo is not null)
+        if (resultadoPorCodigo is not null)
         {
-            return await ProcessarConfirmacaoInboundDoEstabelecimentoAsync(
-                estabelecimentoPorCodigo,
-                textoMensagem,
-                cancellationToken);
+            return resultadoPorCodigo;
         }
 
-        var telefoneNormalizado = TelefoneHelper.NormalizarParaWhatsApp(telefoneRemetente);
-        if (string.IsNullOrWhiteSpace(telefoneNormalizado))
+        if (!ConfirmacaoWhatsAppTokenHelper.MensagemContemTokenConfirmacao(textoMensagem, telefoneRemetente))
         {
             return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido);
         }
 
-        var estabelecimento = await _estabelecimentoRepository.ObterPorTelefoneNormalizadoAsync(
-            telefoneNormalizado,
-            cancellationToken);
-
+        var estabelecimento = await BuscarEstabelecimentoPorTelefoneRemetenteAsync(telefoneRemetente, cancellationToken);
         if (estabelecimento is null)
         {
             return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.EntidadeNaoEncontrada);
         }
 
-        return await ProcessarConfirmacaoInboundDoEstabelecimentoAsync(estabelecimento, textoMensagem, cancellationToken);
+        if (!TelefoneHelper.SaoEquivalentes(estabelecimento.Telefone, telefoneRemetente))
+        {
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(
+                WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido,
+                estabelecimento.Nome,
+                ObterTelefoneCadastradoNormalizado(estabelecimento),
+                estabelecimento.Email,
+                estabelecimento.Id);
+        }
+
+        return await ProcessarConfirmacaoInboundDoEstabelecimentoAsync(estabelecimento, cancellationToken);
     }
 
     public async Task<WhatsAppConfirmacaoInboundRespostaDestino?> ResolverDestinoRespostaInboundAsync(
@@ -161,13 +140,53 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
             return destinoPorCodigo;
         }
 
-        var telefoneNormalizado = TelefoneHelper.NormalizarParaWhatsApp(telefoneRemetente);
-        if (string.IsNullOrWhiteSpace(telefoneNormalizado))
+        if (!ConfirmacaoWhatsAppTokenHelper.MensagemContemTokenConfirmacao(textoMensagem, telefoneRemetente))
         {
             return null;
         }
 
-        return new WhatsAppConfirmacaoInboundRespostaDestino(telefoneNormalizado, null);
+        var estabelecimento = await BuscarEstabelecimentoPorTelefoneRemetenteAsync(telefoneRemetente, cancellationToken);
+        if (estabelecimento is null)
+        {
+            var telefoneNormalizado = TelefoneHelper.NormalizarParaWhatsApp(telefoneRemetente);
+            if (string.IsNullOrWhiteSpace(telefoneNormalizado))
+            {
+                return null;
+            }
+
+            return new WhatsAppConfirmacaoInboundRespostaDestino(telefoneNormalizado, null);
+        }
+
+        return new WhatsAppConfirmacaoInboundRespostaDestino(
+            ObterTelefoneCadastradoNormalizado(estabelecimento),
+            estabelecimento.Nome,
+            EstabelecimentoId: estabelecimento.Id);
+    }
+
+    private async Task<bool> EnviarWhatsAppConfirmacaoAsync(
+        string telefoneDestino,
+        string linkConfirmacao,
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(telefoneDestino) || string.IsNullOrWhiteSpace(linkConfirmacao))
+        {
+            return false;
+        }
+
+        var conteudo = ConfirmacaoWhatsAppTemplate.MensagemOutboundConfirmacao(linkConfirmacao);
+
+        await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
+        {
+            Canal = CanalMensagemNotificacao.WhatsApp,
+            Destinatario = TelefoneHelper.NormalizarParaWhatsApp(telefoneDestino),
+            Assunto = "Confirmacao WhatsApp comercial Glow Up Connect",
+            Conteudo = conteudo,
+            EstabelecimentoId = estabelecimentoId,
+            Prioridade = 2
+        }, cancellationToken);
+
+        return true;
     }
 
     private async Task<bool> EnviarEmailsConfirmacaoAsync(
@@ -179,7 +198,9 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
         CancellationToken cancellationToken)
     {
         var destinatarios = EmailDestinoHelper.Deduplicar(emailsDestino);
-        if (destinatarios.Count == 0 || string.IsNullOrWhiteSpace(instrucoes.LinkWhatsApp))
+        if (destinatarios.Count == 0
+            || string.IsNullOrWhiteSpace(instrucoes.LinkConfirmacao)
+            || string.IsNullOrWhiteSpace(instrucoes.LinkWhatsApp))
         {
             return false;
         }
@@ -187,10 +208,8 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
         var conteudo = ConfirmacaoWhatsAppEmailTemplate.Criar(
             nomeDestinatario,
             telefonePerfil,
-            instrucoes.LinkWhatsApp,
-            instrucoes.CodigoConfirmacao,
-            instrucoes.MensagemSugerida,
-            _authOptions.ConfirmacaoWhatsAppHoras);
+            instrucoes.LinkConfirmacao,
+            instrucoes.LinkWhatsApp);
 
         foreach (var destinatario in destinatarios)
         {
@@ -230,6 +249,75 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
             EstabelecimentoId: estabelecimento.Id);
     }
 
+    private async Task<WhatsAppConfirmacaoInboundResultado?> TentarConfirmarPorCodigoLegadoAsync(
+        string telefoneRemetente,
+        string textoMensagem,
+        CancellationToken cancellationToken)
+    {
+        if (!ConfirmacaoWhatsAppCodigoHelper.PareceTentativaConfirmacaoPorCodigo(textoMensagem))
+        {
+            return null;
+        }
+
+        var estabelecimentoPorCodigo = await BuscarEstabelecimentoPorCodigoNaMensagemAsync(
+            textoMensagem,
+            cancellationToken);
+
+        if (estabelecimentoPorCodigo is not null)
+        {
+            return await ProcessarConfirmacaoInboundDoEstabelecimentoPorCodigoAsync(
+                estabelecimentoPorCodigo,
+                textoMensagem,
+                cancellationToken);
+        }
+
+        var telefoneNormalizado = TelefoneHelper.NormalizarParaWhatsApp(telefoneRemetente);
+        if (string.IsNullOrWhiteSpace(telefoneNormalizado))
+        {
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido);
+        }
+
+        var estabelecimento = await _estabelecimentoRepository.ObterPorTelefoneNormalizadoAsync(
+            telefoneNormalizado,
+            cancellationToken);
+
+        if (estabelecimento is null)
+        {
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.EntidadeNaoEncontrada);
+        }
+
+        return await ProcessarConfirmacaoInboundDoEstabelecimentoPorCodigoAsync(
+            estabelecimento,
+            textoMensagem,
+            cancellationToken);
+    }
+
+    private async Task<Estabelecimento?> BuscarEstabelecimentoPorTelefoneRemetenteAsync(
+        string telefoneRemetente,
+        CancellationToken cancellationToken)
+    {
+        var telefoneNormalizado = TelefoneHelper.NormalizarParaWhatsApp(telefoneRemetente);
+        if (!string.IsNullOrWhiteSpace(telefoneNormalizado))
+        {
+            var estabelecimento = await _estabelecimentoRepository.ObterPorTelefoneNormalizadoAsync(
+                telefoneNormalizado,
+                cancellationToken);
+
+            if (estabelecimento is not null)
+            {
+                return estabelecimento;
+            }
+        }
+
+        var telefoneInbound = TelefoneHelper.NormalizarParaConfirmacaoInbound(telefoneRemetente);
+        if (string.IsNullOrWhiteSpace(telefoneInbound))
+        {
+            return null;
+        }
+
+        return await _estabelecimentoRepository.ObterPorTelefoneNormalizadoAsync(telefoneInbound, cancellationToken);
+    }
+
     private async Task<Estabelecimento?> BuscarEstabelecimentoPorCodigoNaMensagemAsync(
         string textoMensagem,
         CancellationToken cancellationToken)
@@ -253,6 +341,40 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
     }
 
     private async Task<WhatsAppConfirmacaoInboundResultado> ProcessarConfirmacaoInboundDoEstabelecimentoAsync(
+        Estabelecimento estabelecimento,
+        CancellationToken cancellationToken)
+    {
+        var telefoneCadastrado = ObterTelefoneCadastradoNormalizado(estabelecimento);
+
+        if (estabelecimento.WhatsAppConfirmadoEm.HasValue)
+        {
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(
+                WhatsAppConfirmacaoInboundMotivoIgnorado.JaConfirmado,
+                estabelecimento.Nome,
+                telefoneCadastrado,
+                estabelecimento.Email,
+                estabelecimento.Id);
+        }
+
+        if (!estabelecimento.PendenteConfirmacaoWhatsApp())
+        {
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(
+                WhatsAppConfirmacaoInboundMotivoIgnorado.SemPendencia,
+                estabelecimento.Nome,
+                telefoneCadastrado,
+                estabelecimento.Email,
+                estabelecimento.Id);
+        }
+
+        await ConfirmarEstabelecimentoAsync(estabelecimento, cancellationToken);
+
+        return WhatsAppConfirmacaoInboundResultado.SucessoEstabelecimento(
+            estabelecimento.Nome,
+            telefoneCadastrado,
+            estabelecimento.Id);
+    }
+
+    private async Task<WhatsAppConfirmacaoInboundResultado> ProcessarConfirmacaoInboundDoEstabelecimentoPorCodigoAsync(
         Estabelecimento estabelecimento,
         string textoMensagem,
         CancellationToken cancellationToken)
@@ -308,9 +430,14 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
         Estabelecimento? estabelecimento,
         CancellationToken cancellationToken)
     {
-        if (estabelecimento is null
-            || estabelecimento.WhatsAppConfirmacaoExpiraEm is null
-            || estabelecimento.WhatsAppConfirmacaoExpiraEm <= DateTime.UtcNow)
+        if (estabelecimento is null)
+        {
+            throw new ConfirmacaoWhatsAppInvalidaException();
+        }
+
+        if (!string.IsNullOrEmpty(estabelecimento.WhatsAppConfirmacaoCodigoHash)
+            && (estabelecimento.WhatsAppConfirmacaoExpiraEm is null
+                || estabelecimento.WhatsAppConfirmacaoExpiraEm <= DateTime.UtcNow))
         {
             throw new ConfirmacaoWhatsAppInvalidaException();
         }
@@ -327,12 +454,5 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
 
         _estabelecimentoRepository.Atualizar(estabelecimento);
         await _estabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
-    }
-
-    private static string GerarCodigoNumerico(int digitos)
-    {
-        var max = (int)Math.Pow(10, digitos);
-        var valor = RandomNumberGenerator.GetInt32(0, max);
-        return valor.ToString($"D{digitos}");
     }
 }

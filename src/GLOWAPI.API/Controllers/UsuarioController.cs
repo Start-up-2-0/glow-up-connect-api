@@ -55,7 +55,7 @@ public class UsuarioController : ControllerBase
     {
         var instrucoes = await _usuarioService.SolicitarConfirmacaoWhatsAppAtualAsync(cancellationToken);
         return Ok(ApiSuccessResponse<object>.From(
-            "Verifique seu e-mail para confirmar o WhatsApp.",
+            "Verifique o WhatsApp e seu e-mail para confirmar.",
             instrucoes));
     }
 

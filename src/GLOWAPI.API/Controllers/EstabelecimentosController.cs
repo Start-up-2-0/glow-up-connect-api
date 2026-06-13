@@ -19,7 +19,6 @@ namespace GLOWAPI.API.Controllers;
 public class EstabelecimentosController : ControllerBase
 {
     private readonly IEstabelecimentoPerfilService _estabelecimentoPerfilService;
-    private readonly IConfirmacaoWhatsAppEstabelecimentoService _confirmacaoWhatsAppEstabelecimentoService;
     private readonly IEquipeNegocioService _equipeNegocioService;
     private readonly IAgendaNegocioService _agendaNegocioService;
     private readonly IAtendimentoProfissionalService _atendimentoProfissionalService;
@@ -34,7 +33,6 @@ public class EstabelecimentosController : ControllerBase
 
     public EstabelecimentosController(
         IEstabelecimentoPerfilService estabelecimentoPerfilService,
-        IConfirmacaoWhatsAppEstabelecimentoService confirmacaoWhatsAppEstabelecimentoService,
         IEquipeNegocioService equipeNegocioService,
         IAgendaNegocioService agendaNegocioService,
         IAtendimentoProfissionalService atendimentoProfissionalService,
@@ -48,7 +46,6 @@ public class EstabelecimentosController : ControllerBase
         IFinanceiroNegocioService financeiroNegocioService)
     {
         _estabelecimentoPerfilService = estabelecimentoPerfilService;
-        _confirmacaoWhatsAppEstabelecimentoService = confirmacaoWhatsAppEstabelecimentoService;
         _equipeNegocioService = equipeNegocioService;
         _agendaNegocioService = agendaNegocioService;
         _atendimentoProfissionalService = atendimentoProfissionalService;
@@ -60,6 +57,18 @@ public class EstabelecimentosController : ControllerBase
         _disponibilidadeAgendaService = disponibilidadeAgendaService;
         _agendamentoNegocioService = agendamentoNegocioService;
         _financeiroNegocioService = financeiroNegocioService;
+    }
+
+    [HttpGet("{estabelecimentoId:int}/perfil")]
+    [RequerPermissaoNegocio(PermissaoNegocio.NegocioEditar, "estabelecimentoId")]
+    public async Task<IActionResult> ObterPerfil(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var perfil = await _estabelecimentoPerfilService.ObterAsync(estabelecimentoId, cancellationToken);
+        return Ok(ApiSuccessResponse<EstabelecimentoPerfilResponseDto>.From(
+            "Perfil do estabelecimento obtido com sucesso.",
+            perfil));
     }
 
     [HttpPut("{estabelecimentoId:int}/perfil")]
@@ -90,24 +99,16 @@ public class EstabelecimentosController : ControllerBase
             cancellationToken);
 
         return Ok(ApiSuccessResponse<object>.From(
-            "Verifique seu e-mail para confirmar o WhatsApp comercial.",
+            "Verifique o WhatsApp e seu e-mail para confirmar o WhatsApp comercial.",
             instrucoes));
     }
 
     [HttpPost("{estabelecimentoId:int}/whatsapp/confirmar")]
     [RequerPermissaoNegocio(PermissaoNegocio.NegocioEditar, "estabelecimentoId")]
-    public async Task<IActionResult> ConfirmarWhatsAppEstabelecimento(
-        int estabelecimentoId,
-        [FromBody] ConfirmarWhatsAppEstabelecimentoRequestDto request,
-        CancellationToken cancellationToken)
-    {
-        await _confirmacaoWhatsAppEstabelecimentoService.ConfirmarPorCodigoAsync(
-            estabelecimentoId,
-            request.Codigo,
-            cancellationToken);
-
-        return Ok(ApiSuccessResponse.From("WhatsApp do estabelecimento confirmado com sucesso."));
-    }
+    public IActionResult ConfirmarWhatsAppEstabelecimento() =>
+        StatusCode(StatusCodes.Status410Gone, ApiErrorResponse.From(
+            "Confirmacao manual por codigo foi descontinuada. Use o link enviado por WhatsApp ou e-mail.",
+            "CONFIRMACAO_WHATSAPP_DESCONTINUADA"));
 
     [HttpPost("{estabelecimentoId:int}/whatsapp/opt-in")]
     [RequerPermissaoNegocio(PermissaoNegocio.NegocioEditar, "estabelecimentoId")]

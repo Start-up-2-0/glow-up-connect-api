@@ -41,6 +41,16 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
 
 
 
+    public async Task<EstabelecimentoPerfilResponseDto> ObterAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        var estabelecimento = await ObterEstabelecimentoAutorizadoAsync(estabelecimentoId, cancellationToken);
+        return EstabelecimentoPerfilResponseDto.From(estabelecimento);
+    }
+
+
+
     public async Task<EstabelecimentoPerfilResponseDto> AtualizarAsync(
 
         int estabelecimentoId,
@@ -71,7 +81,8 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
             _avatarBase64Decoder,
             CriarExcecao);
 
-        estabelecimento.Telefone = OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Telefone, "Telefone do estabelecimento", 20, CriarExcecao);
+        estabelecimento.Telefone = TelefoneHelper.NormalizarParaArmazenamento(
+            OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Telefone, "Telefone do estabelecimento", 20, CriarExcecao));
 
         estabelecimento.Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Email, "Email do estabelecimento", 255, CriarExcecao);
 

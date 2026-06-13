@@ -132,7 +132,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         if (!ConfirmacaoWhatsAppCodigoHelper.PareceTentativaConfirmacao(textoMensagem))
         {
             _logger.LogInformation(
-                "Webhook WhatsApp messages-upsert ignorado: mensagem sem GLOW. TelefonePresente={TelefonePresente}",
+                "Webhook WhatsApp messages-upsert ignorado: mensagem sem token de confirmacao. TelefonePresente={TelefonePresente}",
                 !string.IsNullOrWhiteSpace(telefoneRemetente));
             return;
         }
