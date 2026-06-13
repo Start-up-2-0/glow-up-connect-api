@@ -5,10 +5,16 @@ namespace GLOWAPI.Application.Helpers;
 public static class EvolutionDestinoHelper
 {
     public static string ResolverDestinoOutbound(string telefoneCadastrado) =>
-        TelefoneHelper.NormalizarParaWhatsApp(telefoneCadastrado);
+        TelefoneHelper.NormalizarParaEvolutionEnvio(telefoneCadastrado);
 
     public static IReadOnlyList<string> CriarCandidatosDestinoOutbound(string telefoneCadastrado)
     {
+        var telefoneEvolution = TelefoneHelper.NormalizarParaEvolutionEnvio(telefoneCadastrado);
+        if (!string.IsNullOrWhiteSpace(telefoneEvolution))
+        {
+            return new[] { telefoneEvolution };
+        }
+
         var telefone = TelefoneHelper.NormalizarParaWhatsApp(telefoneCadastrado);
         return string.IsNullOrWhiteSpace(telefone)
             ? Array.Empty<string>()

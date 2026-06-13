@@ -1,3 +1,4 @@
+using System.Text.Json;
 using GLOWAPI.Application.Helpers;
 
 namespace GLOWAPI.Tests.Unit.Application;
@@ -5,20 +6,20 @@ namespace GLOWAPI.Tests.Unit.Application;
 public class EvolutionDestinoHelperTests
 {
     [Fact]
-    public void ResolverDestinoOutbound_DeveUsarTelefoneCadastradoNormalizado()
+    public void ResolverDestinoOutbound_DeveUsarFormatoEvolution()
     {
         var destino = EvolutionDestinoHelper.ResolverDestinoOutbound("79991917634");
 
-        Assert.Equal("5579991917634", destino);
+        Assert.Equal("557991917634", destino);
     }
 
     [Fact]
-    public void CriarCandidatosDestinoOutbound_DeveRetornarApenasTelefoneCadastrado()
+    public void CriarCandidatosDestinoOutbound_DeveRetornarFormatoEvolution()
     {
         var candidatos = EvolutionDestinoHelper.CriarCandidatosDestinoOutbound("79991917634");
 
         Assert.Single(candidatos);
-        Assert.Equal("5579991917634", candidatos[0]);
+        Assert.Equal("557991917634", candidatos[0]);
     }
 
     [Fact]
@@ -29,7 +30,7 @@ public class EvolutionDestinoHelperTests
             payloadJson: null);
 
         Assert.Single(candidatos);
-        Assert.Equal("5579991917634", candidatos[0]);
+        Assert.Equal("557991917634", candidatos[0]);
     }
 
     [Fact]
@@ -42,7 +43,7 @@ public class EvolutionDestinoHelperTests
             payload);
 
         Assert.Single(candidatos);
-        Assert.Equal("5579998755111", candidatos[0]);
+        Assert.Equal("557998755111", candidatos[0]);
     }
 
     [Fact]
