@@ -73,9 +73,19 @@ No painel, confira em **Settings → Deploy → Healthcheck** se o path `/health
 
 ## 7. Migrations
 
-O container de runtime nao inclui `dotnet-ef`. Aplique migrations assim:
+Em **Staging** e **Production**, a API aplica migrations pendentes automaticamente no startup (`Database:ApplyMigrationsOnStartup`, padrao `true`).
 
-### Primeiro deploy (recomendado)
+Ao fazer deploy de uma versao com nova migration, basta subir o servico: na inicializacao ela verifica `__EFMigrationsHistory` e executa o que faltar antes de aceitar trafego.
+
+Para desativar (nao recomendado em Railway):
+
+```text
+Database__ApplyMigrationsOnStartup=false
+```
+
+### Aplicacao manual (opcional)
+
+Se precisar rodar fora do deploy:
 
 ```bash
 npm i -g @railway/cli
@@ -85,11 +95,10 @@ railway environment staging
 railway run --service <nome-do-servico-api> dotnet ef database update --project src/GLOWAPI.Infrastructure --startup-project src/GLOWAPI.API
 ```
 
-Requer [.NET 8 SDK](https://dotnet.microsoft.com/download) e `dotnet tool install --global dotnet-ef` na maquina local; o comando roda no contexto Railway com acesso ao Postgres de staging.
-
-### Script local (PowerShell)
+Ou via PowerShell local com `MYSQL_CS`:
 
 ```powershell
+$env:MYSQL_CS = "Server=...;Port=...;Database=...;User=...;Password=...;SslMode=Required;"
 .\scripts\railway-migrate.ps1 -Environment staging
 ```
 

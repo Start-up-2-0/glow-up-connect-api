@@ -82,6 +82,8 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+await app.ApplyPendingMigrationsAsync();
+
 if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
 {
     app.UseSwagger();
