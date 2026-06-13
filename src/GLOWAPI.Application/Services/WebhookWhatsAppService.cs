@@ -486,10 +486,10 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         if (EvolutionWebhookParser.EhRemoteJidLid(remoteJidConversa))
         {
             _logger.LogInformation(
-                "WhatsApp outbound via @lid. Assunto={Assunto}, RemoteJid={RemoteJid}, TelefoneCadastrado={TelefoneCadastrado}",
+                "WhatsApp outbound via telefone cadastrado (conversa @lid). Assunto={Assunto}, RemoteJid={RemoteJid}, Telefone={Telefone}",
                 assunto,
                 remoteJidConversa,
-                telefoneDestino);
+                destinatario);
         }
 
         await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
@@ -498,6 +498,7 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             Destinatario = destinatario,
             Assunto = assunto,
             Conteudo = conteudo,
+            PayloadJson = EvolutionDestinoHelper.CriarPayloadOutbound(telefoneDestino, remoteJidConversa),
             EstabelecimentoId = estabelecimentoId,
             Prioridade = prioridade
         }, cancellationToken);

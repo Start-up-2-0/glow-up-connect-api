@@ -86,13 +86,28 @@ public class ProvedorMensagemWhatsAppTests
     }
 
     [Fact]
-    public async Task EnviarAsync_DeveEnviarParaLid_QuandoDestinatarioEhLid()
+    public async Task EnviarAsync_DeveRetornarFalha_QuandoDestinatarioEhLidSemFallback()
     {
-        HttpRequestMessage? requestCapturado = null;
+        var handler = new RecordingHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var client = new HttpClient(handler) { BaseAddress = new Uri("https://evolution.test/") };
+        var provedor = CriarProvedor(client, habilitado: true);
+
+        var mensagem = CriarMensagem();
+        mensagem.Destinatario = "60348602310753@lid";
+
+        var resultado = await provedor.EnviarAsync(mensagem);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("invalido", resultado.MensagemErro!, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task EnviarAsync_DeveUsarTelefoneFallback_QuandoDestinatarioLegadoEhLid()
+    {
         string? bodyCapturado = null;
         var handler = new RecordingHandler(async message =>
         {
-            requestCapturado = message;
             bodyCapturado = message.Content is null
                 ? null
                 : await message.Content.ReadAsStringAsync();
@@ -107,15 +122,16 @@ public class ProvedorMensagemWhatsAppTests
 
         var mensagem = CriarMensagem();
         mensagem.Destinatario = "60348602310753@lid";
+        mensagem.PayloadJson = """{"telefoneFallback":"5579998755111","remoteJidConversa":"60348602310753@lid"}""";
 
         var resultado = await provedor.EnviarAsync(mensagem);
 
         Assert.True(resultado.Sucesso);
         Assert.Equal(1, handler.CallCount);
         Assert.NotNull(bodyCapturado);
-        Assert.Contains("60348602310753@lid", bodyCapturado);
+        Assert.Contains("5579998755111", bodyCapturado);
         Assert.Contains("textMessage", bodyCapturado);
-        Assert.Contains("Mensagem teste", bodyCapturado);
+        Assert.DoesNotContain("@lid", bodyCapturado);
     }
 
     [Fact]

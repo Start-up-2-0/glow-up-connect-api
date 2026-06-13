@@ -1,18 +1,53 @@
+using System.Text.Json;
+
 namespace GLOWAPI.Application.Helpers;
 
 public static class EvolutionDestinoHelper
 {
     /// <summary>
-    /// Evolution v1.7.x precisa responder no mesmo JID da conversa inbound.
-    /// Contatos @lid geram bolhas vazias ou falham quando o envio usa apenas o telefone cadastrado.
+    /// Evolution API v1.7.x so aceita telefone no sendText; @lid retorna 400 (exists:false).
     /// </summary>
     public static string ResolverDestinoOutbound(string telefoneCadastrado, string? remoteJidConversa)
     {
-        if (EvolutionWebhookParser.EhRemoteJidLid(remoteJidConversa))
+        _ = remoteJidConversa;
+        return TelefoneHelper.NormalizarParaWhatsApp(telefoneCadastrado);
+    }
+
+    public static string? CriarPayloadOutbound(string telefoneCadastrado, string? remoteJidConversa)
+    {
+        if (!EvolutionWebhookParser.EhRemoteJidLid(remoteJidConversa))
         {
-            return remoteJidConversa!.Trim();
+            return null;
         }
 
-        return TelefoneHelper.NormalizarParaWhatsApp(telefoneCadastrado);
+        return JsonSerializer.Serialize(new
+        {
+            telefoneFallback = TelefoneHelper.NormalizarParaWhatsApp(telefoneCadastrado),
+            remoteJidConversa
+        });
+    }
+
+    public static string? ExtrairTelefoneFallbackDoPayload(string? payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(payloadJson);
+            if (document.RootElement.TryGetProperty("telefoneFallback", out var telefone)
+                && telefone.ValueKind == JsonValueKind.String)
+            {
+                return TelefoneHelper.NormalizarParaWhatsApp(telefone.GetString() ?? string.Empty);
+            }
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        return null;
     }
 }

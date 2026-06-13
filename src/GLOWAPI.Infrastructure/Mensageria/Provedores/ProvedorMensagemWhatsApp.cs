@@ -78,7 +78,7 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
 
         try
         {
-            var destinatario = NormalizarDestinatarioEvolution(mensagem.Destinatario);
+            var destinatario = ResolverDestinatarioEnvio(mensagem);
             if (string.IsNullOrWhiteSpace(destinatario))
             {
                 sw.Stop();
@@ -117,6 +117,27 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
                     mensagem.Conteudo,
                     cancellationToken,
                     usarApiV2: true);
+            }
+
+            if (!response.IsSuccessStatusCode
+                && EvolutionWebhookParser.EhRemoteJidLid(mensagem.Destinatario)
+                && DeveTentarTelefoneFallback(responseBody))
+            {
+                var telefoneFallback = EvolutionDestinoHelper.ExtrairTelefoneFallbackDoPayload(mensagem.PayloadJson);
+                if (!string.IsNullOrWhiteSpace(telefoneFallback)
+                    && !string.Equals(telefoneFallback, destinatario, StringComparison.Ordinal))
+                {
+                    _logger.LogInformation(
+                        "Evolution sendText @lid falhou; tentando telefone cadastrado. MensagemGuid={MensagemGuid}, Telefone={Telefone}",
+                        mensagem.Guid,
+                        telefoneFallback);
+
+                    (response, responseBody) = await EnviarTextoEvolutionAsync(
+                        url,
+                        telefoneFallback,
+                        mensagem.Conteudo,
+                        cancellationToken);
+                }
             }
 
             sw.Stop();
@@ -191,16 +212,32 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
         responseBody.Contains("requires property \"text\"", StringComparison.OrdinalIgnoreCase)
         || responseBody.Contains("textMessage", StringComparison.OrdinalIgnoreCase);
 
-    private static string NormalizarDestinatarioEvolution(string destinatario)
+    private static bool DeveTentarTelefoneFallback(string responseBody) =>
+        responseBody.Contains("@lid", StringComparison.OrdinalIgnoreCase)
+        || responseBody.Contains("\"exists\":false", StringComparison.OrdinalIgnoreCase);
+
+    private static string ResolverDestinatarioEnvio(MensagemNotificacao mensagem)
     {
-        if (string.IsNullOrWhiteSpace(destinatario))
+        if (EvolutionWebhookParser.EhRemoteJidLid(mensagem.Destinatario))
         {
+            var telefoneFallback = EvolutionDestinoHelper.ExtrairTelefoneFallbackDoPayload(mensagem.PayloadJson);
+            if (!string.IsNullOrWhiteSpace(telefoneFallback))
+            {
+                return telefoneFallback;
+            }
+
             return string.Empty;
         }
 
-        if (EvolutionWebhookParser.EhRemoteJidLid(destinatario))
+        return NormalizarDestinatarioEvolution(mensagem.Destinatario);
+    }
+
+    private static string NormalizarDestinatarioEvolution(string destinatario)
+    {
+        if (string.IsNullOrWhiteSpace(destinatario)
+            || EvolutionWebhookParser.EhRemoteJidLid(destinatario))
         {
-            return destinatario.Trim();
+            return string.Empty;
         }
 
         if (destinatario.Contains('@', StringComparison.Ordinal))

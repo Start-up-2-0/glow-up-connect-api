@@ -318,7 +318,7 @@ public class WebhookWhatsAppServiceTests
         _mensagemService.Verify(
             m => m.RegistrarAsync(
                 It.Is<RegistrarMensagemNotificacaoDto>(dto =>
-                    dto.Destinatario == "60348602310753@lid"
+                    dto.Destinatario == "5579998755111"
                     && dto.Assunto == "Confirmacao WhatsApp em processamento"
                     && dto.Conteudo.Contains("Thiago")),
                 It.IsAny<CancellationToken>()),
@@ -327,7 +327,7 @@ public class WebhookWhatsAppServiceTests
         _mensagemService.Verify(
             m => m.RegistrarAsync(
                 It.Is<RegistrarMensagemNotificacaoDto>(dto =>
-                    dto.Destinatario == "60348602310753@lid"
+                    dto.Destinatario == "5579998755111"
                     && dto.Assunto == "Confirmacao WhatsApp aprovada"
                     && dto.Conteudo.Contains("Thiago")),
                 It.IsAny<CancellationToken>()),
@@ -335,7 +335,7 @@ public class WebhookWhatsAppServiceTests
     }
 
     [Fact]
-    public async Task ProcessarMensagemRecebidaAsync_DeveResponderNoLid_QuandoMensagemContemTokenBase64()
+    public async Task ProcessarMensagemRecebidaAsync_DeveResponderNoTelefone_QuandoMensagemContemTokenBase64()
     {
         const string token = "NTU3OTk5ODc1NTExMQ==";
 
@@ -373,9 +373,11 @@ public class WebhookWhatsAppServiceTests
         _mensagemService.Verify(
             m => m.RegistrarAsync(
                 It.Is<RegistrarMensagemNotificacaoDto>(dto =>
-                    dto.Destinatario == "60348602310753@lid"
+                    dto.Destinatario == "5579998755111"
                     && dto.Assunto == "Confirmacao WhatsApp aprovada"
-                    && dto.Conteudo.Contains("confirmado")),
+                    && dto.Conteudo.Contains("confirmado")
+                    && dto.PayloadJson != null
+                    && dto.PayloadJson.Contains("60348602310753@lid")),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
