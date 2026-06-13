@@ -1,6 +1,5 @@
 using System.Text.Json;
 using GLOWAPI.Application.Helpers;
-using GLOWAPI.Application.Models.Mensageria;
 using GLOWAPI.Application.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -26,7 +25,6 @@ internal sealed class EvolutionWhatsAppTextoEnvio
     public async Task<(bool Sucesso, string? ResponseBody, string DestinatarioUsado, string FormatoUsado)> EnviarAsync(
         IReadOnlyList<string> candidatosDestino,
         string conteudo,
-        EvolutionWhatsAppContextoResposta? contextoResposta,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(_options.ApiUrl)
@@ -41,7 +39,7 @@ internal sealed class EvolutionWhatsAppTextoEnvio
             return (false, null, string.Empty, "destino-invalido");
         }
 
-        var formatos = CriarFormatosPayload(conteudo, contextoResposta).ToList();
+        var formatos = CriarFormatosPayload(conteudo).ToList();
 
         var ultimoBody = string.Empty;
         HttpResponseMessage? ultimaResponse = null;
@@ -87,8 +85,6 @@ internal sealed class EvolutionWhatsAppTextoEnvio
 
                 if (ConsiderarSucessoAposHttpOk(nomeFormato, responseBody, conteudo))
                 {
-                    LogarRoteamentoResposta(candidato, contextoResposta, responseBody);
-
                     _logger.LogInformation(
                         "Evolution sendText ok. Destinatario={Destinatario}, Formato={Formato}, Response={Response}",
                         candidato,
@@ -124,150 +120,21 @@ internal sealed class EvolutionWhatsAppTextoEnvio
         EnviarAsync(
             EvolutionDestinoHelper.CriarCandidatosDestinoOutbound(destinatarioBruto, remoteJidConversa: null, remoteJidAlt: null),
             conteudo,
-            contextoResposta: null,
             cancellationToken);
 
-    private IEnumerable<(string Nome, Func<string, object> Payload)> CriarFormatosPayload(
-        string conteudo,
-        EvolutionWhatsAppContextoResposta? contextoResposta)
+    private IEnumerable<(string Nome, Func<string, object> Payload)> CriarFormatosPayload(string conteudo)
     {
-        var quoted = CriarQuotedPayload(contextoResposta);
-
         if (_options.UsarApiV2)
         {
-            if (quoted is not null)
-            {
-                yield return ("v2-text-quoted", destino => new { number = destino, text = conteudo, quoted });
-            }
-
             yield return ("v2-text", destino => new { number = destino, text = conteudo });
             yield break;
         }
 
-        if (quoted is not null)
+        yield return ("v1-textMessage", destino => new
         {
-            yield return ("v1-textMessage-quoted", destino => new
-            {
-                number = destino,
-                textMessage = new { text = conteudo },
-                options = new { quoted }
-            });
-            yield return ("v1-text-quoted", destino => new { number = destino, text = conteudo, quoted });
-        }
-
-        yield return ("v1-textMessage", destino => new { number = destino, textMessage = new { text = conteudo } });
-        yield return ("v1-text", destino => new { number = destino, text = conteudo });
-    }
-
-    private static object? CriarQuotedPayload(EvolutionWhatsAppContextoResposta? contextoResposta)
-    {
-        if (contextoResposta?.TemQuoted != true)
-        {
-            return null;
-        }
-
-        if (EvolutionWebhookParser.EhRemoteJidLid(contextoResposta.RemoteJidConversa))
-        {
-            return new
-            {
-                key = new
-                {
-                    remoteJid = contextoResposta.RemoteJidConversa,
-                    fromMe = contextoResposta.FromMe ?? false,
-                    id = contextoResposta.MessageId,
-                    participant = contextoResposta.RemoteJidConversa
-                },
-                message = new
-                {
-                    conversation = contextoResposta.TextoMensagemReferencia
-                }
-            };
-        }
-
-        return new
-        {
-            key = new
-            {
-                remoteJid = contextoResposta.RemoteJidConversa,
-                fromMe = contextoResposta.FromMe ?? false,
-                id = contextoResposta.MessageId
-            },
-            message = new
-            {
-                conversation = contextoResposta.TextoMensagemReferencia
-            }
-        };
-    }
-
-    private void LogarRoteamentoResposta(
-        string destinatarioSolicitado,
-        EvolutionWhatsAppContextoResposta? contextoResposta,
-        string responseBody)
-    {
-        if (contextoResposta?.RemoteJidConversa is null)
-        {
-            return;
-        }
-
-        var remoteJidResposta = ExtrairRemoteJidDaResposta(responseBody);
-        if (string.IsNullOrWhiteSpace(remoteJidResposta))
-        {
-            return;
-        }
-
-        if (!string.Equals(remoteJidResposta, contextoResposta.RemoteJidConversa, StringComparison.OrdinalIgnoreCase)
-            && EvolutionWebhookParser.EhRemoteJidLid(contextoResposta.RemoteJidConversa))
-        {
-            var participantResposta = ExtrairParticipantDaResposta(responseBody);
-            _logger.LogWarning(
-                "Evolution sendText roteou para JID diferente da conversa @lid. Conversa={Conversa}, DestinatarioSolicitado={Destinatario}, RemoteJidResposta={RemoteJidResposta}, ParticipantResposta={ParticipantResposta}",
-                contextoResposta.RemoteJidConversa,
-                destinatarioSolicitado,
-                remoteJidResposta,
-                participantResposta ?? "(ausente)");
-        }
-    }
-
-    private static string? ExtrairParticipantDaResposta(string responseBody)
-    {
-        try
-        {
-            using var document = JsonDocument.Parse(responseBody);
-            if (document.RootElement.TryGetProperty("message", out var message)
-                && message.TryGetProperty("extendedTextMessage", out var extended)
-                && extended.TryGetProperty("contextInfo", out var contextInfo)
-                && contextInfo.TryGetProperty("participant", out var participant)
-                && participant.ValueKind == JsonValueKind.String)
-            {
-                return participant.GetString();
-            }
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-
-        return null;
-    }
-
-    private static string? ExtrairRemoteJidDaResposta(string responseBody)
-    {
-        try
-        {
-            using var document = JsonDocument.Parse(responseBody);
-            if (document.RootElement.TryGetProperty("key", out var key)
-                && key.TryGetProperty("remoteJid", out var remoteJid)
-                && remoteJid.ValueKind == JsonValueKind.String)
-            {
-                return remoteJid.GetString();
-            }
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-
-        return null;
+            number = destino,
+            textMessage = new { text = conteudo }
+        });
     }
 
     private static bool ConsiderarSucessoAposHttpOk(string nomeFormato, string responseBody, string conteudo)

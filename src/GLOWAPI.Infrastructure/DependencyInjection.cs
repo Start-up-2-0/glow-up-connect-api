@@ -89,8 +89,6 @@ public static class DependencyInjection
         services.AddTransient<IResend, ResendClient>();
         services.Configure<MensageriaWhatsAppOptions>(configuration.GetSection(MensageriaWhatsAppOptions.SectionName));
         services.AddHttpClient<ProvedorMensagemWhatsApp>();
-        services.AddHttpClient<WhatsAppEnvioImediatoService>();
-        services.AddScoped<IWhatsAppEnvioImediatoService, WhatsAppEnvioImediatoService>();
         services.AddScoped<IProvedorMensagem, ProvedorMensagemEmail>();
         services.AddScoped<IProvedorMensagem>(sp => sp.GetRequiredService<ProvedorMensagemWhatsApp>());
         services.AddScoped<IProvedorMensagem, ProvedorMensagemSms>();

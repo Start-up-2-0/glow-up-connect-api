@@ -104,12 +104,9 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
                 Options.Create(_options),
                 _logger);
 
-            var contextoResposta = EvolutionDestinoHelper.ExtrairContextoRespostaDoPayload(mensagem.PayloadJson);
-
             var (sucesso, responseBody, destinatarioUsado, formatoUsado) = await envio.EnviarAsync(
                 candidatos,
                 mensagem.Conteudo,
-                contextoResposta,
                 cancellationToken);
 
             sw.Stop();

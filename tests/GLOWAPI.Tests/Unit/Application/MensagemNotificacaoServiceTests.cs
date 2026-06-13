@@ -47,7 +47,7 @@ public class MensagemNotificacaoServiceTests
                 Assunto = "Confirmacao WhatsApp aprovada",
                 Conteudo = "Confirmado"
             },
-            "evolution-whatsapp-v1-textMessage-quoted");
+            "evolution-whatsapp-v1-textMessage");
 
         Assert.Equal(StatusMensagemNotificacao.Enviado, resultado.Status);
         repo.Verify(r => r.AdicionarAsync(
