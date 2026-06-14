@@ -30,6 +30,15 @@ namespace GLOWAPI.Infrastructure.Migrations
                     `DiasTrial` = VALUES(`DiasTrial`),
                     `Ativa` = TRUE,
                     `UpdatedAt` = UTC_TIMESTAMP();
+
+                UPDATE `CampanhasPromocionais` AS cp
+                SET cp.`Utilizados` = (
+                    SELECT COUNT(*)
+                    FROM `Assinaturas` AS a
+                    WHERE a.`CampanhaPromocionalId` = cp.`Id`
+                ),
+                    cp.`UpdatedAt` = UTC_TIMESTAMP()
+                WHERE cp.`Codigo` = 'lancamento-100';
                 """);
         }
 

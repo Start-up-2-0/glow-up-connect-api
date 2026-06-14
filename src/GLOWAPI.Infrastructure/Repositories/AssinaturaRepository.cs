@@ -89,6 +89,14 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
                 && assinatura.CampanhaPromocional.Codigo == codigoCampanha,
             cancellationToken);
 
+    public Task<int> ContarPorCodigoCampanhaAsync(
+        string codigoCampanha,
+        CancellationToken cancellationToken = default) =>
+        DbSet.CountAsync(
+            assinatura => assinatura.CampanhaPromocionalId != null
+                && assinatura.CampanhaPromocional!.Codigo == codigoCampanha,
+            cancellationToken);
+
     public async Task<IReadOnlyList<Assinatura>> ListarParaAlertaFaturaAsync(
         DateTime dataReferenciaUtc,
         CancellationToken cancellationToken = default)
