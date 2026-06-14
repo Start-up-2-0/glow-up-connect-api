@@ -4,6 +4,7 @@ using System.Text.Json;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Infrastructure;
+using GLOWAPI.Tests.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GLOWAPI.Tests.Integration;
@@ -22,6 +23,7 @@ public class PlanosControllerTests : IClassFixture<GlowApiWebApplicationFactory>
     public async Task ListarAtivos_DeveRetornarApenasPlanosAtivos_SemAutenticacao()
     {
         await SeedPlanosAsync();
+        await SeedCampanhaPromocionalAsync();
 
         var client = _factory.CreateClient();
         var response = await client.GetAsync("/api/planos");
@@ -36,6 +38,8 @@ public class PlanosControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         Assert.Single(planos);
 
         var promocao = data.GetProperty("promocaoLancamento");
+        Assert.True(promocao.GetProperty("disponivel").GetBoolean());
+        Assert.Equal(100, promocao.GetProperty("vagasRestantes").GetInt32());
         Assert.Equal(30, promocao.GetProperty("diasTrial").GetInt32());
         Assert.Contains(5, promocao.GetProperty("diasVencimentoPermitidos").EnumerateArray().Select(item => item.GetInt32()));
 
@@ -90,5 +94,12 @@ public class PlanosControllerTests : IClassFixture<GlowApiWebApplicationFactory>
             });
 
         await db.SaveChangesAsync();
+    }
+
+    private async Task SeedCampanhaPromocionalAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await CampanhaPromocionalTestHelper.HabilitarPromocaoAsync(db);
     }
 }

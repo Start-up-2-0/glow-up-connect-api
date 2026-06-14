@@ -35,6 +35,21 @@ public class PromocaoLancamentoServiceTests
     }
 
     [Fact]
+    public async Task ObterStatusAsync_DeveRetornarIndisponivel_QuandoCampanhaNaoExistir()
+    {
+        _campanhaRepository
+            .Setup(r => r.ObterAtivaPorCodigoAsync(PromocaoLancamentoService.CodigoCampanhaLancamento, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CampanhaPromocional?)null);
+
+        var service = CreateService();
+        var status = await service.ObterStatusAsync();
+
+        Assert.False(status.Disponivel);
+        Assert.Equal(0, status.VagasRestantes);
+        Assert.Equal(30, status.DiasTrial);
+    }
+
+    [Fact]
     public async Task TentarReservarVagaAsync_DeveRetornarFalse_QuandoEstabelecimentoJaUsouPromocao()
     {
         _assinaturaRepository
