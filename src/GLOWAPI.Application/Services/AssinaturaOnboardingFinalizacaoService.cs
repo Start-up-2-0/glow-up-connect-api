@@ -64,6 +64,17 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
 
         if (assinatura.EstabelecimentoId.HasValue)
         {
+            var estabelecimentoExistente = await _estabelecimentoRepository.ObterPorIdComEnderecoAsync(
+                assinatura.EstabelecimentoId.Value,
+                cancellationToken);
+            if (estabelecimentoExistente?.Endereco is not null
+                && !OperacaoPerfilValidation.EnderecoPossuiCoordenadas(estabelecimentoExistente.Endereco))
+            {
+                await TentarGeocodificarAsync(estabelecimentoExistente, cancellationToken);
+                _estabelecimentoRepository.Atualizar(estabelecimentoExistente);
+                await _estabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
+            }
+
             assinatura.OnboardingPendenteJson = null;
             await PromoverRoleSeNecessarioAsync(payload.UsuarioId, payload.TipoAssinatura, cancellationToken);
             return;

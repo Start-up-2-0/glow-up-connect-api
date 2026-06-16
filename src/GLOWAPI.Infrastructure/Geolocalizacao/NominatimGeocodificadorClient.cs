@@ -25,35 +25,35 @@ public class NominatimGeocodificadorClient : IGeocodificadorService
     }
 
     public async Task<CoordenadaGeografica?> GeocodificarEnderecoAsync(
-        string enderecoFormatado,
+        EnderecoGeocodificacaoInput endereco,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(enderecoFormatado))
+        var consultaLivre = endereco.MontarConsultaLivre();
+
+        var estruturada = await BuscarCoordenadasAsync(
+            MontarUriEstruturada(endereco),
+            cancellationToken);
+        if (estruturada is not null)
         {
-            return null;
+            return estruturada;
         }
 
-        try
-        {
-            var url = CriarRequestUri(
-                $"/search?q={Uri.EscapeDataString(enderecoFormatado)}&format=json&limit=1&countrycodes={_options.PaisPadrao}");
-            var resultados = await _httpClient.GetFromJsonAsync<List<NominatimSearchResult>>(url, cancellationToken);
+        await RespeitarIntervaloNominatimAsync(cancellationToken);
 
-            var primeiro = resultados?.FirstOrDefault();
-            if (primeiro is null
-                || !decimal.TryParse(primeiro.Lat, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var latitude)
-                || !decimal.TryParse(primeiro.Lon, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var longitude))
-            {
-                return null;
-            }
-
-            return new CoordenadaGeografica(latitude, longitude);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException or InvalidOperationException)
+        var livre = await BuscarCoordenadasAsync(
+            $"search?q={Uri.EscapeDataString(consultaLivre)}&format=json&limit=1&countrycodes={_options.PaisPadrao}",
+            cancellationToken);
+        if (livre is not null)
         {
-            _logger.LogWarning(ex, "Falha ao geocodificar endereco via Nominatim.");
-            return null;
+            return livre;
         }
+
+        var consultaSimplificada = $"{endereco.Logradouro}, {endereco.Cidade}, {endereco.Estado}, Brasil";
+        await RespeitarIntervaloNominatimAsync(cancellationToken);
+
+        return await BuscarCoordenadasAsync(
+            $"search?q={Uri.EscapeDataString(consultaSimplificada)}&format=json&limit=1&countrycodes={_options.PaisPadrao}",
+            cancellationToken);
     }
 
     public async Task<LocalizacaoReversa?> ReverseGeocodificarAsync(
@@ -63,8 +63,8 @@ public class NominatimGeocodificadorClient : IGeocodificadorService
     {
         try
         {
-            var url = CriarRequestUri(
-                $"/reverse?lat={latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&lon={longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&format=json");
+            var url =
+                $"reverse?lat={latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&lon={longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&format=json";
             var resultado = await _httpClient.GetFromJsonAsync<NominatimReverseResult>(url, cancellationToken);
             if (resultado?.Address is null)
             {
@@ -90,14 +90,67 @@ public class NominatimGeocodificadorClient : IGeocodificadorService
         }
     }
 
-    private Uri CriarRequestUri(string path)
+    private async Task<CoordenadaGeografica?> BuscarCoordenadasAsync(
+        string relativePath,
+        CancellationToken cancellationToken)
     {
-        var relativePath = path.TrimStart('/');
-        var baseUrl = string.IsNullOrWhiteSpace(_options.BaseUrl)
-            ? "https://nominatim.openstreetmap.org"
-            : _options.BaseUrl.Trim().TrimEnd('/');
-        return new Uri($"{baseUrl}/{relativePath}");
+        try
+        {
+            var resultados = await _httpClient.GetFromJsonAsync<List<NominatimSearchResult>>(relativePath, cancellationToken);
+            return ParseCoordenada(resultados?.FirstOrDefault());
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException or InvalidOperationException)
+        {
+            _logger.LogDebug(ex, "Tentativa de geocodificacao Nominatim falhou para {Path}.", relativePath);
+            return null;
+        }
     }
+
+    private static string MontarUriEstruturada(EnderecoGeocodificacaoInput endereco)
+    {
+        var street = string.Join(
+            ' ',
+            new[] { endereco.Numero.Trim(), endereco.Logradouro.Trim() }.Where(parte => !string.IsNullOrWhiteSpace(parte)));
+
+        var query = new List<string>
+        {
+            $"street={Uri.EscapeDataString(street)}",
+            $"city={Uri.EscapeDataString(endereco.Cidade.Trim())}",
+            $"state={Uri.EscapeDataString(endereco.Estado.Trim())}",
+            $"postalcode={Uri.EscapeDataString(FormatarCep(endereco.Cep))}",
+            "country=Brazil",
+            "format=json",
+            "limit=1"
+        };
+
+        return $"search?{string.Join('&', query)}";
+    }
+
+    private static CoordenadaGeografica? ParseCoordenada(NominatimSearchResult? resultado)
+    {
+        if (resultado is null
+            || !decimal.TryParse(
+                resultado.Lat,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var latitude)
+            || !decimal.TryParse(
+                resultado.Lon,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var longitude))
+        {
+            return null;
+        }
+
+        return new CoordenadaGeografica(latitude, longitude);
+    }
+
+    private static string FormatarCep(string cep) =>
+        cep.Length == 8 ? $"{cep[..5]}-{cep[5..]}" : cep;
+
+    private static async Task RespeitarIntervaloNominatimAsync(CancellationToken cancellationToken) =>
+        await Task.Delay(TimeSpan.FromMilliseconds(1100), cancellationToken);
 
     private static string? ObterCidade(NominatimAddress address) =>
         address.City

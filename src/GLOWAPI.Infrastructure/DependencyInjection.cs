@@ -112,7 +112,7 @@ public static class DependencyInjection
 
         services.AddScoped<IGatewayPagamento>(_ => new GatewayPagamentoFake(GLOWAPI.Domain.Enums.GatewayPagamento.AbacatePay));
 
-        services.AddHttpClient<IGeocodificadorService, NominatimGeocodificadorClient>((serviceProvider, client) =>
+        services.AddHttpClient<NominatimGeocodificadorClient>((serviceProvider, client) =>
         {
             var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<GeocodificacaoOptions>>().Value;
             var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
@@ -120,8 +120,21 @@ public static class DependencyInjection
                 : options.BaseUrl.Trim();
             client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
             client.Timeout = TimeSpan.FromSeconds(options.TimeoutSegundos);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd(options.UserAgent);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                string.IsNullOrWhiteSpace(options.UserAgent)
+                    ? "GlowUpConnectAPI/1.0 (contato@glowupconnect.com.br)"
+                    : options.UserAgent);
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
         });
+
+        services.AddHttpClient<PhotonGeocodificadorClient>(client =>
+        {
+            client.BaseAddress = new Uri("https://photon.komoot.io/");
+            client.Timeout = TimeSpan.FromSeconds(8);
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+        });
+
+        services.AddScoped<IGeocodificadorService, GeocodificadorCompostoService>();
 
         return services;
     }

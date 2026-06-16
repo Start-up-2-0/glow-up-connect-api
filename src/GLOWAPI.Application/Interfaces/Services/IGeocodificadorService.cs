@@ -5,7 +5,7 @@ namespace GLOWAPI.Application.Interfaces.Services;
 public interface IGeocodificadorService
 {
     Task<CoordenadaGeografica?> GeocodificarEnderecoAsync(
-        string enderecoFormatado,
+        EnderecoGeocodificacaoInput endereco,
         CancellationToken cancellationToken = default);
 
     Task<LocalizacaoReversa?> ReverseGeocodificarAsync(

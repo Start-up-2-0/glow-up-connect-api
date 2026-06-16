@@ -1,5 +1,6 @@
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Geolocalizacao;
+using GLOWAPI.Application.Models.Geolocalizacao;
 using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Tests.Helpers;
@@ -16,7 +17,7 @@ public class EnderecoGeocodificacaoServiceTests
     public async Task TentarGeocodificarAsync_DevePersistirCoordenadas_QuandoGeocoderRetornarResultado()
     {
         _geocodificadorService
-            .Setup(g => g.GeocodificarEnderecoAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(g => g.GeocodificarEnderecoAsync(It.IsAny<EnderecoGeocodificacaoInput>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CoordenadaGeografica(-22.9056m, -47.0608m));
 
         var endereco = OperacaoPerfilValidation.CriarEndereco(
@@ -38,7 +39,7 @@ public class EnderecoGeocodificacaoServiceTests
     public async Task TentarGeocodificarAsync_DeveLimparCoordenadas_QuandoGeocoderFalhar()
     {
         _geocodificadorService
-            .Setup(g => g.GeocodificarEnderecoAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(g => g.GeocodificarEnderecoAsync(It.IsAny<EnderecoGeocodificacaoInput>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((CoordenadaGeografica?)null);
 
         var endereco = OperacaoPerfilValidation.CriarEndereco(
