@@ -1,6 +1,7 @@
 using System.Text.Json;
 using GLOWAPI.Application.DTOs.Agendamento;
 using GLOWAPI.Application.DTOs.Estabelecimentos;
+using GLOWAPI.Application.DTOs.Horarios;
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
@@ -33,6 +34,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
     private readonly IAgendamentoHistoricoRepository _agendamentoHistoricoRepository;
     private readonly IAgendamentoValidador _agendamentoValidador;
     private readonly IAgendamentoNotificacaoService _agendamentoNotificacaoService;
+    private readonly IDisponibilidadeAgendaService _disponibilidadeAgendaService;
     private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
     private readonly ICurrentUserContext _currentUserContext;
@@ -48,6 +50,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         IAgendamentoHistoricoRepository agendamentoHistoricoRepository,
         IAgendamentoValidador agendamentoValidador,
         IAgendamentoNotificacaoService agendamentoNotificacaoService,
+        IDisponibilidadeAgendaService disponibilidadeAgendaService,
         IAutorizacaoNegocioService autorizacaoNegocioService,
         IAuditoriaNegocioService auditoriaNegocioService,
         ICurrentUserContext currentUserContext,
@@ -62,6 +65,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         _agendamentoHistoricoRepository = agendamentoHistoricoRepository;
         _agendamentoValidador = agendamentoValidador;
         _agendamentoNotificacaoService = agendamentoNotificacaoService;
+        _disponibilidadeAgendaService = disponibilidadeAgendaService;
         _autorizacaoNegocioService = autorizacaoNegocioService;
         _auditoriaNegocioService = auditoriaNegocioService;
         _currentUserContext = currentUserContext;
@@ -76,7 +80,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         CancellationToken cancellationToken = default)
     {
         var estabelecimento = await ObterEstabelecimentoPublicoAsync(publicGuidLoja, cancellationToken);
-        var profissional = await ResolverProfissionalAsync(
+        var profissional = await ResolverProfissionalPorGuidAsync(
             estabelecimento.Id,
             profissionalPublicGuid,
             cancellationToken);
@@ -507,9 +511,10 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         CancellationToken cancellationToken = default)
     {
         var estabelecimento = await ObterEstabelecimentoPublicoAsync(publicGuidLoja, cancellationToken);
-        var profissional = await ResolverProfissionalAsync(
-            estabelecimento.Id,
+        var profissional = await ResolverProfissionalParaAgendamentoAsync(
+            estabelecimento,
             publicGuidProfissional,
+            request,
             cancellationToken);
 
         var preparacao = await _agendamentoValidador.PrepararAsync(
@@ -577,8 +582,24 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             agendamento,
             statusAnterior: agendamento.Status,
             statusNovo: agendamento.Status,
-            motivo: "Agendamento criado",
-            cancellationToken);
+            motivo: origem == OrigemAgendamento.Logado ? "Agendamento interno criado" : "Agendamento criado",
+            cancellationToken,
+            payloadExtra: new
+            {
+                origem = origem.ToString(),
+                usuarioClienteId = agendamento.UsuarioClienteId,
+                estabelecimentoId = estabelecimento.Id,
+                profissionalId = profissional.Id,
+                servicoIds = request.ServicoIds,
+                cliente = manterContatoVisitante
+                    ? new
+                    {
+                        nome = preparacao.ClienteNome,
+                        email = preparacao.ClienteEmail,
+                        telefone = preparacao.ClienteTelefone
+                    }
+                    : null
+            });
 
         await _agendamentoRepository.SalvarAlteracoesAsync(cancellationToken);
 
@@ -621,17 +642,93 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         return estabelecimento;
     }
 
-    private async Task<Profissional> ResolverProfissionalAsync(
-        int estabelecimentoId,
+    private async Task<Profissional> ResolverProfissionalParaAgendamentoAsync(
+        Estabelecimento estabelecimento,
         Guid? publicGuidProfissional,
+        CriarAgendamentoRequestDto request,
         CancellationToken cancellationToken)
     {
-        if (!publicGuidProfissional.HasValue)
+        if (publicGuidProfissional.HasValue)
         {
-            throw new AgendamentoServicosInvalidosException("Profissional e obrigatorio para o agendamento.");
+            return await ResolverProfissionalPorGuidAsync(
+                estabelecimento.Id,
+                publicGuidProfissional.Value,
+                cancellationToken);
         }
 
-        var profissional = await _profissionalRepository.ObterPorPublicGuidAsync(publicGuidProfissional.Value, cancellationToken);
+        return await ResolverProfissionalSemPreferenciaAsync(
+            estabelecimento,
+            request.ServicoIds,
+            request.Data,
+            request.HorarioInicio,
+            request.InicioSelecionado,
+            cancellationToken);
+    }
+
+    private async Task<Profissional> ResolverProfissionalSemPreferenciaAsync(
+        Estabelecimento estabelecimento,
+        int[] servicoIds,
+        DateOnly data,
+        TimeOnly horarioInicio,
+        DateTime? inicioSelecionado,
+        CancellationToken cancellationToken)
+    {
+        if (servicoIds.Length == 0)
+        {
+            throw new AgendamentoServicosInvalidosException("Informe ao menos um servico.");
+        }
+
+        var inicioAlvo = AgendaDateTimeHelper.ResolverInicio(data, horarioInicio, inicioSelecionado);
+        var disponibilidade = await _disponibilidadeAgendaService.ConsultarPublicoPorEstabelecimentoAsync(
+            estabelecimento.PublicGuid,
+            new ConsultarDisponibilidadeAgendaDto
+            {
+                DataInicio = data,
+                DataFim = data,
+                ServicoId = servicoIds[0],
+                ServicoIds = servicoIds
+            },
+            cancellationToken);
+
+        var slotsCompativeis = disponibilidade.Slots
+            .Where(slot => AgendaDateTimeHelper.ExtrairWallClockUtc(slot.Inicio) == inicioAlvo)
+            .OrderBy(slot => slot.ProfissionalId)
+            .ToList();
+
+        if (slotsCompativeis.Count == 0)
+        {
+            throw new HorarioIndisponivelException(
+                "Horario indisponivel para os servicos selecionados.");
+        }
+
+        foreach (var slot in slotsCompativeis)
+        {
+            var vinculo = await _profissionalEstabelecimentoRepository.ObterPorProfissionalAsync(
+                slot.ProfissionalId,
+                estabelecimento.Id,
+                cancellationToken);
+            if (vinculo is null || !vinculo.Ativo || !vinculo.PodeReceberAgendamento)
+            {
+                continue;
+            }
+
+            var profissional = await _profissionalRepository.ObterPorIdAsync(slot.ProfissionalId, cancellationToken);
+            if (profissional is not null && profissional.Ativo)
+            {
+                return profissional;
+            }
+        }
+
+        throw new HorarioIndisponivelException(
+            "Horario indisponivel para os servicos selecionados.");
+    }
+
+    private async Task<Profissional> ResolverProfissionalPorGuidAsync(
+        int estabelecimentoId,
+        Guid publicGuidProfissional,
+        CancellationToken cancellationToken)
+    {
+        var profissional = await _profissionalRepository.ObterPorPublicGuidAsync(publicGuidProfissional, cancellationToken);
         if (profissional is null || !profissional.Ativo)
         {
             throw new RecursoProfissionalNaoEncontradoException();

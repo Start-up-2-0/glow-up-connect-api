@@ -21,6 +21,7 @@ public class AgendamentoNegocioServiceTests
     private readonly Mock<IAgendamentoHistoricoRepository> _agendamentoHistoricoRepository = new();
     private readonly Mock<IAgendamentoValidador> _agendamentoValidador = new();
     private readonly Mock<IAgendamentoNotificacaoService> _agendamentoNotificacaoService = new();
+    private readonly Mock<IDisponibilidadeAgendaService> _disponibilidadeAgendaService = new();
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
@@ -188,6 +189,7 @@ public class AgendamentoNegocioServiceTests
             _agendamentoHistoricoRepository.Object,
             _agendamentoValidador.Object,
             _agendamentoNotificacaoService.Object,
+            _disponibilidadeAgendaService.Object,
             _autorizacaoNegocioService.Object,
             _auditoriaNegocioService.Object,
             _currentUserContext.Object,

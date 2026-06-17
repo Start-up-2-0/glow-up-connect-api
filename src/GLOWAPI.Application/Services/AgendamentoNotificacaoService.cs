@@ -188,6 +188,46 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
         Agendamento agendamento,
         CancellationToken cancellationToken)
     {
+        var payloadJson = JsonSerializer.Serialize(new
+        {
+            evento,
+            agendamentoId = agendamento.Id,
+            cliente = agendamento.ClienteNome ?? agendamento.UsuarioCliente?.Nome,
+            inicio = AgendamentoHorarioHelper.ObterInicio(agendamento),
+            valorTotal = agendamento.ValorTotal
+        });
+
+        if (!string.IsNullOrWhiteSpace(estabelecimento.Email))
+        {
+            await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
+            {
+                Canal = CanalMensagemNotificacao.Email,
+                Destinatario = estabelecimento.Email.Trim(),
+                Assunto = assunto,
+                Conteudo = conteudo,
+                EstabelecimentoId = estabelecimento.Id,
+                Prioridade = 1,
+                PayloadJson = payloadJson
+            }, cancellationToken);
+        }
+
+        var emailProfissional = !string.IsNullOrWhiteSpace(profissional.Email)
+            ? profissional.Email
+            : profissional.Usuario?.Email;
+        if (!string.IsNullOrWhiteSpace(emailProfissional))
+        {
+            await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
+            {
+                Canal = CanalMensagemNotificacao.Email,
+                Destinatario = emailProfissional.Trim(),
+                Assunto = assunto,
+                Conteudo = conteudo,
+                EstabelecimentoId = estabelecimento.Id,
+                Prioridade = 1,
+                PayloadJson = payloadJson
+            }, cancellationToken);
+        }
+
         var possuiWhatsApp = await _modulosAssinaturaService.PossuiModuloPorEstabelecimentoAsync(
             estabelecimento.Id,
             ModuloAssinatura.WhatsApp,
@@ -229,14 +269,7 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
                 Conteudo = conteudo,
                 EstabelecimentoId = estabelecimentoId,
                 Prioridade = 1,
-                PayloadJson = JsonSerializer.Serialize(new
-                {
-                    evento,
-                    agendamentoId = agendamento.Id,
-                    cliente = agendamento.ClienteNome ?? agendamento.UsuarioCliente?.Nome,
-                    inicio = AgendamentoHorarioHelper.ObterInicio(agendamento),
-                    valorTotal = agendamento.ValorTotal
-                })
+                PayloadJson = payloadJson
             }, cancellationToken);
         }
     }
