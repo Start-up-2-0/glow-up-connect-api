@@ -11,14 +11,26 @@ public class IpBurstRateLimitMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly AuthOptions _authOptions;
+    private readonly ProxyOriginOptions _proxyOptions;
+    private readonly MtlsOptions _mtlsOptions;
 
-    public IpBurstRateLimitMiddleware(RequestDelegate next, IOptions<AuthOptions> authOptions)
+    public IpBurstRateLimitMiddleware(
+        RequestDelegate next,
+        IOptions<AuthOptions> authOptions,
+        IOptions<ProxyOriginOptions> proxyOptions,
+        IOptions<MtlsOptions> mtlsOptions)
     {
         _next = next;
         _authOptions = authOptions.Value;
+        _proxyOptions = proxyOptions.Value;
+        _mtlsOptions = mtlsOptions.Value;
     }
 
-    public async Task InvokeAsync(HttpContext context, IIpBurstRateLimitService rateLimitService, ISecurityAuditLogger auditLogger)
+    public async Task InvokeAsync(
+        HttpContext context,
+        IIpBurstRateLimitService rateLimitService,
+        ISecurityAuditLogger auditLogger,
+        IGlowTokenService glowTokenService)
     {
         if (DeveIgnorar(context))
         {
@@ -28,10 +40,9 @@ public class IpBurstRateLimitMiddleware
 
         var ip = ClientIpResolver.Resolver(context) ?? "127.0.0.1";
         var path = context.Request.Path.Value ?? string.Empty;
-        var possuiToken = context.Request.Headers.TryGetValue(_authOptions.TokenHeaderName, out var tokenHeader)
-            && !string.IsNullOrWhiteSpace(tokenHeader.ToString());
+        var trafegoConfiavel = EhTrafegoConfiavel(context, glowTokenService);
 
-        var resultado = await rateLimitService.AvaliarAsync(ip, path, possuiToken, context.RequestAborted);
+        var resultado = await rateLimitService.AvaliarAsync(ip, path, trafegoConfiavel, context.RequestAborted);
         if (resultado.Permitido)
         {
             await _next(context);
@@ -44,6 +55,42 @@ public class IpBurstRateLimitMiddleware
         }
 
         await WriteBlockedAsync(context, resultado);
+    }
+
+    private bool EhTrafegoConfiavel(HttpContext context, IGlowTokenService glowTokenService)
+    {
+        if (_proxyOptions.Enabled
+            && context.Request.Headers.TryGetValue(ProxyOriginOptions.SecretHeaderName, out var proxySecret)
+            && string.Equals(proxySecret.ToString(), _proxyOptions.Secret, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (_mtlsOptions.Enabled && context.Connection.ClientCertificate is not null)
+        {
+            var thumbprints = _mtlsOptions.AllowedClientThumbprints
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Select(t => t.Replace(":", string.Empty, StringComparison.OrdinalIgnoreCase))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (thumbprints.Count == 0
+                || thumbprints.Contains(context.Connection.ClientCertificate.Thumbprint))
+            {
+                return true;
+            }
+        }
+
+        if (context.Request.Headers.TryGetValue(_authOptions.TokenHeaderName, out var tokenHeader)
+            && !string.IsNullOrWhiteSpace(tokenHeader.ToString()))
+        {
+            var metadata = glowTokenService.ValidarMetadata(tokenHeader.ToString());
+            if (metadata is not null && !glowTokenService.EstaExpirado(metadata, DateTime.UtcNow))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool DeveIgnorar(HttpContext context)

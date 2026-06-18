@@ -18,14 +18,23 @@ public class AuthServiceTests
     private readonly Mock<IAuthSessionService> _authSessionService = new();
     private readonly Mock<IPasswordHasher> _passwordHasher = new();
     private readonly Mock<ISecurityAuditLogger> _auditLogger = new();
+    private readonly Mock<ILoginFailureRateLimitService> _loginFailureRateLimit = new();
     private readonly AuthOptions _authOptions = new() { MaxLoginAttempts = 5, LockoutMinutes = 15 };
     private readonly AuthSessionContext _context = new("127.0.0.1", "test-agent");
+
+    public AuthServiceTests()
+    {
+        _loginFailureRateLimit
+            .Setup(s => s.PodeTentarAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+    }
 
     private AuthService CreateService() => new(
         _usuarioRepository.Object,
         _authSessionService.Object,
         _passwordHasher.Object,
         _auditLogger.Object,
+        _loginFailureRateLimit.Object,
         Options.Create(_authOptions));
 
     [Fact]

@@ -43,7 +43,11 @@ Guia para configurar homologacao no **mesmo projeto Railway** da producao, com i
 | `MercadoPago__WebhookSecret` | Secret do painel Mercado Pago (webhooks) |
 | `Cors__AllowedOrigins__0` | URL do frontend staging |
 | `Swagger__AccessKey` | Chave para acessar `/swagger` (header `X-Swagger-Key`) |
-| `RateLimit__BurstWindowSeconds` | (opcional) padrao `5` |
+| `GLOW_PROXY_SECRET` | Secret compartilhado com o servico do app (header `X-Glow-Proxy-Secret`) |
+| `Captcha__Enabled` | `true` |
+| `Captcha__SecretKey` | Secret reCAPTCHA v3 (server-side) |
+| `MTLS_SERVER_CERT` / `MTLS_SERVER_KEY` / `MTLS_CA_CERT` | (fase mTLS) PEMs multiline — ver `scripts/tls/generate-mtls-certs.sh` |
+| `MTLS_CLIENT_CERT_THUMBPRINT` | (fase mTLS) thumbprint SHA1 do cert do Caddy |
 
 Ver tambem [docs/security/fase1-hardening.md](./security/fase1-hardening.md). as URLs de retorno do Checkout Pro sao derivadas de `Auth__FrontendBaseUrl` (`/assinatura/sucesso`, `/pendente`, `/falha`) e o webhook usa `RAILWAY_PUBLIC_DOMAIN` ou `MercadoPago__PublicBaseUrl`.
 
@@ -106,7 +110,28 @@ $env:MYSQL_CS = "Server=...;Port=...;Database=...;User=...;Password=...;SslMode=
 .\scripts\railway-migrate.ps1 -Environment staging
 ```
 
-## 8. Dominio publico
+## 8. Servico do App (staging) — BFF same-origin
+
+| Variavel | Valor |
+|----------|--------|
+| `VITE_API_BASE_URL` | `/api` |
+| `VITE_CAPTCHA_SITE_KEY` | Site key reCAPTCHA v3 |
+| `GLOW_PROXY_SECRET` | Mesmo valor da API |
+| `API_INTERNAL_HOST` | Host privado da API (`<servico>.railway.internal`) |
+| `API_INTERNAL_PORT` | `8080` (HTTP) ou omitir quando usar mTLS |
+| `API_INTERNAL_URL` | (mTLS) `https://<servico-api>.railway.internal:8443` |
+| `MTLS_CLIENT_CERT` / `MTLS_CLIENT_KEY` / `MTLS_CA_CERT` | (mTLS) PEMs do cliente Caddy |
+
+O Caddy faz proxy `/api/*` → API e injeta `X-Glow-Proxy-Secret`. Webhooks externos continuam na URL publica da API.
+
+### Rollout recomendado (staging)
+
+1. Deploy BFF + `GLOW_PROXY_SECRET` + `VITE_API_BASE_URL=/api`
+2. Ativar CAPTCHA (`Captcha__*` + `VITE_CAPTCHA_SITE_KEY`)
+3. Gerar PKI (`scripts/tls/generate-mtls-certs.sh`) e configurar mTLS na rede interna
+4. Limpar bloqueios antigos em `IpRateLimitBlocks` se necessario
+
+## 9. Dominio publico
 
 1. Servico API (staging) → **Settings → Networking → Generate Domain**.
 2. Teste:
@@ -119,7 +144,7 @@ Resposta esperada: `{"status":"healthy"}`.
 
 Swagger em staging: `https://<dominio>/swagger`.
 
-## 9. Checklist pos-deploy
+## 10. Checklist pos-deploy
 
 - [ ] `GET /health` → 200
 - [ ] Logs sem erro de `MYSQL_CS`, `TokenSalt`, `RESEND_APITOKEN` ou `Mensageria__Email__From`
@@ -128,7 +153,7 @@ Swagger em staging: `https://<dominio>/swagger`.
 - [ ] `Auth__TokenSalt` staging diferente de producao
 - [ ] Token de staging invalido em producao
 
-## 10. Producao (referencia)
+## 11. Producao (referencia)
 
 No environment `production`:
 

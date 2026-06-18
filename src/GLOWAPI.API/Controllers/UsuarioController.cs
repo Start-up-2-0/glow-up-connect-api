@@ -1,3 +1,4 @@
+using GLOWAPI.API.Helpers;
 using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Usuario;
 using GLOWAPI.Application.Interfaces.Services;
@@ -12,19 +13,24 @@ public class UsuarioController : ControllerBase
 {
     private readonly IUsuarioService _usuarioService;
     private readonly IUsuarioNegocioContextoService _usuarioNegocioContextoService;
+    private readonly ICaptchaValidator _captchaValidator;
 
     public UsuarioController(
         IUsuarioService usuarioService,
-        IUsuarioNegocioContextoService usuarioNegocioContextoService)
+        IUsuarioNegocioContextoService usuarioNegocioContextoService,
+        ICaptchaValidator captchaValidator)
     {
         _usuarioService = usuarioService;
         _usuarioNegocioContextoService = usuarioNegocioContextoService;
+        _captchaValidator = captchaValidator;
     }
 
     [AllowAnonymous]
     [HttpPost]
     public async Task<IActionResult> CadastrarCliente([FromBody] CadastrarClienteDto request, CancellationToken cancellationToken)
     {
+        await CaptchaGuard.GarantirValidoAsync(_captchaValidator, request.CaptchaToken, HttpContext, cancellationToken);
+
         var usuario = await _usuarioService.CadastrarClienteAsync(request, cancellationToken);
         return StatusCode(StatusCodes.Status201Created, CadastroClienteResponseDto.From(usuario));
     }

@@ -9,6 +9,9 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+ProxyOriginConfiguration.ConfigurarProxyOrigin(builder);
+KestrelMtlsConfiguration.ConfigurarKestrel(builder);
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -37,6 +40,7 @@ builder.Services.Configure<AssinaturaCobrancaWorkerOptions>(
     builder.Configuration.GetSection(AssinaturaCobrancaWorkerOptions.SectionName));
 builder.Services.Configure<CorsOptions>(builder.Configuration.GetSection(CorsOptions.SectionName));
 builder.Services.Configure<RateLimitOptions>(builder.Configuration.GetSection(RateLimitOptions.SectionName));
+builder.Services.Configure<CaptchaOptions>(builder.Configuration.GetSection(CaptchaOptions.SectionName));
 builder.Services.Configure<SwaggerOptions>(builder.Configuration.GetSection(SwaggerOptions.SectionName));
 var corsOrigins = builder.Configuration.GetSection(CorsOptions.SectionName).Get<CorsOptions>()?.AllowedOrigins
     ?? CorsOptions.DefaultOrigins;
@@ -92,6 +96,8 @@ var app = builder.Build();
 await app.ApplyPendingMigrationsAsync();
 
 app.UseMiddleware<ExceptionMiddleware>();
+app.UseMiddleware<PublicPortPathGuardMiddleware>();
+app.UseMiddleware<ProxyOriginMiddleware>();
 app.UseMiddleware<IpBurstRateLimitMiddleware>();
 
 if (!app.Environment.IsDevelopment())

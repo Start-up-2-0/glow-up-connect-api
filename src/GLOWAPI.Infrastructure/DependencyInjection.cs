@@ -79,6 +79,7 @@ public static class DependencyInjection
         services.AddScoped<IGlowTokenService, GlowTokenService>();
         services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
         services.AddScoped<IIpBurstRateLimitService, IpBurstRateLimitService>();
+        services.AddScoped<ILoginFailureRateLimitService, LoginFailureRateLimitService>();
         services.AddMemoryCache();
         services.AddScoped<IMensagemNotificacaoRepository, MensagemNotificacaoRepository>();
 
@@ -139,6 +140,8 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IGeocodificadorService, GeocodificadorCompostoService>();
+
+        services.AddHttpClient<ICaptchaValidator, RecaptchaValidator>();
 
         return services;
     }

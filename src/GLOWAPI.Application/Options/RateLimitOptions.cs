@@ -50,6 +50,6 @@ public class RateLimitOptions
         "/api/auth/refresh",
         "/api/auth/forgot-password",
         "/api/auth/reset-password",
-        "/api/usuarios"
+        "/api/usuario"
     ];
 }

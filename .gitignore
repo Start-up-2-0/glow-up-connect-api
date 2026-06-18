@@ -2,6 +2,9 @@
 src/GLOWAPI.API/appsettings.Development.json
 context/Database.HML.local.md
 
+# mTLS gerado localmente — nunca commitar
+certs/
+
 # Build output (.NET)
 [Bb]in/
 [Oo]bj/

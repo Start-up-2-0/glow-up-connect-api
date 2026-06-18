@@ -29,7 +29,7 @@ public class IpBurstRateLimitService : IIpBurstRateLimitService
     public async Task<IpBurstRateLimitResult> AvaliarAsync(
         string ip,
         string path,
-        bool possuiTokenAutenticacao,
+        bool trafegoConfiavel,
         CancellationToken cancellationToken = default)
     {
         if (!_options.Enabled)
@@ -37,7 +37,7 @@ public class IpBurstRateLimitService : IIpBurstRateLimitService
             return new IpBurstRateLimitResult(true, false, null);
         }
 
-        if (_options.ExemptAuthenticatedRequests && possuiTokenAutenticacao)
+        if (trafegoConfiavel)
         {
             return new IpBurstRateLimitResult(true, false, null);
         }

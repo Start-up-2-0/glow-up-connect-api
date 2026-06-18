@@ -26,4 +26,6 @@ public class CadastrarClienteDto
     public string? AvatarBase64 { get; set; }
 
     public string? AvatarContentType { get; set; }
+
+    public string? CaptchaToken { get; set; }
 }

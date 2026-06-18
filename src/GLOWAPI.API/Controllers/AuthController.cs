@@ -17,6 +17,7 @@ public class AuthController : ControllerBase
     private readonly IAuthService _authService;
     private readonly IConfirmacaoEmailService _confirmacaoEmailService;
     private readonly IConfirmacaoWhatsAppService _confirmacaoWhatsAppService;
+    private readonly ICaptchaValidator _captchaValidator;
     private readonly AuthOptions _authOptions;
     private readonly IWebHostEnvironment _environment;
 
@@ -24,12 +25,14 @@ public class AuthController : ControllerBase
         IAuthService authService,
         IConfirmacaoEmailService confirmacaoEmailService,
         IConfirmacaoWhatsAppService confirmacaoWhatsAppService,
+        ICaptchaValidator captchaValidator,
         IOptions<AuthOptions> authOptions,
         IWebHostEnvironment environment)
     {
         _authService = authService;
         _confirmacaoEmailService = confirmacaoEmailService;
         _confirmacaoWhatsAppService = confirmacaoWhatsAppService;
+        _captchaValidator = captchaValidator;
         _authOptions = authOptions.Value;
         _environment = environment;
     }
@@ -38,6 +41,8 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request, CancellationToken cancellationToken)
     {
+        await CaptchaGuard.GarantirValidoAsync(_captchaValidator, request.CaptchaToken, HttpContext, cancellationToken);
+
         var result = await _authService.LoginAsync(request, BuildSessionContext(), cancellationToken);
         AuthRefreshCookieHelper.SetRefreshCookie(
             Response,

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using GLOWAPI.API.Models;
+using GLOWAPI.Application.Options;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -10,11 +11,18 @@ namespace GLOWAPI.Tests.Integration;
 
 public class IpBurstRateLimitIntegrationTests : IClassFixture<RateLimitWebApplicationFactory>
 {
+    private const string ProxySecret = RateLimitWebApplicationFactory.ProxySecret;
+
     private readonly RateLimitWebApplicationFactory _factory;
 
     public IpBurstRateLimitIntegrationTests(RateLimitWebApplicationFactory factory)
     {
         _factory = factory;
+    }
+
+    private static void AddProxyHeader(HttpRequestMessage request)
+    {
+        request.Headers.Add(ProxyOriginOptions.SecretHeaderName, ProxySecret);
     }
 
     [Fact]
@@ -42,15 +50,25 @@ public class IpBurstRateLimitIntegrationTests : IClassFixture<RateLimitWebApplic
     }
 
     [Fact]
-    public async Task RequisicaoAutenticada_NaoDeveContarNoBurstGlobal()
+    public async Task TrafegoConfiavelViaProxy_NaoDeveContarNoBurstGlobal()
     {
-        using var factory = new RateLimitWebApplicationFactory();
+        using var factory = new RateLimitWebApplicationFactory().WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["GLOW_PROXY_SECRET"] = ProxySecret,
+                    ["ProxyOrigin:Enabled"] = "true"
+                });
+            });
+        });
         var client = factory.CreateClient();
 
         for (var i = 0; i < 10; i++)
         {
             var request = new HttpRequestMessage(HttpMethod.Get, "/api/planos");
-            request.Headers.Add("x-glow-token", "token-presente-mas-invalido-para-rate-limit");
+            AddProxyHeader(request);
             var response = await client.SendAsync(request);
             Assert.NotEqual((HttpStatusCode)429, response.StatusCode);
         }
@@ -72,6 +90,8 @@ public class IpBurstRateLimitIntegrationTests : IClassFixture<RateLimitWebApplic
 
 public class RateLimitWebApplicationFactory : GlowApiWebApplicationFactory
 {
+    internal const string ProxySecret = "rate-limit-test-secret";
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         base.ConfigureWebHost(builder);
@@ -86,11 +106,12 @@ public class RateLimitWebApplicationFactory : GlowApiWebApplicationFactory
                 ["RateLimit:BurstPenaltySeconds"] = "1",
                 ["RateLimit:HardBlockMultiplier"] = "5",
                 ["RateLimit:BlockDurationHours"] = "24",
-                ["RateLimit:ExemptAuthenticatedRequests"] = "true",
+                ["RateLimit:ExemptAuthenticatedRequests"] = "false",
                 ["RateLimit:SensitiveMaxRequests"] = "2",
                 ["RateLimit:SensitiveWindowSeconds"] = "60",
                 ["RateLimit:SensitivePenaltySeconds"] = "1",
-                ["RateLimit:SensitiveHardBlockMultiplier"] = "4"
+                ["RateLimit:SensitiveHardBlockMultiplier"] = "4",
+                ["Captcha:Enabled"] = "false"
             });
         });
     }

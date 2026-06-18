@@ -33,7 +33,7 @@ public class AcessoNegocioControllerTests : IClassFixture<GlowApiWebApplicationF
     }
 
     [Fact]
-    public async Task Cliente_NaoDeveAcessarMeEstabelecimentos()
+    public async Task Cliente_DeveReceberListaVaziaDeEstabelecimentos()
     {
         const string email = "cliente-acesso@email.com";
         const string senha = "Senha123!";
@@ -61,10 +61,10 @@ public class AcessoNegocioControllerTests : IClassFixture<GlowApiWebApplicationF
 
         var response = await client.GetAsync("/api/usuario/me/estabelecimentos");
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-        Assert.Equal(ClienteSemAcessoNegocioException.ErrorCode, body.GetProperty("code").GetString());
+        Assert.Equal(0, body.GetArrayLength());
     }
 
     [Fact]

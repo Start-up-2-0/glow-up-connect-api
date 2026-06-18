@@ -61,6 +61,7 @@ public class ExceptionMiddleware
                 GatewayPagamentoException => HttpStatusCode.BadGateway,
                 ConfirmacaoEmailInvalidaException
                     or ConfirmacaoWhatsAppInvalidaException
+                    or CaptchaInvalidaException
                     or AvatarInvalidoException
                     or AssinaturaTitularInvalidoException
                     or CancelamentoAssinaturaInvalidoException
@@ -91,6 +92,7 @@ public class ExceptionMiddleware
                     or EnderecoOperacaoInvalidoException
                     or LocalizacaoClienteInvalidaException => HttpStatusCode.BadRequest,
                 WebhookWhatsAppNaoAutorizadoException => HttpStatusCode.Unauthorized,
+                LoginIpRateLimitException => HttpStatusCode.TooManyRequests,
                 HorarioIndisponivelException => HttpStatusCode.Conflict,
                 UsuarioSemPermissaoAssinaturaException
                     or UsuarioSemPermissaoNegocioException

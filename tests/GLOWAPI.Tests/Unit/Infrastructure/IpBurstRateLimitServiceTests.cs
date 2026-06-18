@@ -14,11 +14,11 @@ public class IpBurstRateLimitServiceTests
     private readonly MemoryCache _cache = new(new MemoryCacheOptions());
 
     [Fact]
-    public async Task AvaliarAsync_DeveIgnorar_QuandoTokenAutenticacaoPresente()
+    public async Task AvaliarAsync_DeveIgnorar_QuandoTrafegoConfiavel()
     {
         var service = CreateService();
 
-        var resultado = await service.AvaliarAsync("10.0.0.1", "/api/planos", possuiTokenAutenticacao: true);
+        var resultado = await service.AvaliarAsync("10.0.0.1", "/api/planos", trafegoConfiavel: true);
 
         Assert.True(resultado.Permitido);
         _repository.Verify(

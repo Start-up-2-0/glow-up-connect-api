@@ -5,7 +5,7 @@ public interface IIpBurstRateLimitService
     Task<IpBurstRateLimitResult> AvaliarAsync(
         string ip,
         string path,
-        bool possuiTokenAutenticacao,
+        bool trafegoConfiavel,
         CancellationToken cancellationToken = default);
 }
 

@@ -30,6 +30,8 @@ public class GlowApiWebApplicationFactory : WebApplicationFactory<Program>
                 ["Auth:TokenSalt"] = "glow-dev-token-salt-min-32-chars!!",
                 ["Auth:TokenHeaderName"] = "x-glow-token",
                 ["RateLimit:Enabled"] = "false",
+                ["Captcha:Enabled"] = "false",
+                ["ProxyOrigin:Enabled"] = "false",
                 ["ConnectionStrings:DefaultConnection"] = "Server=localhost;Port=3306;Database=test;User=test;Password=test;",
                 ["Database:Provider"] = "MySQL",
                 ["Mensageria:Habilitado"] = "false"

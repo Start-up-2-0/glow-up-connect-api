@@ -92,6 +92,17 @@ public static class HostedConfigurationValidator
             }
         }
 
+        if (string.IsNullOrWhiteSpace(configuration["GLOW_PROXY_SECRET"]))
+        {
+            faltando.Add("GLOW_PROXY_SECRET");
+        }
+
+        var captchaEnabled = configuration.GetValue($"{CaptchaOptions.SectionName}:Enabled", true);
+        if (captchaEnabled && string.IsNullOrWhiteSpace(configuration[$"{CaptchaOptions.SectionName}:SecretKey"]))
+        {
+            faltando.Add("Captcha__SecretKey");
+        }
+
         if (faltando.Count > 0)
         {
             throw new InvalidOperationException(
