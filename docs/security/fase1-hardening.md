@@ -33,8 +33,8 @@ Rotas isentas: `GET /health`, `/api/webhooks/**`. Demais rotas de app exigem o h
 | Variável | Uso |
 |----------|-----|
 | `Captcha__Enabled` | `true` em staging/production |
-| `Captcha__SecretKey` | Secret server-side reCAPTCHA v3 |
-| `VITE_CAPTCHA_SITE_KEY` | Site key no build do frontend |
+| `Captcha__SecretKey` | Secret server-side reCAPTCHA v2 |
+| `VITE_CAPTCHA_SITE_KEY` | Site key reCAPTCHA v2 Checkbox no build do frontend |
 
 Falha de validação: `400` `CAPTCHA_INVALIDO`.
 

@@ -45,7 +45,7 @@ Guia para configurar homologacao no **mesmo projeto Railway** da producao, com i
 | `Swagger__AccessKey` | Chave para acessar `/swagger` (header `X-Swagger-Key`) |
 | `GLOW_PROXY_SECRET` | Secret compartilhado com o servico do app (header `X-Glow-Proxy-Secret`) |
 | `Captcha__Enabled` | `true` |
-| `Captcha__SecretKey` | Secret reCAPTCHA v3 (server-side) |
+| `Captcha__SecretKey` | Secret reCAPTCHA v2 (server-side; par da Site key) |
 | `MTLS_SERVER_CERT` / `MTLS_SERVER_KEY` / `MTLS_CA_CERT` | (fase mTLS) PEMs multiline — ver `scripts/tls/generate-mtls-certs.sh` |
 | `MTLS_CLIENT_CERT_THUMBPRINT` | (fase mTLS) thumbprint SHA1 do cert do Caddy |
 | `MTLS_MUTUAL_TLS_PORT` | `8443` — porta do listener mTLS (exibida nos logs de startup) |
@@ -117,7 +117,7 @@ $env:MYSQL_CS = "Server=...;Port=...;Database=...;User=...;Password=...;SslMode=
 | Variavel | Valor |
 |----------|--------|
 | `VITE_API_BASE_URL` | `/api` |
-| `VITE_CAPTCHA_SITE_KEY` | Site key reCAPTCHA v3 |
+| `VITE_CAPTCHA_SITE_KEY` | Site key reCAPTCHA v2 Checkbox |
 | `GLOW_PROXY_SECRET` | Mesmo valor da API |
 | `API_INTERNAL_HOST` | Host privado da API (`<servico>.railway.internal`) |
 | `API_INTERNAL_URL` | (opcional) `https://<servico-api>.railway.internal` — **sem porta na URL** |
