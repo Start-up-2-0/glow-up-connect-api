@@ -57,6 +57,16 @@ public static class MtlsOptionsResolver
             options.PublicPort = railwayPort;
         }
 
+        var mutualTlsPort = FirstNonEmpty(
+            configuration["MTLS_MUTUAL_TLS_PORT"],
+            configuration[$"{MtlsOptions.SectionName}:MutualTlsPort"],
+            configuration["Mtls__MutualTlsPort"]);
+
+        if (int.TryParse(mutualTlsPort, out var parsedMutualTlsPort) && parsedMutualTlsPort > 0)
+        {
+            options.MutualTlsPort = parsedMutualTlsPort;
+        }
+
         return options;
     }
 

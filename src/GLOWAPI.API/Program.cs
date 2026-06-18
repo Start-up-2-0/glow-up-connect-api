@@ -93,6 +93,21 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+var mtlsStartup = MtlsOptionsResolver.Resolver(app.Configuration);
+if (mtlsStartup.Enabled)
+{
+    app.Logger.LogInformation(
+        "GlowAPI mTLS ativo: HTTP publico na porta {PublicPort}, mTLS na porta {MutualTlsPort}",
+        mtlsStartup.PublicPort,
+        mtlsStartup.MutualTlsPort);
+}
+else
+{
+    app.Logger.LogWarning(
+        "GlowAPI mTLS inativo: apenas HTTP na porta {PublicPort}",
+        mtlsStartup.PublicPort);
+}
+
 await app.ApplyPendingMigrationsAsync();
 
 app.UseMiddleware<ExceptionMiddleware>();

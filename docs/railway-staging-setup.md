@@ -48,6 +48,8 @@ Guia para configurar homologacao no **mesmo projeto Railway** da producao, com i
 | `Captcha__SecretKey` | Secret reCAPTCHA v3 (server-side) |
 | `MTLS_SERVER_CERT` / `MTLS_SERVER_KEY` / `MTLS_CA_CERT` | (fase mTLS) PEMs multiline — ver `scripts/tls/generate-mtls-certs.sh` |
 | `MTLS_CLIENT_CERT_THUMBPRINT` | (fase mTLS) thumbprint SHA1 do cert do Caddy |
+| `MTLS_MUTUAL_TLS_PORT` | `8443` — porta do listener mTLS (exibida nos logs de startup) |
+| `MTLS_REQUIRED` | `true` — recusa subir sem certificados servidor validos |
 
 Ver tambem [docs/security/fase1-hardening.md](./security/fase1-hardening.md). as URLs de retorno do Checkout Pro sao derivadas de `Auth__FrontendBaseUrl` (`/assinatura/sucesso`, `/pendente`, `/falha`) e o webhook usa `RAILWAY_PUBLIC_DOMAIN` ou `MercadoPago__PublicBaseUrl`.
 
@@ -118,10 +120,13 @@ $env:MYSQL_CS = "Server=...;Port=...;Database=...;User=...;Password=...;SslMode=
 | `VITE_CAPTCHA_SITE_KEY` | Site key reCAPTCHA v3 |
 | `GLOW_PROXY_SECRET` | Mesmo valor da API |
 | `API_INTERNAL_HOST` | Host privado da API (`<servico>.railway.internal`) |
-| `API_INTERNAL_PORT` | `8080` (HTTP) ou omitir quando usar mTLS |
-| `API_INTERNAL_URL` | (mTLS) `https://<servico-api>.railway.internal:8443` |
-| `MTLS_CLIENT_CERT` / `MTLS_CLIENT_KEY` / `MTLS_CA_CERT` | (mTLS) PEMs do cliente Caddy |
-| `MTLS_SERVER_NAME` | (mTLS) CN do certificado do servidor — padrao `glowapi.internal` |
+| `API_INTERNAL_URL` | (opcional) `https://<servico-api>.railway.internal` — **sem porta na URL** |
+| `MTLS_UPSTREAM_PORT` | `8443` — **deve ser igual** a `MTLS_MUTUAL_TLS_PORT` da API |
+| `MTLS_REQUIRED` | `true` — recusa subir em modo HTTP sem certificados cliente |
+| `MTLS_CLIENT_CERT` / `MTLS_CLIENT_KEY` / `MTLS_CA_CERT` | PEMs do cliente Caddy |
+| `MTLS_SERVER_NAME` | `glowapi.internal` (SNI; certificado do servidor deve ter SAN) |
+
+> **Portas:** a API escuta HTTP em `$PORT` (health/webhooks) e mTLS em `MTLS_MUTUAL_TLS_PORT` (padrao 8443). O Caddy usa `MTLS_UPSTREAM_PORT` com o **mesmo valor**. Nao coloque `:8443` em `API_INTERNAL_URL`; use a variavel de porta. Logs no deploy confirmam as portas.
 
 O Caddy faz proxy `/api/*` → API e injeta `X-Glow-Proxy-Secret`. Webhooks externos continuam na URL publica da API.
 
@@ -129,7 +134,7 @@ O Caddy faz proxy `/api/*` → API e injeta `X-Glow-Proxy-Secret`. Webhooks exte
 
 1. Deploy BFF + `GLOW_PROXY_SECRET` + `VITE_API_BASE_URL=/api`
 2. Ativar CAPTCHA (`Captcha__*` + `VITE_CAPTCHA_SITE_KEY`)
-3. Gerar PKI (`scripts/tls/generate-mtls-certs.sh`) e configurar mTLS na rede interna
+3. Gerar PKI (`scripts/tls/generate-mtls-certs.sh`), configurar `MTLS_*` e `MTLS_REQUIRED=true` nos dois servicos
 4. Limpar bloqueios antigos em `IpRateLimitBlocks` se necessario
 
 ## 9. Dominio publico

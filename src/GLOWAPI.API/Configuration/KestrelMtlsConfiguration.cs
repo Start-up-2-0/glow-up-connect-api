@@ -34,29 +34,34 @@ public static class KestrelMtlsConfiguration
         builder.WebHost.ConfigureKestrel(options =>
         {
             options.ListenAnyIP(mtls.PublicPort);
-
             options.ListenAnyIP(mtls.MutualTlsPort, listenOptions =>
+                ConfigurarHttpsMtls(listenOptions, serverCert, thumbprints));
+        });
+    }
+
+    private static void ConfigurarHttpsMtls(
+        Microsoft.AspNetCore.Server.Kestrel.Core.ListenOptions listenOptions,
+        X509Certificate2 serverCert,
+        HashSet<string> thumbprints)
+    {
+        listenOptions.UseHttps(httpsOptions =>
+        {
+            httpsOptions.ServerCertificate = serverCert;
+            httpsOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
+            httpsOptions.ClientCertificateValidation = (certificate, _, _) =>
             {
-                listenOptions.UseHttps(httpsOptions =>
+                if (certificate is null)
                 {
-                    httpsOptions.ServerCertificate = serverCert;
-                    httpsOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
-                    httpsOptions.ClientCertificateValidation = (certificate, _, _) =>
-                    {
-                        if (certificate is null)
-                        {
-                            return false;
-                        }
+                    return false;
+                }
 
-                        if (thumbprints.Count == 0)
-                        {
-                            return true;
-                        }
+                if (thumbprints.Count == 0)
+                {
+                    return true;
+                }
 
-                        return thumbprints.Contains(certificate.Thumbprint);
-                    };
-                });
-            });
+                return thumbprints.Contains(certificate.Thumbprint);
+            };
         });
     }
 }

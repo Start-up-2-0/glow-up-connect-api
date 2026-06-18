@@ -50,11 +50,13 @@ Falha de validação: `400` `CAPTCHA_INVALIDO`.
 |----------------|-----|
 | `MTLS_CLIENT_CERT` / `MTLS_CLIENT_KEY` | Client cert do Caddy |
 | `MTLS_CA_CERT` | CA para validar a API |
-| `API_INTERNAL_URL` | Ex.: `https://glowapi.railway.internal:8443` |
+| `API_INTERNAL_URL` | Host privado sem porta na URL; use `MTLS_UPSTREAM_PORT` |
+| `MTLS_UPSTREAM_PORT` | Deve ser igual a `MTLS_MUTUAL_TLS_PORT` da API (padrao `8443`) |
+| `MTLS_REQUIRED` | `true` no App e na API |
 
 Gerar PKI: [`scripts/tls/generate-mtls-certs.sh`](../scripts/tls/generate-mtls-certs.sh).
 
-Porta pública (`$PORT`): apenas `/health` e webhooks. Demais rotas: porta `8443` com mTLS obrigatório.
+Porta publica (`$PORT`): health e webhooks (HTTP). BFF → API via mTLS em `MTLS_MUTUAL_TLS_PORT` (padrao 8443). Logs de startup exibem as portas ativas.
 
 ## CORS
 
