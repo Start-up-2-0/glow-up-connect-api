@@ -18,9 +18,10 @@ public class IpBurstRateLimitIntegrationTests : IClassFixture<RateLimitWebApplic
     }
 
     [Fact]
-    public async Task QuartaRequisicaoEmBurst_DeveRetornar429EIpBlocked24H()
+    public async Task BurstAcimaDoLimite_DeveRetornar429SoftSemBloqueioPermanente()
     {
-        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        using var factory = new RateLimitWebApplicationFactory();
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false
         });
@@ -31,15 +32,28 @@ public class IpBurstRateLimitIntegrationTests : IClassFixture<RateLimitWebApplic
             Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
         }
 
-        var blocked = await client.GetAsync("/api/planos");
-        Assert.Equal((HttpStatusCode)429, blocked.StatusCode);
+        var throttled = await client.GetAsync("/api/planos");
+        Assert.Equal((HttpStatusCode)429, throttled.StatusCode);
 
-        var body = await blocked.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        var body = await throttled.Content.ReadFromJsonAsync<ApiErrorResponse>();
         Assert.NotNull(body);
-        Assert.Equal("IP_BLOCKED_24H", body!.Code);
+        Assert.Equal("RATE_LIMIT_BURST", body!.Code);
+        Assert.True(throttled.Headers.RetryAfter is not null);
+    }
 
-        var stillBlocked = await client.GetAsync("/api/planos");
-        Assert.Equal((HttpStatusCode)429, stillBlocked.StatusCode);
+    [Fact]
+    public async Task RequisicaoAutenticada_NaoDeveContarNoBurstGlobal()
+    {
+        using var factory = new RateLimitWebApplicationFactory();
+        var client = factory.CreateClient();
+
+        for (var i = 0; i < 10; i++)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "/api/planos");
+            request.Headers.Add("x-glow-token", "token-presente-mas-invalido-para-rate-limit");
+            var response = await client.SendAsync(request);
+            Assert.NotEqual((HttpStatusCode)429, response.StatusCode);
+        }
     }
 
     [Fact]
@@ -69,7 +83,14 @@ public class RateLimitWebApplicationFactory : GlowApiWebApplicationFactory
                 ["RateLimit:Enabled"] = "true",
                 ["RateLimit:BurstMaxRequests"] = "3",
                 ["RateLimit:BurstWindowSeconds"] = "30",
-                ["RateLimit:BlockDurationHours"] = "24"
+                ["RateLimit:BurstPenaltySeconds"] = "1",
+                ["RateLimit:HardBlockMultiplier"] = "5",
+                ["RateLimit:BlockDurationHours"] = "24",
+                ["RateLimit:ExemptAuthenticatedRequests"] = "true",
+                ["RateLimit:SensitiveMaxRequests"] = "2",
+                ["RateLimit:SensitiveWindowSeconds"] = "60",
+                ["RateLimit:SensitivePenaltySeconds"] = "1",
+                ["RateLimit:SensitiveHardBlockMultiplier"] = "4"
             });
         });
     }

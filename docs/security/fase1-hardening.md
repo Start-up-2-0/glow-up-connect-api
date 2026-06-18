@@ -7,15 +7,20 @@ Configurações introduzidas no hardening inicial da GLOWAPI.
 | Variável | Padrão | Descrição |
 |----------|--------|-----------|
 | `RateLimit__Enabled` | `true` | Liga/desliga o middleware |
-| `RateLimit__BurstMaxRequests` | `3` | Requisições permitidas na janela |
-| `RateLimit__BurstWindowSeconds` | `5` | Janela deslizante em segundos |
-| `RateLimit__BlockDurationHours` | `24` | Duração do bloqueio por IP |
+| `RateLimit__BurstMaxRequests` | `80` | Requisições anônimas permitidas na janela geral |
+| `RateLimit__BurstWindowSeconds` | `60` | Janela deslizante em segundos |
+| `RateLimit__BurstPenaltySeconds` | `30` | Retry-After em throttling suave |
+| `RateLimit__HardBlockMultiplier` | `5` | Bloqueio 24h só após `BurstMaxRequests × multiplicador` |
+| `RateLimit__BlockDurationHours` | `24` | Duração do bloqueio duro por IP |
+| `RateLimit__ExemptAuthenticatedRequests` | `true` | Requisições com `x-glow-token` não contam no burst global |
+| `RateLimit__SensitiveMaxRequests` | `15` | Limite em login/cadastro/recuperação de senha |
+| `RateLimit__SensitiveWindowSeconds` | `900` | Janela das rotas sensíveis (15 min) |
 
-**Comportamento:** a partir da 4ª requisição na janela, o IP é bloqueado por 24h (`429`, código `IP_BLOCKED_24H`).
+**Comportamento:** SPA autenticada não é penalizada no burst global. Tráfego anônimo acima do limite recebe `429` com código `RATE_LIMIT_BURST` e `Retry-After` (sem bloqueio de 24h imediato). Bloqueio duro (`IP_BLOCKED_24H`) ocorre apenas em abuso extremo ou repetição massiva em rotas sensíveis.
 
 **Exclusões:** `OPTIONS`, `GET /health`.
 
-**Suporte:** se um cliente legítimo for bloqueado, verificar tabela `IpRateLimitBlocks` e aguardar expiração ou remover o registro manualmente em emergência.
+**Suporte:** se um cliente legítimo for bloqueado com `IP_BLOCKED_24H`, remover o registro em `IpRateLimitBlocks` ou aguardar `BlockedUntil`.
 
 ## CORS
 
