@@ -986,6 +986,35 @@ namespace GLOWAPI.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.IpRateLimitBlock", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("BlockedUntil")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Ip")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Ip", "BlockedUntil");
+
+                    b.ToTable("IpRateLimitBlocks", (string)null);
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.LancamentoCaixa", b =>
                 {
                     b.Property<int>("Id")

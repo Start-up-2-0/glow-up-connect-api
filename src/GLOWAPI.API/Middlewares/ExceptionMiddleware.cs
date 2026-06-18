@@ -90,6 +90,7 @@ public class ExceptionMiddleware
                     or AgendaPeriodoConsultaInvalidoException
                     or EnderecoOperacaoInvalidoException
                     or LocalizacaoClienteInvalidaException => HttpStatusCode.BadRequest,
+                WebhookWhatsAppNaoAutorizadoException => HttpStatusCode.Unauthorized,
                 HorarioIndisponivelException => HttpStatusCode.Conflict,
                 UsuarioSemPermissaoAssinaturaException
                     or UsuarioSemPermissaoNegocioException

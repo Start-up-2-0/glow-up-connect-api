@@ -8,4 +8,5 @@ public interface ISecurityAuditLogger
     Task LogoutAsync(int usuarioId, int sessionId, string? ip, string? userAgent, CancellationToken cancellationToken = default);
     Task TokenRefreshedAsync(int usuarioId, int sessionId, string? ip, string? userAgent, CancellationToken cancellationToken = default);
     Task AccessDeniedAsync(string reason, string? ip, string? userAgent, int? usuarioId = null, CancellationToken cancellationToken = default);
+    Task IpBurstBlockedAsync(string ip, string? userAgent, CancellationToken cancellationToken = default);
 }

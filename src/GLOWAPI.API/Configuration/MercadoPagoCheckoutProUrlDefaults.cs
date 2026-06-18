@@ -27,7 +27,7 @@ public static class MercadoPagoCheckoutProUrlDefaults
         var apiBaseUrl = ResolverApiBaseUrl(configuration);
         if (!string.IsNullOrWhiteSpace(apiBaseUrl))
         {
-            options.NotificationUrl = $"{apiBaseUrl}/api/webhooks/pagamentos/mercadopago";
+            options.NotificationUrl = $"{apiBaseUrl}/api/webhooks/pagamentos/mercado-pago";
         }
     }
 

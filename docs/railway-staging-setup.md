@@ -40,8 +40,12 @@ Guia para configurar homologacao no **mesmo projeto Railway** da producao, com i
 | `MercadoPago__UsarCheckoutPro` | `true` |
 | `MercadoPago__AccessToken` | Token `TEST-...` (sandbox) ou producao |
 | `MercadoPago__PayerEmailOverride` | (opcional sandbox) ex.: `test_user_123` |
+| `MercadoPago__WebhookSecret` | Secret do painel Mercado Pago (webhooks) |
+| `Cors__AllowedOrigins__0` | URL do frontend staging |
+| `Swagger__AccessKey` | Chave para acessar `/swagger` (header `X-Swagger-Key`) |
+| `RateLimit__BurstWindowSeconds` | (opcional) padrao `5` |
 
-Com `MercadoPago__UsarCheckoutPro=true`, as URLs de retorno do Checkout Pro sao derivadas de `Auth__FrontendBaseUrl` (`/assinatura/sucesso`, `/pendente`, `/falha`) e o webhook usa `RAILWAY_PUBLIC_DOMAIN` ou `MercadoPago__PublicBaseUrl`.
+Ver tambem [docs/security/fase1-hardening.md](./security/fase1-hardening.md). as URLs de retorno do Checkout Pro sao derivadas de `Auth__FrontendBaseUrl` (`/assinatura/sucesso`, `/pendente`, `/falha`) e o webhook usa `RAILWAY_PUBLIC_DOMAIN` ou `MercadoPago__PublicBaseUrl`.
 
 > O remetente (`Mensageria__Email__From`) deve usar um dominio verificado em [resend.com/domains](https://resend.com/domains). Nao commite token nem `From` no `appsettings.json` do repositorio.
 

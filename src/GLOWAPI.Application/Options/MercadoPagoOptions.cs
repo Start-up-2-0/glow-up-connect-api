@@ -10,6 +10,7 @@ public class MercadoPagoOptions
     public bool UsarCheckoutPro { get; set; }
 
     public string AccessToken { get; set; } = string.Empty;
+    public string WebhookSecret { get; set; } = string.Empty;
     public string ApiBaseUrl { get; set; } = "https://api.mercadopago.com";
     public string NotificationUrl { get; set; } = string.Empty;
     public string SuccessUrl { get; set; } = string.Empty;

@@ -25,3 +25,54 @@ jobs:
 
       - name: Test
         run: dotnet test GLOWAPI.sln --no-build -c Release --verbosity normal
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore GLOWAPI.sln
+
+      - name: Vulnerable packages
+        run: |
+          dotnet list GLOWAPI.sln package --vulnerable --include-transitive | tee vulnerable.txt
+          if grep -E "has the following vulnerable packages" vulnerable.txt; then
+            grep -E ">\s" vulnerable.txt | grep -i "high\|critical" && exit 1 || true
+          fi
+
+      - name: Trivy Dockerfile
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: Dockerfile
+          severity: HIGH,CRITICAL
+          exit-code: 1
+
+  codeql:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+      - uses: github/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - run: dotnet build GLOWAPI.sln -c Release
+      - uses: github/codeql-action/analyze@v3

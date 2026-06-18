@@ -8,7 +8,6 @@ public class MensageriaWhatsAppOptions
     public string ApiKey { get; set; } = string.Empty;
     public string InstanceName { get; set; } = string.Empty;
     public string NumeroPlataforma { get; set; } = string.Empty;
-    public string WebhookApiKey { get; set; } = string.Empty;
     public bool Habilitado { get; set; }
 
     /// <summary>

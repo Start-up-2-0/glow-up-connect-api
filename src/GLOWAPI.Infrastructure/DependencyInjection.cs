@@ -74,8 +74,12 @@ public static class DependencyInjection
         services.AddScoped<IMetaProfissionalRepository, MetaProfissionalRepository>();
         services.AddScoped<ISessaoAutenticacaoRepository, SessaoAutenticacaoRepository>();
         services.AddScoped<ILogAutenticacaoRepository, LogAutenticacaoRepository>();
+        services.AddScoped<IIpRateLimitBlockRepository, IpRateLimitBlockRepository>();
+        services.AddScoped<IMercadoPagoWebhookSignatureValidator, MercadoPagoWebhookSignatureValidator>();
         services.AddScoped<IGlowTokenService, GlowTokenService>();
         services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
+        services.AddScoped<IIpBurstRateLimitService, IpBurstRateLimitService>();
+        services.AddMemoryCache();
         services.AddScoped<IMensagemNotificacaoRepository, MensagemNotificacaoRepository>();
 
         services.Configure<MercadoPagoOptions>(configuration.GetSection(MercadoPagoOptions.SectionName));

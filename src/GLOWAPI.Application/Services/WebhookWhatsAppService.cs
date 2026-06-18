@@ -3,6 +3,8 @@ using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Mensageria;
 using GLOWAPI.Application.Options;
+using GLOWAPI.Domain.Exceptions.Mensageria;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -14,15 +16,18 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
 
     private readonly IConfirmacaoWhatsAppInboundService _confirmacaoWhatsAppInboundService;
     private readonly MensageriaWhatsAppOptions _options;
+    private readonly IHostEnvironment _environment;
     private readonly ILogger<WebhookWhatsAppService> _logger;
 
     public WebhookWhatsAppService(
         IConfirmacaoWhatsAppInboundService confirmacaoWhatsAppInboundService,
         IOptions<MensageriaWhatsAppOptions> options,
+        IHostEnvironment environment,
         ILogger<WebhookWhatsAppService> logger)
     {
         _confirmacaoWhatsAppInboundService = confirmacaoWhatsAppInboundService;
         _options = options.Value;
+        _environment = environment;
         _logger = logger;
     }
 
@@ -30,6 +35,8 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         JsonElement payload,
         CancellationToken cancellationToken = default)
     {
+        GarantirAutenticacaoEvolution(payload);
+
         var evento = EvolutionWebhookParser.ExtrairEvento(payload) ?? "(nao informado)";
         var instancia = EvolutionWebhookParser.ExtrairInstancia(payload) ?? "(nao informado)";
 
@@ -67,15 +74,6 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             return;
         }
 
-        if (!ValidarApiKey(payload))
-        {
-            _logger.LogWarning(
-                "Webhook WhatsApp messages-upsert ignorado: apikey invalida. Evento={Evento}, Instancia={Instancia}",
-                evento,
-                instancia);
-            return;
-        }
-
         var contextoConversa = new ConfirmacaoWhatsAppInboundContexto
         {
             RemoteJidConversa = EvolutionWebhookParser.ExtrairRemoteJidConversa(payload),
@@ -93,16 +91,12 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         JsonElement payload,
         CancellationToken cancellationToken = default)
     {
+        GarantirAutenticacaoEvolution(payload);
+
         var evento = EvolutionWebhookParser.ExtrairEvento(payload) ?? "(nao informado)";
         var instancia = EvolutionWebhookParser.ExtrairInstancia(payload) ?? "(nao informado)";
 
         LogPayloadBrutoEvolution("send-message", evento, instancia, payload);
-
-        if (!ValidarApiKey(payload))
-        {
-            _logger.LogWarning("Webhook WhatsApp send-message ignorado: apikey invalida.");
-            return Task.CompletedTask;
-        }
 
         var telefone = EvolutionWebhookParser.ExtrairTelefoneRemetente(payload);
         var textoMensagem = EvolutionWebhookParser.ExtrairTextoMensagem(payload);
@@ -135,21 +129,35 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             raw);
     }
 
-    private bool ValidarApiKey(JsonElement payload)
+    private void GarantirAutenticacaoEvolution(JsonElement payload)
     {
-        if (string.IsNullOrWhiteSpace(_options.WebhookApiKey))
+        if (!DeveExigirApiKeyWebhook())
         {
-            return true;
+            if (string.IsNullOrWhiteSpace(_options.ApiKey))
+            {
+                return;
+            }
+        }
+        else if (string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            throw new WebhookWhatsAppNaoAutorizadoException("ApiKey do WhatsApp nao configurada.");
         }
 
-        if (payload.TryGetProperty("apikey", out var apikeyPayload)
-            && string.Equals(apikeyPayload.GetString(), _options.WebhookApiKey, StringComparison.Ordinal))
+        if (!payload.TryGetProperty("apikey", out var apikeyProp)
+            || !string.Equals(apikeyProp.GetString(), _options.ApiKey, StringComparison.Ordinal))
         {
-            return true;
+            throw new WebhookWhatsAppNaoAutorizadoException("apikey do webhook invalida.");
         }
 
-        return string.Equals(_options.ApiKey, _options.WebhookApiKey, StringComparison.Ordinal)
-            && payload.TryGetProperty("apikey", out var apikey)
-            && string.Equals(apikey.GetString(), _options.ApiKey, StringComparison.Ordinal);
+        var instancia = EvolutionWebhookParser.ExtrairInstancia(payload);
+        if (!string.IsNullOrWhiteSpace(_options.InstanceName)
+            && !string.IsNullOrWhiteSpace(instancia)
+            && !string.Equals(instancia, _options.InstanceName, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new WebhookWhatsAppNaoAutorizadoException("instancia do webhook invalida.");
+        }
     }
+
+    private bool DeveExigirApiKeyWebhook() =>
+        !_environment.IsDevelopment() && !_environment.IsEnvironment("Testing");
 }

@@ -1,9 +1,11 @@
 using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Pagamentos;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 
 namespace GLOWAPI.API.Controllers;
@@ -13,10 +15,20 @@ namespace GLOWAPI.API.Controllers;
 public class WebhooksPagamentoController : ControllerBase
 {
     private readonly IWebhookPagamentoService _webhookPagamentoService;
+    private readonly IMercadoPagoWebhookSignatureValidator _signatureValidator;
+    private readonly MercadoPagoOptions _mercadoPagoOptions;
+    private readonly IWebHostEnvironment _environment;
 
-    public WebhooksPagamentoController(IWebhookPagamentoService webhookPagamentoService)
+    public WebhooksPagamentoController(
+        IWebhookPagamentoService webhookPagamentoService,
+        IMercadoPagoWebhookSignatureValidator signatureValidator,
+        IOptions<MercadoPagoOptions> mercadoPagoOptions,
+        IWebHostEnvironment environment)
     {
         _webhookPagamentoService = webhookPagamentoService;
+        _signatureValidator = signatureValidator;
+        _mercadoPagoOptions = mercadoPagoOptions.Value;
+        _environment = environment;
     }
 
     [AllowAnonymous]
@@ -35,6 +47,7 @@ public class WebhooksPagamentoController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("mercado-pago")]
+    [HttpPost("mercadopago")]
     public async Task<IActionResult> RegistrarMercadoPago(
         [FromBody] JsonElement payload,
         [FromQuery(Name = "id")] string? id,
@@ -42,6 +55,20 @@ public class WebhooksPagamentoController : ControllerBase
         [FromQuery(Name = "type")] string? type,
         CancellationToken cancellationToken)
     {
+        var rawPayload = payload.GetRawText();
+
+        if (DeveValidarAssinaturaMercadoPago()
+            && !_signatureValidator.Validar(
+                Request.Headers["x-signature"].FirstOrDefault(),
+                Request.Headers["x-request-id"].FirstOrDefault(),
+                rawPayload,
+                out var motivoFalha))
+        {
+            return Unauthorized(ApiErrorResponse.From(
+                "Webhook do Mercado Pago nao autorizado.",
+                motivoFalha ?? "WEBHOOK_SIGNATURE_INVALID"));
+        }
+
         var eventId = ExtrairString(payload, "id")
             ?? ExtrairString(payload, "data.id")
             ?? id
@@ -57,7 +84,7 @@ public class WebhooksPagamentoController : ControllerBase
             Gateway = GatewayPagamento.MercadoPago,
             EventId = eventId,
             EventType = eventType,
-            Payload = payload.GetRawText()
+            Payload = rawPayload
         }, cancellationToken);
 
         return Ok(ApiSuccessResponse<WebhookPagamentoResponseDto>.From(
@@ -66,6 +93,11 @@ public class WebhooksPagamentoController : ControllerBase
                 : "Webhook do Mercado Pago registrado com sucesso.",
             webhook));
     }
+
+    private bool DeveValidarAssinaturaMercadoPago() =>
+        !string.IsNullOrWhiteSpace(_mercadoPagoOptions.WebhookSecret)
+        || _environment.IsStaging()
+        || _environment.IsProduction();
 
     private static string? ExtrairString(JsonElement root, string path)
     {

@@ -13,6 +13,7 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<IUsuarioService, UsuarioService>();
+        services.AddScoped<IPrivacidadeTitularService, PrivacidadeTitularService>();
         services.AddScoped<IConfirmacaoEmailService, ConfirmacaoEmailService>();
         services.AddScoped<IConfirmacaoWhatsAppService, ConfirmacaoWhatsAppService>();
         services.AddScoped<IConfirmacaoWhatsAppEstabelecimentoService, ConfirmacaoWhatsAppEstabelecimentoService>();

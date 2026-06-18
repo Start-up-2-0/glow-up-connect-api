@@ -35,13 +35,20 @@ builder.Services.Configure<AssinaturaCobrancaOptions>(
     builder.Configuration.GetSection(AssinaturaCobrancaOptions.SectionName));
 builder.Services.Configure<AssinaturaCobrancaWorkerOptions>(
     builder.Configuration.GetSection(AssinaturaCobrancaWorkerOptions.SectionName));
+builder.Services.Configure<CorsOptions>(builder.Configuration.GetSection(CorsOptions.SectionName));
+builder.Services.Configure<RateLimitOptions>(builder.Configuration.GetSection(RateLimitOptions.SectionName));
+builder.Services.Configure<SwaggerOptions>(builder.Configuration.GetSection(SwaggerOptions.SectionName));
+var corsOrigins = builder.Configuration.GetSection(CorsOptions.SectionName).Get<CorsOptions>()?.AllowedOrigins
+    ?? CorsOptions.DefaultOrigins;
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(corsOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
@@ -84,22 +91,31 @@ var app = builder.Build();
 
 await app.ApplyPendingMigrationsAsync();
 
-if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "GLOWAPI v1"));
-}
-
 app.UseMiddleware<ExceptionMiddleware>();
+app.UseMiddleware<IpBurstRateLimitMiddleware>();
 
-if (app.Environment.IsDevelopment())
+if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
+    app.UseHsts();
 }
 
 app.UseRouting();
 
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseCors("Frontend");
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "GLOWAPI v1"));
+}
+else if (app.Environment.IsStaging())
+{
+    app.UseMiddleware<SwaggerAccessMiddleware>();
+    app.UseSwagger();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "GLOWAPI v1"));
+}
 
 app.UseMiddleware<GlowTokenAuthenticationMiddleware>();
 app.UseMiddleware<EmailConfirmationAccessMiddleware>();

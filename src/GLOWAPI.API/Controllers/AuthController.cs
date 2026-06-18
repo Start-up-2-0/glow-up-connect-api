@@ -1,3 +1,4 @@
+using GLOWAPI.API.Helpers;
 using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Auth;
 using GLOWAPI.Application.Interfaces.Services;
@@ -17,17 +18,20 @@ public class AuthController : ControllerBase
     private readonly IConfirmacaoEmailService _confirmacaoEmailService;
     private readonly IConfirmacaoWhatsAppService _confirmacaoWhatsAppService;
     private readonly AuthOptions _authOptions;
+    private readonly IWebHostEnvironment _environment;
 
     public AuthController(
         IAuthService authService,
         IConfirmacaoEmailService confirmacaoEmailService,
         IConfirmacaoWhatsAppService confirmacaoWhatsAppService,
-        IOptions<AuthOptions> authOptions)
+        IOptions<AuthOptions> authOptions,
+        IWebHostEnvironment environment)
     {
         _authService = authService;
         _confirmacaoEmailService = confirmacaoEmailService;
         _confirmacaoWhatsAppService = confirmacaoWhatsAppService;
         _authOptions = authOptions.Value;
+        _environment = environment;
     }
 
     [AllowAnonymous]
@@ -35,9 +39,17 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request, CancellationToken cancellationToken)
     {
         var result = await _authService.LoginAsync(request, BuildSessionContext(), cancellationToken);
+        AuthRefreshCookieHelper.SetRefreshCookie(
+            Response,
+            result.RefreshToken,
+            result.RefreshExpiresAt,
+            _environment);
+
+        var dto = LoginResponseDto.From(result);
+        dto.RefreshToken = string.Empty;
         return Ok(ApiSuccessResponse<LoginResponseDto>.From(
             "Login realizado com sucesso",
-            LoginResponseDto.From(result)));
+            dto));
     }
 
     [HttpPost("logout")]
@@ -50,6 +62,7 @@ public class AuthController : ControllerBase
         }
 
         await _authService.LogoutAsync(token, cancellationToken);
+        AuthRefreshCookieHelper.ClearRefreshCookie(Response);
         return Ok(ApiSuccessResponse.From("Logout realizado com sucesso"));
     }
 
@@ -57,10 +70,28 @@ public class AuthController : ControllerBase
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto request, CancellationToken cancellationToken)
     {
-        var result = await _authService.RefreshAsync(request, BuildSessionContext(), cancellationToken);
+        var refreshToken = AuthRefreshCookieHelper.ObterRefreshToken(Request, request.RefreshToken);
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return Unauthorized(ApiErrorResponse.From("Refresh token ausente.", "INVALID_TOKEN"));
+        }
+
+        var result = await _authService.RefreshAsync(
+            new RefreshTokenRequestDto { RefreshToken = refreshToken },
+            BuildSessionContext(),
+            cancellationToken);
+
+        AuthRefreshCookieHelper.SetRefreshCookie(
+            Response,
+            result.RefreshToken,
+            result.RefreshExpiresAt,
+            _environment);
+
+        var dto = RefreshTokenResponseDto.From(result);
+        dto.RefreshToken = string.Empty;
         return Ok(ApiSuccessResponse<RefreshTokenResponseDto>.From(
             "Token renovado com sucesso",
-            RefreshTokenResponseDto.From(result)));
+            dto));
     }
 
     [AllowAnonymous]

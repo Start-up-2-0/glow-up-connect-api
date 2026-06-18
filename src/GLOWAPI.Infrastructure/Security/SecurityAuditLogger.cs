@@ -34,6 +34,9 @@ public class SecurityAuditLogger : ISecurityAuditLogger
     public Task AccessDeniedAsync(string reason, string? ip, string? userAgent, int? usuarioId = null, CancellationToken cancellationToken = default) =>
         RegistrarAsync("ACCESS_DENIED", string.Empty, ip, userAgent, usuarioId, reason, cancellationToken);
 
+    public Task IpBurstBlockedAsync(string ip, string? userAgent, CancellationToken cancellationToken = default) =>
+        RegistrarAsync("IP_BURST_BLOCKED", string.Empty, ip, userAgent, null, "burst_excedido", cancellationToken);
+
     private async Task RegistrarAsync(
         string evento,
         string email,
