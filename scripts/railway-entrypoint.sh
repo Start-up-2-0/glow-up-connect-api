@@ -18,8 +18,8 @@ write_pem_if_set MTLS_SERVER_KEY "$CERT_DIR/server.key"
 write_pem_if_set MTLS_CA_CERT "$CERT_DIR/ca.pem"
 
 if [ -f "$CERT_DIR/server.pem" ] && [ -f "$CERT_DIR/server.key" ]; then
-	export MTLS_SERVER_CERT_PATH="$CERT_DIR/server.pem"
-	export MTLS_SERVER_KEY_PATH="$CERT_DIR/server.key"
+	export Mtls__ServerCertificatePath="$CERT_DIR/server.pem"
+	export Mtls__ServerCertificateKeyPath="$CERT_DIR/server.key"
 	export Mtls__Enabled="true"
 fi
 

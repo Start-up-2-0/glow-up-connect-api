@@ -8,7 +8,7 @@ public static class KestrelMtlsConfiguration
 {
     public static void ConfigurarKestrel(WebApplicationBuilder builder)
     {
-        var mtls = builder.Configuration.GetSection(MtlsOptions.SectionName).Get<MtlsOptions>() ?? new MtlsOptions();
+        var mtls = MtlsOptionsResolver.Resolver(builder.Configuration);
         if (!mtls.Enabled)
         {
             return;

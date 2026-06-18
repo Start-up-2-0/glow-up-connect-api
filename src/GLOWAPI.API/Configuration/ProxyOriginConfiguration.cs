@@ -1,5 +1,4 @@
 using GLOWAPI.Application.Options;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace GLOWAPI.API.Configuration;
@@ -30,39 +29,13 @@ public static class ProxyOriginConfiguration
 
         builder.Services.Configure<MtlsOptions>(options =>
         {
-            builder.Configuration.GetSection(MtlsOptions.SectionName).Bind(options);
-
-            var thumbprint = builder.Configuration["MTLS_CLIENT_CERT_THUMBPRINT"];
-            if (!string.IsNullOrWhiteSpace(thumbprint))
-            {
-                options.AllowedClientThumbprints = [thumbprint];
-            }
-
-            var certPath = builder.Configuration["MTLS_SERVER_CERT_PATH"];
-            var keyPath = builder.Configuration["MTLS_SERVER_KEY_PATH"];
-            if (!string.IsNullOrWhiteSpace(certPath))
-            {
-                options.ServerCertificatePath = certPath;
-            }
-
-            if (!string.IsNullOrWhiteSpace(keyPath))
-            {
-                options.ServerCertificateKeyPath = keyPath;
-            }
-
-            if (!string.IsNullOrWhiteSpace(options.ServerCertificatePath)
-                && !string.IsNullOrWhiteSpace(options.ServerCertificateKeyPath)
-                && File.Exists(options.ServerCertificatePath)
-                && File.Exists(options.ServerCertificateKeyPath))
-            {
-                options.Enabled = true;
-            }
-
-            var portValue = builder.Configuration["PORT"];
-            if (int.TryParse(portValue, out var railwayPort) && railwayPort > 0)
-            {
-                options.PublicPort = railwayPort;
-            }
+            var resolved = MtlsOptionsResolver.Resolver(builder.Configuration);
+            options.Enabled = resolved.Enabled;
+            options.PublicPort = resolved.PublicPort;
+            options.MutualTlsPort = resolved.MutualTlsPort;
+            options.ServerCertificatePath = resolved.ServerCertificatePath;
+            options.ServerCertificateKeyPath = resolved.ServerCertificateKeyPath;
+            options.AllowedClientThumbprints = resolved.AllowedClientThumbprints;
         });
     }
 }
