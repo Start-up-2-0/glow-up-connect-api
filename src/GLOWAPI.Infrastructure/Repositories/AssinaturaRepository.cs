@@ -46,6 +46,29 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<Assinatura?> ObterAssinaturaEfetivaPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        var direta = await ObterAtualPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
+        if (direta?.Status is AssinaturaStatus.Ativa or AssinaturaStatus.Trial)
+        {
+            return direta;
+        }
+
+        var vinculo = await Context.Set<AssinaturaEstabelecimento>()
+            .Include(v => v.Assinatura)
+                .ThenInclude(assinatura => assinatura!.Plano)
+            .FirstOrDefaultAsync(v => v.EstabelecimentoId == estabelecimentoId, cancellationToken);
+
+        if (vinculo?.Assinatura?.Status is AssinaturaStatus.Ativa or AssinaturaStatus.Trial)
+        {
+            return vinculo.Assinatura;
+        }
+
+        return direta;
+    }
+
     public Task<bool> ExisteAtivaOuPendentePorEstabelecimentoAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default)
@@ -66,6 +89,14 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
                 && assinatura.CampanhaPromocional.Codigo == codigoCampanha,
             cancellationToken);
 
+    public Task<int> ContarPorCodigoCampanhaAsync(
+        string codigoCampanha,
+        CancellationToken cancellationToken = default) =>
+        DbSet.CountAsync(
+            assinatura => assinatura.CampanhaPromocionalId != null
+                && assinatura.CampanhaPromocional!.Codigo == codigoCampanha,
+            cancellationToken);
+
     public async Task<IReadOnlyList<Assinatura>> ListarParaAlertaFaturaAsync(
         DateTime dataReferenciaUtc,
         CancellationToken cancellationToken = default)
@@ -73,6 +104,7 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
         var data = dataReferenciaUtc.Date;
         return await DbSet
             .Include(assinatura => assinatura.Plano)
+            .Include(assinatura => assinatura.Estabelecimento)
             .Where(assinatura =>
                 (assinatura.Status == AssinaturaStatus.Ativa || assinatura.Status == AssinaturaStatus.Trial)
                 && assinatura.ProximaDataAlerta.HasValue
@@ -89,6 +121,7 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
         var data = dataReferenciaUtc.Date;
         return await DbSet
             .Include(assinatura => assinatura.Plano)
+            .Include(assinatura => assinatura.Estabelecimento)
             .Where(assinatura =>
                 (assinatura.Status == AssinaturaStatus.Ativa || assinatura.Status == AssinaturaStatus.Trial)
                 && assinatura.ProximaDataGeracaoCobranca.HasValue

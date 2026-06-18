@@ -6,4 +6,5 @@ public record LimitesAssinaturaDto(
     int? Agendamentos,
     int? Usuarios,
     int? AgendamentosPorDia,
+    int? Estabelecimentos,
     bool PrioridadeListagemPublica);

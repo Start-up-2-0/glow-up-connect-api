@@ -597,6 +597,223 @@ public class EquipeNegocioService : IEquipeNegocioService
         await _estabelecimentoUsuarioRepository.SalvarAlteracoesAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<UsuarioEquipeResponseDto>> ListarUsuariosAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.EquipeGerenciar,
+            cancellationToken);
+
+        var vinculos = await _estabelecimentoUsuarioRepository.ListarAtivosPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return vinculos
+            .Where(vinculo => vinculo.Usuario is not null)
+            .Select(vinculo => UsuarioEquipeResponseDto.From(vinculo, vinculo.Usuario!))
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<ProfissionalEquipeResponseDto>> ListarProfissionaisAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.ProfissionalGerenciar,
+            cancellationToken);
+
+        var vinculos = await _profissionalEstabelecimentoRepository.ListarAtivosPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return vinculos
+            .Where(vinculo => vinculo.Profissional is not null)
+            .Select(vinculo => ProfissionalEquipeResponseDto.From(vinculo, vinculo.Profissional!))
+            .ToList();
+    }
+
+    public async Task<ProfissionalVitrineResponseDto> CadastrarProfissionalVitrineAsync(
+        int estabelecimentoId,
+        CadastrarProfissionalVitrineRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.ProfissionalGerenciar,
+            cancellationToken);
+
+        await ValidarPlanoBasicSemModuloProfissionaisAsync(estabelecimentoId, cancellationToken);
+        await ValidarLimiteProfissionaisAsync(estabelecimentoId, cancellationToken);
+
+        var nomePublico = NormalizarTexto(request.NomePublico, string.Empty);
+        if (string.IsNullOrWhiteSpace(nomePublico))
+        {
+            throw new ProfissionalNegocioInvalidoException("Nome publico do profissional e obrigatorio.");
+        }
+
+        var profissional = new Profissional
+        {
+            NomePublico = nomePublico,
+            Biografia = request.Biografia?.Trim() ?? string.Empty,
+            Logo = request.Logo?.Trim() ?? string.Empty,
+            TipoProfissional = ProfessionalType.SomenteExibicao,
+            Ativo = true
+        };
+
+        await _profissionalRepository.AdicionarAsync(profissional, cancellationToken);
+        await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        var vinculo = new ProfissionalEstabelecimento
+        {
+            EstabelecimentoId = estabelecimentoId,
+            ProfissionalId = profissional.Id,
+            Ativo = true,
+            SomenteExibicao = true,
+            PodeReceberAgendamento = false
+        };
+
+        await _profissionalEstabelecimentoRepository.AdicionarAsync(vinculo, cancellationToken);
+        await _profissionalEstabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        await AuditarProfissionalAsync(
+            estabelecimentoId,
+            TipoAcaoAuditoriaNegocio.ProfissionalConvidado,
+            vinculo,
+            "vitrine_criado",
+            cancellationToken);
+
+        return ProfissionalVitrineResponseDto.From(vinculo, profissional);
+    }
+
+    public async Task<ProfissionalVitrineResponseDto> AtualizarProfissionalVitrineAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        AtualizarProfissionalVitrineRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.ProfissionalGerenciar,
+            cancellationToken);
+
+        await ValidarPlanoBasicSemModuloProfissionaisAsync(estabelecimentoId, cancellationToken);
+
+        var (vinculo, profissional) = await ObterVinculoVitrineAsync(
+            estabelecimentoId,
+            profissionalId,
+            cancellationToken);
+
+        var nomePublico = NormalizarTexto(request.NomePublico, string.Empty);
+        if (string.IsNullOrWhiteSpace(nomePublico))
+        {
+            throw new ProfissionalNegocioInvalidoException("Nome publico do profissional e obrigatorio.");
+        }
+
+        profissional.NomePublico = nomePublico;
+        profissional.Biografia = request.Biografia?.Trim() ?? string.Empty;
+        profissional.Logo = request.Logo?.Trim() ?? string.Empty;
+        profissional.UpdatedAt = DateTime.UtcNow;
+
+        _profissionalRepository.Atualizar(profissional);
+        await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        return ProfissionalVitrineResponseDto.From(vinculo, profissional);
+    }
+
+    public async Task<ProfissionalVitrineResponseDto> AtualizarStatusProfissionalVitrineAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        AtualizarStatusProfissionalVitrineRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.ProfissionalGerenciar,
+            cancellationToken);
+
+        await ValidarPlanoBasicSemModuloProfissionaisAsync(estabelecimentoId, cancellationToken);
+
+        var (vinculo, profissional) = await ObterVinculoVitrineAsync(
+            estabelecimentoId,
+            profissionalId,
+            cancellationToken);
+
+        if (request.Ativo && !vinculo.Ativo)
+        {
+            await ValidarLimiteProfissionaisAsync(estabelecimentoId, cancellationToken);
+        }
+
+        vinculo.Ativo = request.Ativo;
+        vinculo.PodeReceberAgendamento = false;
+        vinculo.DataSaida = request.Ativo ? null : DateTime.UtcNow;
+        vinculo.UpdatedAt = DateTime.UtcNow;
+        profissional.Ativo = request.Ativo;
+        profissional.UpdatedAt = DateTime.UtcNow;
+
+        _profissionalEstabelecimentoRepository.Atualizar(vinculo);
+        _profissionalRepository.Atualizar(profissional);
+        await _profissionalEstabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        return ProfissionalVitrineResponseDto.From(vinculo, profissional);
+    }
+
+    public async Task<IReadOnlyList<ProfissionalVitrineResponseDto>> ListarProfissionaisVitrineAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.ProfissionalGerenciar,
+            cancellationToken);
+
+        await ValidarPlanoBasicSemModuloProfissionaisAsync(estabelecimentoId, cancellationToken);
+
+        var vinculos = await _profissionalEstabelecimentoRepository.ListarVitrinePorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return vinculos
+            .Where(vinculo => vinculo.Profissional is not null)
+            .Select(vinculo => ProfissionalVitrineResponseDto.From(vinculo, vinculo.Profissional!))
+            .ToList();
+    }
+
+    private async Task ValidarPlanoBasicSemModuloProfissionaisAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var possuiProfissionais = await _modulosAssinaturaService.PossuiModuloPorEstabelecimentoAsync(
+            estabelecimentoId,
+            ModuloAssinatura.Profissionais,
+            cancellationToken);
+
+        if (possuiProfissionais)
+        {
+            throw new ProfissionalVitrineNegocioIndisponivelException();
+        }
+    }
+
+    private async Task<(ProfissionalEstabelecimento Vinculo, Profissional Profissional)> ObterVinculoVitrineAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        CancellationToken cancellationToken)
+    {
+        var vinculo = await _profissionalEstabelecimentoRepository.ObterPorProfissionalAsync(
+            profissionalId,
+            estabelecimentoId,
+            cancellationToken);
+
+        if (vinculo?.Profissional is null || !vinculo.SomenteExibicao)
+        {
+            throw new RecursoProfissionalNaoEncontradoException();
+        }
+
+        return (vinculo, vinculo.Profissional);
+    }
+
     private static string NormalizarTexto(string? valor, string fallback)
     {
         var texto = valor?.Trim();

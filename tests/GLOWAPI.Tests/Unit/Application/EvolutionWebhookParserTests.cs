@@ -266,6 +266,33 @@ public class EvolutionWebhookParserTests
     }
 
     [Fact]
+    public void ExtrairContextoRespostaInbound_DeveMontarQuoted_QuandoConversaEhLid()
+    {
+        var payload = JsonDocument.Parse("""
+            {
+              "data": {
+                "key": {
+                  "remoteJid": "67268163698795@lid",
+                  "fromMe": true,
+                  "id": "3EB057027BE30E674FE49F"
+                },
+                "message": {
+                  "conversation": "NTU3OTk5MTkxNzYzNA=="
+                }
+              }
+            }
+            """).RootElement;
+
+        var contexto = EvolutionWebhookParser.ExtrairContextoRespostaInbound(payload);
+
+        Assert.True(contexto.TemQuoted);
+        Assert.Equal("3EB057027BE30E674FE49F", contexto.MessageId);
+        Assert.Equal("67268163698795@lid", contexto.RemoteJidConversa);
+        Assert.True(contexto.FromMe);
+        Assert.Equal("NTU3OTk5MTkxNzYzNA==", contexto.TextoMensagemReferencia);
+    }
+
+    [Fact]
     public void ExtrairTextoMensagem_DeveLerEphemeralMessage()
     {
         var payload = JsonDocument.Parse("""

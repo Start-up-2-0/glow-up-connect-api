@@ -1,3 +1,4 @@
+using GLOWAPI.API.Helpers;
 using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Auth;
 using GLOWAPI.Application.Interfaces.Services;
@@ -16,28 +17,44 @@ public class AuthController : ControllerBase
     private readonly IAuthService _authService;
     private readonly IConfirmacaoEmailService _confirmacaoEmailService;
     private readonly IConfirmacaoWhatsAppService _confirmacaoWhatsAppService;
+    private readonly ICaptchaValidator _captchaValidator;
     private readonly AuthOptions _authOptions;
+    private readonly IWebHostEnvironment _environment;
 
     public AuthController(
         IAuthService authService,
         IConfirmacaoEmailService confirmacaoEmailService,
         IConfirmacaoWhatsAppService confirmacaoWhatsAppService,
-        IOptions<AuthOptions> authOptions)
+        ICaptchaValidator captchaValidator,
+        IOptions<AuthOptions> authOptions,
+        IWebHostEnvironment environment)
     {
         _authService = authService;
         _confirmacaoEmailService = confirmacaoEmailService;
         _confirmacaoWhatsAppService = confirmacaoWhatsAppService;
+        _captchaValidator = captchaValidator;
         _authOptions = authOptions.Value;
+        _environment = environment;
     }
 
     [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request, CancellationToken cancellationToken)
     {
+        await CaptchaGuard.GarantirValidoAsync(_captchaValidator, request.CaptchaToken, HttpContext, cancellationToken);
+
         var result = await _authService.LoginAsync(request, BuildSessionContext(), cancellationToken);
+        AuthRefreshCookieHelper.SetRefreshCookie(
+            Response,
+            result.RefreshToken,
+            result.RefreshExpiresAt,
+            _environment);
+
+        var dto = LoginResponseDto.From(result);
+        dto.RefreshToken = string.Empty;
         return Ok(ApiSuccessResponse<LoginResponseDto>.From(
             "Login realizado com sucesso",
-            LoginResponseDto.From(result)));
+            dto));
     }
 
     [HttpPost("logout")]
@@ -50,6 +67,7 @@ public class AuthController : ControllerBase
         }
 
         await _authService.LogoutAsync(token, cancellationToken);
+        AuthRefreshCookieHelper.ClearRefreshCookie(Response);
         return Ok(ApiSuccessResponse.From("Logout realizado com sucesso"));
     }
 
@@ -57,10 +75,28 @@ public class AuthController : ControllerBase
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto request, CancellationToken cancellationToken)
     {
-        var result = await _authService.RefreshAsync(request, BuildSessionContext(), cancellationToken);
+        var refreshToken = AuthRefreshCookieHelper.ObterRefreshToken(Request, request.RefreshToken);
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return Unauthorized(ApiErrorResponse.From("Refresh token ausente.", "INVALID_TOKEN"));
+        }
+
+        var result = await _authService.RefreshAsync(
+            new RefreshTokenRequestDto { RefreshToken = refreshToken },
+            BuildSessionContext(),
+            cancellationToken);
+
+        AuthRefreshCookieHelper.SetRefreshCookie(
+            Response,
+            result.RefreshToken,
+            result.RefreshExpiresAt,
+            _environment);
+
+        var dto = RefreshTokenResponseDto.From(result);
+        dto.RefreshToken = string.Empty;
         return Ok(ApiSuccessResponse<RefreshTokenResponseDto>.From(
             "Token renovado com sucesso",
-            RefreshTokenResponseDto.From(result)));
+            dto));
     }
 
     [AllowAnonymous]
@@ -102,41 +138,10 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("confirmar-whatsapp")]
-    public async Task<IActionResult> ConfirmarWhatsApp(
-        [FromBody] ConfirmarWhatsAppRequestDto request,
-        CancellationToken cancellationToken)
-    {
-        var temToken = !string.IsNullOrWhiteSpace(request.Token);
-        var temCodigo = !string.IsNullOrWhiteSpace(request.Codigo);
-
-        if (temToken == temCodigo)
-        {
-            return BadRequest(ApiErrorResponse.From(
-                "Informe exatamente token ou codigo.",
-                "CONFIRMACAO_WHATSAPP_INVALIDA"));
-        }
-
-        if (temToken)
-        {
-            await _confirmacaoWhatsAppService.ConfirmarPorTokenAsync(request.Token!, cancellationToken);
-        }
-        else
-        {
-            if (string.IsNullOrWhiteSpace(request.Telefone))
-            {
-                return BadRequest(ApiErrorResponse.From(
-                    "Telefone e obrigatorio para confirmacao por codigo.",
-                    "CONFIRMACAO_WHATSAPP_INVALIDA"));
-            }
-
-            await _confirmacaoWhatsAppService.ConfirmarPorCodigoAsync(
-                request.Telefone,
-                request.Codigo!,
-                cancellationToken);
-        }
-
-        return Ok(ApiSuccessResponse.From("WhatsApp confirmado com sucesso."));
-    }
+    public IActionResult ConfirmarWhatsApp() =>
+        StatusCode(StatusCodes.Status410Gone, ApiErrorResponse.From(
+            "Confirmacao manual por codigo foi descontinuada. Use o link enviado por WhatsApp ou e-mail.",
+            "CONFIRMACAO_WHATSAPP_DESCONTINUADA"));
 
     [AllowAnonymous]
     [HttpPost("reenviar-confirmacao-whatsapp")]
@@ -146,7 +151,7 @@ public class AuthController : ControllerBase
     {
         await _confirmacaoWhatsAppService.ReenviarConfirmacaoAsync(request.Email, cancellationToken);
         return Ok(ApiSuccessResponse.From(
-            "Se o e-mail estiver cadastrado e pendente de confirmacao WhatsApp, enviaremos um novo codigo."));
+            "Se o e-mail estiver cadastrado e pendente de confirmacao WhatsApp, enviaremos novas instrucoes."));
     }
 
     [AllowAnonymous]

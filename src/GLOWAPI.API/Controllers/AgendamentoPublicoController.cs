@@ -27,6 +27,22 @@ public class AgendamentoPublicoController : ControllerBase
         _agendamentoNegocioService = agendamentoNegocioService;
     }
 
+    [HttpGet("loja/{publicGuid:guid}/profissional/{profissionalPublicGuid:guid}")]
+    public async Task<IActionResult> ObterContextoLojaProfissional(
+        Guid publicGuid,
+        Guid profissionalPublicGuid,
+        CancellationToken cancellationToken)
+    {
+        var contexto = await _agendamentoNegocioService.ObterContextoPublicoAsync(
+            publicGuid,
+            profissionalPublicGuid,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<AgendamentoContextoPublicoResponseDto>.From(
+            "Contexto publico de agendamento obtido com sucesso.",
+            contexto));
+    }
+
     [HttpGet("loja/{publicGuid:guid}/profissionais")]
     public async Task<IActionResult> ListarProfissionaisLoja(
         Guid publicGuid,
@@ -103,6 +119,24 @@ public class AgendamentoPublicoController : ControllerBase
             servicos));
     }
 
+    [HttpPost("loja/{publicGuid:guid}/com-cadastro")]
+    public async Task<IActionResult> CriarAgendamentoComCadastro(
+        Guid publicGuid,
+        [FromBody] CriarAgendamentoComCadastroRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var agendamento = await _agendamentoNegocioService.CriarPublicoComCadastroAsync(
+            publicGuid,
+            request,
+            cancellationToken);
+
+        return StatusCode(
+            StatusCodes.Status201Created,
+            ApiSuccessResponse<AgendamentoCriadoResponseDto>.From(
+                "Agendamento com cadastro criado com sucesso. Confirme seu e-mail para ativar a conta.",
+                agendamento));
+    }
+
     [HttpPost("loja/{publicGuid:guid}")]
     public async Task<IActionResult> CriarAgendamentoLoja(
         Guid publicGuid,
@@ -119,6 +153,42 @@ public class AgendamentoPublicoController : ControllerBase
             ApiSuccessResponse<AgendamentoCriadoResponseDto>.From(
                 "Agendamento publico criado com sucesso.",
                 agendamento));
+    }
+
+    [HttpGet("remarcacao/{token:guid}")]
+    public async Task<IActionResult> ObterPropostaRemarcacao(
+        Guid token,
+        CancellationToken cancellationToken)
+    {
+        var proposta = await _agendamentoNegocioService.ObterPropostaRemarcacaoPorTokenAsync(token, cancellationToken);
+
+        return Ok(ApiSuccessResponse<PropostaRemarcacaoResponseDto>.From(
+            "Proposta de remarcacao obtida com sucesso.",
+            proposta));
+    }
+
+    [HttpPost("remarcacao/{token:guid}/aceitar")]
+    public async Task<IActionResult> AceitarPropostaRemarcacao(
+        Guid token,
+        CancellationToken cancellationToken)
+    {
+        var agendamento = await _agendamentoNegocioService.AceitarPropostaRemarcacaoPorTokenAsync(token, cancellationToken);
+
+        return Ok(ApiSuccessResponse<AgendamentoCriadoResponseDto>.From(
+            "Proposta de remarcacao aceita com sucesso.",
+            agendamento));
+    }
+
+    [HttpPost("remarcacao/{token:guid}/recusar")]
+    public async Task<IActionResult> RecusarPropostaRemarcacao(
+        Guid token,
+        CancellationToken cancellationToken)
+    {
+        await _agendamentoNegocioService.RecusarPropostaRemarcacaoPorTokenAsync(token, cancellationToken);
+
+        return Ok(ApiSuccessResponse<object>.From(
+            "Proposta de remarcacao recusada com sucesso.",
+            null!));
     }
 
     [HttpPost("profissional/{publicGuid:guid}")]

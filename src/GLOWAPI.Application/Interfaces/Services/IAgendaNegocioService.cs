@@ -4,12 +4,12 @@ namespace GLOWAPI.Application.Interfaces.Services;
 
 public interface IAgendaNegocioService
 {
-    Task<IReadOnlyList<AgendaGeralResponseDto>> ListarAgendaGeralAsync(
+    Task<AgendaPaginadaResponseDto<AgendaGeralResponseDto>> ListarAgendaGeralAsync(
         int estabelecimentoId,
         AgendaGeralFiltroDto filtro,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<AgendaProfissionalResponseDto>> ListarAgendaProfissionalAsync(
+    Task<AgendaPaginadaResponseDto<AgendaProfissionalResponseDto>> ListarAgendaProfissionalAsync(
         int estabelecimentoId,
         AgendaProfissionalFiltroDto filtro,
         CancellationToken cancellationToken = default);

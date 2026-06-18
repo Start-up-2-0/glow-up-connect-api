@@ -38,6 +38,8 @@ public class AssinaturaNotificacaoServiceTests
         Assert.Equal("cliente@email.com", mensagem.Destinatario);
         Assert.Equal("Assinatura iniciada", mensagem.Assunto);
         Assert.Contains("Plano Pro", mensagem.Conteudo);
+        Assert.Contains("<!doctype html>", mensagem.Conteudo);
+        Assert.Contains("GlowUp Connect", mensagem.Conteudo);
         Assert.Equal(5, mensagem.EstabelecimentoId);
         Assert.Equal(2, mensagem.Prioridade);
         Assert.Contains("assinatura-iniciada", mensagem.PayloadJson);

@@ -14,4 +14,9 @@ public interface IConviteNegocioRepository : IRepository<ConviteNegocio>
     Task<ConviteNegocio?> ObterPorTokenHashAsync(
         string tokenHash,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ConviteNegocio>> ListarPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        StatusConviteNegocio? status,
+        CancellationToken cancellationToken = default);
 }

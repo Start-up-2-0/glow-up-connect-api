@@ -13,7 +13,7 @@ public class PagamentoConfiguration : IEntityTypeConfiguration<Pagamento>
         {
             table.HasCheckConstraint(
                 "CK_Pagamentos_Origem",
-                """(("AgendamentoId" IS NOT NULL AND "AssinaturaId" IS NULL) OR ("AgendamentoId" IS NULL AND "AssinaturaId" IS NOT NULL))""");
+                "((`AgendamentoId` IS NOT NULL AND `AssinaturaId` IS NULL) OR (`AgendamentoId` IS NULL AND `AssinaturaId` IS NOT NULL))");
         });
 
         builder.HasKey(pagamento => pagamento.Id);
@@ -25,6 +25,9 @@ public class PagamentoConfiguration : IEntityTypeConfiguration<Pagamento>
 
         builder.Property(pagamento => pagamento.GatewayPaymentId)
             .HasMaxLength(150);
+
+        builder.Property(pagamento => pagamento.ReferenciaInterna)
+            .HasMaxLength(120);
 
         builder.Property(pagamento => pagamento.MetodoPagamento)
             .HasMaxLength(80);
@@ -75,5 +78,6 @@ public class PagamentoConfiguration : IEntityTypeConfiguration<Pagamento>
         builder.HasIndex(pagamento => pagamento.AgendamentoId);
         builder.HasIndex(pagamento => pagamento.AssinaturaId);
         builder.HasIndex(pagamento => pagamento.GatewayPaymentId);
+        builder.HasIndex(pagamento => pagamento.ReferenciaInterna);
     }
 }

@@ -1,18 +1,24 @@
+using System.Text.Json;
 using GLOWAPI.Application.DTOs.Assinaturas;
 using GLOWAPI.Application.DTOs.Pagamentos;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Models.Assinaturas;
 using GLOWAPI.Application.Models.Pagamentos;
+using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
 using GLOWAPI.Domain.Exceptions.Auth;
+using Microsoft.Extensions.Options;
 
 namespace GLOWAPI.Application.Services;
 
 public class AssinaturaService : IAssinaturaService
 {
     private readonly IAssinaturaRepository _assinaturaRepository;
+    private readonly IAssinaturaEstabelecimentoRepository _assinaturaEstabelecimentoRepository;
     private readonly IPlanoRepository _planoRepository;
     private readonly IEstabelecimentoRepository _estabelecimentoRepository;
     private readonly IEstabelecimentoUsuarioRepository _estabelecimentoUsuarioRepository;
@@ -30,9 +36,11 @@ public class AssinaturaService : IAssinaturaService
     private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
     private readonly IAvatarBase64Decoder _avatarBase64Decoder;
     private readonly IUsuarioRepository _usuarioRepository;
+    private readonly MercadoPagoOptions _mercadoPagoOptions;
 
     public AssinaturaService(
         IAssinaturaRepository assinaturaRepository,
+        IAssinaturaEstabelecimentoRepository assinaturaEstabelecimentoRepository,
         IPlanoRepository planoRepository,
         IEstabelecimentoRepository estabelecimentoRepository,
         IEstabelecimentoUsuarioRepository estabelecimentoUsuarioRepository,
@@ -49,9 +57,11 @@ public class AssinaturaService : IAssinaturaService
         ICicloCobrancaAssinaturaService cicloCobrancaService,
         ICobrancaAssinaturaService cobrancaAssinaturaService,
         IAvatarBase64Decoder avatarBase64Decoder,
-        IUsuarioRepository usuarioRepository)
+        IUsuarioRepository usuarioRepository,
+        IOptions<MercadoPagoOptions> mercadoPagoOptions)
     {
         _assinaturaRepository = assinaturaRepository;
+        _assinaturaEstabelecimentoRepository = assinaturaEstabelecimentoRepository;
         _planoRepository = planoRepository;
         _estabelecimentoRepository = estabelecimentoRepository;
         _estabelecimentoUsuarioRepository = estabelecimentoUsuarioRepository;
@@ -69,6 +79,7 @@ public class AssinaturaService : IAssinaturaService
         _cobrancaAssinaturaService = cobrancaAssinaturaService;
         _avatarBase64Decoder = avatarBase64Decoder;
         _usuarioRepository = usuarioRepository;
+        _mercadoPagoOptions = mercadoPagoOptions.Value;
     }
 
     public async Task<AssinaturaResponseDto> IniciarAsync(
@@ -85,16 +96,27 @@ public class AssinaturaService : IAssinaturaService
         ValidarTitular(request);
         _cicloCobrancaService.ValidarDiaVencimento(request.DiaVencimento);
 
-        var assinatura = request.TipoAssinatura switch
+        var elegivelTrial = await ElegivelPromocaoTrialAsync(request, cancellationToken);
+        var onboardingPendente = DeveAdiarOnboarding(request, elegivelTrial);
+        Assinatura assinatura;
+        if (onboardingPendente)
         {
-            TipoAssinatura.Estabelecimento => await CriarParaEstabelecimentoAsync(request, userId, cancellationToken),
-            TipoAssinatura.ProfissionalAutonomo => await CriarParaProfissionalAutonomoAsync(request, userId, cancellationToken),
-            _ => throw new AssinaturaTitularInvalidoException()
-        };
+            assinatura = await CriarAssinaturaComOnboardingPendenteAsync(request, userId, cancellationToken);
+        }
+        else
+        {
+            assinatura = request.TipoAssinatura switch
+            {
+                TipoAssinatura.Estabelecimento => await CriarParaEstabelecimentoAsync(request, userId, cancellationToken),
+                TipoAssinatura.ProfissionalAutonomo => await CriarParaProfissionalAutonomoAsync(request, userId, cancellationToken),
+                _ => throw new AssinaturaTitularInvalidoException()
+            };
+        }
 
         assinatura.DiaVencimento = request.DiaVencimento;
 
-        if (await TentarIniciarComTrialAsync(assinatura, plano, request, cancellationToken))
+        var diasTrialIniciado = await TentarIniciarComTrialAsync(assinatura, plano, request, cancellationToken);
+        if (diasTrialIniciado.HasValue)
         {
             await _assinaturaRepository.AdicionarAsync(assinatura, cancellationToken);
             await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
@@ -104,8 +126,9 @@ public class AssinaturaService : IAssinaturaService
                 assinatura.EstabelecimentoId = assinatura.Estabelecimento.Id;
             }
 
-            var diasTrial = assinatura.CampanhaPromocional?.DiasTrial
-                ?? (await _promocaoLancamentoService.ObterStatusAsync(cancellationToken)).DiasTrial;
+            await GarantirVinculoMatrizAsync(assinatura, cancellationToken);
+
+            var diasTrial = diasTrialIniciado.Value;
 
             await _assinaturaNotificacaoService.TrialIniciadoAsync(
                 assinatura,
@@ -114,7 +137,10 @@ public class AssinaturaService : IAssinaturaService
                 _currentUser.Email,
                 cancellationToken);
 
-            await PromoverRoleOnboardingAsync(userId, request.TipoAssinatura, cancellationToken);
+            if (!onboardingPendente)
+            {
+                await PromoverRoleOnboardingAsync(userId, request.TipoAssinatura, cancellationToken);
+            }
 
             return await MontarRespostaInicioAsync(assinatura, cancellationToken, diasTrial: diasTrial);
         }
@@ -164,6 +190,8 @@ public class AssinaturaService : IAssinaturaService
             assinatura.EstabelecimentoId = assinatura.Estabelecimento.Id;
         }
 
+        await GarantirVinculoMatrizAsync(assinatura, cancellationToken);
+
         if (!pagamentoInicial.Pagamento.AssinaturaId.HasValue)
         {
             pagamentoInicial.Pagamento.AssinaturaId = assinatura.Id;
@@ -175,7 +203,10 @@ public class AssinaturaService : IAssinaturaService
             _currentUser.Email,
             cancellationToken);
 
-        await PromoverRoleOnboardingAsync(userId, request.TipoAssinatura, cancellationToken);
+        if (!onboardingPendente)
+        {
+            await PromoverRoleOnboardingAsync(userId, request.TipoAssinatura, cancellationToken);
+        }
 
         return await MontarRespostaInicioAsync(
             assinatura,
@@ -211,6 +242,8 @@ public class AssinaturaService : IAssinaturaService
         {
             throw new TrocaPlanoAssinaturaInvalidaException("Assinatura ja esta vinculada ao plano informado.");
         }
+
+        await ValidarDowngradeMultiLojaAsync(assinatura, novoPlano, cancellationToken);
 
         if (TrocaExigeCobranca(assinatura.Plano, novoPlano))
         {
@@ -324,6 +357,188 @@ public class AssinaturaService : IAssinaturaService
 
         return AssinaturaResponseDto.From(assinatura);
     }
+
+    public async Task<AssinaturaResponseDto> ObterAtualPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = ObterUserIdAutenticado();
+        var vinculo = await _estabelecimentoUsuarioRepository.ObterAtivoAsync(
+            estabelecimentoId,
+            userId,
+            cancellationToken);
+
+        if (vinculo is null)
+        {
+            throw new UsuarioSemPermissaoAssinaturaException();
+        }
+
+        var assinatura = await _assinaturaRepository.ObterAssinaturaEfetivaPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        if (assinatura is null)
+        {
+            throw new AssinaturaNaoEncontradaException();
+        }
+
+        int? diasTrial = null;
+        if (assinatura.CampanhaPromocionalId.HasValue)
+        {
+            var campanha = await _campanhaPromocionalRepository.ObterPorIdAsync(
+                assinatura.CampanhaPromocionalId.Value,
+                cancellationToken);
+            diasTrial = campanha?.DiasTrial;
+        }
+
+        return AssinaturaResponseDto.From(assinatura, diasTrial: diasTrial);
+    }
+
+    public async Task<AdicionarEstabelecimentoAssinaturaResponseDto> AdicionarEstabelecimentoAsync(
+        int assinaturaId,
+        AdicionarEstabelecimentoAssinaturaRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = ObterUserIdAutenticado();
+        var assinatura = await _assinaturaRepository.ObterPorIdComPlanoAsync(assinaturaId, cancellationToken);
+        if (assinatura is null)
+        {
+            throw new AssinaturaNaoEncontradaException();
+        }
+
+        await ValidarPermissaoGerenciarAssinaturaAsync(assinatura, userId, cancellationToken);
+
+        if (assinatura.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Trial))
+        {
+            throw new TrocaPlanoAssinaturaInvalidaException(
+                "Somente assinatura ativa ou em trial pode receber novas unidades.");
+        }
+
+        if (!PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano))
+        {
+            throw new TrocaPlanoAssinaturaInvalidaException(
+                "O plano atual nao permite multiplas unidades.");
+        }
+
+        var lojasVinculadas = await _assinaturaEstabelecimentoRepository.ContarPorAssinaturaAsync(
+            assinaturaId,
+            cancellationToken);
+        var limite = assinatura.Plano?.LimiteEstabelecimentos;
+        if (!limite.HasValue || lojasVinculadas >= limite.Value)
+        {
+            throw new LimiteEstabelecimentosExcedidoException();
+        }
+
+        var estabelecimento = CriarEstabelecimento(request.Estabelecimento);
+        await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
+        await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
+
+        await _estabelecimentoUsuarioRepository.AdicionarAsync(new EstabelecimentoUsuario
+        {
+            Estabelecimento = estabelecimento,
+            UsuarioId = userId,
+            RoleNoEstabelecimento = EstablishmentUserRole.Owner,
+            Ativo = true
+        }, cancellationToken);
+
+        await _assinaturaEstabelecimentoRepository.AdicionarAsync(new AssinaturaEstabelecimento
+        {
+            AssinaturaId = assinaturaId,
+            Estabelecimento = estabelecimento,
+            EhMatriz = false
+        }, cancellationToken);
+
+        await _assinaturaEstabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        return new AdicionarEstabelecimentoAssinaturaResponseDto(
+            estabelecimento.Id,
+            estabelecimento.Nome,
+            assinaturaId);
+    }
+
+    private async Task GarantirVinculoMatrizAsync(
+        Assinatura assinatura,
+        CancellationToken cancellationToken)
+    {
+        if (!assinatura.EstabelecimentoId.HasValue
+            || !PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano))
+        {
+            return;
+        }
+
+        var vinculoExistente = await _assinaturaEstabelecimentoRepository.ObterPorEstabelecimentoAsync(
+            assinatura.EstabelecimentoId.Value,
+            cancellationToken);
+        if (vinculoExistente is not null)
+        {
+            return;
+        }
+
+        await _assinaturaEstabelecimentoRepository.AdicionarAsync(new AssinaturaEstabelecimento
+        {
+            AssinaturaId = assinatura.Id,
+            EstabelecimentoId = assinatura.EstabelecimentoId.Value,
+            EhMatriz = true
+        }, cancellationToken);
+
+        await _assinaturaEstabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
+    }
+
+    private async Task ValidarDowngradeMultiLojaAsync(
+        Assinatura assinatura,
+        Plano novoPlano,
+        CancellationToken cancellationToken)
+    {
+        if (!PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano)
+            || PlanoComercialCatalogo.PermiteMultiLoja(novoPlano))
+        {
+            return;
+        }
+
+        var lojasVinculadas = await _assinaturaEstabelecimentoRepository.ContarPorAssinaturaAsync(
+            assinatura.Id,
+            cancellationToken);
+        if (lojasVinculadas > 1)
+        {
+            throw new DowngradeComMultiplasLojasException();
+        }
+    }
+
+    private bool DeveAdiarOnboarding(IniciarAssinaturaRequestDto request, bool elegivelTrial) =>
+        _mercadoPagoOptions.UsarCheckoutPro
+        && !elegivelTrial
+        && (request.Estabelecimento is not null || request.ProfissionalAutonomo is not null);
+
+    private async Task<Assinatura> CriarAssinaturaComOnboardingPendenteAsync(
+        IniciarAssinaturaRequestDto request,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        if (request.TipoAssinatura == TipoAssinatura.Estabelecimento)
+        {
+            var vinculos = await _estabelecimentoUsuarioRepository.ListarAtivosPorUsuarioAsync(userId, cancellationToken)
+                ?? Array.Empty<EstabelecimentoUsuario>();
+            if (vinculos.Any(v =>
+                    v.RoleNoEstabelecimento == EstablishmentUserRole.Owner
+                    && v.Estabelecimento is not null
+                    && v.Estabelecimento.Ativo))
+            {
+                throw new EstabelecimentoOnboardingDuplicadoException();
+            }
+        }
+
+        var payload = new AssinaturaOnboardingPendentePayload(
+            userId,
+            request.TipoAssinatura,
+            request.Estabelecimento,
+            request.ProfissionalAutonomo);
+
+        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
+        assinatura.OnboardingPendenteJson = JsonSerializer.Serialize(payload, JsonOptions);
+        return assinatura;
+    }
+
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private async Task<Assinatura> CriarParaEstabelecimentoAsync(
         IniciarAssinaturaRequestDto request,
@@ -566,7 +781,8 @@ public class AssinaturaService : IAssinaturaService
                 "Logo do estabelecimento",
                 _avatarBase64Decoder,
                 CriarExcecao),
-            Telefone = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Telefone, "Telefone do estabelecimento", 20, CriarExcecao),
+            Telefone = TelefoneHelper.NormalizarParaArmazenamento(
+                OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Telefone, "Telefone do estabelecimento", 20, CriarExcecao)),
             Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Email, "Email do estabelecimento", 255, CriarExcecao),
             Ativo = true,
             Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao)
@@ -583,7 +799,7 @@ public class AssinaturaService : IAssinaturaService
             Nome = dto.NomePublico.Trim(),
             Descricao = dto.Biografia.Trim(),
             Logo = logo,
-            Telefone = dto.Telefone.Trim(),
+            Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone),
             Email = dto.Email.Trim(),
             Ativo = true,
             Endereco = OperacaoPerfilValidation.CriarEndereco(
@@ -600,7 +816,7 @@ public class AssinaturaService : IAssinaturaService
             Nome = profissional.NomePublico.Trim(),
             Descricao = profissional.Biografia.Trim(),
             Logo = profissional.Logo.Trim(),
-            Telefone = profissional.Telefone.Trim(),
+            Telefone = TelefoneHelper.NormalizarParaArmazenamento(profissional.Telefone),
             Email = profissional.Email.Trim(),
             Ativo = true,
             Caixa = new Caixa()
@@ -616,7 +832,7 @@ public class AssinaturaService : IAssinaturaService
         estabelecimento.Nome = dto.NomePublico.Trim();
         estabelecimento.Descricao = dto.Biografia.Trim();
         estabelecimento.Logo = logo;
-        estabelecimento.Telefone = dto.Telefone.Trim();
+        estabelecimento.Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone);
         estabelecimento.Email = dto.Email.Trim();
         estabelecimento.Ativo = true;
         estabelecimento.UpdatedAt = DateTime.UtcNow;
@@ -642,7 +858,7 @@ public class AssinaturaService : IAssinaturaService
             NomePublico = dto.NomePublico.Trim(),
             Biografia = dto.Biografia.Trim(),
             Logo = logo,
-            Telefone = dto.Telefone.Trim(),
+            Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone),
             Email = dto.Email.Trim(),
             TipoProfissional = ProfessionalType.Autonomo,
             Ativo = true
@@ -658,7 +874,7 @@ public class AssinaturaService : IAssinaturaService
         profissional.NomePublico = dto.NomePublico.Trim();
         profissional.Biografia = dto.Biografia.Trim();
         profissional.Logo = logo;
-        profissional.Telefone = dto.Telefone.Trim();
+        profissional.Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone);
         profissional.Email = dto.Email.Trim();
         profissional.TipoProfissional = ProfessionalType.Autonomo;
         profissional.Ativo = true;
@@ -725,9 +941,7 @@ public class AssinaturaService : IAssinaturaService
             RenovacaoAutomatica = true
         };
 
-    private async Task<bool> TentarIniciarComTrialAsync(
-        Assinatura assinatura,
-        Plano plano,
+    private async Task<bool> ElegivelPromocaoTrialAsync(
         IniciarAssinaturaRequestDto request,
         CancellationToken cancellationToken)
     {
@@ -737,12 +951,20 @@ public class AssinaturaService : IAssinaturaService
             return false;
         }
 
-        if (!PagamentoCompativelComTrial(request.Pagamento))
+        if (_mercadoPagoOptions.UsarCheckoutPro)
+        {
+            if (request.Pagamento is not null
+                && string.Equals(request.Pagamento.PaymentMethodId, "pix", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+        else if (!PagamentoCompativelComTrial(request.Pagamento))
         {
             return false;
         }
 
-        var estabelecimentoIdPromo = assinatura.EstabelecimentoId ?? 0;
+        var estabelecimentoIdPromo = request.EstabelecimentoId ?? 0;
         if (estabelecimentoIdPromo > 0
             && await _promocaoLancamentoService.EstabelecimentoJaUsouPromocaoAsync(estabelecimentoIdPromo, cancellationToken))
         {
@@ -758,9 +980,27 @@ public class AssinaturaService : IAssinaturaService
             PromocaoLancamentoService.CodigoCampanhaLancamento,
             cancellationToken);
 
+        return campanha is not null;
+    }
+
+    private async Task<int?> TentarIniciarComTrialAsync(
+        Assinatura assinatura,
+        Plano plano,
+        IniciarAssinaturaRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (!await ElegivelPromocaoTrialAsync(request, cancellationToken))
+        {
+            return null;
+        }
+
+        var campanha = await _campanhaPromocionalRepository.ObterAtivaPorCodigoAsync(
+            PromocaoLancamentoService.CodigoCampanhaLancamento,
+            cancellationToken);
+
         if (campanha is null)
         {
-            return false;
+            return null;
         }
 
         var inicio = DateTime.UtcNow;
@@ -769,48 +1009,71 @@ public class AssinaturaService : IAssinaturaService
 
         var gateway = _gatewayPagamentoResolver.Resolver(assinatura.Gateway);
         var referenciaInterna = $"trial-{Guid.NewGuid():N}";
-        var response = await gateway.CriarAssinaturaRecorrenteAsync(new CriarAssinaturaRecorrenteGatewayRequest(
-            Gateway: assinatura.Gateway,
-            ReferenciaInterna: referenciaInterna,
-            Descricao: $"Assinatura {plano.Nome} - trial {campanha.DiasTrial} dias",
-            Valor: plano.Preco,
-            Moeda: "BRL",
-            PagadorNome: _currentUser.Email ?? "Usuario Glow",
-            PagadorEmail: _currentUser.Email ?? string.Empty,
-            DiasTrial: campanha.DiasTrial,
-            PrimeiraCobrancaEm: ciclo.Vencimento,
-            PagamentoTransparente: CriarPagamentoTransparenteRequest(assinatura.Gateway, request.Pagamento),
-            Metadados: new Dictionary<string, string>
-            {
-                ["planoId"] = plano.Id.ToString(),
-                ["campanha"] = campanha.Codigo,
-                ["diaVencimento"] = request.DiaVencimento.ToString()
-            }),
-            cancellationToken);
+        CriarAssinaturaRecorrenteGatewayResponse? response = null;
+        var trialSemRecorrenciaNoGateway = _mercadoPagoOptions.UsarCheckoutPro
+            || _mercadoPagoOptions.PermitirTrialSemRecorrenciaNoGateway;
 
-        if (!response.Sucesso)
+        if (!trialSemRecorrenciaNoGateway)
         {
-            throw new GatewayPagamentoException(
-                response.MensagemErro ?? "Nao foi possivel criar assinatura recorrente no gateway.",
-                GatewayPagamentoErrorDetails.FromAssinaturaRecorrente(response));
+            response = await gateway.CriarAssinaturaRecorrenteAsync(new CriarAssinaturaRecorrenteGatewayRequest(
+                Gateway: assinatura.Gateway,
+                ReferenciaInterna: referenciaInterna,
+                Descricao: $"Assinatura {plano.Nome} - trial {campanha.DiasTrial} dias",
+                Valor: plano.Preco,
+                Moeda: "BRL",
+                PagadorNome: _currentUser.Email ?? "Usuario Glow",
+                PagadorEmail: _currentUser.Email ?? string.Empty,
+                DiasTrial: campanha.DiasTrial,
+                PrimeiraCobrancaEm: ciclo.Vencimento,
+                PagamentoTransparente: CriarPagamentoTransparenteRequest(assinatura.Gateway, request.Pagamento),
+                Metadados: new Dictionary<string, string>
+                {
+                    ["planoId"] = plano.Id.ToString(),
+                    ["campanha"] = campanha.Codigo,
+                    ["diaVencimento"] = request.DiaVencimento.ToString()
+                }),
+                cancellationToken);
+
+            if (!response.Sucesso && DeveAtivarTrialSemRecorrenciaNoGateway(response))
+            {
+                trialSemRecorrenciaNoGateway = true;
+            }
+            else if (!response.Sucesso)
+            {
+                throw new GatewayPagamentoException(
+                    response.MensagemErro ?? "Nao foi possivel criar assinatura recorrente no gateway.",
+                    GatewayPagamentoErrorDetails.FromAssinaturaRecorrente(response));
+            }
         }
 
         assinatura.Status = AssinaturaStatus.Trial;
         assinatura.CampanhaPromocionalId = campanha.Id;
-        assinatura.CampanhaPromocional = campanha;
         assinatura.Inicio = inicio;
         assinatura.Fim = ciclo.Vencimento;
-        assinatura.GatewaySubscriptionId = response.GatewaySubscriptionId;
-        assinatura.GatewayCustomerId = response.GatewayCustomerId ?? string.Empty;
+        assinatura.GatewaySubscriptionId = trialSemRecorrenciaNoGateway
+            ? string.Empty
+            : response!.GatewaySubscriptionId;
+        assinatura.GatewayCustomerId = trialSemRecorrenciaNoGateway
+            ? string.Empty
+            : response!.GatewayCustomerId ?? string.Empty;
         _cicloCobrancaService.AplicarCicloNaAssinatura(assinatura, ciclo);
+
+        var observacaoTrial = trialSemRecorrenciaNoGateway
+            ? _mercadoPagoOptions.UsarCheckoutPro
+                ? $"Trial de {campanha.DiasTrial} dias iniciado via campanha {campanha.Codigo} com Checkout Pro (sem cobranca inicial)."
+                : $"Trial de {campanha.DiasTrial} dias iniciado via campanha {campanha.Codigo} sem recorrencia no gateway (sandbox/flag ativa)."
+            : $"Trial de {campanha.DiasTrial} dias iniciado via campanha {campanha.Codigo}.";
+        var payloadHistorico = trialSemRecorrenciaNoGateway
+            ? response?.ResponsePayload ?? "{}"
+            : response!.ResponsePayload;
 
         await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
             assinatura,
             "TrialIniciado",
             null,
             assinatura.Status,
-            observacao: $"Trial de {campanha.DiasTrial} dias iniciado via campanha {campanha.Codigo}.",
-            payloadJson: response.ResponsePayload,
+            observacao: observacaoTrial,
+            payloadJson: payloadHistorico,
             cancellationToken: cancellationToken);
         await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
             assinatura,
@@ -818,12 +1081,39 @@ public class AssinaturaService : IAssinaturaService
             "Trial",
             cicloInicio: inicio,
             cicloFim: ciclo.Vencimento,
-            observacao: "Periodo de trial ativo com modulos liberados.",
-            payloadJson: response.ResponsePayload,
+            observacao: trialSemRecorrenciaNoGateway
+                ? "Periodo de trial ativo com modulos liberados. Cobranca recorrente sera criada no fim do trial."
+                : "Periodo de trial ativo com modulos liberados.",
+            payloadJson: payloadHistorico,
             cancellationToken: cancellationToken);
 
-        return true;
+        return campanha.DiasTrial;
     }
+
+    private bool DeveAtivarTrialSemRecorrenciaNoGateway(CriarAssinaturaRecorrenteGatewayResponse response)
+    {
+        if (_mercadoPagoOptions.PermitirTrialSemRecorrenciaNoGateway)
+        {
+            return true;
+        }
+
+        if (!TokenMercadoPagoSandboxAtivo())
+        {
+            return false;
+        }
+
+        var status = response.FailureInfo?.HttpStatusCode;
+        if (status is not (500 or 503))
+        {
+            return false;
+        }
+
+        return response.FailureInfo?.RequestUri?.Contains("preapproval", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private bool TokenMercadoPagoSandboxAtivo() =>
+        !string.IsNullOrWhiteSpace(_mercadoPagoOptions.AccessToken)
+        && _mercadoPagoOptions.AccessToken.TrimStart().StartsWith("TEST-", StringComparison.OrdinalIgnoreCase);
 
     private static bool PagamentoCompativelComTrial(PagamentoTransparenteMercadoPagoDto? pagamento) =>
         pagamento is not null

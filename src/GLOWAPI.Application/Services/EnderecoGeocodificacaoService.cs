@@ -1,4 +1,5 @@
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Models.Geolocalizacao;
 using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using Microsoft.Extensions.Logging;
@@ -30,8 +31,8 @@ public class EnderecoGeocodificacaoService : IEnderecoGeocodificacaoService
 
         try
         {
-            var enderecoFormatado = OperacaoPerfilValidation.MontarEnderecoGeocodificacao(endereco);
-            var coordenada = await _geocodificadorService.GeocodificarEnderecoAsync(enderecoFormatado, cancellationToken);
+            var input = EnderecoGeocodificacaoInput.FromEntity(endereco);
+            var coordenada = await _geocodificadorService.GeocodificarEnderecoAsync(input, cancellationToken);
 
             if (coordenada is null)
             {
@@ -47,6 +48,11 @@ public class EnderecoGeocodificacaoService : IEnderecoGeocodificacaoService
             endereco.Latitude = coordenada.Latitude;
             endereco.Longitude = coordenada.Longitude;
             endereco.GeocodificadoEm = DateTime.UtcNow;
+            _logger.LogInformation(
+                "Endereco geocodificado para estabelecimento {EstabelecimentoId}: lat={Latitude}, lng={Longitude}.",
+                endereco.EstabelecimentoId,
+                endereco.Latitude,
+                endereco.Longitude);
             return;
         }
         catch (Exception ex)

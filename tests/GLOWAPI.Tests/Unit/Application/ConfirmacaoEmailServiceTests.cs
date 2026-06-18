@@ -108,5 +108,6 @@ public class ConfirmacaoEmailServiceTests
         _usuarioRepository.Object,
         _tokenService.Object,
         _mensagemService.Object,
+        Mock.Of<IAgendamentoConfirmacaoContaService>(),
         Options.Create(_authOptions));
 }

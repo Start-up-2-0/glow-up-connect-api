@@ -47,7 +47,7 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
             .HasDefaultValue(true);
 
         builder.Property(usuario => usuario.AvatarBase64)
-            .HasColumnType("text");
+            .HasColumnType("longtext");
 
         builder.Property(usuario => usuario.ConfirmacaoTokenHash)
             .HasMaxLength(128);

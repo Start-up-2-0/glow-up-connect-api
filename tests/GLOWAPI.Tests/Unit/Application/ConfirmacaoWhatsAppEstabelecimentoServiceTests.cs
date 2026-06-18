@@ -19,7 +19,6 @@ public class ConfirmacaoWhatsAppEstabelecimentoServiceTests
 
     public ConfirmacaoWhatsAppEstabelecimentoServiceTests()
     {
-        _tokenService.Setup(t => t.GerarRefreshToken()).Returns("token-plano");
         _tokenService.Setup(t => t.HashToken(It.IsAny<string>()))
             .Returns<string>(value => $"hash-{value}");
     }
@@ -35,10 +34,10 @@ public class ConfirmacaoWhatsAppEstabelecimentoServiceTests
             Email = "comercial@studio.com"
         };
 
-        var emailsEnviados = new List<string>();
+        var mensagens = new List<RegistrarMensagemNotificacaoDto>();
         _mensagemService
             .Setup(m => m.RegistrarAsync(It.IsAny<RegistrarMensagemNotificacaoDto>(), It.IsAny<CancellationToken>()))
-            .Callback<RegistrarMensagemNotificacaoDto, CancellationToken>((dto, _) => emailsEnviados.Add(dto.Destinatario));
+            .Callback<RegistrarMensagemNotificacaoDto, CancellationToken>((dto, _) => mensagens.Add(dto));
 
         var service = CreateService();
         var instrucoes = await service.IniciarConfirmacaoAsync(
@@ -46,9 +45,10 @@ public class ConfirmacaoWhatsAppEstabelecimentoServiceTests
             ["owner@email.com", "comercial@studio.com"]);
 
         Assert.True(instrucoes.EmailEnviado);
-        Assert.Equal(2, emailsEnviados.Count);
-        Assert.Contains("owner@email.com", emailsEnviados);
-        Assert.Contains("comercial@studio.com", emailsEnviados);
+        Assert.True(instrucoes.WhatsAppEnviado);
+        Assert.Equal(3, mensagens.Count);
+        Assert.Equal(1, mensagens.Count(dto => dto.Canal == CanalMensagemNotificacao.WhatsApp));
+        Assert.Equal(2, mensagens.Count(dto => dto.Canal == CanalMensagemNotificacao.Email));
     }
 
     [Fact]
@@ -62,16 +62,19 @@ public class ConfirmacaoWhatsAppEstabelecimentoServiceTests
             Email = "owner@email.com"
         };
 
+        var mensagens = new List<RegistrarMensagemNotificacaoDto>();
+        _mensagemService
+            .Setup(m => m.RegistrarAsync(It.IsAny<RegistrarMensagemNotificacaoDto>(), It.IsAny<CancellationToken>()))
+            .Callback<RegistrarMensagemNotificacaoDto, CancellationToken>((dto, _) => mensagens.Add(dto));
+
         var service = CreateService();
         await service.IniciarConfirmacaoAsync(
             estabelecimento,
             ["owner@email.com", "OWNER@email.com"]);
 
-        _mensagemService.Verify(
-            m => m.RegistrarAsync(
-                It.IsAny<RegistrarMensagemNotificacaoDto>(),
-                It.IsAny<CancellationToken>()),
-            Times.Once);
+        Assert.Equal(2, mensagens.Count);
+        Assert.Single(mensagens.Where(dto => dto.Canal == CanalMensagemNotificacao.WhatsApp));
+        Assert.Single(mensagens.Where(dto => dto.Canal == CanalMensagemNotificacao.Email));
     }
 
     private ConfirmacaoWhatsAppEstabelecimentoService CreateService() =>
@@ -81,5 +84,10 @@ public class ConfirmacaoWhatsAppEstabelecimentoServiceTests
             _tokenService.Object,
             _mensagemService.Object,
             Options.Create(new MensageriaWhatsAppOptions { NumeroPlataforma = "5511999999999" }),
-            Options.Create(new AuthOptions { ConfirmacaoWhatsAppHoras = 24, ConfirmacaoCodigoDigitos = 6 }));
+            Options.Create(new AuthOptions
+            {
+                FrontendBaseUrl = "http://localhost:3000",
+                ConfirmacaoWhatsAppHoras = 24,
+                ConfirmacaoCodigoDigitos = 6
+            }));
 }

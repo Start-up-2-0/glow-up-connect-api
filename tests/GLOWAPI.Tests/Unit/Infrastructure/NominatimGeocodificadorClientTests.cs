@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Geolocalizacao;
+using GLOWAPI.Application.Models.Geolocalizacao;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Infrastructure.Geolocalizacao;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -37,7 +38,14 @@ public class NominatimGeocodificadorClientTests
             Options.Create(new GeocodificacaoOptions()),
             NullLogger<NominatimGeocodificadorClient>.Instance);
 
-        var resultado = await service.GeocodificarEnderecoAsync("Rua A, Campinas, SP, Brasil");
+        var resultado = await service.GeocodificarEnderecoAsync(new EnderecoGeocodificacaoInput(
+            "13010100",
+            "Rua A",
+            "100",
+            "Centro",
+            "Campinas",
+            "SP",
+            null));
 
         Assert.NotNull(resultado);
         Assert.Equal(-22.9056m, resultado!.Latitude);

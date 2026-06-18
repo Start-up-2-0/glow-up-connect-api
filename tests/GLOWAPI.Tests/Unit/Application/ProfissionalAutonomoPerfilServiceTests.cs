@@ -92,7 +92,7 @@ public class ProfissionalAutonomoPerfilServiceTests
 
         Assert.Equal("Maria Nova", response.NomePublico);
         Assert.StartsWith("data:image/png;base64,", response.Logo);
-        Assert.Equal("11988888888", response.Telefone);
+        Assert.Equal("5511988888888", response.Telefone);
         Assert.Equal("maria@email.com", response.Email);
         Assert.Equal("Campinas", response.Endereco.Cidade);
         Assert.Equal("SP", response.Endereco.Estado);

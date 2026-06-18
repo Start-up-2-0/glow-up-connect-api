@@ -70,7 +70,8 @@ public class ProfissionalAutonomoPerfilService : IProfissionalAutonomoPerfilServ
             "Logo do profissional",
             _avatarBase64Decoder,
             CriarExcecao);
-        profissional.Telefone = OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Telefone, "Telefone do profissional", 20, CriarExcecao);
+        profissional.Telefone = TelefoneHelper.NormalizarParaArmazenamento(
+            OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Telefone, "Telefone do profissional", 20, CriarExcecao));
         profissional.Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Email, "Email do profissional", 255, CriarExcecao);
         profissional.UpdatedAt = DateTime.UtcNow;
 

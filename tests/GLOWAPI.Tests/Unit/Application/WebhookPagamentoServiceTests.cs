@@ -23,6 +23,7 @@ public class WebhookPagamentoServiceTests
     private readonly Mock<IAssinaturaHistoricoService> _assinaturaHistoricoService = new();
     private readonly Mock<IEstabelecimentoUsuarioRepository> _estabelecimentoUsuarioRepository = new();
     private readonly Mock<ICurrentUserContext> _currentUser = new();
+    private readonly Mock<IAssinaturaOnboardingFinalizacaoService> _onboardingFinalizacao = new();
 
     [Fact]
     public async Task RegistrarAsync_DeveCriarWebhook_QuandoEventoNaoExiste()
@@ -40,6 +41,13 @@ public class WebhookPagamentoServiceTests
                 webhookCriado = webhook;
             })
             .Returns(Task.CompletedTask);
+        _gatewayPagamentoResolver
+            .Setup(r => r.Resolver(GatewayPagamento.MercadoPago))
+            .Returns(_gatewayPagamento.Object);
+        _gatewayPagamento
+            .Setup(g => g.ConsultarPagamentoAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string paymentId, CancellationToken _) =>
+                ConsultarPagamentoGatewayResponse.Falha(paymentId, "{}", "Pagamento nao encontrado."));
 
         var service = CreateService();
 
@@ -461,6 +469,18 @@ public class WebhookPagamentoServiceTests
             .Setup(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
+        _onboardingFinalizacao
+            .Setup(s => s.FinalizarSePendenteAsync(It.IsAny<Assinatura>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var titularContatoService = new Mock<IAssinaturaTitularContatoService>();
+        titularContatoService
+            .Setup(s => s.ResolverAsync(It.IsAny<Assinatura>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GLOWAPI.Application.Models.Assinaturas.AssinaturaTitularContato
+            {
+                Email = "cliente@email.com"
+            });
+
         var cobrancaService = new CobrancaAssinaturaService(
             _pagamentoRepository.Object,
             _assinaturaRepository.Object,
@@ -468,8 +488,11 @@ public class WebhookPagamentoServiceTests
             _gatewayPagamentoResolver.Object,
             _assinaturaHistoricoService.Object,
             _assinaturaNotificacaoService.Object,
+            titularContatoService.Object,
             new CicloCobrancaAssinaturaService(Options.Create(new AssinaturaCobrancaOptions())),
-            _currentUser.Object);
+            _currentUser.Object,
+            _onboardingFinalizacao.Object,
+            Options.Create(new MercadoPagoOptions()));
 
         return new WebhookPagamentoService(
             _repository.Object,

@@ -46,7 +46,7 @@ public class MatrizPermissaoNegocioServiceTests
         Assert.Contains(PermissaoNegocio.AtendimentoIniciar, permissoes);
         Assert.Contains(PermissaoNegocio.AtendimentoFinalizar, permissoes);
         Assert.Contains(PermissaoNegocio.ClienteVisualizarProprio, permissoes);
-        Assert.Contains(PermissaoNegocio.ComissaoVisualizarPropria, permissoes);
+        Assert.DoesNotContain(PermissaoNegocio.ComissaoVisualizarPropria, permissoes);
         Assert.DoesNotContain(PermissaoNegocio.AgendaVisualizarGeral, permissoes);
         Assert.DoesNotContain(PermissaoNegocio.ClienteVisualizarGeral, permissoes);
         Assert.DoesNotContain(PermissaoNegocio.CaixaVisualizar, permissoes);
@@ -86,8 +86,30 @@ public class MatrizPermissaoNegocioServiceTests
 
         Assert.Contains(PermissaoNegocio.AgendaVisualizarGeral, permissoes);
         Assert.Contains(PermissaoNegocio.ProfissionalGerenciar, permissoes);
+        Assert.Contains(PermissaoNegocio.ServicoVisualizar, permissoes);
+        Assert.Contains(PermissaoNegocio.HorarioVisualizar, permissoes);
+        Assert.DoesNotContain(PermissaoNegocio.ServicoGerenciar, permissoes);
+        Assert.DoesNotContain(PermissaoNegocio.HorarioGerenciar, permissoes);
         Assert.DoesNotContain(PermissaoNegocio.CaixaVisualizar, permissoes);
         Assert.DoesNotContain(PermissaoNegocio.CaixaGerenciar, permissoes);
+    }
+
+    [Fact]
+    public void ObterPermissoes_DevePermitirCadastroDeServicosEHorariosDaLojaSomenteParaOwnerEAdmin()
+    {
+        var owner = _service.ObterPermissoes(EstablishmentUserRole.Owner);
+        var admin = _service.ObterPermissoes(EstablishmentUserRole.Admin);
+        var manager = _service.ObterPermissoes(EstablishmentUserRole.Manager);
+        var receptionist = _service.ObterPermissoes(EstablishmentUserRole.Receptionist);
+
+        Assert.Contains(PermissaoNegocio.ServicoGerenciar, owner);
+        Assert.Contains(PermissaoNegocio.HorarioGerenciar, owner);
+        Assert.Contains(PermissaoNegocio.ServicoGerenciar, admin);
+        Assert.Contains(PermissaoNegocio.HorarioGerenciar, admin);
+        Assert.DoesNotContain(PermissaoNegocio.ServicoGerenciar, manager);
+        Assert.DoesNotContain(PermissaoNegocio.HorarioGerenciar, manager);
+        Assert.DoesNotContain(PermissaoNegocio.ServicoGerenciar, receptionist);
+        Assert.DoesNotContain(PermissaoNegocio.HorarioGerenciar, receptionist);
     }
 
     [Fact]

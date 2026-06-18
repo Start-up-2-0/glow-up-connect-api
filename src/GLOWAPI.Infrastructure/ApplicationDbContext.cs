@@ -23,10 +23,12 @@ public class ApplicationDbContext : DbContext
     public DbSet<Agendamento> Agendamentos { get; set; }
     public DbSet<AgendamentoItem> AgendamentoItens { get; set; }
     public DbSet<AgendamentoHistorico> AgendamentosHistorico { get; set; }
+    public DbSet<AgendamentoPropostaRemarcacao> AgendamentosPropostasRemarcacao { get; set; }
     public DbSet<Caixa> Caixas { get; set; }
     public DbSet<Plano> Planos { get; set; }
     public DbSet<CampanhaPromocional> CampanhasPromocionais { get; set; }
     public DbSet<Assinatura> Assinaturas { get; set; }
+    public DbSet<AssinaturaEstabelecimento> AssinaturaEstabelecimentos { get; set; }
     public DbSet<AssinaturaHistorico> AssinaturasHistorico { get; set; }
     public DbSet<AssinaturaRecorrenciaHistorico> AssinaturasRecorrenciasHistorico { get; set; }
     public DbSet<Pagamento> Pagamentos { get; set; }
@@ -41,6 +43,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<MensagemNotificacaoLog> MensagensNotificacaoLogs { get; set; }
     public DbSet<AuditoriaNegocio> AuditoriasNegocio { get; set; }
     public DbSet<ConviteNegocio> ConvitesNegocio { get; set; }
+    public DbSet<IpRateLimitBlock> IpRateLimitBlocks { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

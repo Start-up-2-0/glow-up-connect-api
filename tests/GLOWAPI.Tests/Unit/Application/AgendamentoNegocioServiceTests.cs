@@ -2,10 +2,12 @@ using GLOWAPI.Application.DTOs.Agendamento;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Agendamento;
+using GLOWAPI.Application.Options;
 using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Negocios;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace GLOWAPI.Tests.Unit.Application;
@@ -19,9 +21,12 @@ public class AgendamentoNegocioServiceTests
     private readonly Mock<IAgendamentoHistoricoRepository> _agendamentoHistoricoRepository = new();
     private readonly Mock<IAgendamentoValidador> _agendamentoValidador = new();
     private readonly Mock<IAgendamentoNotificacaoService> _agendamentoNotificacaoService = new();
+    private readonly Mock<IDisponibilidadeAgendaService> _disponibilidadeAgendaService = new();
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
+    private readonly Mock<IUsuarioService> _usuarioService = new();
+    private readonly Mock<IAgendamentoPropostaRemarcacaoRepository> _propostaRemarcacaoRepository = new();
 
     [Fact]
     public async Task ConfirmarAsync_DeveAlterarStatusParaConfirmado()
@@ -67,6 +72,7 @@ public class AgendamentoNegocioServiceTests
                 It.IsAny<CriarAgendamentoRequestDto>(),
                 null,
                 10,
+                It.IsAny<DateTime?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(preparacao);
 
@@ -92,6 +98,7 @@ public class AgendamentoNegocioServiceTests
                 It.IsAny<CriarAgendamentoRequestDto>(),
                 null,
                 10,
+                It.IsAny<DateTime?>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -132,6 +139,7 @@ public class AgendamentoNegocioServiceTests
                 It.IsAny<CriarAgendamentoRequestDto>(),
                 null,
                 It.IsAny<int?>(),
+                It.IsAny<DateTime?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(CriarPreparacao(estabelecimento, profissional));
 
@@ -181,9 +189,13 @@ public class AgendamentoNegocioServiceTests
             _agendamentoHistoricoRepository.Object,
             _agendamentoValidador.Object,
             _agendamentoNotificacaoService.Object,
+            _disponibilidadeAgendaService.Object,
             _autorizacaoNegocioService.Object,
             _auditoriaNegocioService.Object,
-            _currentUserContext.Object);
+            _currentUserContext.Object,
+            _usuarioService.Object,
+            _propostaRemarcacaoRepository.Object,
+            Options.Create(new AuthOptions { FrontendBaseUrl = "http://localhost:5173" }));
 
     private static Agendamento CriarAgendamentoPendente()
     {

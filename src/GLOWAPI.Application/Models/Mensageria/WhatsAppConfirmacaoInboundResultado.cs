@@ -48,26 +48,33 @@ public class WhatsAppConfirmacaoInboundResultado
             EstabelecimentoId = estabelecimentoId
         };
 
-    public static WhatsAppConfirmacaoInboundResultado SucessoUsuario(string nome, string telefone, int usuarioId) =>
+    public static WhatsAppConfirmacaoInboundResultado SucessoUsuario(
+        string nome,
+        string telefone,
+        int usuarioId,
+        string? emailDestinatario = null) =>
         new()
         {
             Confirmado = true,
             Tipo = WhatsAppConfirmacaoInboundTipo.Usuario,
             NomeDestinatario = nome,
             TelefoneResposta = telefone,
+            EmailDestinatario = emailDestinatario ?? string.Empty,
             UsuarioId = usuarioId
         };
 
     public static WhatsAppConfirmacaoInboundResultado SucessoEstabelecimento(
         string nome,
         string telefone,
-        int estabelecimentoId) =>
+        int estabelecimentoId,
+        string? emailDestinatario = null) =>
         new()
         {
             Confirmado = true,
             Tipo = WhatsAppConfirmacaoInboundTipo.Estabelecimento,
             NomeDestinatario = nome,
             TelefoneResposta = telefone,
+            EmailDestinatario = emailDestinatario ?? string.Empty,
             EstabelecimentoId = estabelecimentoId
         };
 }

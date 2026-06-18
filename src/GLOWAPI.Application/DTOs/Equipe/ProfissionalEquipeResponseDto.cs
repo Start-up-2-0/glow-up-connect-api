@@ -6,7 +6,7 @@ public record ProfissionalEquipeResponseDto(
     int Id,
     int EstabelecimentoId,
     int ProfissionalId,
-    int UsuarioId,
+    int? UsuarioId,
     string NomePublico,
     string Email,
     string Telefone,

@@ -1,3 +1,4 @@
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Domain.Entities;
 using AgendamentoEntity = GLOWAPI.Domain.Entities.Agendamento;
 
@@ -22,9 +23,9 @@ public class AgendamentoCriadoResponseDto
             Id = agendamento.Id,
             Status = agendamento.Status.ToString(),
             ValorTotal = agendamento.ValorTotal,
-            DuracaoTotalMinutos = itens.Sum(item => (int)(item.Fim - item.Inicio).TotalMinutes),
-            Inicio = itens.FirstOrDefault()?.Inicio ?? default,
-            Fim = itens.LastOrDefault()?.Fim ?? default,
+            DuracaoTotalMinutos = AgendamentoHorarioHelper.ObterDuracaoTotalMinutos(agendamento),
+            Inicio = AgendamentoHorarioHelper.ObterInicio(agendamento),
+            Fim = AgendamentoHorarioHelper.ObterFim(agendamento),
             Itens = itens.Select(AgendamentoItemCriadoResponseDto.From).ToList()
         };
     }

@@ -13,9 +13,12 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<IUsuarioService, UsuarioService>();
+        services.AddScoped<IPrivacidadeTitularService, PrivacidadeTitularService>();
         services.AddScoped<IConfirmacaoEmailService, ConfirmacaoEmailService>();
         services.AddScoped<IConfirmacaoWhatsAppService, ConfirmacaoWhatsAppService>();
         services.AddScoped<IConfirmacaoWhatsAppEstabelecimentoService, ConfirmacaoWhatsAppEstabelecimentoService>();
+        services.AddScoped<IConfirmacaoWhatsAppNotificacaoService, ConfirmacaoWhatsAppNotificacaoService>();
+        services.AddScoped<IConfirmacaoWhatsAppInboundService, ConfirmacaoWhatsAppInboundService>();
         services.AddScoped<IAvatarBase64Decoder, AvatarBase64Decoder>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IAuthSessionService, AuthSessionService>();
@@ -30,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<ICobrancaAssinaturaService, CobrancaAssinaturaService>();
         services.AddScoped<IAssinaturaCobrancaWorkerService, AssinaturaCobrancaWorkerService>();
         services.AddScoped<IAssinaturaService, AssinaturaService>();
+        services.AddScoped<IAssinaturaOnboardingFinalizacaoService, AssinaturaOnboardingFinalizacaoService>();
         services.AddScoped<IAssinaturaOnboardingContextoService, AssinaturaOnboardingContextoService>();
         services.AddScoped<IAssinaturaHistoricoService, AssinaturaHistoricoService>();
         services.AddScoped<IEstabelecimentoPerfilService, EstabelecimentoPerfilService>();
@@ -42,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IAgendaNegocioService, AgendaNegocioService>();
         services.AddScoped<IAtendimentoProfissionalService, AtendimentoProfissionalService>();
         services.AddScoped<ICaixaNegocioService, CaixaNegocioService>();
+        services.AddScoped<IFinanceiroNegocioService, FinanceiroNegocioService>();
         services.AddScoped<IProfissionalServicoNegocioService, ProfissionalServicoNegocioService>();
         services.AddScoped<IServicoNegocioService, ServicoNegocioService>();
         services.AddScoped<IServicoProfissionalAutonomoService, ServicoProfissionalAutonomoService>();
@@ -51,12 +56,17 @@ public static class DependencyInjection
         services.AddScoped<IDisponibilidadeAgendaService, DisponibilidadeAgendaService>();
         services.AddScoped<IAgendamentoValidador, AgendamentoValidador>();
         services.AddScoped<IAgendamentoNegocioService, AgendamentoNegocioService>();
+        services.AddScoped<IAgendamentoConfirmacaoContaService, AgendamentoConfirmacaoContaService>();
         services.AddScoped<IAgendamentoNotificacaoService, AgendamentoNotificacaoService>();
         services.AddScoped<IAuditoriaNegocioService, AuditoriaNegocioService>();
+        services.AddScoped<IAuditoriaConsultaNegocioService, AuditoriaConsultaNegocioService>();
+        services.AddScoped<IClienteNegocioService, ClienteNegocioService>();
+        services.AddScoped<IRedeNegocioService, RedeNegocioService>();
         services.AddScoped<IEquipeNotificacaoService, EquipeNotificacaoService>();
         services.AddScoped<IUsuarioNegocioContextoService, UsuarioNegocioContextoService>();
         services.AddScoped<IConviteNegocioService, ConviteNegocioService>();
         services.AddScoped<IAssinaturaNotificacaoService, AssinaturaNotificacaoService>();
+        services.AddScoped<IAssinaturaTitularContatoService, AssinaturaTitularContatoService>();
         services.AddScoped<IGatewayPagamentoResolver, GatewayPagamentoResolver>();
         services.AddScoped<IWebhookPagamentoService, WebhookPagamentoService>();
         services.AddScoped<IWebhookWhatsAppService, WebhookWhatsAppService>();

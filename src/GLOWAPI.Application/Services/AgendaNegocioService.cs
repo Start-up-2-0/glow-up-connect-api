@@ -1,4 +1,5 @@
 using GLOWAPI.Application.DTOs.Agenda;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Agenda;
@@ -25,7 +26,7 @@ public class AgendaNegocioService : IAgendaNegocioService
         _profissionalEscopoAcessoService = profissionalEscopoAcessoService;
     }
 
-    public async Task<IReadOnlyList<AgendaGeralResponseDto>> ListarAgendaGeralAsync(
+    public async Task<AgendaPaginadaResponseDto<AgendaGeralResponseDto>> ListarAgendaGeralAsync(
         int estabelecimentoId,
         AgendaGeralFiltroDto filtro,
         CancellationToken cancellationToken = default)
@@ -35,20 +36,33 @@ public class AgendaNegocioService : IAgendaNegocioService
             PermissaoNegocio.AgendaVisualizarGeral,
             cancellationToken);
 
-        var agendamentos = await _agendamentoRepository.ListarAgendaGeralAsync(
+        var (inicio, fim) = AgendaPeriodoConsulta.ResolverIntervaloMesAtualUtc(
+            filtro.Inicio,
+            filtro.Fim,
+            filtro.IntervaloPersonalizado);
+        var (pagina, tamanhoPagina) = AgendaPeriodoConsulta.ResolverPaginacao(filtro.Pagina, filtro.TamanhoPagina);
+
+        var (agendamentos, total) = await _agendamentoRepository.ListarAgendaGeralAsync(
             new AgendaGeralFiltro(
                 estabelecimentoId,
                 filtro.ProfissionalId,
                 filtro.ClienteId,
                 filtro.Status,
-                filtro.Inicio,
-                filtro.Fim),
+                inicio,
+                fim,
+                pagina,
+                tamanhoPagina,
+                AgendaOrdenacaoConsulta.Normalizar(filtro.Ordenacao)),
             cancellationToken);
 
-        return agendamentos.Select(AgendaGeralResponseDto.From).ToList();
+        return new AgendaPaginadaResponseDto<AgendaGeralResponseDto>(
+            total,
+            pagina,
+            tamanhoPagina,
+            agendamentos.Select(AgendaGeralResponseDto.From).ToList());
     }
 
-    public async Task<IReadOnlyList<AgendaProfissionalResponseDto>> ListarAgendaProfissionalAsync(
+    public async Task<AgendaPaginadaResponseDto<AgendaProfissionalResponseDto>> ListarAgendaProfissionalAsync(
         int estabelecimentoId,
         AgendaProfissionalFiltroDto filtro,
         CancellationToken cancellationToken = default)
@@ -62,15 +76,28 @@ public class AgendaNegocioService : IAgendaNegocioService
             estabelecimentoId,
             cancellationToken);
 
-        var itens = await _agendamentoItemRepository.ListarAgendaProfissionalAsync(
+        var (inicio, fim) = AgendaPeriodoConsulta.ResolverIntervaloMesAtualUtc(
+            filtro.Inicio,
+            filtro.Fim,
+            filtro.IntervaloPersonalizado);
+        var (pagina, tamanhoPagina) = AgendaPeriodoConsulta.ResolverPaginacao(filtro.Pagina, filtro.TamanhoPagina);
+
+        var (itens, total) = await _agendamentoItemRepository.ListarAgendaProfissionalAsync(
             new AgendaProfissionalFiltro(
                 estabelecimentoId,
                 escopo.ProfissionalId,
                 filtro.Status,
-                filtro.Inicio,
-                filtro.Fim),
+                inicio,
+                fim,
+                pagina,
+                tamanhoPagina,
+                AgendaOrdenacaoConsulta.Normalizar(filtro.Ordenacao)),
             cancellationToken);
 
-        return itens.Select(AgendaProfissionalResponseDto.From).ToList();
+        return new AgendaPaginadaResponseDto<AgendaProfissionalResponseDto>(
+            total,
+            pagina,
+            tamanhoPagina,
+            itens.Select(AgendaProfissionalResponseDto.From).ToList());
     }
 }

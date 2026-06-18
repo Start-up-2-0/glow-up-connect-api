@@ -21,6 +21,8 @@ public class MatrizPermissaoNegocioService : IMatrizPermissaoNegocioService
         PermissaoNegocio.AgendaCriar,
         PermissaoNegocio.AgendaReagendar,
         PermissaoNegocio.AgendaCancelar,
+        PermissaoNegocio.AtendimentoIniciar,
+        PermissaoNegocio.AtendimentoFinalizar,
         PermissaoNegocio.ClienteVisualizarGeral,
         PermissaoNegocio.CaixaVisualizar,
         PermissaoNegocio.CaixaGerenciar
@@ -35,13 +37,13 @@ public class MatrizPermissaoNegocioService : IMatrizPermissaoNegocioService
         PermissaoNegocio.ProfissionalConvidar,
         PermissaoNegocio.ProfissionalGerenciar,
         PermissaoNegocio.ServicoVisualizar,
-        PermissaoNegocio.ServicoGerenciar,
         PermissaoNegocio.HorarioVisualizar,
-        PermissaoNegocio.HorarioGerenciar,
         PermissaoNegocio.AgendaVisualizarGeral,
         PermissaoNegocio.AgendaCriar,
         PermissaoNegocio.AgendaReagendar,
         PermissaoNegocio.AgendaCancelar,
+        PermissaoNegocio.AtendimentoIniciar,
+        PermissaoNegocio.AtendimentoFinalizar,
         PermissaoNegocio.ClienteVisualizarGeral
     };
 
@@ -54,6 +56,8 @@ public class MatrizPermissaoNegocioService : IMatrizPermissaoNegocioService
         PermissaoNegocio.AgendaCriar,
         PermissaoNegocio.AgendaReagendar,
         PermissaoNegocio.AgendaCancelar,
+        PermissaoNegocio.AtendimentoIniciar,
+        PermissaoNegocio.AtendimentoFinalizar,
         PermissaoNegocio.ClienteVisualizarGeral
     };
 
@@ -67,8 +71,7 @@ public class MatrizPermissaoNegocioService : IMatrizPermissaoNegocioService
         PermissaoNegocio.AtendimentoVisualizarProprio,
         PermissaoNegocio.AtendimentoIniciar,
         PermissaoNegocio.AtendimentoFinalizar,
-        PermissaoNegocio.ClienteVisualizarProprio,
-        PermissaoNegocio.ComissaoVisualizarPropria
+        PermissaoNegocio.ClienteVisualizarProprio
     };
 
     public IReadOnlySet<PermissaoNegocio> ObterPermissoes(

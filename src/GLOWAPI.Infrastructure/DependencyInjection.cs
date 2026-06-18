@@ -1,7 +1,9 @@
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Options;
+using GLOWAPI.Infrastructure.Database;
 using GLOWAPI.Infrastructure.Geolocalizacao;
+using GLOWAPI.Infrastructure.Mensageria;
 using GLOWAPI.Infrastructure.Mensageria.Provedores;
 using GLOWAPI.Infrastructure.Pagamentos;
 using GLOWAPI.Infrastructure.Repositories;
@@ -22,27 +24,25 @@ public static class DependencyInjection
         IConfiguration configuration,
         string environmentName)
     {
-        var provider = configuration.GetValue<string>("Database:Provider") ?? "PostgreSQL";
-        var isHosted = string.Equals(environmentName, "Production", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(environmentName, "Staging", StringComparison.OrdinalIgnoreCase);
-        var connectionString = isHosted
-            ? configuration["POSTGSL"]
-            : configuration.GetConnectionString("DefaultConnection");
+        var provider = DatabaseConnectionResolver.ResolveProvider(configuration);
+        var connectionString = DatabaseConnectionResolver.ResolveConnectionString(configuration, environmentName);
 
-        if (!provider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase))
+        if (!provider.Equals(DatabaseConnectionResolver.ProviderMySql, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("O provedor de banco configurado para o projeto deve ser PostgreSQL.");
+            throw new InvalidOperationException("O provedor de banco configurado para o projeto deve ser MySQL.");
         }
 
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new InvalidOperationException(
-                "Connection string do PostgreSQL nao configurada. Use ConnectionStrings:DefaultConnection em desenvolvimento ou a variavel de ambiente POSTGSL em staging/producao.");
+                "Connection string do MySQL nao configurada. Use ConnectionStrings:DefaultConnection em desenvolvimento ou a variavel de ambiente MYSQL_CS em staging/producao.");
         }
+
+        var serverVersion = ServerVersion.Parse("8.0.36-mysql");
 
         services.AddDbContext<ApplicationDbContext>(options =>
         {
-            options.UseNpgsql(connectionString);
+            options.UseMySql(connectionString, serverVersion);
         });
 
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
@@ -60,9 +60,12 @@ public static class DependencyInjection
         services.AddScoped<IAgendamentoRepository, AgendamentoRepository>();
         services.AddScoped<IAgendamentoItemRepository, AgendamentoItemRepository>();
         services.AddScoped<IAgendamentoHistoricoRepository, AgendamentoHistoricoRepository>();
+        services.AddScoped<IAgendamentoPropostaRemarcacaoRepository, AgendamentoPropostaRemarcacaoRepository>();
         services.AddScoped<ICaixaRepository, CaixaRepository>();
         services.AddScoped<IPlanoRepository, PlanoRepository>();
         services.AddScoped<IAssinaturaRepository, AssinaturaRepository>();
+        services.AddScoped<IAssinaturaEstabelecimentoRepository, AssinaturaEstabelecimentoRepository>();
+        services.AddScoped<IAuditoriaNegocioRepository, AuditoriaNegocioRepository>();
         services.AddScoped<ICampanhaPromocionalRepository, CampanhaPromocionalRepository>();
         services.AddScoped<IPagamentoRepository, PagamentoRepository>();
         services.AddScoped<ILancamentoCaixaRepository, LancamentoCaixaRepository>();
@@ -71,8 +74,13 @@ public static class DependencyInjection
         services.AddScoped<IMetaProfissionalRepository, MetaProfissionalRepository>();
         services.AddScoped<ISessaoAutenticacaoRepository, SessaoAutenticacaoRepository>();
         services.AddScoped<ILogAutenticacaoRepository, LogAutenticacaoRepository>();
+        services.AddScoped<IIpRateLimitBlockRepository, IpRateLimitBlockRepository>();
+        services.AddScoped<IMercadoPagoWebhookSignatureValidator, MercadoPagoWebhookSignatureValidator>();
         services.AddScoped<IGlowTokenService, GlowTokenService>();
         services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
+        services.AddScoped<IIpBurstRateLimitService, IpBurstRateLimitService>();
+        services.AddScoped<ILoginFailureRateLimitService, LoginFailureRateLimitService>();
+        services.AddMemoryCache();
         services.AddScoped<IMensagemNotificacaoRepository, MensagemNotificacaoRepository>();
 
         services.Configure<MercadoPagoOptions>(configuration.GetSection(MercadoPagoOptions.SectionName));
@@ -109,7 +117,7 @@ public static class DependencyInjection
 
         services.AddScoped<IGatewayPagamento>(_ => new GatewayPagamentoFake(GLOWAPI.Domain.Enums.GatewayPagamento.AbacatePay));
 
-        services.AddHttpClient<IGeocodificadorService, NominatimGeocodificadorClient>((serviceProvider, client) =>
+        services.AddHttpClient<NominatimGeocodificadorClient>((serviceProvider, client) =>
         {
             var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<GeocodificacaoOptions>>().Value;
             var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
@@ -117,8 +125,23 @@ public static class DependencyInjection
                 : options.BaseUrl.Trim();
             client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
             client.Timeout = TimeSpan.FromSeconds(options.TimeoutSegundos);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd(options.UserAgent);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                string.IsNullOrWhiteSpace(options.UserAgent)
+                    ? "GlowUpConnectAPI/1.0 (contato@glowupconnect.com.br)"
+                    : options.UserAgent);
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
         });
+
+        services.AddHttpClient<PhotonGeocodificadorClient>(client =>
+        {
+            client.BaseAddress = new Uri("https://photon.komoot.io/");
+            client.Timeout = TimeSpan.FromSeconds(8);
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+        });
+
+        services.AddScoped<IGeocodificadorService, GeocodificadorCompostoService>();
+
+        services.AddHttpClient<ICaptchaValidator, RecaptchaValidator>();
 
         return services;
     }

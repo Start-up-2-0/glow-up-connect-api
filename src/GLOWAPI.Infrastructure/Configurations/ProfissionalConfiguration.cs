@@ -27,7 +27,7 @@ public class ProfissionalConfiguration : IEntityTypeConfiguration<Profissional>
             .HasMaxLength(1000);
 
         builder.Property(profissional => profissional.Logo)
-            .HasColumnType("text");
+            .HasColumnType("longtext");
 
         builder.Property(profissional => profissional.Telefone)
             .HasMaxLength(20);
@@ -53,9 +53,11 @@ public class ProfissionalConfiguration : IEntityTypeConfiguration<Profissional>
         builder.HasOne(profissional => profissional.Usuario)
             .WithOne()
             .HasForeignKey<Profissional>(profissional => profissional.UsuarioId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
 
         builder.HasIndex(profissional => profissional.UsuarioId)
-            .IsUnique();
+            .IsUnique()
+            .HasFilter("`UsuarioId` IS NOT NULL");
     }
 }

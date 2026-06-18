@@ -11,6 +11,8 @@ public record AgendaGeralResponseDto(
     string? ClienteTelefone,
     string Status,
     decimal ValorTotal,
+    DateTime Inicio,
+    DateTime Fim,
     string Observacao,
     IReadOnlyList<AgendaGeralItemResponseDto> Itens)
 {
@@ -23,6 +25,8 @@ public record AgendaGeralResponseDto(
             agendamento.UsuarioCliente?.Telefone ?? agendamento.ClienteTelefone,
             agendamento.Status.ToString(),
             agendamento.ValorTotal,
+            agendamento.Inicio,
+            agendamento.Fim,
             agendamento.Observacao,
             agendamento.Itens
                 .OrderBy(item => item.Inicio)

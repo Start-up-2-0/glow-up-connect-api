@@ -65,6 +65,66 @@ public class AgendamentoClienteIntegracaoTests : IClassFixture<GlowApiWebApplica
     }
 
     [Fact]
+    public async Task CriarAgendamentoSemAutenticacao_DeveRetornarUnauthorized()
+    {
+        var seed = await SeedAgendamentoClienteAsync();
+        await ConfigurarHorariosAsync(seed);
+        var segunda = ObterProximaSegunda();
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/agendamentos", new
+        {
+            estabelecimentoPublicGuid = seed.PublicGuid,
+            profissionalPublicGuid = seed.ProfissionalPublicGuid,
+            servicoIds = new[] { seed.ServicoId },
+            data = segunda.ToString("yyyy-MM-dd"),
+            horarioInicio = "10:00:00"
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ClienteLogado_DeveCriarAgendamentoSemPreferenciaDeProfissional()
+    {
+        var seed = await SeedAgendamentoClienteAsync();
+        await ConfigurarHorariosAsync(seed);
+        var segunda = ObterProximaSegunda();
+
+        var client = _factory.CreateClient();
+        await AutenticarClienteAsync(client, seed.ClienteEmail, seed.Senha);
+
+        var disponibilidade = await client.GetAsync(
+            $"/api/publico/agendar/loja/{seed.PublicGuid}/disponibilidade?" +
+            $"dataInicio={segunda:yyyy-MM-dd}&dataFim={segunda:yyyy-MM-dd}&servicoIds={seed.ServicoId}");
+        disponibilidade.EnsureSuccessStatusCode();
+
+        var disponibilidadeBody = await disponibilidade.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        var slots = disponibilidadeBody.GetProperty("data").GetProperty("slots");
+        Assert.True(slots.GetArrayLength() > 0);
+
+        var slot = slots[0];
+        var inicioSelecionado = slot.GetProperty("inicio").GetDateTime();
+        var horarioInicio = inicioSelecionado.ToString("HH:mm:ss");
+
+        var criar = await client.PostAsJsonAsync("/api/agendamentos", new
+        {
+            estabelecimentoPublicGuid = seed.PublicGuid,
+            servicoIds = new[] { seed.ServicoId },
+            data = segunda.ToString("yyyy-MM-dd"),
+            horarioInicio,
+            inicioSelecionado = inicioSelecionado.ToString("O"),
+            observacao = "Agendamento interno sem preferencia"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, criar.StatusCode);
+
+        var criarBody = await criar.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        Assert.Equal("PendenteConfirmacao", criarBody.GetProperty("data").GetProperty("status").GetString());
+        Assert.True(criarBody.GetProperty("data").GetProperty("id").GetInt32() > 0);
+    }
+
+    [Fact]
     public async Task ObterAgendamentoDeOutroCliente_DeveRetornarNotFound()
     {
         var seed = await SeedAgendamentoClienteAsync();

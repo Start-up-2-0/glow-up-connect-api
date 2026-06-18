@@ -1,11 +1,10 @@
 using System.Text.Json;
-using GLOWAPI.Application.DTOs.Mensageria;
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Services;
-using GLOWAPI.Application.Mensageria;
 using GLOWAPI.Application.Models.Mensageria;
 using GLOWAPI.Application.Options;
-using GLOWAPI.Domain.Enums;
+using GLOWAPI.Domain.Exceptions.Mensageria;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -15,23 +14,20 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
 {
     private const int PayloadLogMaxLength = 8000;
 
-    private readonly IConfirmacaoWhatsAppService _confirmacaoWhatsAppService;
-    private readonly IConfirmacaoWhatsAppEstabelecimentoService _confirmacaoWhatsAppEstabelecimentoService;
-    private readonly IMensagemNotificacaoService _mensagemNotificacaoService;
+    private readonly IConfirmacaoWhatsAppInboundService _confirmacaoWhatsAppInboundService;
     private readonly MensageriaWhatsAppOptions _options;
+    private readonly IHostEnvironment _environment;
     private readonly ILogger<WebhookWhatsAppService> _logger;
 
     public WebhookWhatsAppService(
-        IConfirmacaoWhatsAppService confirmacaoWhatsAppService,
-        IConfirmacaoWhatsAppEstabelecimentoService confirmacaoWhatsAppEstabelecimentoService,
-        IMensagemNotificacaoService mensagemNotificacaoService,
+        IConfirmacaoWhatsAppInboundService confirmacaoWhatsAppInboundService,
         IOptions<MensageriaWhatsAppOptions> options,
+        IHostEnvironment environment,
         ILogger<WebhookWhatsAppService> logger)
     {
-        _confirmacaoWhatsAppService = confirmacaoWhatsAppService;
-        _confirmacaoWhatsAppEstabelecimentoService = confirmacaoWhatsAppEstabelecimentoService;
-        _mensagemNotificacaoService = mensagemNotificacaoService;
+        _confirmacaoWhatsAppInboundService = confirmacaoWhatsAppInboundService;
         _options = options.Value;
+        _environment = environment;
         _logger = logger;
     }
 
@@ -39,10 +35,13 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
         JsonElement payload,
         CancellationToken cancellationToken = default)
     {
+        GarantirAutenticacaoEvolution(payload);
+
         var evento = EvolutionWebhookParser.ExtrairEvento(payload) ?? "(nao informado)";
         var instancia = EvolutionWebhookParser.ExtrairInstancia(payload) ?? "(nao informado)";
 
         LogPayloadBrutoEvolution("messages-upsert", evento, instancia, payload);
+
         var fromMe = EvolutionWebhookParser.ExtrairFromMe(payload);
         var diagnostico = EvolutionWebhookParser.ExtrairDiagnosticoRemetente(payload);
         var telefone = diagnostico.TelefoneExtraido;
@@ -65,45 +64,39 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             diagnostico.PushName ?? "(ausente)",
             diagnostico.MotivoTelefoneVazio ?? "(n/a)");
 
-        var podeProcessarConfirmacao = EvolutionWebhookParser.IsMensagemInboundDoUsuario(payload)
-            || ConfirmacaoWhatsAppCodigoHelper.PareceTentativaConfirmacao(textoMensagem);
-
-        if (!podeProcessarConfirmacao)
+        if (!ConfirmacaoWhatsAppCodigoHelper.PareceTentativaConfirmacao(textoMensagem))
         {
             _logger.LogInformation(
-                "Webhook WhatsApp messages-upsert ignorado: nao inbound. Evento={Evento}, Instancia={Instancia}, Motivo={Motivo}",
+                "Webhook WhatsApp messages-upsert ignorado: mensagem sem tentativa de confirmacao. Evento={Evento}, Instancia={Instancia}, TelefonePresente={TelefonePresente}",
                 evento,
                 instancia,
-                EvolutionWebhookParser.DescreverMotivoNaoInbound(payload));
+                !string.IsNullOrWhiteSpace(telefone));
             return;
         }
 
-        if (!ValidarApiKey(payload))
+        var contextoConversa = new ConfirmacaoWhatsAppInboundContexto
         {
-            _logger.LogWarning(
-                "Webhook WhatsApp messages-upsert ignorado: apikey invalida. Evento={Evento}, Instancia={Instancia}",
-                evento,
-                instancia);
-            return;
-        }
+            RemoteJidConversa = EvolutionWebhookParser.ExtrairRemoteJidConversa(payload),
+            RemoteJidAlt = EvolutionWebhookParser.ExtrairRemoteJidAlt(payload)
+        };
 
-        await ProcessarConfirmacaoInboundAsync(telefone, textoMensagem, cancellationToken);
+        await _confirmacaoWhatsAppInboundService.ProcessarAsync(
+            telefone,
+            textoMensagem,
+            contextoConversa,
+            cancellationToken);
     }
 
     public Task ProcessarMensagemEnviadaAsync(
         JsonElement payload,
         CancellationToken cancellationToken = default)
     {
+        GarantirAutenticacaoEvolution(payload);
+
         var evento = EvolutionWebhookParser.ExtrairEvento(payload) ?? "(nao informado)";
         var instancia = EvolutionWebhookParser.ExtrairInstancia(payload) ?? "(nao informado)";
 
         LogPayloadBrutoEvolution("send-message", evento, instancia, payload);
-
-        if (!ValidarApiKey(payload))
-        {
-            _logger.LogWarning("Webhook WhatsApp send-message ignorado: apikey invalida.");
-            return Task.CompletedTask;
-        }
 
         var telefone = EvolutionWebhookParser.ExtrairTelefoneRemetente(payload);
         var textoMensagem = EvolutionWebhookParser.ExtrairTextoMensagem(payload);
@@ -114,142 +107,6 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             !string.IsNullOrWhiteSpace(textoMensagem));
 
         return Task.CompletedTask;
-    }
-
-    private async Task ProcessarConfirmacaoInboundAsync(
-        string telefoneRemetente,
-        string textoMensagem,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(textoMensagem))
-        {
-            _logger.LogInformation(
-                "Webhook WhatsApp messages-upsert ignorado: texto ausente. TelefonePresente={TelefonePresente}",
-                !string.IsNullOrWhiteSpace(telefoneRemetente));
-            return;
-        }
-
-        if (!ConfirmacaoWhatsAppCodigoHelper.PareceTentativaConfirmacao(textoMensagem))
-        {
-            _logger.LogInformation(
-                "Webhook WhatsApp messages-upsert ignorado: mensagem sem GLOW. TelefonePresente={TelefonePresente}",
-                !string.IsNullOrWhiteSpace(telefoneRemetente));
-            return;
-        }
-
-        var destinoResposta = await ResolverDestinoRespostaInboundAsync(
-            telefoneRemetente,
-            textoMensagem,
-            cancellationToken);
-
-        if (destinoResposta is not null && !string.IsNullOrWhiteSpace(destinoResposta.Telefone))
-        {
-            LogarDestinoRespostaAutomatica(telefoneRemetente, destinoResposta);
-
-            await EnviarMensagemProcessandoAsync(
-                destinoResposta.Telefone,
-                destinoResposta.Nome,
-                cancellationToken);
-        }
-
-        var resultadoUsuario = await _confirmacaoWhatsAppService.TentarConfirmarPorMensagemInboundAsync(
-            telefoneRemetente,
-            textoMensagem,
-            cancellationToken);
-
-        if (resultadoUsuario.Confirmado)
-        {
-            await EnviarRespostaConfirmacaoSucessoAsync(
-                resultadoUsuario,
-                ObterDestinatarioRespostaAutomatica(resultadoUsuario),
-                cancellationToken);
-            return;
-        }
-
-        LogarMotivoIgnorado("usuario", telefoneRemetente, resultadoUsuario.MotivoIgnorado);
-
-        if (resultadoUsuario.MotivoIgnorado == WhatsAppConfirmacaoInboundMotivoIgnorado.JaConfirmado)
-        {
-            await EnviarRespostaJaConfirmadoAsync(
-                resultadoUsuario,
-                ObterDestinatarioRespostaAutomatica(resultadoUsuario),
-                cancellationToken);
-            return;
-        }
-
-        var resultadoEstabelecimento = await _confirmacaoWhatsAppEstabelecimentoService.TentarConfirmarPorMensagemInboundAsync(
-            telefoneRemetente,
-            textoMensagem,
-            cancellationToken);
-
-        if (resultadoEstabelecimento.Confirmado)
-        {
-            await EnviarRespostaConfirmacaoSucessoAsync(
-                resultadoEstabelecimento,
-                ObterDestinatarioRespostaAutomatica(resultadoEstabelecimento),
-                cancellationToken);
-            return;
-        }
-
-        LogarMotivoIgnorado("estabelecimento", telefoneRemetente, resultadoEstabelecimento.MotivoIgnorado);
-
-        if (resultadoEstabelecimento.MotivoIgnorado == WhatsAppConfirmacaoInboundMotivoIgnorado.JaConfirmado)
-        {
-            await EnviarRespostaJaConfirmadoAsync(
-                resultadoEstabelecimento,
-                ObterDestinatarioRespostaAutomatica(resultadoEstabelecimento),
-                cancellationToken);
-            return;
-        }
-
-        var resultadoFalha = SelecionarResultadoFalha(resultadoUsuario, resultadoEstabelecimento);
-        await EnviarRespostaConfirmacaoFalhaAsync(
-            resultadoFalha,
-            ObterDestinatarioRespostaAutomatica(resultadoFalha),
-            cancellationToken);
-    }
-
-    private static WhatsAppConfirmacaoInboundResultado SelecionarResultadoFalha(
-        WhatsAppConfirmacaoInboundResultado resultadoUsuario,
-        WhatsAppConfirmacaoInboundResultado resultadoEstabelecimento)
-    {
-        if (resultadoUsuario.PossuiContatoIdentificado
-            && DeveNotificarFalha(resultadoUsuario.MotivoIgnorado))
-        {
-            return resultadoUsuario;
-        }
-
-        if (resultadoEstabelecimento.PossuiContatoIdentificado
-            && DeveNotificarFalha(resultadoEstabelecimento.MotivoIgnorado))
-        {
-            return resultadoEstabelecimento;
-        }
-
-        return resultadoUsuario.MotivoIgnorado != WhatsAppConfirmacaoInboundMotivoIgnorado.Nenhum
-            ? resultadoUsuario
-            : resultadoEstabelecimento;
-    }
-
-    private static bool DeveNotificarFalha(WhatsAppConfirmacaoInboundMotivoIgnorado motivo) =>
-        motivo is WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido
-            or WhatsAppConfirmacaoInboundMotivoIgnorado.SemPendencia
-            or WhatsAppConfirmacaoInboundMotivoIgnorado.EntidadeNaoEncontrada;
-
-    private void LogarMotivoIgnorado(
-        string tipo,
-        string telefone,
-        WhatsAppConfirmacaoInboundMotivoIgnorado motivo)
-    {
-        if (motivo == WhatsAppConfirmacaoInboundMotivoIgnorado.Nenhum)
-        {
-            return;
-        }
-
-        _logger.LogInformation(
-            "Webhook WhatsApp messages-upsert sem confirmacao. Tipo={Tipo}, Telefone={Telefone}, Motivo={Motivo}",
-            tipo,
-            telefone,
-            motivo);
     }
 
     private void LogPayloadBrutoEvolution(
@@ -272,212 +129,35 @@ public class WebhookWhatsAppService : IWebhookWhatsAppService
             raw);
     }
 
-    private bool ValidarApiKey(JsonElement payload)
+    private void GarantirAutenticacaoEvolution(JsonElement payload)
     {
-        if (string.IsNullOrWhiteSpace(_options.WebhookApiKey))
+        if (!DeveExigirApiKeyWebhook())
         {
-            return true;
-        }
-
-        if (payload.TryGetProperty("apikey", out var apikeyPayload)
-            && string.Equals(apikeyPayload.GetString(), _options.WebhookApiKey, StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        return string.Equals(_options.ApiKey, _options.WebhookApiKey, StringComparison.Ordinal)
-            && payload.TryGetProperty("apikey", out var apikey)
-            && string.Equals(apikey.GetString(), _options.ApiKey, StringComparison.Ordinal);
-    }
-
-    private async Task<WhatsAppConfirmacaoInboundRespostaDestino?> ResolverDestinoRespostaInboundAsync(
-        string telefoneRemetente,
-        string textoMensagem,
-        CancellationToken cancellationToken)
-    {
-        var destinoUsuario = await _confirmacaoWhatsAppService.ResolverDestinoRespostaInboundAsync(
-            telefoneRemetente,
-            textoMensagem,
-            cancellationToken);
-
-        if (destinoUsuario is not null)
-        {
-            return destinoUsuario;
-        }
-
-        return await _confirmacaoWhatsAppEstabelecimentoService.ResolverDestinoRespostaInboundAsync(
-            telefoneRemetente,
-            textoMensagem,
-            cancellationToken);
-    }
-
-    private void LogarDestinoRespostaAutomatica(
-        string telefoneWebhook,
-        WhatsAppConfirmacaoInboundRespostaDestino destino)
-    {
-        var telefoneWebhookNormalizado = TelefoneHelper.NormalizarParaWhatsApp(telefoneWebhook);
-        if (string.IsNullOrWhiteSpace(telefoneWebhookNormalizado))
-        {
-            _logger.LogInformation(
-                "Webhook WhatsApp resposta automatica via telefone cadastrado do codigo. UsuarioId={UsuarioId}, EstabelecimentoId={EstabelecimentoId}, Nome={Nome}, Telefone={Telefone}",
-                destino.UsuarioId,
-                destino.EstabelecimentoId,
-                destino.Nome ?? "(nao informado)",
-                destino.Telefone);
-            return;
-        }
-
-        if (!TelefoneHelper.SaoEquivalentes(telefoneWebhookNormalizado, destino.Telefone))
-        {
-            _logger.LogInformation(
-                "Webhook WhatsApp resposta automatica via telefone cadastrado do codigo (telefone do payload ignorado). UsuarioId={UsuarioId}, EstabelecimentoId={EstabelecimentoId}, TelefonePayload={TelefonePayload}, Nome={Nome}, TelefoneDestino={TelefoneDestino}",
-                destino.UsuarioId,
-                destino.EstabelecimentoId,
-                telefoneWebhookNormalizado,
-                destino.Nome ?? "(nao informado)",
-                destino.Telefone);
-        }
-    }
-
-    private static string ObterDestinatarioRespostaAutomatica(
-        WhatsAppConfirmacaoInboundResultado resultado) =>
-        resultado.TelefoneResposta;
-
-    private async Task EnviarMensagemProcessandoAsync(
-        string telefoneRemetente,
-        string? nomeDestinatario,
-        CancellationToken cancellationToken)
-    {
-        var conteudo = string.IsNullOrWhiteSpace(nomeDestinatario)
-            ? ConfirmacaoWhatsAppTemplate.RespostaProcessandoConfirmacaoGenerica()
-            : ConfirmacaoWhatsAppTemplate.RespostaProcessandoConfirmacao(nomeDestinatario);
-
-        await RegistrarWhatsAppAsync(
-            telefoneRemetente,
-            "Confirmacao WhatsApp em processamento",
-            conteudo,
-            estabelecimentoId: null,
-            prioridade: 3,
-            cancellationToken);
-    }
-
-    private async Task EnviarRespostaConfirmacaoSucessoAsync(
-        WhatsAppConfirmacaoInboundResultado resultado,
-        string destinatario,
-        CancellationToken cancellationToken)
-    {
-        var conteudo = ConfirmacaoWhatsAppTemplate.RespostaConfirmacaoSucesso(resultado.NomeDestinatario);
-
-        await RegistrarWhatsAppAsync(
-            destinatario,
-            "Confirmacao WhatsApp aprovada",
-            conteudo,
-            resultado.EstabelecimentoId,
-            prioridade: 2,
-            cancellationToken);
-
-        _logger.LogInformation(
-            "WhatsApp confirmado via webhook inbound. Tipo={Tipo}, UsuarioId={UsuarioId}, EstabelecimentoId={EstabelecimentoId}, Destinatario={Destinatario}",
-            resultado.Tipo,
-            resultado.UsuarioId,
-            resultado.EstabelecimentoId,
-            destinatario);
-    }
-
-    private async Task EnviarRespostaJaConfirmadoAsync(
-        WhatsAppConfirmacaoInboundResultado resultado,
-        string destinatario,
-        CancellationToken cancellationToken)
-    {
-        var conteudo = ConfirmacaoWhatsAppTemplate.RespostaConfirmacaoJaRealizada(resultado.NomeDestinatario);
-
-        await RegistrarWhatsAppAsync(
-            destinatario,
-            "WhatsApp ja confirmado",
-            conteudo,
-            resultado.EstabelecimentoId,
-            prioridade: 2,
-            cancellationToken);
-    }
-
-    private async Task EnviarRespostaConfirmacaoFalhaAsync(
-        WhatsAppConfirmacaoInboundResultado resultado,
-        string destinatario,
-        CancellationToken cancellationToken)
-    {
-        var telefoneResposta = ObterTelefoneResposta(resultado, destinatario);
-        var conteudoWhatsApp = resultado.PossuiContatoIdentificado
-            ? ConfirmacaoWhatsAppTemplate.RespostaConfirmacaoFalha(resultado.NomeDestinatario)
-            : ConfirmacaoWhatsAppTemplate.RespostaConfirmacaoFalhaGenerica();
-
-        if (!string.IsNullOrWhiteSpace(telefoneResposta))
-        {
-            await RegistrarWhatsAppAsync(
-                telefoneResposta,
-                "Confirmacao WhatsApp nao concluida",
-                conteudoWhatsApp,
-                resultado.EstabelecimentoId,
-                prioridade: 2,
-                cancellationToken);
-        }
-
-        if (!string.IsNullOrWhiteSpace(resultado.EmailDestinatario))
-        {
-            var conteudoEmail = resultado.PossuiContatoIdentificado
-                ? ConfirmacaoWhatsAppEmailTemplate.CriarFalhaConfirmacao(resultado.NomeDestinatario)
-                : ConfirmacaoWhatsAppEmailTemplate.CriarFalhaConfirmacaoGenerica();
-
-            await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
+            if (string.IsNullOrWhiteSpace(_options.ApiKey))
             {
-                Canal = CanalMensagemNotificacao.Email,
-                Destinatario = resultado.EmailDestinatario,
-                Assunto = "Nao conseguimos confirmar seu WhatsApp",
-                Conteudo = conteudoEmail,
-                EstabelecimentoId = resultado.EstabelecimentoId,
-                Prioridade = 2
-            }, cancellationToken);
+                return;
+            }
+        }
+        else if (string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            throw new WebhookWhatsAppNaoAutorizadoException("ApiKey do WhatsApp nao configurada.");
         }
 
-        _logger.LogInformation(
-            "Confirmacao WhatsApp nao concluida. Motivo={Motivo}, Telefone={Telefone}, EmailEnviado={EmailEnviado}",
-            resultado.MotivoIgnorado,
-            telefoneResposta,
-            !string.IsNullOrWhiteSpace(resultado.EmailDestinatario));
-    }
-
-    private async Task RegistrarWhatsAppAsync(
-        string destinatario,
-        string assunto,
-        string conteudo,
-        int? estabelecimentoId,
-        int prioridade,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(destinatario) || string.IsNullOrWhiteSpace(conteudo))
+        if (!payload.TryGetProperty("apikey", out var apikeyProp)
+            || !string.Equals(apikeyProp.GetString(), _options.ApiKey, StringComparison.Ordinal))
         {
-            _logger.LogWarning(
-                "WhatsApp outbound ignorado: destinatario ou conteudo ausente. Assunto={Assunto}, DestinatarioPresente={DestinatarioPresente}, ConteudoPresente={ConteudoPresente}",
-                assunto,
-                !string.IsNullOrWhiteSpace(destinatario),
-                !string.IsNullOrWhiteSpace(conteudo));
-            return;
+            throw new WebhookWhatsAppNaoAutorizadoException("apikey do webhook invalida.");
         }
 
-        await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
+        var instancia = EvolutionWebhookParser.ExtrairInstancia(payload);
+        if (!string.IsNullOrWhiteSpace(_options.InstanceName)
+            && !string.IsNullOrWhiteSpace(instancia)
+            && !string.Equals(instancia, _options.InstanceName, StringComparison.OrdinalIgnoreCase))
         {
-            Canal = CanalMensagemNotificacao.WhatsApp,
-            Destinatario = destinatario,
-            Assunto = assunto,
-            Conteudo = conteudo,
-            EstabelecimentoId = estabelecimentoId,
-            Prioridade = prioridade
-        }, cancellationToken);
+            throw new WebhookWhatsAppNaoAutorizadoException("instancia do webhook invalida.");
+        }
     }
 
-    private static string ObterTelefoneResposta(
-        WhatsAppConfirmacaoInboundResultado resultado,
-        string? fallback = null) =>
-        !string.IsNullOrWhiteSpace(resultado.TelefoneResposta)
-            ? resultado.TelefoneResposta
-            : fallback ?? string.Empty;
+    private bool DeveExigirApiKeyWebhook() =>
+        !_environment.IsDevelopment() && !_environment.IsEnvironment("Testing");
 }

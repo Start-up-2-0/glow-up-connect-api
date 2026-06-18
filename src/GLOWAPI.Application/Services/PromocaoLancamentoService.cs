@@ -30,10 +30,18 @@ public class PromocaoLancamentoService : IPromocaoLancamentoService
             CodigoCampanhaLancamento,
             cancellationToken);
 
-        var disponivel = campanha is not null && campanha.Ativa && campanha.Utilizados < campanha.Limite;
+        var assinaturasUtilizadas = campanha is null
+            ? 0
+            : await _assinaturaRepository.ContarPorCodigoCampanhaAsync(
+                CodigoCampanhaLancamento,
+                cancellationToken);
+
+        var disponivel = campanha is not null
+            && campanha.Ativa
+            && assinaturasUtilizadas < campanha.Limite;
         var vagasRestantes = campanha is null
             ? 0
-            : Math.Max(campanha.Limite - campanha.Utilizados, 0);
+            : Math.Max(campanha.Limite - assinaturasUtilizadas, 0);
 
         return new PromocaoLancamentoStatusDto(
             disponivel,
@@ -58,6 +66,24 @@ public class PromocaoLancamentoService : IPromocaoLancamentoService
     {
         if (estabelecimentoId > 0
             && await EstabelecimentoJaUsouPromocaoAsync(estabelecimentoId, cancellationToken))
+        {
+            return false;
+        }
+
+        var campanha = await _campanhaPromocionalRepository.ObterAtivaPorCodigoAsync(
+            CodigoCampanhaLancamento,
+            cancellationToken);
+
+        if (campanha is null || !campanha.Ativa)
+        {
+            return false;
+        }
+
+        var assinaturasUtilizadas = await _assinaturaRepository.ContarPorCodigoCampanhaAsync(
+            CodigoCampanhaLancamento,
+            cancellationToken);
+
+        if (assinaturasUtilizadas >= campanha.Limite)
         {
             return false;
         }

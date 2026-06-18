@@ -110,7 +110,9 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
         Assert.True(body.GetProperty("success").GetBoolean());
         Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("data").GetProperty("token").GetString()));
-        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("data").GetProperty("refreshToken").GetString()));
+        Assert.True(string.IsNullOrWhiteSpace(body.GetProperty("data").GetProperty("refreshToken").GetString()));
+        Assert.True(response.Headers.TryGetValues("Set-Cookie", out var cookies));
+        Assert.Contains(cookies!, c => c.Contains("guc_refresh", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -225,14 +227,14 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         var client = _factory.CreateClient();
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { email, senha });
         var loginBody = await loginResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-        var refreshToken = loginBody.GetProperty("data").GetProperty("refreshToken").GetString();
 
-        var refreshResponse = await client.PostAsJsonAsync("/api/auth/refresh", new { refreshToken });
+        var refreshResponse = await client.PostAsJsonAsync("/api/auth/refresh", new { });
         Assert.Equal(HttpStatusCode.OK, refreshResponse.StatusCode);
 
         var refreshBody = await refreshResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
         Assert.False(string.IsNullOrWhiteSpace(refreshBody.GetProperty("data").GetProperty("token").GetString()));
-        Assert.False(string.IsNullOrWhiteSpace(refreshBody.GetProperty("data").GetProperty("refreshToken").GetString()));
+        Assert.True(string.IsNullOrWhiteSpace(refreshBody.GetProperty("data").GetProperty("refreshToken").GetString()));
+        _ = loginBody;
     }
 
     private string CriarTokenExpirado()

@@ -36,10 +36,7 @@ public class ProvedorMensagemWhatsAppTests
             bodyCapturado = message.Content is null
                 ? null
                 : await message.Content.ReadAsStringAsync();
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("""{"status":"sent"}""")
-            };
+            return OkComTexto("Mensagem teste");
         });
 
         var client = new HttpClient(handler) { BaseAddress = new Uri("https://evolution.test/") };
@@ -53,13 +50,42 @@ public class ProvedorMensagemWhatsAppTests
         Assert.Equal(HttpMethod.Post, requestCapturado!.Method);
         Assert.Contains("/message/sendText/instancia-teste", requestCapturado.RequestUri!.ToString());
 
-        Assert.Contains("textMessage", bodyCapturado);
-        Assert.Contains("\"text\":", bodyCapturado);
+        Assert.NotNull(bodyCapturado);
         Assert.Contains("Mensagem teste", bodyCapturado);
+        Assert.Contains("textMessage", bodyCapturado);
+        Assert.DoesNotContain("\"text\":\"Mensagem teste\"", bodyCapturado!.Replace(" ", string.Empty));
+
+        using var json = System.Text.Json.JsonDocument.Parse(bodyCapturado);
+        Assert.Equal("551199999999", json.RootElement.GetProperty("number").GetString());
+        Assert.Equal("Mensagem teste", json.RootElement.GetProperty("textMessage").GetProperty("text").GetString());
+        Assert.True(requestCapturado!.Headers.Contains("apiKey"));
     }
 
     [Fact]
-    public async Task EnviarAsync_DeveRetornarFalha_QuandoDestinatarioEhLid()
+    public async Task EnviarAsync_DeveUsarPayloadV2_QuandoConfigurado()
+    {
+        string? bodyCapturado = null;
+        var handler = new RecordingHandler(async message =>
+        {
+            bodyCapturado = message.Content is null
+                ? null
+                : await message.Content.ReadAsStringAsync();
+            return OkComTexto("Mensagem teste");
+        });
+
+        var client = new HttpClient(handler) { BaseAddress = new Uri("https://evolution.test/") };
+        var provedor = CriarProvedor(client, habilitado: true, usarApiV2: true);
+
+        var resultado = await provedor.EnviarAsync(CriarMensagem());
+
+        Assert.True(resultado.Sucesso);
+        Assert.NotNull(bodyCapturado);
+        Assert.Contains("Mensagem teste", bodyCapturado);
+        Assert.DoesNotContain("textMessage", bodyCapturado);
+    }
+
+    [Fact]
+    public async Task EnviarAsync_DeveRetornarFalha_QuandoDestinatarioEhLidSemFallback()
     {
         var handler = new RecordingHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var client = new HttpClient(handler) { BaseAddress = new Uri("https://evolution.test/") };
@@ -76,6 +102,33 @@ public class ProvedorMensagemWhatsAppTests
     }
 
     [Fact]
+    public async Task EnviarAsync_DeveUsarTelefoneFallback_QuandoDestinatarioLegadoEhLid()
+    {
+        string? bodyCapturado = null;
+        var handler = new RecordingHandler(async message =>
+        {
+            bodyCapturado = message.Content is null
+                ? null
+                : await message.Content.ReadAsStringAsync();
+            return OkComTexto("Mensagem teste");
+        });
+
+        var client = new HttpClient(handler) { BaseAddress = new Uri("https://evolution.test/") };
+        var provedor = CriarProvedor(client, habilitado: true);
+
+        var mensagem = CriarMensagem();
+        mensagem.Destinatario = "60348602310753@lid";
+        mensagem.PayloadJson = """{"telefoneFallback":"5579998755111"}""";
+
+        var resultado = await provedor.EnviarAsync(mensagem);
+
+        Assert.True(resultado.Sucesso);
+        Assert.Equal(1, handler.CallCount);
+        Assert.NotNull(bodyCapturado);
+        Assert.Contains("557998755111", bodyCapturado);
+    }
+
+    [Fact]
     public async Task EnviarAsync_DeveRetornarFalha_QuandoEvolutionRetornaErro()
     {
         var handler = new RecordingHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest)
@@ -89,10 +142,16 @@ public class ProvedorMensagemWhatsAppTests
         var resultado = await provedor.EnviarAsync(CriarMensagem());
 
         Assert.False(resultado.Sucesso);
-        Assert.Contains("400", resultado.MensagemErro);
+        Assert.Contains("nao confirmou", resultado.MensagemErro!, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static ProvedorMensagemWhatsApp CriarProvedor(HttpClient client, bool habilitado) =>
+    private static HttpResponseMessage OkComTexto(string texto) =>
+        new(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{\"message\":{\"extendedTextMessage\":{\"text\":\"" + texto + "\"}}}")
+        };
+
+    private static ProvedorMensagemWhatsApp CriarProvedor(HttpClient client, bool habilitado, bool usarApiV2 = false) =>
         new(
             client,
             Options.Create(new MensageriaWhatsAppOptions
@@ -100,7 +159,8 @@ public class ProvedorMensagemWhatsAppTests
                 ApiUrl = "https://evolution.test",
                 ApiKey = "api-key-teste",
                 InstanceName = "instancia-teste",
-                Habilitado = habilitado
+                Habilitado = habilitado,
+                UsarApiV2 = usarApiV2
             }),
             NullLogger<ProvedorMensagemWhatsApp>.Instance);
 

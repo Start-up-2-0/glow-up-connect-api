@@ -10,11 +10,11 @@ public class AuditoriaNegocioService : IAuditoriaNegocioService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    private readonly IRepository<AuditoriaNegocio> _auditoriaRepository;
+    private readonly IAuditoriaNegocioRepository _auditoriaRepository;
     private readonly ICurrentUserContext _currentUserContext;
 
     public AuditoriaNegocioService(
-        IRepository<AuditoriaNegocio> auditoriaRepository,
+        IAuditoriaNegocioRepository auditoriaRepository,
         ICurrentUserContext currentUserContext)
     {
         _auditoriaRepository = auditoriaRepository;

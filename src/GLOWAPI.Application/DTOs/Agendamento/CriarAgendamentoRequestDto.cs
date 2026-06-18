@@ -6,6 +6,8 @@ public class CriarAgendamentoRequestDto
     public int[] ServicoIds { get; set; } = [];
     public DateOnly Data { get; set; }
     public TimeOnly HorarioInicio { get; set; }
+    /// <summary>Timestamp do slot escolhido na disponibilidade (relógio de parede em UTC).</summary>
+    public DateTime? InicioSelecionado { get; set; }
     public string? ClienteNome { get; set; }
     public string? ClienteEmail { get; set; }
     public string? ClienteTelefone { get; set; }

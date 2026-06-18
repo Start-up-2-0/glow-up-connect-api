@@ -1,8 +1,11 @@
 using GLOWAPI.API.Attributes;
 using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Agendamento;
+using GLOWAPI.Application.DTOs.Auditoria;
+using GLOWAPI.Application.DTOs.Clientes;
 using GLOWAPI.Application.DTOs.Agenda;
 using GLOWAPI.Application.DTOs.Caixa;
+using GLOWAPI.Application.DTOs.Financeiro;
 using GLOWAPI.Application.DTOs.Equipe;
 using GLOWAPI.Application.DTOs.Estabelecimentos;
 using GLOWAPI.Application.DTOs.Servicos;
@@ -18,7 +21,6 @@ namespace GLOWAPI.API.Controllers;
 public class EstabelecimentosController : ControllerBase
 {
     private readonly IEstabelecimentoPerfilService _estabelecimentoPerfilService;
-    private readonly IConfirmacaoWhatsAppEstabelecimentoService _confirmacaoWhatsAppEstabelecimentoService;
     private readonly IEquipeNegocioService _equipeNegocioService;
     private readonly IAgendaNegocioService _agendaNegocioService;
     private readonly IAtendimentoProfissionalService _atendimentoProfissionalService;
@@ -29,10 +31,12 @@ public class EstabelecimentosController : ControllerBase
     private readonly IHorarioProfissionalNegocioService _horarioProfissionalNegocioService;
     private readonly IDisponibilidadeAgendaService _disponibilidadeAgendaService;
     private readonly IAgendamentoNegocioService _agendamentoNegocioService;
+    private readonly IFinanceiroNegocioService _financeiroNegocioService;
+    private readonly IClienteNegocioService _clienteNegocioService;
+    private readonly IAuditoriaConsultaNegocioService _auditoriaConsultaNegocioService;
 
     public EstabelecimentosController(
         IEstabelecimentoPerfilService estabelecimentoPerfilService,
-        IConfirmacaoWhatsAppEstabelecimentoService confirmacaoWhatsAppEstabelecimentoService,
         IEquipeNegocioService equipeNegocioService,
         IAgendaNegocioService agendaNegocioService,
         IAtendimentoProfissionalService atendimentoProfissionalService,
@@ -42,10 +46,12 @@ public class EstabelecimentosController : ControllerBase
         IServicoNegocioService servicoNegocioService,
         IHorarioProfissionalNegocioService horarioProfissionalNegocioService,
         IDisponibilidadeAgendaService disponibilidadeAgendaService,
-        IAgendamentoNegocioService agendamentoNegocioService)
+        IAgendamentoNegocioService agendamentoNegocioService,
+        IFinanceiroNegocioService financeiroNegocioService,
+        IClienteNegocioService clienteNegocioService,
+        IAuditoriaConsultaNegocioService auditoriaConsultaNegocioService)
     {
         _estabelecimentoPerfilService = estabelecimentoPerfilService;
-        _confirmacaoWhatsAppEstabelecimentoService = confirmacaoWhatsAppEstabelecimentoService;
         _equipeNegocioService = equipeNegocioService;
         _agendaNegocioService = agendaNegocioService;
         _atendimentoProfissionalService = atendimentoProfissionalService;
@@ -56,6 +62,21 @@ public class EstabelecimentosController : ControllerBase
         _horarioProfissionalNegocioService = horarioProfissionalNegocioService;
         _disponibilidadeAgendaService = disponibilidadeAgendaService;
         _agendamentoNegocioService = agendamentoNegocioService;
+        _financeiroNegocioService = financeiroNegocioService;
+        _clienteNegocioService = clienteNegocioService;
+        _auditoriaConsultaNegocioService = auditoriaConsultaNegocioService;
+    }
+
+    [HttpGet("{estabelecimentoId:int}/perfil")]
+    [RequerPermissaoNegocio(PermissaoNegocio.NegocioEditar, "estabelecimentoId")]
+    public async Task<IActionResult> ObterPerfil(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var perfil = await _estabelecimentoPerfilService.ObterAsync(estabelecimentoId, cancellationToken);
+        return Ok(ApiSuccessResponse<EstabelecimentoPerfilResponseDto>.From(
+            "Perfil do estabelecimento obtido com sucesso.",
+            perfil));
     }
 
     [HttpPut("{estabelecimentoId:int}/perfil")]
@@ -86,24 +107,16 @@ public class EstabelecimentosController : ControllerBase
             cancellationToken);
 
         return Ok(ApiSuccessResponse<object>.From(
-            "Verifique seu e-mail para confirmar o WhatsApp comercial.",
+            "Verifique o WhatsApp e seu e-mail para confirmar o WhatsApp comercial.",
             instrucoes));
     }
 
     [HttpPost("{estabelecimentoId:int}/whatsapp/confirmar")]
     [RequerPermissaoNegocio(PermissaoNegocio.NegocioEditar, "estabelecimentoId")]
-    public async Task<IActionResult> ConfirmarWhatsAppEstabelecimento(
-        int estabelecimentoId,
-        [FromBody] ConfirmarWhatsAppEstabelecimentoRequestDto request,
-        CancellationToken cancellationToken)
-    {
-        await _confirmacaoWhatsAppEstabelecimentoService.ConfirmarPorCodigoAsync(
-            estabelecimentoId,
-            request.Codigo,
-            cancellationToken);
-
-        return Ok(ApiSuccessResponse.From("WhatsApp do estabelecimento confirmado com sucesso."));
-    }
+    public IActionResult ConfirmarWhatsAppEstabelecimento() =>
+        StatusCode(StatusCodes.Status410Gone, ApiErrorResponse.From(
+            "Confirmacao manual por codigo foi descontinuada. Use o link enviado por WhatsApp ou e-mail.",
+            "CONFIRMACAO_WHATSAPP_DESCONTINUADA"));
 
     [HttpPost("{estabelecimentoId:int}/whatsapp/opt-in")]
     [RequerPermissaoNegocio(PermissaoNegocio.NegocioEditar, "estabelecimentoId")]
@@ -118,6 +131,34 @@ public class EstabelecimentosController : ControllerBase
             cancellationToken);
 
         return NoContent();
+    }
+
+    [HttpGet("{estabelecimentoId:int}/equipe/usuarios")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.EquipeGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarUsuariosEquipe(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var usuarios = await _equipeNegocioService.ListarUsuariosAsync(estabelecimentoId, cancellationToken);
+        return Ok(ApiSuccessResponse<IReadOnlyList<UsuarioEquipeResponseDto>>.From(
+            "Usuarios da equipe listados com sucesso.",
+            usuarios));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/equipe/profissionais")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarProfissionaisEquipe(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var profissionais = await _equipeNegocioService.ListarProfissionaisAsync(
+            estabelecimentoId,
+            cancellationToken);
+        return Ok(ApiSuccessResponse<IReadOnlyList<ProfissionalEquipeResponseDto>>.From(
+            "Profissionais da equipe listados com sucesso.",
+            profissionais));
     }
 
     [HttpPost("{estabelecimentoId:int}/equipe/usuarios")]
@@ -200,6 +241,82 @@ public class EstabelecimentosController : ControllerBase
                 profissionalEquipe));
     }
 
+    [HttpPost("{estabelecimentoId:int}/profissionais/vitrine")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> CadastrarProfissionalVitrine(
+        int estabelecimentoId,
+        [FromBody] CadastrarProfissionalVitrineRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var profissional = await _equipeNegocioService.CadastrarProfissionalVitrineAsync(
+            estabelecimentoId,
+            request,
+            cancellationToken);
+
+        return StatusCode(
+            StatusCodes.Status201Created,
+            ApiSuccessResponse<ProfissionalVitrineResponseDto>.From(
+                "Profissional de vitrine cadastrado com sucesso.",
+                profissional));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/profissionais/vitrine")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarProfissionaisVitrine(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var profissionais = await _equipeNegocioService.ListarProfissionaisVitrineAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<ProfissionalVitrineResponseDto>>.From(
+            "Profissionais de vitrine listados com sucesso.",
+            profissionais));
+    }
+
+    [HttpPatch("{estabelecimentoId:int}/profissionais/vitrine/{profissionalId:int}")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> AtualizarProfissionalVitrine(
+        int estabelecimentoId,
+        int profissionalId,
+        [FromBody] AtualizarProfissionalVitrineRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var profissional = await _equipeNegocioService.AtualizarProfissionalVitrineAsync(
+            estabelecimentoId,
+            profissionalId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ProfissionalVitrineResponseDto>.From(
+            "Profissional de vitrine atualizado com sucesso.",
+            profissional));
+    }
+
+    [HttpPatch("{estabelecimentoId:int}/profissionais/vitrine/{profissionalId:int}/status")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.HorariosAtendimento, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> AtualizarStatusProfissionalVitrine(
+        int estabelecimentoId,
+        int profissionalId,
+        [FromBody] AtualizarStatusProfissionalVitrineRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var profissional = await _equipeNegocioService.AtualizarStatusProfissionalVitrineAsync(
+            estabelecimentoId,
+            profissionalId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ProfissionalVitrineResponseDto>.From(
+            "Status do profissional de vitrine atualizado com sucesso.",
+            profissional));
+    }
+
     [HttpPatch("{estabelecimentoId:int}/equipe/profissionais/{profissionalId:int}/status")]
     [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
     [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
@@ -233,7 +350,7 @@ public class EstabelecimentosController : ControllerBase
             filtro,
             cancellationToken);
 
-        return Ok(ApiSuccessResponse<IReadOnlyList<AgendaGeralResponseDto>>.From(
+        return Ok(ApiSuccessResponse<AgendaPaginadaResponseDto<AgendaGeralResponseDto>>.From(
             "Agenda geral listada com sucesso.",
             agenda));
     }
@@ -251,7 +368,7 @@ public class EstabelecimentosController : ControllerBase
             filtro,
             cancellationToken);
 
-        return Ok(ApiSuccessResponse<IReadOnlyList<AgendaProfissionalResponseDto>>.From(
+        return Ok(ApiSuccessResponse<AgendaPaginadaResponseDto<AgendaProfissionalResponseDto>>.From(
             "Agenda do profissional listada com sucesso.",
             agenda));
     }
@@ -324,6 +441,58 @@ public class EstabelecimentosController : ControllerBase
         return Ok(ApiSuccessResponse<IReadOnlyList<LancamentoCaixaResponseDto>>.From(
             "Lancamentos do caixa listados com sucesso.",
             lancamentos));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/resumo")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ObterFinanceiroResumo(
+        int estabelecimentoId,
+        [FromQuery] FinanceiroFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var resumo = await _financeiroNegocioService.ObterResumoAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<FinanceiroResumoResponseDto>.From(
+            "Resumo financeiro obtido com sucesso.",
+            resumo));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/relatorios")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarRelatorioFinanceiro(
+        int estabelecimentoId,
+        [FromQuery] FinanceiroFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var lancamentos = await _financeiroNegocioService.ListarRelatorioAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<LancamentoCaixaResponseDto>>.From(
+            "Relatorio financeiro listado com sucesso.",
+            lancamentos));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/comissoes")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.ComissaoProfissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarComissoesFinanceiro(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var comissoes = await _financeiroNegocioService.ListarComissoesAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<ComissaoProfissionalResponseDto>>.From(
+            "Comissoes listadas com sucesso.",
+            comissoes));
     }
 
     [HttpGet("{estabelecimentoId:int}/servicos")]
@@ -681,6 +850,26 @@ public class EstabelecimentosController : ControllerBase
             agendamento));
     }
 
+    [HttpPost("{estabelecimentoId:int}/agendamentos/{agendamentoId:int}/sugerir-remarcacao")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Agenda, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.AgendaReagendar, "estabelecimentoId")]
+    public async Task<IActionResult> SugerirRemarcacaoAgendamento(
+        int estabelecimentoId,
+        int agendamentoId,
+        [FromBody] RemarcarAgendamentoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var proposta = await _agendamentoNegocioService.SugerirRemarcacaoAsync(
+            estabelecimentoId,
+            agendamentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<PropostaRemarcacaoResponseDto>.From(
+            "Sugestao de remarcacao enviada com sucesso.",
+            proposta));
+    }
+
     [HttpPost("{estabelecimentoId:int}/agendamentos/{agendamentoId:int}/remarcar")]
     [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Agenda, "estabelecimentoId")]
     [RequerPermissaoNegocio(PermissaoNegocio.AgendaReagendar, "estabelecimentoId")]
@@ -735,5 +924,39 @@ public class EstabelecimentosController : ControllerBase
         return Ok(ApiSuccessResponse<IReadOnlyList<AgendamentoHistoricoResponseDto>>.From(
             "Historico do agendamento listado com sucesso.",
             historico));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/clientes")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Clientes, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ClienteVisualizarGeral, "estabelecimentoId")]
+    public async Task<IActionResult> ListarClientes(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var clientes = await _clienteNegocioService.ListarPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<ClienteNegocioResponseDto>>.From(
+            "Clientes listados com sucesso.",
+            clientes));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/auditoria")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.NegocioVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarAuditoria(
+        int estabelecimentoId,
+        [FromQuery] int limite = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var registros = await _auditoriaConsultaNegocioService.ListarRecentesAsync(
+            estabelecimentoId,
+            limite,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<AuditoriaNegocioResponseDto>>.From(
+            "Auditoria listada com sucesso.",
+            registros));
     }
 }

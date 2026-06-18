@@ -23,6 +23,9 @@ public class ProfissionalEstabelecimentoConfiguration : IEntityTypeConfiguration
         builder.Property(profissionalEstabelecimento => profissionalEstabelecimento.PodeReceberAgendamento)
             .HasDefaultValue(true);
 
+        builder.Property(profissionalEstabelecimento => profissionalEstabelecimento.SomenteExibicao)
+            .HasDefaultValue(false);
+
         builder.Property(profissionalEstabelecimento => profissionalEstabelecimento.CreateAd)
             .IsRequired();
 

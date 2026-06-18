@@ -5,13 +5,27 @@ namespace GLOWAPI.Application.Interfaces.Services;
 
 public interface IAgendamentoNegocioService
 {
+    Task<AgendamentoContextoPublicoResponseDto> ObterContextoPublicoAsync(
+        Guid publicGuidLoja,
+        Guid profissionalPublicGuid,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<ProfissionalPublicoResponseDto>> ListarProfissionaisPublicosPorLojaAsync(
+        Guid publicGuidLoja,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ProfissionalVitrinePublicoResponseDto>> ListarProfissionaisVitrinePorLojaAsync(
         Guid publicGuidLoja,
         CancellationToken cancellationToken = default);
 
     Task<AgendamentoCriadoResponseDto> CriarPublicoPorLojaAsync(
         Guid publicGuidLoja,
         CriarAgendamentoRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    Task<AgendamentoCriadoResponseDto> CriarPublicoComCadastroAsync(
+        Guid publicGuidLoja,
+        CriarAgendamentoComCadastroRequestDto request,
         CancellationToken cancellationToken = default);
 
     Task<AgendamentoCriadoResponseDto> CriarPublicoPorProfissionalAsync(
@@ -67,4 +81,28 @@ public interface IAgendamentoNegocioService
         int estabelecimentoId,
         int agendamentoId,
         CancellationToken cancellationToken = default);
+
+    Task<PropostaRemarcacaoResponseDto> SugerirRemarcacaoAsync(
+        int estabelecimentoId,
+        int agendamentoId,
+        RemarcarAgendamentoRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    Task<PropostaRemarcacaoResponseDto> ObterPropostaRemarcacaoPorTokenAsync(
+        Guid tokenPublico,
+        CancellationToken cancellationToken = default);
+
+    Task<AgendamentoCriadoResponseDto> AceitarPropostaRemarcacaoPorTokenAsync(
+        Guid tokenPublico,
+        CancellationToken cancellationToken = default);
+
+    Task RecusarPropostaRemarcacaoPorTokenAsync(
+        Guid tokenPublico,
+        CancellationToken cancellationToken = default);
+
+    Task<AgendamentoClienteResponseDto> AceitarPropostaRemarcacaoLogadoAsync(
+        int agendamentoId,
+        int propostaId,
+        CancellationToken cancellationToken = default);
+
 }

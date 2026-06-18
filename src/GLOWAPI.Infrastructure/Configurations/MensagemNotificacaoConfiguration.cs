@@ -39,7 +39,7 @@ public class MensagemNotificacaoConfiguration : IEntityTypeConfiguration<Mensage
 
         builder.Property(m => m.PayloadJson)
             .IsRequired()
-            .HasColumnType("jsonb");
+            .HasColumnType("json");
 
         builder.Property(m => m.Status)
             .HasConversion(

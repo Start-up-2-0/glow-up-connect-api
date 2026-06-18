@@ -24,11 +24,11 @@ public class MensagemNotificacaoRepository : Repository<MensagemNotificacao>, IM
 
         var mensagens = await DbSet
             .FromSqlInterpolated($"""
-                SELECT * FROM "MensagensNotificacao" AS m
-                WHERE m."Status" IN ('Pendente', 'Reprocessar')
-                  AND m."Tentativas" < m."MaximoTentativas"
-                  AND (m."AgendadoPara" IS NULL OR m."AgendadoPara" <= {utcNow})
-                ORDER BY m."Prioridade" DESC, m."CriadoEm" ASC
+                SELECT * FROM `MensagensNotificacao` AS m
+                WHERE m.`Status` IN ('Pendente', 'Reprocessar')
+                  AND m.`Tentativas` < m.`MaximoTentativas`
+                  AND (m.`AgendadoPara` IS NULL OR m.`AgendadoPara` <= {utcNow})
+                ORDER BY m.`Prioridade` DESC, m.`CriadoEm` ASC
                 LIMIT {batchSize}
                 FOR UPDATE SKIP LOCKED
                 """)

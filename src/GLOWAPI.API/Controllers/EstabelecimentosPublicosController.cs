@@ -1,4 +1,5 @@
 using GLOWAPI.API.Models;
+using GLOWAPI.Application.DTOs.Agendamento;
 using GLOWAPI.Application.DTOs.Estabelecimentos;
 using GLOWAPI.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -12,10 +13,14 @@ namespace GLOWAPI.API.Controllers;
 public class EstabelecimentosPublicosController : ControllerBase
 {
     private readonly IEstabelecimentoDescobertaService _estabelecimentoDescobertaService;
+    private readonly IAgendamentoNegocioService _agendamentoNegocioService;
 
-    public EstabelecimentosPublicosController(IEstabelecimentoDescobertaService estabelecimentoDescobertaService)
+    public EstabelecimentosPublicosController(
+        IEstabelecimentoDescobertaService estabelecimentoDescobertaService,
+        IAgendamentoNegocioService agendamentoNegocioService)
     {
         _estabelecimentoDescobertaService = estabelecimentoDescobertaService;
+        _agendamentoNegocioService = agendamentoNegocioService;
     }
 
     [HttpGet("proximos")]
@@ -38,6 +43,20 @@ public class EstabelecimentosPublicosController : ControllerBase
         return Ok(ApiSuccessResponse<EstabelecimentosProximosPaginadoResponseDto>.From(
             "Estabelecimentos proximos listados com sucesso.",
             resultado));
+    }
+
+    [HttpGet("{publicGuid:guid}/profissionais-vitrine")]
+    public async Task<IActionResult> ListarProfissionaisVitrine(
+        Guid publicGuid,
+        CancellationToken cancellationToken)
+    {
+        var profissionais = await _agendamentoNegocioService.ListarProfissionaisVitrinePorLojaAsync(
+            publicGuid,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<ProfissionalVitrinePublicoResponseDto>>.From(
+            "Profissionais da vitrine listados com sucesso.",
+            profissionais));
     }
 
     [HttpGet("{publicGuid:guid}")]

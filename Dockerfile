@@ -14,11 +14,17 @@ RUN dotnet publish src/GLOWAPI.API/GLOWAPI.API.csproj -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 
+RUN adduser --disabled-password --gecos "" --uid 10001 appuser \
+    && chown -R appuser:appuser /app
+
 ENV ASPNETCORE_URLS=http://0.0.0.0:8080
 EXPOSE 8080
 
 COPY --from=build /app/publish .
 COPY scripts/railway-entrypoint.sh ./railway-entrypoint.sh
-RUN chmod +x ./railway-entrypoint.sh
+RUN chmod +x ./railway-entrypoint.sh \
+    && chown appuser:appuser ./railway-entrypoint.sh
+
+USER appuser
 
 ENTRYPOINT ["./railway-entrypoint.sh"]

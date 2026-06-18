@@ -1,3 +1,4 @@
+using System.Text.Json;
 using GLOWAPI.Application.DTOs.Agenda;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
@@ -9,18 +10,44 @@ namespace GLOWAPI.Application.Services;
 
 public class AtendimentoProfissionalService : IAtendimentoProfissionalService
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    private static readonly HashSet<AgendamentoStatus> StatusAgendamentoIniciaveis =
+    [
+        AgendamentoStatus.Confirmado,
+        AgendamentoStatus.EmAtendimento
+    ];
+
+    private static readonly HashSet<AgendamentoStatus> StatusAgendamentoBloqueados =
+    [
+        AgendamentoStatus.Cancelado,
+        AgendamentoStatus.Concluido,
+        AgendamentoStatus.Expirado,
+        AgendamentoStatus.Reembolsado,
+        AgendamentoStatus.NaoCompareceu,
+        AgendamentoStatus.PendenteConfirmacao,
+        AgendamentoStatus.Remarcado,
+        AgendamentoStatus.PendentePagamento
+    ];
+
     private readonly IAgendamentoItemRepository _agendamentoItemRepository;
+    private readonly IAgendamentoHistoricoRepository _agendamentoHistoricoRepository;
     private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
     private readonly IProfissionalEscopoAcessoService _profissionalEscopoAcessoService;
+    private readonly ICurrentUserContext _currentUserContext;
 
     public AtendimentoProfissionalService(
         IAgendamentoItemRepository agendamentoItemRepository,
+        IAgendamentoHistoricoRepository agendamentoHistoricoRepository,
         IAutorizacaoNegocioService autorizacaoNegocioService,
-        IProfissionalEscopoAcessoService profissionalEscopoAcessoService)
+        IProfissionalEscopoAcessoService profissionalEscopoAcessoService,
+        ICurrentUserContext currentUserContext)
     {
         _agendamentoItemRepository = agendamentoItemRepository;
+        _agendamentoHistoricoRepository = agendamentoHistoricoRepository;
         _autorizacaoNegocioService = autorizacaoNegocioService;
         _profissionalEscopoAcessoService = profissionalEscopoAcessoService;
+        _currentUserContext = currentUserContext;
     }
 
     public async Task<AtendimentoProfissionalResponseDto> IniciarAsync(
@@ -33,21 +60,29 @@ public class AtendimentoProfissionalService : IAtendimentoProfissionalService
             PermissaoNegocio.AtendimentoIniciar,
             cancellationToken);
 
-        await _profissionalEscopoAcessoService.AutorizarAgendamentoItemAsync(
-            estabelecimentoId,
-            agendamentoItemId,
-            cancellationToken);
+        await AutorizarEscopoItemAsync(estabelecimentoId, agendamentoItemId, cancellationToken);
 
         var item = await ObterItemAsync(agendamentoItemId, cancellationToken);
-        if (item.Status != AgendamentoItemStatus.Confirmado)
-        {
-            throw new AtendimentoStatusInvalidoException("Somente atendimento confirmado pode ser iniciado.");
-        }
+        ValidarInicio(item);
+
+        var agendamento = item.Agendamento!;
+        var statusAnteriorAgendamento = agendamento.Status;
 
         item.Status = AgendamentoItemStatus.EmAtendimento;
         item.UpdatedAt = DateTime.UtcNow;
-        item.Agendamento!.Status = AgendamentoStatus.EmAtendimento;
-        item.Agendamento.UpdatedAt = item.UpdatedAt;
+        agendamento.Status = AgendamentoStatus.EmAtendimento;
+        agendamento.UpdatedAt = item.UpdatedAt;
+
+        if (statusAnteriorAgendamento != AgendamentoStatus.EmAtendimento)
+        {
+            await RegistrarHistoricoAsync(
+                agendamento,
+                statusAnteriorAgendamento,
+                agendamento.Status,
+                motivo: null,
+                agendamentoItemId: item.Id,
+                cancellationToken);
+        }
 
         _agendamentoItemRepository.Atualizar(item);
         await _agendamentoItemRepository.SalvarAlteracoesAsync(cancellationToken);
@@ -65,10 +100,7 @@ public class AtendimentoProfissionalService : IAtendimentoProfissionalService
             PermissaoNegocio.AtendimentoFinalizar,
             cancellationToken);
 
-        await _profissionalEscopoAcessoService.AutorizarAgendamentoItemAsync(
-            estabelecimentoId,
-            agendamentoItemId,
-            cancellationToken);
+        await AutorizarEscopoItemAsync(estabelecimentoId, agendamentoItemId, cancellationToken);
 
         var item = await ObterItemAsync(agendamentoItemId, cancellationToken);
         if (item.Status != AgendamentoItemStatus.EmAtendimento)
@@ -76,14 +108,89 @@ public class AtendimentoProfissionalService : IAtendimentoProfissionalService
             throw new AtendimentoStatusInvalidoException("Somente atendimento em andamento pode ser finalizado.");
         }
 
+        if (item.Agendamento!.Status != AgendamentoStatus.EmAtendimento)
+        {
+            throw new AtendimentoStatusInvalidoException("O agendamento precisa estar em atendimento para ser concluido.");
+        }
+
+        var agendamento = item.Agendamento;
+        var statusAnteriorAgendamento = agendamento.Status;
+
         item.Status = AgendamentoItemStatus.Concluido;
         item.UpdatedAt = DateTime.UtcNow;
         AtualizarStatusAgendamentoAposConclusao(item);
+
+        if (agendamento.Status == AgendamentoStatus.Concluido
+            && statusAnteriorAgendamento != AgendamentoStatus.Concluido)
+        {
+            await RegistrarHistoricoAsync(
+                agendamento,
+                statusAnteriorAgendamento,
+                agendamento.Status,
+                motivo: null,
+                agendamentoItemId: item.Id,
+                cancellationToken);
+        }
 
         _agendamentoItemRepository.Atualizar(item);
         await _agendamentoItemRepository.SalvarAlteracoesAsync(cancellationToken);
 
         return AtendimentoProfissionalResponseDto.From(item);
+    }
+
+    private async Task AutorizarEscopoItemAsync(
+        int estabelecimentoId,
+        int agendamentoItemId,
+        CancellationToken cancellationToken)
+    {
+        var contexto = await _autorizacaoNegocioService.ObterContextoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        if (contexto.PossuiPermissao(PermissaoNegocio.AgendaVisualizarGeral))
+        {
+            var item = await _agendamentoItemRepository.ObterPorIdComAgendamentoAsync(
+                agendamentoItemId,
+                cancellationToken);
+
+            if (item is null
+                || item.Agendamento is null
+                || item.Agendamento.EstabelecimentoId != estabelecimentoId)
+            {
+                throw new RecursoProfissionalNaoEncontradoException();
+            }
+
+            return;
+        }
+
+        await _profissionalEscopoAcessoService.AutorizarAgendamentoItemAsync(
+            estabelecimentoId,
+            agendamentoItemId,
+            cancellationToken);
+    }
+
+    private static void ValidarInicio(AgendamentoItem item)
+    {
+        if (item.Status != AgendamentoItemStatus.Confirmado)
+        {
+            throw new AtendimentoStatusInvalidoException("Somente atendimento confirmado pode ser iniciado.");
+        }
+
+        var agendamento = item.Agendamento!;
+        if (StatusAgendamentoBloqueados.Contains(agendamento.Status))
+        {
+            throw new AtendimentoStatusInvalidoException("Agendamento cancelado ou concluido nao pode ser iniciado.");
+        }
+
+        if (!StatusAgendamentoIniciaveis.Contains(agendamento.Status))
+        {
+            throw new AtendimentoStatusInvalidoException("Agendamento nao pode ser iniciado no status atual.");
+        }
+
+        if (DateTime.UtcNow < item.Inicio)
+        {
+            throw new AtendimentoStatusInvalidoException("O horario do atendimento ainda nao chegou.");
+        }
     }
 
     private async Task<AgendamentoItem> ObterItemAsync(
@@ -114,5 +221,31 @@ public class AtendimentoProfissionalService : IAtendimentoProfissionalService
             ? AgendamentoStatus.Concluido
             : AgendamentoStatus.EmAtendimento;
         agendamento.UpdatedAt = item.UpdatedAt;
+    }
+
+    private async Task RegistrarHistoricoAsync(
+        Agendamento agendamento,
+        AgendamentoStatus statusAnterior,
+        AgendamentoStatus statusNovo,
+        string? motivo,
+        int agendamentoItemId,
+        CancellationToken cancellationToken)
+    {
+        var historico = new AgendamentoHistorico
+        {
+            AgendamentoId = agendamento.Id,
+            UsuarioExecutorId = _currentUserContext.UserId,
+            StatusAnterior = statusAnterior,
+            StatusNovo = statusNovo,
+            Motivo = motivo,
+            PayloadJson = JsonSerializer.Serialize(new
+            {
+                agendamento.ValorTotal,
+                agendamentoItemId
+            }, JsonOptions),
+            CriadoEm = DateTime.UtcNow
+        };
+
+        await _agendamentoHistoricoRepository.AdicionarAsync(historico, cancellationToken);
     }
 }

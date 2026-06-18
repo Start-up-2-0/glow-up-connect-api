@@ -7,9 +7,64 @@ public class TelefoneHelperTests
     [Fact]
     public void CriarLinkWaMe_DeveGerarUrlComTextoEscapado()
     {
-        var link = TelefoneHelper.CriarLinkWaMe("5511999999999", "GLOW 482913");
+        var link = TelefoneHelper.CriarLinkWaMe("5511999999999", "NTUxMTk4ODg4Nzc3Nw==");
 
-        Assert.Equal("https://wa.me/5511999999999?text=GLOW%20482913", link);
+        Assert.Contains("wa.me/5511999999999", link);
+        Assert.Contains("text=NTUxMTk4ODg4Nzc3Nw%3D%3D", link);
+    }
+
+    [Fact]
+    public void GerarTokenConfirmacao_DeveGerarBase64DoTelefoneNormalizado()
+    {
+        var token = TelefoneHelper.GerarTokenConfirmacao("11988887777");
+
+        Assert.Equal("NTUxMTk4ODg4Nzc3Nw==", token);
+    }
+
+    [Fact]
+    public void DecodificarTokenConfirmacao_DeveDecodificarTokenDoUsuario()
+    {
+        const string token = "NTU3OTk5ODc1NTExMQ==";
+
+        var telefone = TelefoneHelper.DecodificarTokenConfirmacao(token);
+
+        Assert.Equal("5579998755111", telefone);
+        Assert.True(TelefoneHelper.TokenCorrespondeTelefone(token, "79998755111"));
+        Assert.True(TelefoneHelper.TokenCorrespondeTelefone(token, "5579998755111"));
+    }
+
+    [Fact]
+    public void GerarTokenConfirmacao_DeveGerarTokenDoUsuario799()
+    {
+        var token = TelefoneHelper.GerarTokenConfirmacao("79998755111");
+
+        Assert.Equal("NTU3OTk5ODc1NTExMQ==", token);
+    }
+
+    [Fact]
+    public void GerarTokenConfirmacao_DeveInserirNonoDigito_QuandoTelefoneTem12Digitos()
+    {
+        var token = TelefoneHelper.GerarTokenConfirmacao("551188887777");
+
+        Assert.Equal("NTUxMTk4ODg4Nzc3Nw==", token);
+    }
+
+    [Fact]
+    public void NormalizarParaConfirmacaoInbound_DeveInserirNonoDigito()
+    {
+        var normalizado = TelefoneHelper.NormalizarParaConfirmacaoInbound("551188887777");
+
+        Assert.Equal("5511988887777", normalizado);
+    }
+
+    [Fact]
+    public void CriarLinkConfirmacao_DeveMontarUrlPublica()
+    {
+        var link = TelefoneHelper.CriarLinkConfirmacao(
+            "http://localhost:3000/",
+            "NTUxMTk4ODg4Nzc3Nw==");
+
+        Assert.Equal("http://localhost:3000/c/NTUxMTk4ODg4Nzc3Nw==", link);
     }
 
     [Fact]
@@ -17,6 +72,19 @@ public class TelefoneHelperTests
     {
         Assert.True(TelefoneHelper.SaoEquivalentes("5579991917634", "557991917634"));
         Assert.True(TelefoneHelper.SaoEquivalentes("79991917634", "7991917634"));
+    }
+
+    [Fact]
+    public void NormalizarParaEvolutionEnvio_DeveRemoverNonoDigito_QuandoTelefoneTem13Digitos()
+    {
+        Assert.Equal("557991917634", TelefoneHelper.NormalizarParaEvolutionEnvio("5579991917634"));
+        Assert.Equal("557991917634", TelefoneHelper.NormalizarParaEvolutionEnvio("79991917634"));
+    }
+
+    [Fact]
+    public void NormalizarParaEvolutionEnvio_DeveManterTelefone_QuandoJaEstaSemNonoDigito()
+    {
+        Assert.Equal("557991917634", TelefoneHelper.NormalizarParaEvolutionEnvio("557991917634"));
     }
 
     [Fact]
@@ -29,5 +97,25 @@ public class TelefoneHelperTests
     public void SaoEquivalentes_NaoDeveEquivalerTelefoneFixo()
     {
         Assert.False(TelefoneHelper.SaoEquivalentes("551133334444", "551133334445"));
+    }
+
+    [Fact]
+    public void NormalizarParaArmazenamento_DeveAdicionarDdi55_QuandoTelefoneLocal()
+    {
+        Assert.Equal("5511999999999", TelefoneHelper.NormalizarParaArmazenamento("11999999999"));
+        Assert.Equal("5511999999999", TelefoneHelper.NormalizarParaArmazenamento("(11) 99999-9999"));
+    }
+
+    [Fact]
+    public void NormalizarParaArmazenamento_DeveManterDdi55_QuandoJaInformado()
+    {
+        Assert.Equal("5511999999999", TelefoneHelper.NormalizarParaArmazenamento("5511999999999"));
+    }
+
+    [Fact]
+    public void NormalizarParaArmazenamento_DeveRetornarVazio_QuandoNuloOuBranco()
+    {
+        Assert.Equal(string.Empty, TelefoneHelper.NormalizarParaArmazenamento(null));
+        Assert.Equal(string.Empty, TelefoneHelper.NormalizarParaArmazenamento("   "));
     }
 }

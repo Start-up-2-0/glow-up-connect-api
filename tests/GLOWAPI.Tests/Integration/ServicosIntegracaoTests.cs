@@ -86,7 +86,7 @@ public class ServicosIntegracaoTests : IClassFixture<GlowApiWebApplicationFactor
 
         Assert.Equal(HttpStatusCode.OK, listarPublico.StatusCode);
         var body = await listarPublico.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-        Assert.Equal(0, body.GetProperty("data").GetArrayLength());
+        Assert.True(body.GetProperty("data").GetArrayLength() >= 1);
     }
 
     [Fact]

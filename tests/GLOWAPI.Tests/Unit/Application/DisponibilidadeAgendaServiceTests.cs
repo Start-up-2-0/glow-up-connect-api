@@ -40,6 +40,40 @@ public class DisponibilidadeAgendaServiceTests
 
         Assert.NotEmpty(response.Slots);
         Assert.All(response.Slots, slot => Assert.Equal(40, slot.ProfissionalId));
+        Assert.Contains(segunda, response.DatasAtendimento);
+    }
+
+    [Fact]
+    public async Task ConsultarPorEstabelecimentoAsync_NaoDeveIncluirDiaSemSlotsLivres()
+    {
+        var segunda = ObterProximaSegunda();
+        ConfigurarCenarioBasico(segunda);
+
+        _agendamentoItemRepository
+            .Setup(r => r.ListarOcupacaoAsync(20, 40, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([
+                new AgendamentoItem
+                {
+                    ProfissionalId = 40,
+                    Inicio = segunda.ToDateTime(new TimeOnly(9, 0), DateTimeKind.Utc),
+                    Fim = segunda.ToDateTime(new TimeOnly(17, 0), DateTimeKind.Utc),
+                    Agendamento = new Agendamento { Status = AgendamentoStatus.Confirmado }
+                }
+            ]);
+
+        var service = CreateService();
+        var response = await service.ConsultarPorEstabelecimentoAsync(
+            20,
+            new ConsultarDisponibilidadeAgendaDto
+            {
+                DataInicio = segunda,
+                DataFim = segunda,
+                ServicoId = 5,
+                ProfissionalId = 40
+            });
+
+        Assert.Empty(response.Slots);
+        Assert.Empty(response.DatasAtendimento);
     }
 
     [Fact]
@@ -60,6 +94,45 @@ public class DisponibilidadeAgendaServiceTests
                     DataFim = DateOnly.FromDateTime(DateTime.UtcNow),
                     ServicoId = 5
                 }));
+    }
+
+    [Fact]
+    public async Task ConsultarPorEstabelecimentoAsync_NaoDeveUsarHorarioDaLoja_QuandoProfissionalNaoAtendeNoDia()
+    {
+        var segunda = ObterProximaSegunda();
+        var terca = segunda.AddDays(1);
+        ConfigurarCenarioBasico(segunda);
+
+        _horarioFuncionamentoRepository
+            .Setup(r => r.ListarAtivosPorEstabelecimentoEDiaAsync(20, DayOfWeek.Tuesday, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([
+                new HorarioFuncionamentoEstabelecimento
+                {
+                    DiaSemana = DayOfWeek.Tuesday,
+                    HoraInicio = new TimeOnly(8, 0),
+                    HoraFim = new TimeOnly(18, 0),
+                    Ativo = true
+                }
+            ]);
+
+        _horarioAtendimentoRepository
+            .Setup(r => r.ListarPorEstabelecimentoAsync(20, 40, DayOfWeek.Tuesday, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var service = CreateService();
+        var response = await service.ConsultarPorEstabelecimentoAsync(
+            20,
+            new ConsultarDisponibilidadeAgendaDto
+            {
+                DataInicio = segunda,
+                DataFim = terca,
+                ServicoId = 5,
+                ProfissionalId = 40
+            });
+
+        Assert.Contains(segunda, response.DatasAtendimento);
+        Assert.DoesNotContain(terca, response.DatasAtendimento);
+        Assert.All(response.Slots, slot => Assert.Equal(DayOfWeek.Monday, DateOnly.FromDateTime(slot.Inicio).DayOfWeek));
     }
 
     [Fact]

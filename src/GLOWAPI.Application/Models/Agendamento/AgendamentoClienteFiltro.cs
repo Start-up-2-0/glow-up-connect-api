@@ -1,3 +1,4 @@
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Domain.Enums;
 
 namespace GLOWAPI.Application.Models.Agendamento;
@@ -10,4 +11,24 @@ public record AgendamentoClienteFiltro(
     int? EstabelecimentoId,
     int Pagina,
     int TamanhoPagina,
-    bool OrdenarPorProximos);
+    string Ordenacao)
+{
+    public static AgendamentoClienteFiltro Criar(
+        int usuarioClienteId,
+        AgendamentoStatus? status,
+        DateTime? dataInicio,
+        DateTime? dataFim,
+        int? estabelecimentoId,
+        int pagina,
+        int tamanhoPagina,
+        string? ordenacao) =>
+        new(
+            usuarioClienteId,
+            status,
+            dataInicio,
+            dataFim,
+            estabelecimentoId,
+            pagina,
+            tamanhoPagina,
+            AgendaOrdenacaoConsulta.Normalizar(ordenacao));
+}

@@ -1,0 +1,14 @@
+---
+description: Padrões de segurança do Glow Up Connect API
+globs: glow-up-connect-api/**
+alwaysApply: false
+---
+
+# Segurança GLOWAPI
+
+- Manter `x-glow-token`; não migrar para JWT sem pedido explícito
+- CORS restritivo via `CorsOptions`; nunca `AllowAnyOrigin`
+- Rate limit global: 3 req/burst → bloqueio 24h por IP
+- Webhooks MP: validar `x-signature`; WhatsApp: header `X-Webhook-Secret`
+- Refresh token apenas em cookie `guc_refresh` HttpOnly
+- Secrets via variáveis de ambiente em staging/production

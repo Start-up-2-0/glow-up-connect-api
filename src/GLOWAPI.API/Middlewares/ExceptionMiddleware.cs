@@ -1,5 +1,6 @@
 using System.Net;
 using GLOWAPI.API.Models;
+using Microsoft.EntityFrameworkCore;
 using GLOWAPI.Domain.Exceptions;
 using GLOWAPI.Domain.Exceptions.Assinatura;
 using GLOWAPI.Domain.Exceptions.Auth;
@@ -49,6 +50,8 @@ public class ExceptionMiddleware
                     or MensagemNotificacaoNaoCancelavelException
                     or AssinaturaDuplicadaException
                     or EstabelecimentoOnboardingDuplicadoException
+                    or LimiteEstabelecimentosExcedidoException
+                    or DowngradeComMultiplasLojasException
                     or UsuarioEquipeNegocioDuplicadoException
                     or ProfissionalNegocioDuplicadoException
                     or ProfissionalServicoDuplicadoException
@@ -58,6 +61,7 @@ public class ExceptionMiddleware
                 GatewayPagamentoException => HttpStatusCode.BadGateway,
                 ConfirmacaoEmailInvalidaException
                     or ConfirmacaoWhatsAppInvalidaException
+                    or CaptchaInvalidaException
                     or AvatarInvalidoException
                     or AssinaturaTitularInvalidoException
                     or CancelamentoAssinaturaInvalidoException
@@ -73,6 +77,9 @@ public class ExceptionMiddleware
                     or HorarioAlteracaoImpactaAgendamentosFuturosException
                     or UltimoOwnerNegocioException
                     or ConviteNegocioInvalidoException
+                    or ConviteUsuarioNaoConfirmadoException
+                    or ProfissionalNegocioInvalidoException
+                    or ProfissionalVitrineNegocioIndisponivelException
                     or LimiteUsuariosNegocioExcedidoException
                     or LimiteProfissionaisNegocioExcedidoException
                     or LimiteServicosNegocioExcedidoException
@@ -81,8 +88,11 @@ public class ExceptionMiddleware
                     or AgendamentoDadosClienteInvalidosException
                     or AgendamentoStatusInvalidoException
                     or AgendamentoServicosInvalidosException
+                    or AgendaPeriodoConsultaInvalidoException
                     or EnderecoOperacaoInvalidoException
                     or LocalizacaoClienteInvalidaException => HttpStatusCode.BadRequest,
+                WebhookWhatsAppNaoAutorizadoException => HttpStatusCode.Unauthorized,
+                LoginIpRateLimitException => HttpStatusCode.TooManyRequests,
                 HorarioIndisponivelException => HttpStatusCode.Conflict,
                 UsuarioSemPermissaoAssinaturaException
                     or UsuarioSemPermissaoNegocioException
@@ -126,6 +136,17 @@ public class ExceptionMiddleware
         {
             _logger.LogWarning(ex, "Operação inválida");
             await WriteLegacyErrorAsync(context, 400, ex.Message);
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Falha ao persistir no banco de dados");
+            var mensagemInterna = ex.InnerException?.Message ?? ex.Message;
+            var mensagem = mensagemInterna.Contains("OnboardingPendenteJson", StringComparison.OrdinalIgnoreCase)
+                || mensagemInterna.Contains("ReferenciaInterna", StringComparison.OrdinalIgnoreCase)
+                ? "Banco desatualizado. Execute a migration AddCheckoutProOnboardingPendente no ambiente staging."
+                : "Erro ao salvar dados da assinatura. Verifique os logs da API.";
+
+            await WriteErrorAsync(context, 500, mensagem, "DATABASE_UPDATE_ERROR");
         }
         catch (Exception ex)
         {

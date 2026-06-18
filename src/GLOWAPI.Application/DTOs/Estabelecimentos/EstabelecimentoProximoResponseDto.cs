@@ -12,6 +12,7 @@ public record EstabelecimentoProximoResponseDto(
     string Logo,
     string Descricao,
     double DistanciaKm,
+    bool DestaqueMarketplace,
     EnderecoResumoDto Endereco);
 
 public record EstabelecimentosProximosPaginadoResponseDto(

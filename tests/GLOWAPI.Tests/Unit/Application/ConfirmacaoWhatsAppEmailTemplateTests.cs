@@ -5,21 +5,44 @@ namespace GLOWAPI.Tests.Unit.Application;
 public class ConfirmacaoWhatsAppEmailTemplateTests
 {
     [Fact]
-    public void Criar_DeveIncluirCodigoLinkWaMeETelefone()
+    public void CriarConfirmacaoJaRealizada_DeveIncluirNomeELayoutPadrao()
+    {
+        var html = ConfirmacaoWhatsAppEmailTemplate.CriarConfirmacaoJaRealizada("Maria");
+
+        Assert.Contains("Maria", html);
+        Assert.Contains("ja esta confirmado", html);
+        Assert.Contains("<!doctype html>", html);
+        Assert.Contains("GlowUp Connect", html);
+    }
+
+    [Fact]
+    public void CriarConfirmacaoSucesso_DeveIncluirNomeETelefone()
+    {
+        var html = ConfirmacaoWhatsAppEmailTemplate.CriarConfirmacaoSucesso(
+            "Maria",
+            "5579991917634");
+
+        Assert.Contains("Maria", html);
+        Assert.Contains("5579991917634", html);
+        Assert.Contains("confirmado", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("<!doctype html>", html);
+    }
+
+    [Fact]
+    public void Criar_DeveIncluirLinksConfirmacaoEWhatsApp()
     {
         var html = ConfirmacaoWhatsAppEmailTemplate.Criar(
             "Maria",
             "11988887777",
-            "https://wa.me/5511999999999?text=GLOW%20482913",
-            "482913",
-            "GLOW 482913",
-            24);
+            "http://localhost:3000/c/NTUxMTk4ODg4Nzc3Nw==",
+            "https://wa.me/5511999999999?text=NTUxMTk4ODg4Nzc3Nw%3D%3D");
 
         Assert.Contains("Maria", html);
         Assert.Contains("11988887777", html);
-        Assert.Contains("482913", html);
-        Assert.Contains("https://wa.me/5511999999999?text=GLOW%20482913", html);
+        Assert.Contains("http://localhost:3000/c/NTUxMTk4ODg4Nzc3Nw==", html);
+        Assert.Contains("https://wa.me/5511999999999?text=NTUxMTk4ODg4Nzc3Nw%3D%3D", html);
         Assert.Contains("Confirmar no WhatsApp", html);
-        Assert.Contains("GLOW 482913", html);
+        Assert.Contains("Abrir confirmacao", html);
+        Assert.Contains($"cid:{EmailTemplateInlineAssets.LogoContentId}", html);
     }
 }

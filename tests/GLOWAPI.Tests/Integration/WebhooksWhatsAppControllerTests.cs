@@ -79,7 +79,6 @@ public class WebhooksWhatsAppControllerTests : IClassFixture<GlowApiWebApplicati
             data = new { }
         });
 
-        Assert.NotEqual(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 }

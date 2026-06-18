@@ -15,6 +15,7 @@ public class ServicoNegocioService : IServicoNegocioService
     private readonly IProfissionalRepository _profissionalRepository;
     private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
     private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
+    private readonly IProfissionalEscopoAcessoService _profissionalEscopoAcessoService;
     private readonly IModulosAssinaturaService _modulosAssinaturaService;
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
 
@@ -24,6 +25,7 @@ public class ServicoNegocioService : IServicoNegocioService
         IProfissionalRepository profissionalRepository,
         IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
         IAutorizacaoNegocioService autorizacaoNegocioService,
+        IProfissionalEscopoAcessoService profissionalEscopoAcessoService,
         IModulosAssinaturaService modulosAssinaturaService,
         IAuditoriaNegocioService auditoriaNegocioService)
     {
@@ -32,6 +34,7 @@ public class ServicoNegocioService : IServicoNegocioService
         _profissionalRepository = profissionalRepository;
         _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
         _autorizacaoNegocioService = autorizacaoNegocioService;
+        _profissionalEscopoAcessoService = profissionalEscopoAcessoService;
         _modulosAssinaturaService = modulosAssinaturaService;
         _auditoriaNegocioService = auditoriaNegocioService;
     }
@@ -41,16 +44,30 @@ public class ServicoNegocioService : IServicoNegocioService
         ServicoFiltroDto filtro,
         CancellationToken cancellationToken = default)
     {
-        await _autorizacaoNegocioService.AutorizarAsync(
+        var autorizacao = await _autorizacaoNegocioService.AutorizarAsync(
             estabelecimentoId,
             PermissaoNegocio.ServicoVisualizar,
             cancellationToken);
 
+        var profissionalId = filtro.ProfissionalId;
+        var apenasVinculados = filtro.ApenasVinculados ?? false;
+
+        if (autorizacao.Role == EstablishmentUserRole.Profissional
+            && !autorizacao.PossuiPermissao(PermissaoNegocio.ServicoGerenciar))
+        {
+            var escopo = await _profissionalEscopoAcessoService.ObterEscopoAsync(
+                estabelecimentoId,
+                cancellationToken);
+            profissionalId = escopo.ProfissionalId;
+            apenasVinculados = true;
+        }
+
         var servicos = await _servicoRepository.ListarPorEstabelecimentoAsync(
             estabelecimentoId,
             filtro.Ativo,
-            filtro.ProfissionalId,
+            profissionalId,
             filtro.Nome,
+            apenasVinculados,
             cancellationToken);
 
         return servicos.Select(ServicoResponseDto.From).ToList();
@@ -227,6 +244,15 @@ public class ServicoNegocioService : IServicoNegocioService
                 throw new RecursoProfissionalNaoEncontradoException();
             }
 
+            var vinculo = await _profissionalEstabelecimentoRepository.ObterPorProfissionalAsync(
+                profissional.Id,
+                estabelecimento.Id,
+                cancellationToken);
+            if (vinculo is null || !vinculo.Ativo || !vinculo.PodeReceberAgendamento)
+            {
+                throw new ProfissionalSemVinculoNegocioException();
+            }
+
             profissionalId = profissional.Id;
         }
 
@@ -236,12 +262,15 @@ public class ServicoNegocioService : IServicoNegocioService
                 ativo: true,
                 profissionalId,
                 nome: null,
+                apenasVinculados: false,
                 cancellationToken)
             : await _servicoRepository.ListarPublicosPorEstabelecimentoAsync(
                 estabelecimento.Id,
                 cancellationToken);
 
-        return servicos.Select(ServicoPublicoResponseDto.From).ToList();
+        return servicos
+            .Select(servico => ServicoPublicoResponseDto.From(servico, profissionalId))
+            .ToList();
     }
 
     public Task<IReadOnlyList<ServicoPublicoResponseDto>> ListarPublicosPorProfissionalAsync(
@@ -277,9 +306,12 @@ public class ServicoNegocioService : IServicoNegocioService
             ativo: true,
             profissional.Id,
             nome: null,
+            apenasVinculados: false,
             cancellationToken);
 
-        return servicos.Select(ServicoPublicoResponseDto.From).ToList();
+        return servicos
+            .Select(servico => ServicoPublicoResponseDto.From(servico, profissional.Id))
+            .ToList();
     }
 
     private async Task<Servico> ObterServicoDoEstabelecimentoAsync(

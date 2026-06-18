@@ -41,6 +41,7 @@ public class ServicoRepository : Repository<Servico>, IServicoRepository
         bool? ativo,
         int? profissionalId,
         string? nome,
+        bool apenasVinculados = false,
         CancellationToken cancellationToken = default)
     {
         var query = DbSet
@@ -55,15 +56,21 @@ public class ServicoRepository : Repository<Servico>, IServicoRepository
 
         if (profissionalId.HasValue)
         {
-            query = query.Where(servico =>
-                servico.Profissionais.Any(vinculo =>
-                    vinculo.ProfissionalId == profissionalId.Value && vinculo.Ativo));
+            var profId = profissionalId.Value;
+            query = apenasVinculados
+                ? query.Where(servico =>
+                    servico.Profissionais.Any(vinculo =>
+                        vinculo.ProfissionalId == profId && vinculo.Ativo))
+                : query.Where(servico =>
+                    !servico.Profissionais.Any(vinculo => vinculo.Ativo)
+                    || servico.Profissionais.Any(vinculo =>
+                        vinculo.ProfissionalId == profId && vinculo.Ativo));
         }
 
         if (!string.IsNullOrWhiteSpace(nome))
         {
-            var termo = nome.Trim();
-            query = query.Where(servico => EF.Functions.ILike(servico.Nome, $"%{termo}%"));
+            var termo = nome.Trim().ToLowerInvariant();
+            query = query.Where(servico => servico.Nome.ToLower().Contains(termo));
         }
 
         return await query
@@ -82,7 +89,8 @@ public class ServicoRepository : Repository<Servico>, IServicoRepository
             .Where(servico =>
                 servico.EstabelecimentoId == estabelecimentoId
                 && servico.Ativo
-                && servico.Profissionais.Any(vinculo => vinculo.Ativo))
+                && (!servico.Profissionais.Any(vinculo => vinculo.Ativo)
+                    || servico.Profissionais.Any(vinculo => vinculo.Ativo)))
             .OrderBy(servico => servico.Nome)
             .ThenBy(servico => servico.Id)
             .ToListAsync(cancellationToken);

@@ -14,6 +14,7 @@ public record PlanoResponseDto(
     int? LimiteAgendamentos,
     int? LimiteUsuarios,
     int? LimiteAgendamentosPorDia,
+    int? LimiteEstabelecimentos,
     bool PrioridadeListagemPublica,
     IReadOnlyList<string> Modulos,
     IReadOnlyList<string> Funcionalidades)
@@ -33,6 +34,7 @@ public record PlanoResponseDto(
             plano.LimiteAgendamentos,
             perfil.LimiteUsuarios,
             perfil.LimiteAgendamentosPorDia,
+            plano.LimiteEstabelecimentos,
             perfil.PrioridadeListagemPublica,
             perfil.Modulos.Select(modulo => modulo.ToString()).ToList(),
             perfil.Funcionalidades);

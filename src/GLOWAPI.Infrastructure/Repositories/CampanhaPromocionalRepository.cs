@@ -24,12 +24,16 @@ public class CampanhaPromocionalRepository : Repository<CampanhaPromocional>, IC
     {
         var rows = await Context.Database.ExecuteSqlInterpolatedAsync(
             $"""
-             UPDATE "CampanhasPromocionais"
-             SET "Utilizados" = "Utilizados" + 1,
-                 "UpdatedAt" = NOW()
-             WHERE "Codigo" = {codigo}
-               AND "Ativa" = TRUE
-               AND "Utilizados" < "Limite"
+             UPDATE `CampanhasPromocionais` AS cp
+             SET cp.`Utilizados` = cp.`Utilizados` + 1,
+                 cp.`UpdatedAt` = UTC_TIMESTAMP()
+             WHERE cp.`Codigo` = {codigo}
+               AND cp.`Ativa` = TRUE
+               AND (
+                 SELECT COUNT(*)
+                 FROM `Assinaturas` AS a
+                 WHERE a.`CampanhaPromocionalId` = cp.`Id`
+               ) < cp.`Limite`
              """);
 
         return rows > 0;

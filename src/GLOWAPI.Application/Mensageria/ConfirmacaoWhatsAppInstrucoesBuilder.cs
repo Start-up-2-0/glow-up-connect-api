@@ -1,8 +1,6 @@
 using GLOWAPI.Application.DTOs.Mensageria;
 using GLOWAPI.Application.Helpers;
-using GLOWAPI.Application.Mensageria;
 using GLOWAPI.Application.Options;
-using Microsoft.Extensions.Options;
 
 namespace GLOWAPI.Application.Mensageria;
 
@@ -10,22 +8,24 @@ public static class ConfirmacaoWhatsAppInstrucoesBuilder
 {
     public static WhatsAppConfirmacaoInstrucoesDto Criar(
         MensageriaWhatsAppOptions whatsAppOptions,
-        string codigoPlano,
-        DateTime expiraEm,
+        AuthOptions authOptions,
+        string telefone,
+        bool whatsAppEnviado,
         bool emailEnviado)
     {
         var numeroPlataforma = ObterNumeroPlataformaExibicao(whatsAppOptions);
-        var mensagemSugerida = ConfirmacaoWhatsAppTemplate.MensagemSugeridaInbound(codigoPlano);
-        var linkWhatsApp = TelefoneHelper.CriarLinkWaMe(numeroPlataforma, mensagemSugerida);
+        var tokenConfirmacao = TelefoneHelper.GerarTokenConfirmacao(telefone);
+        var linkConfirmacao = TelefoneHelper.CriarLinkConfirmacao(authOptions.FrontendBaseUrl, tokenConfirmacao);
+        var linkWhatsApp = TelefoneHelper.CriarLinkWaMe(numeroPlataforma, tokenConfirmacao);
 
         return new WhatsAppConfirmacaoInstrucoesDto
         {
             NumeroPlataforma = numeroPlataforma,
-            CodigoConfirmacao = codigoPlano,
-            MensagemSugerida = mensagemSugerida,
+            TokenConfirmacao = tokenConfirmacao,
+            LinkConfirmacao = linkConfirmacao,
             LinkWhatsApp = linkWhatsApp,
-            EmailEnviado = emailEnviado,
-            ExpiraEm = expiraEm
+            WhatsAppEnviado = whatsAppEnviado,
+            EmailEnviado = emailEnviado
         };
     }
 

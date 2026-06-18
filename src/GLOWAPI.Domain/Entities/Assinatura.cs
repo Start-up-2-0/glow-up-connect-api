@@ -26,6 +26,11 @@ public class Assinatura
     public DateTime? UpdatedAt { get; set; }
     public DateTime? CanceladoEm { get; set; }
 
+    /// <summary>
+    /// Dados de onboarding aguardando pagamento (Checkout Pro). Materializado no webhook aprovado.
+    /// </summary>
+    public string? OnboardingPendenteJson { get; set; }
+
     public Plano? Plano { get; set; }
     public Plano? PlanoAlteracaoPendente { get; set; }
     public CampanhaPromocional? CampanhaPromocional { get; set; }

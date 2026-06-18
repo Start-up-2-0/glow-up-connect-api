@@ -25,11 +25,11 @@ public class ModulosAssinaturaService : IModulosAssinaturaService
         int estabelecimentoId,
         CancellationToken cancellationToken = default)
     {
-        var assinatura = await _assinaturaRepository.ObterAtualPorEstabelecimentoAsync(
+        var assinatura = await _assinaturaRepository.ObterAssinaturaEfetivaPorEstabelecimentoAsync(
             estabelecimentoId,
             cancellationToken);
 
-        return CriarResposta(assinatura, ModulosEstabelecimento);
+        return CriarResposta(assinatura, estabelecimentoId, ModulosEstabelecimento);
     }
 
     public async Task<bool> PossuiModuloPorEstabelecimentoAsync(
@@ -43,12 +43,13 @@ public class ModulosAssinaturaService : IModulosAssinaturaService
 
     private static ModulosAssinaturaResponseDto CriarResposta(
         Assinatura? assinatura,
+        int estabelecimentoId,
         IReadOnlyList<ModuloAssinatura> modulos)
     {
         if (assinatura is null
             || assinatura.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Trial))
         {
-            return ModulosAssinaturaResponseDto.Bloqueado(assinatura);
+            return ModulosAssinaturaResponseDto.Bloqueado(assinatura, estabelecimentoId);
         }
 
         var modulosDoPlano = PlanoComercialCatalogo.Obter(assinatura.Plano).Modulos;
@@ -57,6 +58,6 @@ public class ModulosAssinaturaService : IModulosAssinaturaService
             .Distinct()
             .ToList();
 
-        return ModulosAssinaturaResponseDto.Liberado(assinatura, modulosLiberados);
+        return ModulosAssinaturaResponseDto.Liberado(assinatura, estabelecimentoId, modulosLiberados);
     }
 }

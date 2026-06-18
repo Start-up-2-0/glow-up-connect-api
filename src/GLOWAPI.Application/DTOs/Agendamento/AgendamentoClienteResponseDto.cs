@@ -1,4 +1,5 @@
 using GLOWAPI.Application.DTOs.Estabelecimentos;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using AgendamentoEntity = GLOWAPI.Domain.Entities.Agendamento;
@@ -38,9 +39,9 @@ public record AgendamentoClienteResponseDto(
             agendamento.Id,
             agendamento.Status.ToString(),
             agendamento.ValorTotal,
-            itens.Sum(item => (int)(item.Fim - item.Inicio).TotalMinutes),
-            itens.FirstOrDefault()?.Inicio ?? default,
-            itens.LastOrDefault()?.Fim ?? default,
+            AgendamentoHorarioHelper.ObterDuracaoTotalMinutos(agendamento),
+            AgendamentoHorarioHelper.ObterInicio(agendamento),
+            AgendamentoHorarioHelper.ObterFim(agendamento),
             estabelecimento?.PublicGuid ?? Guid.Empty,
             estabelecimento?.Nome ?? string.Empty,
             estabelecimento?.Logo ?? string.Empty,

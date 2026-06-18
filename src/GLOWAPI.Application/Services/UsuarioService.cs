@@ -61,7 +61,7 @@ public class UsuarioService : IUsuarioService
         {
             Nome = dto.Nome.Trim(),
             Email = email,
-            Telefone = dto.Telefone.Trim(),
+            Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone),
             Senha = senhaHash,
             Role = UserRole.Cliente,
             Ativo = false,
@@ -101,7 +101,7 @@ public class UsuarioService : IUsuarioService
         var telefoneAnterior = usuario.Telefone;
 
         usuario.Nome = dto.Nome;
-        usuario.Telefone = dto.Telefone.Trim();
+        usuario.Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone);
         usuario.UpdatedAt = DateTime.UtcNow;
 
         WhatsAppConfirmacaoEntidade.ResetarAoAlterarTelefone(

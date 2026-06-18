@@ -14,6 +14,7 @@ public class AuthService : IAuthService
     private readonly IAuthSessionService _authSessionService;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ISecurityAuditLogger _auditLogger;
+    private readonly ILoginFailureRateLimitService _loginFailureRateLimit;
     private readonly AuthOptions _authOptions;
 
     public AuthService(
@@ -21,12 +22,14 @@ public class AuthService : IAuthService
         IAuthSessionService authSessionService,
         IPasswordHasher passwordHasher,
         ISecurityAuditLogger auditLogger,
+        ILoginFailureRateLimitService loginFailureRateLimit,
         IOptions<AuthOptions> authOptions)
     {
         _usuarioRepository = usuarioRepository;
         _authSessionService = authSessionService;
         _passwordHasher = passwordHasher;
         _auditLogger = auditLogger;
+        _loginFailureRateLimit = loginFailureRateLimit;
         _authOptions = authOptions.Value;
     }
 
@@ -35,6 +38,12 @@ public class AuthService : IAuthService
         AuthSessionContext context,
         CancellationToken cancellationToken = default)
     {
+        var ip = string.IsNullOrWhiteSpace(context.Ip) ? "unknown" : context.Ip;
+        if (!await _loginFailureRateLimit.PodeTentarAsync(ip, cancellationToken))
+        {
+            throw new LoginIpRateLimitException();
+        }
+
         var email = ConfirmacaoEmailService.NormalizarEmail(dto.Email);
         var senha = dto.Senha;
         var usuario = await _usuarioRepository.ObterPorEmailAsync(email, cancellationToken);
@@ -42,6 +51,7 @@ public class AuthService : IAuthService
         if (usuario is null)
         {
             await _auditLogger.LoginFailedAsync(email, "usuario_inexistente", context.Ip, context.UserAgent, cancellationToken: cancellationToken);
+            await _loginFailureRateLimit.RegistrarFalhaAsync(ip, cancellationToken);
             throw new InvalidCredentialsException();
         }
 
@@ -75,6 +85,7 @@ public class AuthService : IAuthService
 
             _usuarioRepository.Atualizar(usuario);
             await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
+            await _loginFailureRateLimit.RegistrarFalhaAsync(ip, cancellationToken);
             throw new InvalidCredentialsException();
         }
 

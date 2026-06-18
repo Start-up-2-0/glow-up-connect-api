@@ -8,4 +8,7 @@ public record AgendaGeralFiltro(
     int? ClienteId,
     AgendamentoStatus? Status,
     DateTime? Inicio,
-    DateTime? Fim);
+    DateTime? Fim,
+    int Pagina,
+    int TamanhoPagina,
+    string Ordenacao);

@@ -89,7 +89,7 @@ public class EstabelecimentoPerfilServiceTests
 
         Assert.Equal("Studio Novo", response.Nome);
         Assert.StartsWith("data:image/png;base64,", response.Logo);
-        Assert.Equal("11999999999", response.Telefone);
+        Assert.Equal("5511999999999", response.Telefone);
         Assert.Equal("novo@email.com", response.Email);
         Assert.Equal("Sao Paulo", response.Endereco.Cidade);
         Assert.Equal("SP", response.Endereco.Estado);
@@ -109,11 +109,54 @@ public class EstabelecimentoPerfilServiceTests
     }
 
     [Fact]
-    public async Task AtualizarAsync_DeveLancarExcecao_QuandoLogoNaoForInformado()
+    public async Task AtualizarAsync_DeveReutilizarLogoExistente_QuandoLogoNaoForInformado()
+    {
+        var estabelecimento = new Estabelecimento
+        {
+            Id = 20,
+            Nome = "Studio",
+            Logo = LogoBase64TestHelper.PngDataUri,
+            Telefone = "5511999999999",
+            Email = "studio@email.com",
+            Ativo = true,
+            Endereco = new Endereco
+            {
+                Cidade = "Sao Paulo",
+                Estado = "SP",
+                Logradouro = "Rua Glow",
+                Cep = "01310100",
+                Numero = "100",
+                Bairro = "Centro"
+            }
+        };
+
+        _estabelecimentoRepository
+            .Setup(r => r.ObterPorIdComEnderecoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(estabelecimento);
+
+        var service = CreateService();
+
+        var response = await service.AtualizarAsync(20, new AtualizarEstabelecimentoPerfilDto
+        {
+            Endereco = EnderecoOperacaoDtoBuilder.Criar(
+                cidade: "Sao Paulo",
+                logradouro: "Rua Nova",
+                cep: "01310100",
+                numero: "200",
+                bairro: "Bela Vista")
+        });
+
+        Assert.Equal("Studio", response.Nome);
+        Assert.StartsWith("data:image/png;base64,", response.Logo);
+        Assert.Equal("Rua Nova", response.Endereco.Logradouro);
+    }
+
+    [Fact]
+    public async Task AtualizarAsync_DeveLancarExcecao_QuandoLogoNaoForInformadoENegocioNaoPossuiLogo()
     {
         _estabelecimentoRepository
             .Setup(r => r.ObterPorIdComEnderecoAsync(20, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Estabelecimento { Id = 20, Ativo = true });
+            .ReturnsAsync(new Estabelecimento { Id = 20, Ativo = true, Logo = string.Empty });
 
         var service = CreateService();
 

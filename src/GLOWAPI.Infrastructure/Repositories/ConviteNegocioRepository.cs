@@ -33,4 +33,23 @@ public class ConviteNegocioRepository : Repository<ConviteNegocio>, IConviteNego
             .Include(convite => convite.Estabelecimento)
             .FirstOrDefaultAsync(convite => convite.TokenHash == tokenHash, cancellationToken);
     }
+
+    public async Task<IReadOnlyList<ConviteNegocio>> ListarPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        StatusConviteNegocio? status,
+        CancellationToken cancellationToken = default)
+    {
+        var query = DbSet
+            .AsNoTracking()
+            .Where(convite => convite.EstabelecimentoId == estabelecimentoId);
+
+        if (status.HasValue)
+        {
+            query = query.Where(convite => convite.Status == status.Value);
+        }
+
+        return await query
+            .OrderByDescending(convite => convite.CriadoEm)
+            .ToListAsync(cancellationToken);
+    }
 }

@@ -41,6 +41,16 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
 
 
 
+    public async Task<EstabelecimentoPerfilResponseDto> ObterAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        var estabelecimento = await ObterEstabelecimentoAutorizadoAsync(estabelecimentoId, cancellationToken);
+        return EstabelecimentoPerfilResponseDto.From(estabelecimento);
+    }
+
+
+
     public async Task<EstabelecimentoPerfilResponseDto> AtualizarAsync(
 
         int estabelecimentoId,
@@ -61,62 +71,58 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
 
         var telefoneAnterior = estabelecimento.Telefone;
 
+        estabelecimento.Nome = OperacaoPerfilValidation.ValidarTextoObrigatorio(
+            string.IsNullOrWhiteSpace(request.Nome) ? estabelecimento.Nome : request.Nome,
+            "Nome do estabelecimento",
+            150,
+            CriarExcecao);
 
-
-        estabelecimento.Nome = OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Nome, "Nome do estabelecimento", 150, CriarExcecao);
-
+        var logoInformado = string.IsNullOrWhiteSpace(request.Logo) ? estabelecimento.Logo : request.Logo;
         estabelecimento.Logo = OperacaoPerfilValidation.ValidarLogoBase64(
-            request.Logo,
+            logoInformado,
             "Logo do estabelecimento",
             _avatarBase64Decoder,
             CriarExcecao);
 
-        estabelecimento.Telefone = OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Telefone, "Telefone do estabelecimento", 20, CriarExcecao);
+        estabelecimento.Telefone = TelefoneHelper.NormalizarParaArmazenamento(
+            OperacaoPerfilValidation.ValidarTextoObrigatorio(
+                string.IsNullOrWhiteSpace(request.Telefone) ? estabelecimento.Telefone : request.Telefone,
+                "Telefone do estabelecimento",
+                20,
+                CriarExcecao));
 
-        estabelecimento.Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(request.Email, "Email do estabelecimento", 255, CriarExcecao);
+        estabelecimento.Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(
+            string.IsNullOrWhiteSpace(request.Email) ? estabelecimento.Email : request.Email,
+            "Email do estabelecimento",
+            255,
+            CriarExcecao);
 
         estabelecimento.UpdatedAt = DateTime.UtcNow;
 
-
-
         WhatsAppConfirmacaoEntidade.ResetarAoAlterarTelefone(
-
             telefoneAnterior,
-
             estabelecimento.Telefone,
-
             () =>
-
             {
-
                 estabelecimento.WhatsAppConfirmadoEm = null;
-
                 estabelecimento.WhatsAppOptIn = false;
-
                 estabelecimento.LimparConfirmacaoWhatsApp();
-
             });
 
-
-
-        OperacaoPerfilValidation.AtualizarEndereco(
-
-            estabelecimento.Endereco,
-
-            endereco => estabelecimento.Endereco = endereco,
-
-            request.Endereco,
-
-            CriarExcecao);
-
-
-
-        if (estabelecimento.Endereco is not null)
-
+        var enderecoInformado = !string.IsNullOrWhiteSpace(request.Endereco?.Cep);
+        if (enderecoInformado && request.Endereco is not null)
         {
+            OperacaoPerfilValidation.AtualizarEndereco(
+                estabelecimento.Endereco,
+                endereco => estabelecimento.Endereco = endereco,
+                request.Endereco,
+                CriarExcecao);
+        }
 
+        if (estabelecimento.Endereco is not null
+            && (enderecoInformado || !OperacaoPerfilValidation.EnderecoPossuiCoordenadas(estabelecimento.Endereco)))
+        {
             await _enderecoGeocodificacaoService.TentarGeocodificarAsync(estabelecimento.Endereco, cancellationToken);
-
         }
 
 

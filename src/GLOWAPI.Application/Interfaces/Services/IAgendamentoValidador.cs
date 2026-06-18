@@ -16,6 +16,7 @@ public interface IAgendamentoValidador
         CriarAgendamentoRequestDto? dadosVisitante,
         int? usuarioClienteId,
         int? agendamentoIgnorarId = null,
+        DateTime? inicioSelecionado = null,
         CancellationToken cancellationToken = default);
 
     Task ValidarConflitoAsync(

@@ -12,6 +12,7 @@ Oferecer **30 dias gratis** nos **100 primeiros** tenants que contratarem qualqu
 | Limite | 100 |
 | DiasTrial | 30 |
 | Escopo | 1 uso por `EstabelecimentoId` |
+| Contagem | `vagasRestantes = 100 - COUNT(Assinaturas com CampanhaPromocionalId da campanha)` |
 
 ## API publica
 
@@ -31,7 +32,7 @@ Oferecer **30 dias gratis** nos **100 primeiros** tenants que contratarem qualqu
 ## Fluxo trial
 
 1. `POST /api/assinaturas` com `diaVencimento` e `pagamento` (token do cartao).
-2. `PromocaoLancamentoService.TentarReservarVagaAsync` incrementa `Utilizados` de forma atomica.
+2. `PromocaoLancamentoService.TentarReservarVagaAsync` reserva vaga somente enquanto `COUNT(Assinaturas da campanha) < Limite`.
 3. `CriarAssinaturaRecorrenteAsync` no MP com `free_trial` de 30 dias.
 4. Assinatura criada com `Status = Trial`, modulos liberados, **sem** `Pagamento` inicial.
 5. Primeira cobranca interna gerada na `ProximaDataGeracaoCobranca` pos-trial.

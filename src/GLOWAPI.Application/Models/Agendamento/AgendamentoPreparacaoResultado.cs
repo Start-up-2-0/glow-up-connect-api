@@ -8,7 +8,7 @@ public class AgendamentoPreparacaoResultado
     public required Estabelecimento Estabelecimento { get; init; }
     public required Profissional Profissional { get; init; }
     public required IReadOnlyList<Servico> Servicos { get; init; }
-    public required IReadOnlyList<ProfissionalServico> VinculosProfissionalServico { get; init; }
+    public required IReadOnlyList<ProfissionalServico?> VinculosProfissionalServico { get; init; }
     public required DateTime Inicio { get; init; }
     public required DateTime Fim { get; init; }
     public required decimal ValorTotal { get; init; }

@@ -12,6 +12,7 @@ public class Plano
     public int? LimiteProfissionais { get; set; }
     public int? LimiteServicos { get; set; }
     public int? LimiteAgendamentos { get; set; }
+    public int? LimiteEstabelecimentos { get; set; }
     public bool Ativo { get; set; } = true;
     public DateTime CreateAd { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }

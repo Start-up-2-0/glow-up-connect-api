@@ -6,7 +6,7 @@ namespace GLOWAPI.Application.Interfaces.Repositories;
 
 public interface IAgendamentoRepository : IRepository<Agendamento>
 {
-    Task<IReadOnlyList<Agendamento>> ListarAgendaGeralAsync(
+    Task<(IReadOnlyList<Agendamento> Itens, int Total)> ListarAgendaGeralAsync(
         AgendaGeralFiltro filtro,
         CancellationToken cancellationToken = default);
 
@@ -26,5 +26,15 @@ public interface IAgendamentoRepository : IRepository<Agendamento>
 
     Task<(IReadOnlyList<Agendamento> Itens, int Total)> ListarPorUsuarioClienteComFiltroAsync(
         AgendamentoClienteFiltro filtro,
+        CancellationToken cancellationToken = default);
+
+    Task<int> ContarPorEstabelecimentoNoPeriodoAsync(
+        int estabelecimentoId,
+        DateTime inicio,
+        DateTime fim,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ClienteAgendamentoResumo>> ListarClientesResumoPorEstabelecimentoAsync(
+        int estabelecimentoId,
         CancellationToken cancellationToken = default);
 }

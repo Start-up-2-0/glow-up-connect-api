@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Net.Http.Json;
 using System.Text.Json;
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Services;
@@ -7,6 +6,7 @@ using GLOWAPI.Application.Models.Mensageria;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
+using GLOWAPI.Infrastructure.Mensageria;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -40,7 +40,9 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
         var requestPayload = JsonSerializer.Serialize(new
         {
             mensagem.Destinatario,
-            mensagem.Assunto
+            mensagem.Assunto,
+            TextoLength = mensagem.Conteudo.Length,
+            ApiVersion = _options.UsarApiV2 ? "v2" : "v1"
         });
 
         if (!_options.Habilitado
@@ -76,8 +78,11 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
 
         try
         {
-            var destinatario = NormalizarDestinatarioEvolution(mensagem.Destinatario);
-            if (string.IsNullOrWhiteSpace(destinatario))
+            var candidatos = EvolutionDestinoHelper.CriarCandidatosDestinoOutboundDeMensagem(
+                mensagem.Destinatario,
+                mensagem.PayloadJson);
+
+            if (candidatos.Count == 0)
             {
                 sw.Stop();
                 _logger.LogWarning(
@@ -94,27 +99,24 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
                     TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
             }
 
-            var url = $"{_options.ApiUrl.TrimEnd('/')}/message/sendText/{Uri.EscapeDataString(_options.InstanceName)}";
-            using var request = new HttpRequestMessage(HttpMethod.Post, url);
-            request.Headers.Add("apikey", _options.ApiKey);
-            request.Content = JsonContent.Create(new
-            {
-                number = destinatario,
-                text = mensagem.Conteudo,
-                textMessage = new { text = mensagem.Conteudo }
-            });
+            var envio = new EvolutionWhatsAppTextoEnvio(
+                _httpClient,
+                Options.Create(_options),
+                _logger);
 
-            var response = await _httpClient.SendAsync(request, cancellationToken);
-            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            var (sucesso, responseBody, destinatarioUsado, formatoUsado) = await envio.EnviarAsync(
+                candidatos,
+                mensagem.Conteudo,
+                cancellationToken);
+
             sw.Stop();
 
-            if (!response.IsSuccessStatusCode)
+            if (!sucesso)
             {
                 _logger.LogWarning(
-                    "Evolution sendText falhou. MensagemGuid={MensagemGuid}, StatusCode={StatusCode}, Destinatario={Destinatario}, Response={Response}",
+                    "Evolution sendText falhou. MensagemGuid={MensagemGuid}, Destinatario={Destinatario}, Response={Response}",
                     mensagem.Guid,
-                    (int)response.StatusCode,
-                    destinatario,
+                    destinatarioUsado,
                     responseBody);
 
                 return new ResultadoEnvioMensagem(
@@ -122,19 +124,20 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
                     RequestPayload: requestPayload,
                     ResponsePayload: responseBody,
                     RespostaProvedor: null,
-                    MensagemErro: $"Evolution API retornou {(int)response.StatusCode}.",
+                    MensagemErro: "Evolution API nao confirmou entrega do texto.",
                     TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
             }
 
             _logger.LogInformation(
-                "WhatsApp enviado via Evolution API. MensagemGuid={MensagemGuid}",
-                mensagem.Guid);
+                "WhatsApp enviado via Evolution API. MensagemGuid={MensagemGuid}, Formato={Formato}",
+                mensagem.Guid,
+                formatoUsado);
 
             return new ResultadoEnvioMensagem(
                 Sucesso: true,
                 RequestPayload: requestPayload,
                 ResponsePayload: responseBody,
-                RespostaProvedor: "evolution-whatsapp",
+                RespostaProvedor: $"evolution-whatsapp-{formatoUsado}",
                 MensagemErro: null,
                 TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
         }
@@ -151,17 +154,5 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
                 MensagemErro: ex.Message,
                 TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
         }
-    }
-
-    private static string NormalizarDestinatarioEvolution(string destinatario)
-    {
-        if (string.IsNullOrWhiteSpace(destinatario)
-            || destinatario.Contains("@lid", StringComparison.OrdinalIgnoreCase))
-        {
-            return string.Empty;
-        }
-
-        var prefixo = destinatario.Split('@')[0];
-        return TelefoneHelper.NormalizarParaWhatsApp(prefixo);
     }
 }

@@ -27,6 +27,10 @@ public static class ConfirmacaoWhatsAppCodigoHelper
     }
 
     public static bool PareceTentativaConfirmacao(string textoMensagem) =>
+        PareceTentativaConfirmacaoPorCodigo(textoMensagem)
+        || ConfirmacaoWhatsAppTokenHelper.PareceTentativaConfirmacaoPorToken(textoMensagem);
+
+    public static bool PareceTentativaConfirmacaoPorCodigo(string textoMensagem) =>
         !string.IsNullOrWhiteSpace(textoMensagem)
         && textoMensagem.Contains("GLOW", StringComparison.OrdinalIgnoreCase);
 

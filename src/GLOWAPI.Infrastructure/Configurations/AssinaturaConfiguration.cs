@@ -45,6 +45,9 @@ public class AssinaturaConfiguration : IEntityTypeConfiguration<Assinatura>
         builder.Property(assinatura => assinatura.Fim);
         builder.Property(assinatura => assinatura.CanceladoEm);
 
+        builder.Property(assinatura => assinatura.OnboardingPendenteJson)
+            .HasColumnType("text");
+
         builder.Property(assinatura => assinatura.CreateAd)
             .IsRequired();
 

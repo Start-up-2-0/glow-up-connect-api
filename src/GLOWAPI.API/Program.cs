@@ -9,6 +9,9 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+ProxyOriginConfiguration.ConfigurarProxyOrigin(builder);
+KestrelMtlsConfiguration.ConfigurarKestrel(builder);
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -26,21 +29,30 @@ builder.Services.Configure<MensageriaEmailOptions>(
     builder.Configuration.GetSection(MensageriaEmailOptions.SectionName));
 builder.Services.Configure<MensageriaWhatsAppOptions>(
     builder.Configuration.GetSection(MensageriaWhatsAppOptions.SectionName));
-builder.Services.Configure<MercadoPagoOptions>(
-    builder.Configuration.GetSection(MercadoPagoOptions.SectionName));
+builder.Services.AddOptions<MercadoPagoOptions>()
+    .Bind(builder.Configuration.GetSection(MercadoPagoOptions.SectionName))
+    .PostConfigure(options => MercadoPagoCheckoutProUrlDefaults.Aplicar(options, builder.Configuration));
 builder.Services.Configure<GeocodificacaoOptions>(
     builder.Configuration.GetSection(GeocodificacaoOptions.SectionName));
 builder.Services.Configure<AssinaturaCobrancaOptions>(
     builder.Configuration.GetSection(AssinaturaCobrancaOptions.SectionName));
 builder.Services.Configure<AssinaturaCobrancaWorkerOptions>(
     builder.Configuration.GetSection(AssinaturaCobrancaWorkerOptions.SectionName));
+builder.Services.Configure<CorsOptions>(builder.Configuration.GetSection(CorsOptions.SectionName));
+builder.Services.Configure<RateLimitOptions>(builder.Configuration.GetSection(RateLimitOptions.SectionName));
+builder.Services.Configure<CaptchaOptions>(builder.Configuration.GetSection(CaptchaOptions.SectionName));
+builder.Services.Configure<SwaggerOptions>(builder.Configuration.GetSection(SwaggerOptions.SectionName));
+var corsOrigins = builder.Configuration.GetSection(CorsOptions.SectionName).Get<CorsOptions>()?.AllowedOrigins
+    ?? CorsOptions.DefaultOrigins;
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(corsOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
@@ -81,14 +93,29 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
+var mtlsStartup = MtlsOptionsResolver.Resolver(app.Configuration);
+if (mtlsStartup.Enabled)
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "GLOWAPI v1"));
+    app.Logger.LogInformation(
+        "GlowAPI mTLS ativo: HTTP publico na porta {PublicPort}, mTLS na porta {MutualTlsPort}",
+        mtlsStartup.PublicPort,
+        mtlsStartup.MutualTlsPort);
+}
+else
+{
+    app.Logger.LogWarning(
+        "GlowAPI mTLS inativo: apenas HTTP na porta {PublicPort}",
+        mtlsStartup.PublicPort);
 }
 
-app.UseMiddleware<ExceptionMiddleware>();
+await app.ApplyPendingMigrationsAsync();
 
+app.UseMiddleware<ExceptionMiddleware>();
+app.UseMiddleware<PublicPortPathGuardMiddleware>();
+app.UseMiddleware<ProxyOriginMiddleware>();
+app.UseMiddleware<IpBurstRateLimitMiddleware>();
+
+// Railway termina TLS no edge; mTLS interno fica na :8443. Redirect HTTP->HTTPS quebraria o healthcheck em /health.
 if (app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
@@ -96,7 +123,20 @@ if (app.Environment.IsDevelopment())
 
 app.UseRouting();
 
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseCors("Frontend");
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "GLOWAPI v1"));
+}
+else if (app.Environment.IsStaging())
+{
+    app.UseMiddleware<SwaggerAccessMiddleware>();
+    app.UseSwagger();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "GLOWAPI v1"));
+}
 
 app.UseMiddleware<GlowTokenAuthenticationMiddleware>();
 app.UseMiddleware<EmailConfirmationAccessMiddleware>();

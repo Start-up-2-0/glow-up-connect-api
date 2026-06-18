@@ -77,4 +77,20 @@ public class AgendamentosController : ControllerBase
             "Agendamento remarcado com sucesso.",
             agendamento));
     }
+
+    [HttpPost("me/{id:int}/propostas-remarcacao/{propostaId:int}/aceitar")]
+    public async Task<IActionResult> AceitarPropostaRemarcacao(
+        int id,
+        int propostaId,
+        CancellationToken cancellationToken)
+    {
+        var agendamento = await _agendamentoNegocioService.AceitarPropostaRemarcacaoLogadoAsync(
+            id,
+            propostaId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<AgendamentoClienteResponseDto>.From(
+            "Proposta de remarcacao aceita com sucesso.",
+            agendamento));
+    }
 }

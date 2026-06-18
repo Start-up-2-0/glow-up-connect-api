@@ -59,7 +59,7 @@ public class EstabelecimentoDescobertaServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<EstabelecimentoProximoConsulta>
             {
-                new(estabelecimento, 1.2d)
+                new(estabelecimento, 1.2d, false)
             }, 1));
 
         var service = CreateService();

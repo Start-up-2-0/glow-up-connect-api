@@ -11,7 +11,7 @@ public class AgendamentoItemConfiguration : IEntityTypeConfiguration<Agendamento
     {
         builder.ToTable("AgendamentoItens", table =>
         {
-            table.HasCheckConstraint("CK_AgendamentoItens_Horario", "\"Inicio\" < \"Fim\"");
+            table.HasCheckConstraint("CK_AgendamentoItens_Horario", "`Inicio` < `Fim`");
         });
 
         builder.HasKey(item => item.Id);

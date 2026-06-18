@@ -8,13 +8,13 @@ Guia para configurar homologacao no **mesmo projeto Railway** da producao, com i
 2. **Settings → Environments → New Environment** → nome `staging`.
 3. Alterne para o environment `staging` (seletor no topo).
 
-## 2. PostgreSQL dedicado (staging)
+## 2. MySQL dedicado (staging)
 
-1. No environment `staging`, clique **+ New → Database → PostgreSQL**.
+1. No environment `staging`, clique **+ New → Database → MySQL**.
 2. Aguarde provisionamento.
-3. No servico Postgres, copie as variaveis (`PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`) ou use **Connect → Variables**.
+3. No servico MySQL, copie as variaveis (`MYSQLHOST`, `MYSQLPORT`, `MYSQLDATABASE`, `MYSQLUSER`, `MYSQLPASSWORD`) ou use **Connect → Variables**.
 
-> Producao deve manter seu proprio Postgres no environment `production`. Nunca compartilhe `POSTGSL` entre ambientes.
+> Producao deve manter seu proprio MySQL no environment `production`. Nunca compartilhe `MYSQL_CS` entre ambientes.
 
 ## 3. Servico da API (staging)
 
@@ -30,25 +30,40 @@ Guia para configurar homologacao no **mesmo projeto Railway** da producao, com i
 |----------|--------|
 | `ASPNETCORE_ENVIRONMENT` | `Staging` |
 | `ASPNETCORE_URLS` | `http://0.0.0.0:$PORT` (opcional; entrypoint ja ajusta `PORT`) |
-| `POSTGSL` | Ver abaixo |
+| `MYSQL_CS` | Ver abaixo |
 | `Auth__TokenSalt` | Salt unico staging (minimo 32 caracteres) |
 | `Auth__TokenHeaderName` | `x-glow-token` |
 | `Auth__FrontendBaseUrl` | URL do front staging (links nos e-mails) |
 | `RESEND_APITOKEN` | API key em [resend.com/api-keys](https://resend.com/api-keys) |
 | `Mensageria__Email__From` | Ex.: `Glow Up Connect <noreply@dominio-verificado.com>` |
 | `Mensageria__Email__Habilitado` | `true` |
+| `MercadoPago__UsarCheckoutPro` | `true` |
+| `MercadoPago__AccessToken` | Token `TEST-...` (sandbox) ou producao |
+| `MercadoPago__PayerEmailOverride` | (opcional sandbox) ex.: `test_user_123` |
+| `MercadoPago__WebhookSecret` | Secret do painel Mercado Pago (webhooks) |
+| `Cors__AllowedOrigins__0` | URL do frontend staging |
+| `Swagger__AccessKey` | Chave para acessar `/swagger` (header `X-Swagger-Key`) |
+| `GLOW_PROXY_SECRET` | Secret compartilhado com o servico do app (header `X-Glow-Proxy-Secret`) |
+| `Captcha__Enabled` | `true` |
+| `Captcha__SecretKey` | Secret reCAPTCHA v2 (server-side; par da Site key) |
+| `MTLS_SERVER_CERT` / `MTLS_SERVER_KEY` / `MTLS_CA_CERT` | (fase mTLS) PEMs multiline — ver `scripts/tls/generate-mtls-certs.sh` |
+| `MTLS_CLIENT_CERT_THUMBPRINT` | (fase mTLS) thumbprint SHA1 do cert do Caddy |
+| `MTLS_MUTUAL_TLS_PORT` | `8443` — porta do listener mTLS (exibida nos logs de startup) |
+| `MTLS_REQUIRED` | `true` — recusa subir sem certificados servidor validos |
+
+Ver tambem [docs/security/fase1-hardening.md](./security/fase1-hardening.md). as URLs de retorno do Checkout Pro sao derivadas de `Auth__FrontendBaseUrl` (`/assinatura/sucesso`, `/pendente`, `/falha`) e o webhook usa `RAILWAY_PUBLIC_DOMAIN` ou `MercadoPago__PublicBaseUrl`.
 
 > O remetente (`Mensageria__Email__From`) deve usar um dominio verificado em [resend.com/domains](https://resend.com/domains). Nao commite token nem `From` no `appsettings.json` do repositorio.
 
-### Montar `POSTGSL`
+### Montar `MYSQL_CS`
 
-No servico API (staging), adicione variavel `POSTGSL`:
+No servico API (staging), adicione variavel `MYSQL_CS`:
 
 ```text
-Host=${{Postgres.PGHOST}};Port=${{Postgres.PGPORT}};Database=${{Postgres.PGDATABASE}};Username=${{Postgres.PGUSER}};Password=${{Postgres.PGPASSWORD}};SSL Mode=Require;Trust Server Certificate=true
+Server=${{MySQL.MYSQLHOST}};Port=${{MySQL.MYSQLPORT}};Database=${{MySQL.MYSQLDATABASE}};User=${{MySQL.MYSQLUSER}};Password=${{MySQL.MYSQLPASSWORD}};SslMode=Required;
 ```
 
-Substitua `Postgres` pelo nome do servico PostgreSQL no Railway, se diferente.
+Substitua `MySQL` pelo nome do servico MySQL no Railway, se diferente.
 
 ## 5. Deploy automatico
 
@@ -68,9 +83,19 @@ No painel, confira em **Settings → Deploy → Healthcheck** se o path `/health
 
 ## 7. Migrations
 
-O container de runtime nao inclui `dotnet-ef`. Aplique migrations assim:
+Em **Staging** e **Production**, a API aplica migrations pendentes automaticamente no startup (`Database:ApplyMigrationsOnStartup`, padrao `true`).
 
-### Primeiro deploy (recomendado)
+Ao fazer deploy de uma versao com nova migration, basta subir o servico: na inicializacao ela verifica `__EFMigrationsHistory` e executa o que faltar antes de aceitar trafego.
+
+Para desativar (nao recomendado em Railway):
+
+```text
+Database__ApplyMigrationsOnStartup=false
+```
+
+### Aplicacao manual (opcional)
+
+Se precisar rodar fora do deploy:
 
 ```bash
 npm i -g @railway/cli
@@ -80,15 +105,39 @@ railway environment staging
 railway run --service <nome-do-servico-api> dotnet ef database update --project src/GLOWAPI.Infrastructure --startup-project src/GLOWAPI.API
 ```
 
-Requer [.NET 8 SDK](https://dotnet.microsoft.com/download) e `dotnet tool install --global dotnet-ef` na maquina local; o comando roda no contexto Railway com acesso ao Postgres de staging.
-
-### Script local (PowerShell)
+Ou via PowerShell local com `MYSQL_CS`:
 
 ```powershell
+$env:MYSQL_CS = "Server=...;Port=...;Database=...;User=...;Password=...;SslMode=Required;"
 .\scripts\railway-migrate.ps1 -Environment staging
 ```
 
-## 8. Dominio publico
+## 8. Servico do App (staging) — BFF same-origin
+
+| Variavel | Valor |
+|----------|--------|
+| `VITE_API_BASE_URL` | `/api` |
+| `VITE_CAPTCHA_SITE_KEY` | Site key reCAPTCHA v2 Checkbox |
+| `GLOW_PROXY_SECRET` | Mesmo valor da API |
+| `API_INTERNAL_HOST` | Host privado da API (`<servico>.railway.internal`) |
+| `API_INTERNAL_URL` | (opcional) `https://<servico-api>.railway.internal` — **sem porta na URL** |
+| `MTLS_UPSTREAM_PORT` | `8443` — **deve ser igual** a `MTLS_MUTUAL_TLS_PORT` da API |
+| `MTLS_REQUIRED` | `true` — recusa subir em modo HTTP sem certificados cliente |
+| `MTLS_CLIENT_CERT` / `MTLS_CLIENT_KEY` / `MTLS_CA_CERT` | PEMs do cliente Caddy |
+| `MTLS_SERVER_NAME` | `glowapi.internal` (SNI; certificado do servidor deve ter SAN) |
+
+> **Portas:** a API escuta HTTP em `$PORT` (health/webhooks) e mTLS em `MTLS_MUTUAL_TLS_PORT` (padrao 8443). O Caddy usa `MTLS_UPSTREAM_PORT` com o **mesmo valor**. Nao coloque `:8443` em `API_INTERNAL_URL`; use a variavel de porta. Logs no deploy confirmam as portas.
+
+O Caddy faz proxy `/api/*` → API e injeta `X-Glow-Proxy-Secret`. Webhooks externos continuam na URL publica da API.
+
+### Rollout recomendado (staging)
+
+1. Deploy BFF + `GLOW_PROXY_SECRET` + `VITE_API_BASE_URL=/api`
+2. Ativar CAPTCHA (`Captcha__*` + `VITE_CAPTCHA_SITE_KEY`)
+3. Gerar PKI (`scripts/tls/generate-mtls-certs.sh`), configurar `MTLS_*` e `MTLS_REQUIRED=true` nos dois servicos
+4. Limpar bloqueios antigos em `IpRateLimitBlocks` se necessario
+
+## 9. Dominio publico
 
 1. Servico API (staging) → **Settings → Networking → Generate Domain**.
 2. Teste:
@@ -101,23 +150,23 @@ Resposta esperada: `{"status":"healthy"}`.
 
 Swagger em staging: `https://<dominio>/swagger`.
 
-## 9. Checklist pos-deploy
+## 10. Checklist pos-deploy
 
 - [ ] `GET /health` → 200
-- [ ] Logs sem erro de `POSTGSL`, `TokenSalt`, `RESEND_APITOKEN` ou `Mensageria__Email__From`
+- [ ] Logs sem erro de `MYSQL_CS`, `TokenSalt`, `RESEND_APITOKEN` ou `Mensageria__Email__From`
 - [ ] Migrations em `__EFMigrationsHistory`
 - [ ] Push em `staging` nao redeploya producao
 - [ ] `Auth__TokenSalt` staging diferente de producao
 - [ ] Token de staging invalido em producao
 
-## 10. Producao (referencia)
+## 11. Producao (referencia)
 
 No environment `production`:
 
 | Variavel | Valor |
 |----------|--------|
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
-| `POSTGSL` | Connection string do Postgres de **producao** |
+| `MYSQL_CS` | Connection string do MySQL de **producao** |
 | `Auth__TokenSalt` | Salt proprio de producao |
 | `Auth__FrontendBaseUrl` | URL do front de producao |
 | `RESEND_APITOKEN` | API key Resend de producao |

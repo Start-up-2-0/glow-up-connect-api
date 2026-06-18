@@ -5,6 +5,10 @@ namespace GLOWAPI.Application.Interfaces.Services;
 
 public interface IEstabelecimentoPerfilService
 {
+    Task<EstabelecimentoPerfilResponseDto> ObterAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default);
+
     Task<EstabelecimentoPerfilResponseDto> AtualizarAsync(
         int estabelecimentoId,
         AtualizarEstabelecimentoPerfilDto request,

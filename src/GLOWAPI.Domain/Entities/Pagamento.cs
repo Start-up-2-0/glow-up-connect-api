@@ -9,6 +9,7 @@ public class Pagamento
     public int? AssinaturaId { get; set; }
     public GatewayPagamento Gateway { get; set; }
     public string GatewayPaymentId { get; set; } = string.Empty;
+    public string ReferenciaInterna { get; set; } = string.Empty;
     public string MetodoPagamento { get; set; } = string.Empty;
     public PagamentoStatus Status { get; set; } = PagamentoStatus.Pendente;
     public TipoCobrancaAssinatura? TipoCobranca { get; set; }

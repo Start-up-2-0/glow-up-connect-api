@@ -150,10 +150,7 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return;
         }
 
-        var pagamento = await _pagamentoRepository.ObterPorGatewayPaymentIdAsync(
-            webhook.Gateway,
-            gatewayPaymentId,
-            cancellationToken);
+        var pagamento = await ObterPagamentoDoWebhookAsync(webhook, gatewayPaymentId, cancellationToken);
 
         if (pagamento is null)
         {
@@ -298,10 +295,7 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return;
         }
 
-        var pagamento = await _pagamentoRepository.ObterPorGatewayPaymentIdAsync(
-            webhook.Gateway,
-            gatewayPaymentId,
-            cancellationToken);
+        var pagamento = await ObterPagamentoDoWebhookAsync(webhook, gatewayPaymentId, cancellationToken);
 
         if (pagamento is null)
         {
@@ -335,12 +329,50 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return null;
         }
 
+        var pagamento = await ObterPagamentoDoWebhookAsync(webhook, gatewayPaymentId, cancellationToken);
+        return pagamento?.Assinatura;
+    }
+
+    private async Task<Pagamento?> ObterPagamentoDoWebhookAsync(
+        WebhookPagamento webhook,
+        string gatewayPaymentId,
+        CancellationToken cancellationToken)
+    {
         var pagamento = await _pagamentoRepository.ObterPorGatewayPaymentIdAsync(
             webhook.Gateway,
             gatewayPaymentId,
             cancellationToken);
 
-        return pagamento?.Assinatura;
+        if (pagamento is not null)
+        {
+            if (!string.Equals(pagamento.GatewayPaymentId, gatewayPaymentId, StringComparison.Ordinal))
+            {
+                pagamento.GatewayPaymentId = gatewayPaymentId;
+                _pagamentoRepository.Atualizar(pagamento);
+            }
+
+            return pagamento;
+        }
+
+        var gateway = _gatewayPagamentoResolver.Resolver(webhook.Gateway);
+        var consulta = await gateway.ConsultarPagamentoAsync(gatewayPaymentId, cancellationToken);
+        if (!consulta.Sucesso || string.IsNullOrWhiteSpace(consulta.ReferenciaExterna))
+        {
+            return null;
+        }
+
+        pagamento = await _pagamentoRepository.ObterPorReferenciaInternaAsync(
+            consulta.ReferenciaExterna,
+            cancellationToken);
+
+        if (pagamento is null)
+        {
+            return null;
+        }
+
+        pagamento.GatewayPaymentId = gatewayPaymentId;
+        _pagamentoRepository.Atualizar(pagamento);
+        return pagamento;
     }
 
     private static bool EventoPagamentoAprovado(string eventType) =>

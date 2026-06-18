@@ -53,6 +53,7 @@ public class AgendamentoValidador : IAgendamentoValidador
         CriarAgendamentoRequestDto? dadosVisitante,
         int? usuarioClienteId,
         int? agendamentoIgnorarId = null,
+        DateTime? inicioSelecionado = null,
         CancellationToken cancellationToken = default)
     {
         if (servicoIds.Length == 0)
@@ -76,15 +77,20 @@ public class AgendamentoValidador : IAgendamentoValidador
             profissionalId,
             estabelecimentoId,
             cancellationToken);
-        if (vinculoEstabelecimento is null
-            || !vinculoEstabelecimento.Ativo
-            || !vinculoEstabelecimento.PodeReceberAgendamento)
+        if (vinculoEstabelecimento is null || !vinculoEstabelecimento.Ativo)
+        {
+            throw new ProfissionalSemVinculoNegocioException();
+        }
+
+        var origemPublica = origem is OrigemAgendamento.PublicoLoja or OrigemAgendamento.PublicoProfissional;
+        if (!vinculoEstabelecimento.PodeReceberAgendamento
+            && (origemPublica || !vinculoEstabelecimento.SomenteExibicao))
         {
             throw new ProfissionalSemVinculoNegocioException();
         }
 
         var servicos = new List<Servico>();
-        var vinculos = new List<ProfissionalServico>();
+        var vinculos = new List<ProfissionalServico?>();
 
         foreach (var servicoId in servicoIds.Distinct())
         {
@@ -98,14 +104,24 @@ public class AgendamentoValidador : IAgendamentoValidador
                 throw new ServicoNegocioNaoEncontradoException();
             }
 
-            var vinculoServico = await _profissionalServicoRepository.ObterPorProfissionalEServicoAsync(
-                profissionalId,
-                servicoId,
-                cancellationToken);
-            if (vinculoServico is null || !vinculoServico.Ativo)
+            if (!ServicoExecucaoHelper.ProfissionalExecutaServico(servico, profissionalId))
             {
                 throw new AgendamentoServicosInvalidosException(
                     "Profissional nao executa um ou mais servicos selecionados.");
+            }
+
+            ProfissionalServico? vinculoServico = null;
+            if (ServicoExecucaoHelper.ServicoPossuiVinculosAtivos(servico))
+            {
+                vinculoServico = await _profissionalServicoRepository.ObterPorProfissionalEServicoAsync(
+                    profissionalId,
+                    servicoId,
+                    cancellationToken);
+                if (vinculoServico is null || !vinculoServico.Ativo)
+                {
+                    throw new AgendamentoServicosInvalidosException(
+                        "Profissional nao executa um ou mais servicos selecionados.");
+                }
             }
 
             servicos.Add(servico);
@@ -118,7 +134,7 @@ public class AgendamentoValidador : IAgendamentoValidador
             .ToList();
         var ordemVinculos = servicoIds
             .Distinct()
-            .Select(id => vinculos.First(vinculo => vinculo.ServicoId == id))
+            .Select(id => vinculos[servicos.FindIndex(servico => servico.Id == id)])
             .ToList();
 
         string? clienteNome = null;
@@ -128,7 +144,13 @@ public class AgendamentoValidador : IAgendamentoValidador
         if (usuarioClienteId.HasValue)
         {
             var usuario = await _usuarioRepository.ObterPorIdAsync(usuarioClienteId.Value, cancellationToken);
-            if (usuario is null || !usuario.Ativo)
+            if (usuario is null)
+            {
+                throw new AgendamentoDadosClienteInvalidosException("Usuario autenticado invalido.");
+            }
+
+            var cadastroPublicoPendente = origem == OrigemAgendamento.CadastroPublico && !usuario.Ativo;
+            if (!usuario.Ativo && !cadastroPublicoPendente)
             {
                 throw new AgendamentoDadosClienteInvalidosException("Usuario autenticado invalido.");
             }
@@ -151,7 +173,7 @@ public class AgendamentoValidador : IAgendamentoValidador
             }
         }
 
-        var inicio = data.ToDateTime(horarioInicio, DateTimeKind.Utc);
+        var inicio = AgendaDateTimeHelper.ResolverInicio(data, horarioInicio, inicioSelecionado);
         if (inicio < DateTime.UtcNow)
         {
             throw new HorarioIndisponivelException("Nao e possivel agendar horarios no passado.");
@@ -259,13 +281,14 @@ public class AgendamentoValidador : IAgendamentoValidador
             diaSemana,
             ativo: true,
             cancellationToken);
-        if (horariosProfissional.Count == 0)
-        {
-            throw new HorarioIndisponivelException("Profissional nao atende neste dia.");
-        }
 
         if (!exigirFuncionamentoEstabelecimento)
         {
+            if (horariosProfissional.Count == 0)
+            {
+                throw new HorarioIndisponivelException("Profissional nao atende neste dia.");
+            }
+
             var cabeNoAtendimento = horariosProfissional.Any(horario =>
                 horaInicio >= horario.HoraInicio && horaFim <= horario.HoraFim);
 
@@ -284,6 +307,11 @@ public class AgendamentoValidador : IAgendamentoValidador
         if (funcionamentos.Count == 0)
         {
             throw new HorarioIndisponivelException("Estabelecimento fechado neste dia.");
+        }
+
+        if (horariosProfissional.Count == 0)
+        {
+            throw new HorarioIndisponivelException("Profissional nao atende neste dia.");
         }
 
         var cabeNaAgenda = false;

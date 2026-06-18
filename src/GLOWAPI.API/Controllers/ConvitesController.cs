@@ -3,6 +3,7 @@ using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Convites;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Domain.Enums;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GLOWAPI.API.Controllers;
@@ -33,9 +34,60 @@ public class ConvitesController : ControllerBase
 
         return StatusCode(
             StatusCodes.Status201Created,
-            ApiSuccessResponse<ConviteNegocioResponseDto>.From(
+            ApiSuccessResponse<ConviteOuVinculoResponseDto>.From(
                 "Convite enviado com sucesso.",
                 convite));
+    }
+
+    [HttpPost("estabelecimentos/{estabelecimentoId:int}/convites/usuarios")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.EquipeGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> CriarConviteUsuarioEquipe(
+        int estabelecimentoId,
+        [FromBody] CriarConviteUsuarioEquipeRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var convite = await _conviteNegocioService.CriarConviteUsuarioEquipeAsync(
+            estabelecimentoId,
+            request,
+            cancellationToken);
+
+        return StatusCode(
+            StatusCodes.Status201Created,
+            ApiSuccessResponse<ConviteOuVinculoResponseDto>.From(
+                "Convite enviado com sucesso.",
+                convite));
+    }
+
+    [AllowAnonymous]
+    [HttpGet("convites/{token}/preview")]
+    public async Task<IActionResult> ObterPreview(
+        string token,
+        CancellationToken cancellationToken)
+    {
+        var preview = await _conviteNegocioService.ObterPreviewAsync(token, cancellationToken);
+
+        return Ok(ApiSuccessResponse<ConviteNegocioPreviewResponseDto>.From(
+            "Convite encontrado.",
+            preview));
+    }
+
+    [HttpGet("estabelecimentos/{estabelecimentoId:int}/convites")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.EquipeGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> Listar(
+        int estabelecimentoId,
+        [FromQuery] ConviteNegocioFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var convites = await _conviteNegocioService.ListarAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<ConviteNegocioResponseDto>>.From(
+            "Convites listados com sucesso.",
+            convites));
     }
 
     [HttpPost("convites/{token}/aceitar")]
@@ -64,7 +116,7 @@ public class ConvitesController : ControllerBase
 
     [HttpDelete("estabelecimentos/{estabelecimentoId:int}/convites/{conviteId:int}")]
     [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
-    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.EquipeGerenciar, "estabelecimentoId")]
     public async Task<IActionResult> Cancelar(
         int estabelecimentoId,
         int conviteId,

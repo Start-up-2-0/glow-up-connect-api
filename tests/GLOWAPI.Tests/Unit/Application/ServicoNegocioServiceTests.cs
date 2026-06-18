@@ -18,6 +18,7 @@ public class ServicoNegocioServiceTests
     private readonly Mock<IProfissionalRepository> _profissionalRepository = new();
     private readonly Mock<IProfissionalEstabelecimentoRepository> _profissionalEstabelecimentoRepository = new();
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
+    private readonly Mock<IProfissionalEscopoAcessoService> _profissionalEscopoAcessoService = new();
     private readonly Mock<IModulosAssinaturaService> _modulosAssinaturaService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
 
@@ -41,6 +42,7 @@ public class ServicoNegocioServiceTests
             .Setup(s => s.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(ModulosAssinaturaResponseDto.Liberado(
                 new Assinatura { Id = 1, Plano = new Plano { LimiteServicos = 10 } },
+                20,
                 [ModuloAssinatura.Servicos]));
 
         _servicoRepository
@@ -112,6 +114,7 @@ public class ServicoNegocioServiceTests
                 true,
                 40,
                 "Corte",
+                false,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync([
                 new Servico
@@ -137,6 +140,52 @@ public class ServicoNegocioServiceTests
 
         Assert.Single(response);
         Assert.Equal(30, response[0].Id);
+    }
+
+    [Fact]
+    public async Task ListarAsync_DeveRestringirAosVinculosDoProfissional()
+    {
+        _autorizacaoNegocioService
+            .Setup(s => s.AutorizarAsync(
+                20,
+                PermissaoNegocio.ServicoVisualizar,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AutorizacaoNegocioResultado(
+                20,
+                10,
+                EstablishmentUserRole.Profissional,
+                true,
+                new HashSet<PermissaoNegocio> { PermissaoNegocio.ServicoVisualizar }));
+
+        _profissionalEscopoAcessoService
+            .Setup(s => s.ObterEscopoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EscopoProfissionalResultado(20, 10, 40, 1, true));
+
+        _servicoRepository
+            .Setup(r => r.ListarPorEstabelecimentoAsync(
+                20,
+                null,
+                40,
+                null,
+                true,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([
+                new Servico
+                {
+                    Id = 31,
+                    EstabelecimentoId = 20,
+                    Nome = "Barba",
+                    PrecoBase = 50,
+                    DuracaoMinutos = 30,
+                    Ativo = true
+                }
+            ]);
+
+        var service = CreateService();
+        var response = await service.ListarAsync(20, new ServicoFiltroDto());
+
+        Assert.Single(response);
+        Assert.Equal(31, response[0].Id);
     }
 
     [Fact]
@@ -173,6 +222,7 @@ public class ServicoNegocioServiceTests
         _profissionalRepository.Object,
         _profissionalEstabelecimentoRepository.Object,
         _autorizacaoNegocioService.Object,
+        _profissionalEscopoAcessoService.Object,
         _modulosAssinaturaService.Object,
         _auditoriaNegocioService.Object);
 

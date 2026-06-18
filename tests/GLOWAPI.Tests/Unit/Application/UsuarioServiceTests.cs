@@ -46,6 +46,7 @@ public class UsuarioServiceTests
         Assert.NotNull(usuario);
         Assert.Equal("Joao", usuario.Nome);
         Assert.Equal("joao@email.com", usuario.Email);
+        Assert.Equal("5511999999999", usuario.Telefone);
         Assert.Equal(UserRole.Cliente, usuario.Role);
         Assert.False(usuario.Ativo);
         Assert.Null(usuario.AvatarBase64);
