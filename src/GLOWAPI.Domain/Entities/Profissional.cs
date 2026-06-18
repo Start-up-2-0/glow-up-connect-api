@@ -14,6 +14,8 @@ public class Profissional
     public string Email { get; set; } = string.Empty;
     public ProfessionalType TipoProfissional { get; set; }
     public bool Ativo { get; set; } = true;
+    public decimal? NotaMedia { get; set; }
+    public int TotalAvaliacoes { get; set; }
     public DateTime CreateAd { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 

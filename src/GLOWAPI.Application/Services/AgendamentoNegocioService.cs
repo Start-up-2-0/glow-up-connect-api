@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GLOWAPI.Application.DTOs.Agendamento;
+using GLOWAPI.Application.DTOs.Avaliacao;
 using GLOWAPI.Application.DTOs.Estabelecimentos;
 using GLOWAPI.Application.DTOs.Horarios;
 using GLOWAPI.Application.Helpers;
@@ -40,6 +41,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUsuarioService _usuarioService;
     private readonly IAgendamentoPropostaRemarcacaoRepository _propostaRemarcacaoRepository;
+    private readonly IAvaliacaoAtendimentoRepository _avaliacaoAtendimentoRepository;
     private readonly AuthOptions _authOptions;
 
     public AgendamentoNegocioService(
@@ -56,6 +58,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         ICurrentUserContext currentUserContext,
         IUsuarioService usuarioService,
         IAgendamentoPropostaRemarcacaoRepository propostaRemarcacaoRepository,
+        IAvaliacaoAtendimentoRepository avaliacaoAtendimentoRepository,
         IOptions<AuthOptions> authOptions)
     {
         _estabelecimentoRepository = estabelecimentoRepository;
@@ -71,6 +74,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         _currentUserContext = currentUserContext;
         _usuarioService = usuarioService;
         _propostaRemarcacaoRepository = propostaRemarcacaoRepository;
+        _avaliacaoAtendimentoRepository = avaliacaoAtendimentoRepository;
         _authOptions = authOptions.Value;
     }
 
@@ -177,7 +181,9 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
                 PublicGuid = vinculo.Profissional!.PublicGuid,
                 NomePublico = vinculo.Profissional.NomePublico,
                 Biografia = vinculo.Profissional.Biografia,
-                Logo = vinculo.Profissional.Logo
+                Logo = vinculo.Profissional.Logo,
+                NotaMedia = vinculo.Profissional.NotaMedia,
+                TotalAvaliacoes = vinculo.Profissional.TotalAvaliacoes
             })
             .ToList();
     }
@@ -273,7 +279,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             total,
             filtro.Pagina,
             filtro.TamanhoPagina,
-            agendamentos.Select(AgendamentoClienteResponseDto.From).ToList());
+            await MapearAgendamentosClienteAsync(agendamentos, cancellationToken));
     }
 
     public async Task<AgendamentoClienteResponseDto> ObterMeuAgendamentoAsync(
@@ -281,7 +287,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         CancellationToken cancellationToken = default)
     {
         var agendamento = await ObterMeuAgendamentoEntidadeAsync(agendamentoId, cancellationToken);
-        return AgendamentoClienteResponseDto.From(agendamento);
+        return await MapearAgendamentoClienteAsync(agendamento, cancellationToken);
     }
 
     public async Task<AgendamentoClienteResponseDto> CancelarMeuAgendamentoAsync(
@@ -1237,5 +1243,58 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             contexto.Profissional,
             aceita: false,
             cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<AgendamentoClienteResponseDto>> MapearAgendamentosClienteAsync(
+        IReadOnlyList<Agendamento> agendamentos,
+        CancellationToken cancellationToken)
+    {
+        var ids = agendamentos.Select(agendamento => agendamento.Id).ToList();
+        var avaliacoes = await _avaliacaoAtendimentoRepository.ObterPorAgendamentoIdsAsync(ids, cancellationToken);
+        var itens = new List<AgendamentoClienteResponseDto>(agendamentos.Count);
+
+        foreach (var agendamento in agendamentos)
+        {
+            avaliacoes.TryGetValue(agendamento.Id, out var avaliacao);
+            itens.Add(MapearAgendamentoCliente(agendamento, avaliacao));
+        }
+
+        return itens;
+    }
+
+    private async Task<AgendamentoClienteResponseDto> MapearAgendamentoClienteAsync(
+        Agendamento agendamento,
+        CancellationToken cancellationToken)
+    {
+        var itens = await MapearAgendamentosClienteAsync([agendamento], cancellationToken);
+        return itens[0];
+    }
+
+    private static AgendamentoClienteResponseDto MapearAgendamentoCliente(
+        Agendamento agendamento,
+        AvaliacaoAtendimento? avaliacao)
+    {
+        var (status, resumo) = ResolverAvaliacaoCliente(agendamento, avaliacao);
+        return AgendamentoClienteResponseDto.From(agendamento, status, resumo);
+    }
+
+    private static (string Status, AvaliacaoResumoClienteDto? Resumo) ResolverAvaliacaoCliente(
+        Agendamento agendamento,
+        AvaliacaoAtendimento? avaliacao)
+    {
+        if (agendamento.Status != AgendamentoStatus.Concluido)
+        {
+            return ("Indisponivel", null);
+        }
+
+        if (avaliacao is null)
+        {
+            return ("Pendente", null);
+        }
+
+        return ("Realizada", new AvaliacaoResumoClienteDto(
+            avaliacao.NotaEstabelecimento,
+            avaliacao.NotaProfissional,
+            avaliacao.AvaliadoEm));
     }
 }

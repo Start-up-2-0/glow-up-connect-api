@@ -57,6 +57,7 @@ public class ExceptionMiddleware
                     or ProfissionalServicoDuplicadoException
                     or HorarioAtendimentoConflitanteException
                     or ConviteNegocioDuplicadoException
+                    or AvaliacaoJaRealizadaException
                     => HttpStatusCode.Conflict,
                 GatewayPagamentoException => HttpStatusCode.BadGateway,
                 ConfirmacaoEmailInvalidaException
@@ -90,7 +91,10 @@ public class ExceptionMiddleware
                     or AgendamentoServicosInvalidosException
                     or AgendaPeriodoConsultaInvalidoException
                     or EnderecoOperacaoInvalidoException
-                    or LocalizacaoClienteInvalidaException => HttpStatusCode.BadRequest,
+                    or LocalizacaoClienteInvalidaException
+                    or AvaliacaoNaoElegivelException
+                    or AvaliacaoNotaInvalidaException
+                    or AvaliacaoConviteInvalidoException => HttpStatusCode.BadRequest,
                 WebhookWhatsAppNaoAutorizadoException => HttpStatusCode.Unauthorized,
                 LoginIpRateLimitException => HttpStatusCode.TooManyRequests,
                 HorarioIndisponivelException => HttpStatusCode.Conflict,

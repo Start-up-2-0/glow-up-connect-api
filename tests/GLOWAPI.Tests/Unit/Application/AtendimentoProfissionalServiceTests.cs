@@ -15,6 +15,7 @@ public class AtendimentoProfissionalServiceTests
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
     private readonly Mock<IProfissionalEscopoAcessoService> _profissionalEscopoAcessoService = new();
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
+    private readonly Mock<IAvaliacaoAtendimentoService> _avaliacaoAtendimentoService = new();
 
     public AtendimentoProfissionalServiceTests()
     {
@@ -332,5 +333,6 @@ public class AtendimentoProfissionalServiceTests
             _agendamentoHistoricoRepository.Object,
             _autorizacaoNegocioService.Object,
             _profissionalEscopoAcessoService.Object,
-            _currentUserContext.Object);
+            _currentUserContext.Object,
+            _avaliacaoAtendimentoService.Object);
 }

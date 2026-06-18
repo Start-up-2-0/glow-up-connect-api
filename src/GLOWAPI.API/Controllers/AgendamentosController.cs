@@ -1,5 +1,6 @@
 using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Agendamento;
+using GLOWAPI.Application.DTOs.Avaliacao;
 using GLOWAPI.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,10 +11,14 @@ namespace GLOWAPI.API.Controllers;
 public class AgendamentosController : ControllerBase
 {
     private readonly IAgendamentoNegocioService _agendamentoNegocioService;
+    private readonly IAvaliacaoAtendimentoService _avaliacaoAtendimentoService;
 
-    public AgendamentosController(IAgendamentoNegocioService agendamentoNegocioService)
+    public AgendamentosController(
+        IAgendamentoNegocioService agendamentoNegocioService,
+        IAvaliacaoAtendimentoService avaliacaoAtendimentoService)
     {
         _agendamentoNegocioService = agendamentoNegocioService;
+        _avaliacaoAtendimentoService = avaliacaoAtendimentoService;
     }
 
     [HttpPost]
@@ -92,5 +97,28 @@ public class AgendamentosController : ControllerBase
         return Ok(ApiSuccessResponse<AgendamentoClienteResponseDto>.From(
             "Proposta de remarcacao aceita com sucesso.",
             agendamento));
+    }
+
+    [HttpGet("me/{id:int}/avaliacao")]
+    public async Task<IActionResult> ObterAvaliacaoMeuAgendamento(int id, CancellationToken cancellationToken)
+    {
+        var contexto = await _avaliacaoAtendimentoService.ObterContextoMeuAgendamentoAsync(id, cancellationToken);
+
+        return Ok(ApiSuccessResponse<AvaliacaoContextoResponseDto>.From(
+            "Contexto de avaliacao obtido com sucesso.",
+            contexto));
+    }
+
+    [HttpPost("me/{id:int}/avaliacao")]
+    public async Task<IActionResult> CriarAvaliacaoMeuAgendamento(
+        int id,
+        [FromBody] CriarAvaliacaoAtendimentoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var contexto = await _avaliacaoAtendimentoService.CriarMeuAgendamentoAsync(id, request, cancellationToken);
+
+        return Ok(ApiSuccessResponse<AvaliacaoContextoResponseDto>.From(
+            "Avaliacao registrada com sucesso.",
+            contexto));
     }
 }

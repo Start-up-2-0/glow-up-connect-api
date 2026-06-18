@@ -2,6 +2,7 @@ using GLOWAPI.API.Attributes;
 using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Agendamento;
 using GLOWAPI.Application.DTOs.Auditoria;
+using GLOWAPI.Application.DTOs.Avaliacao;
 using GLOWAPI.Application.DTOs.Clientes;
 using GLOWAPI.Application.DTOs.Agenda;
 using GLOWAPI.Application.DTOs.Caixa;
@@ -34,6 +35,7 @@ public class EstabelecimentosController : ControllerBase
     private readonly IFinanceiroNegocioService _financeiroNegocioService;
     private readonly IClienteNegocioService _clienteNegocioService;
     private readonly IAuditoriaConsultaNegocioService _auditoriaConsultaNegocioService;
+    private readonly IAvaliacaoResumoService _avaliacaoResumoService;
 
     public EstabelecimentosController(
         IEstabelecimentoPerfilService estabelecimentoPerfilService,
@@ -49,7 +51,8 @@ public class EstabelecimentosController : ControllerBase
         IAgendamentoNegocioService agendamentoNegocioService,
         IFinanceiroNegocioService financeiroNegocioService,
         IClienteNegocioService clienteNegocioService,
-        IAuditoriaConsultaNegocioService auditoriaConsultaNegocioService)
+        IAuditoriaConsultaNegocioService auditoriaConsultaNegocioService,
+        IAvaliacaoResumoService avaliacaoResumoService)
     {
         _estabelecimentoPerfilService = estabelecimentoPerfilService;
         _equipeNegocioService = equipeNegocioService;
@@ -65,6 +68,7 @@ public class EstabelecimentosController : ControllerBase
         _financeiroNegocioService = financeiroNegocioService;
         _clienteNegocioService = clienteNegocioService;
         _auditoriaConsultaNegocioService = auditoriaConsultaNegocioService;
+        _avaliacaoResumoService = avaliacaoResumoService;
     }
 
     [HttpGet("{estabelecimentoId:int}/perfil")]
@@ -958,5 +962,39 @@ public class EstabelecimentosController : ControllerBase
         return Ok(ApiSuccessResponse<IReadOnlyList<AuditoriaNegocioResponseDto>>.From(
             "Auditoria listada com sucesso.",
             registros));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/avaliacoes")]
+    [RequerPermissaoNegocio(PermissaoNegocio.NegocioVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarAvaliacoes(
+        int estabelecimentoId,
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamanhoPagina = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var resultado = await _avaliacaoResumoService.ListarNegocioAsync(
+            estabelecimentoId,
+            pagina,
+            tamanhoPagina,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<AvaliacoesNegocioPaginadasResponseDto>.From(
+            "Avaliacoes listadas com sucesso.",
+            resultado));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/avaliacoes/resumo")]
+    [RequerPermissaoNegocio(PermissaoNegocio.NegocioVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ObterResumoAvaliacoes(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var resumo = await _avaliacaoResumoService.ObterResumoEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<AvaliacaoResumoPublicoDto>.From(
+            "Resumo de avaliacoes obtido com sucesso.",
+            resumo));
     }
 }

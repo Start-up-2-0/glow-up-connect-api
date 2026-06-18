@@ -72,6 +72,9 @@ public static class DependencyInjection
         services.AddScoped<IWebhookWhatsAppService, WebhookWhatsAppService>();
         services.AddScoped<IEnderecoGeocodificacaoService, EnderecoGeocodificacaoService>();
         services.AddScoped<IEstabelecimentoDescobertaService, EstabelecimentoDescobertaService>();
+        services.AddScoped<IAvaliacaoAtendimentoService, AvaliacaoAtendimentoService>();
+        services.AddScoped<IAvaliacaoResumoService, AvaliacaoResumoService>();
+        services.AddScoped<IAvaliacaoAgregadoWorkerService, AvaliacaoAgregadoWorkerService>();
 
         return services;
     }

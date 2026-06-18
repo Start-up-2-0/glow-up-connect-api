@@ -24,6 +24,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<AgendamentoItem> AgendamentoItens { get; set; }
     public DbSet<AgendamentoHistorico> AgendamentosHistorico { get; set; }
     public DbSet<AgendamentoPropostaRemarcacao> AgendamentosPropostasRemarcacao { get; set; }
+    public DbSet<AvaliacaoAtendimento> AvaliacoesAtendimento { get; set; }
+    public DbSet<AvaliacaoConvite> AvaliacoesConvites { get; set; }
+    public DbSet<AvaliacaoHistorico> AvaliacoesHistorico { get; set; }
     public DbSet<Caixa> Caixas { get; set; }
     public DbSet<Plano> Planos { get; set; }
     public DbSet<CampanhaPromocional> CampanhasPromocionais { get; set; }

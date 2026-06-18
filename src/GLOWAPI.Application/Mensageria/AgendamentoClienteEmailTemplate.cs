@@ -54,6 +54,30 @@ public static class AgendamentoClienteEmailTemplate
             linkFallback: linkResposta);
     }
 
+    public static string Concluido(
+        Agendamento agendamento,
+        Estabelecimento estabelecimento,
+        Profissional profissional,
+        string linkAvaliacao)
+    {
+        var inicio = ObterInicio(agendamento);
+        return TransacionalEmailTemplate.Criar(
+            titulo: "Avalie seu atendimento",
+            preheader: $"Como foi sua experiencia em {estabelecimento.Nome}?",
+            paragrafos:
+            [
+                $"Seu atendimento em {estabelecimento.Nome} com {profissional.NomePublico} em {inicio:dd/MM/yyyy HH:mm} foi concluido.",
+                "Sua opiniao ajuda outros clientes e a loja a melhorar o servico."
+            ],
+            botao: new EmailTemplateBotao
+            {
+                Texto = "Avaliar atendimento",
+                Url = linkAvaliacao,
+                Estilo = EmailTemplateBotaoEstilo.Link
+            },
+            linkFallback: linkAvaliacao);
+    }
+
     private static string CriarStatus(
         Agendamento agendamento,
         Estabelecimento estabelecimento,

@@ -30,6 +30,13 @@ public interface IAgendamentoNotificacaoService
         string? motivo,
         CancellationToken cancellationToken = default);
 
+    Task AgendamentoConcluidoAsync(
+        Agendamento agendamento,
+        Estabelecimento estabelecimento,
+        Profissional profissional,
+        string linkAvaliacao,
+        CancellationToken cancellationToken = default);
+
     Task PropostaRemarcacaoEnviadaAsync(
         Agendamento agendamento,
         Estabelecimento estabelecimento,

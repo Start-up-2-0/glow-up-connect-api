@@ -26,5 +26,6 @@ public enum TipoAcaoAuditoriaNegocio
     AgendamentoConfirmado = 22,
     AgendamentoRemarcado = 23,
     AgendamentoConcluido = 24,
-    AgendamentoNaoCompareceu = 25
+    AgendamentoNaoCompareceu = 25,
+    AvaliacaoCriada = 26
 }

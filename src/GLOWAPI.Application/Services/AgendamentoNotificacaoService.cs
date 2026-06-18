@@ -179,6 +179,32 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             cancellationToken);
     }
 
+    public async Task AgendamentoConcluidoAsync(
+        Agendamento agendamento,
+        Estabelecimento estabelecimento,
+        Profissional profissional,
+        string linkAvaliacao,
+        CancellationToken cancellationToken = default)
+    {
+        var inicio = AgendamentoHorarioHelper.ObterInicio(agendamento);
+        var mensagemWhatsApp =
+            $"Seu atendimento em {estabelecimento.Nome} com {profissional.NomePublico} foi concluido. " +
+            $"Avalie sua experiencia em: {linkAvaliacao}";
+
+        await EnfileirarClienteContatoAsync(
+            agendamento,
+            estabelecimento,
+            "Avalie seu atendimento",
+            mensagemWhatsApp,
+            AgendamentoClienteEmailTemplate.Concluido(
+                agendamento,
+                estabelecimento,
+                profissional,
+                linkAvaliacao),
+            "agendamento-cliente-concluido",
+            cancellationToken);
+    }
+
     private async Task EnfileirarNegocioAsync(
         Estabelecimento estabelecimento,
         Profissional profissional,

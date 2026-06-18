@@ -61,6 +61,8 @@ public static class DependencyInjection
         services.AddScoped<IAgendamentoItemRepository, AgendamentoItemRepository>();
         services.AddScoped<IAgendamentoHistoricoRepository, AgendamentoHistoricoRepository>();
         services.AddScoped<IAgendamentoPropostaRemarcacaoRepository, AgendamentoPropostaRemarcacaoRepository>();
+        services.AddScoped<IAvaliacaoAtendimentoRepository, AvaliacaoAtendimentoRepository>();
+        services.AddScoped<IAvaliacaoConviteRepository, AvaliacaoConviteRepository>();
         services.AddScoped<ICaixaRepository, CaixaRepository>();
         services.AddScoped<IPlanoRepository, PlanoRepository>();
         services.AddScoped<IAssinaturaRepository, AssinaturaRepository>();

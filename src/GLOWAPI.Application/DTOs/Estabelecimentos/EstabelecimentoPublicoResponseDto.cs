@@ -6,4 +6,6 @@ public record EstabelecimentoPublicoResponseDto(
     string Logo,
     string Descricao,
     EnderecoResumoDto? Endereco,
-    double? DistanciaKm);
+    double? DistanciaKm,
+    decimal? NotaMedia = null,
+    int TotalAvaliacoes = 0);

@@ -35,19 +35,22 @@ public class AtendimentoProfissionalService : IAtendimentoProfissionalService
     private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
     private readonly IProfissionalEscopoAcessoService _profissionalEscopoAcessoService;
     private readonly ICurrentUserContext _currentUserContext;
+    private readonly IAvaliacaoAtendimentoService _avaliacaoAtendimentoService;
 
     public AtendimentoProfissionalService(
         IAgendamentoItemRepository agendamentoItemRepository,
         IAgendamentoHistoricoRepository agendamentoHistoricoRepository,
         IAutorizacaoNegocioService autorizacaoNegocioService,
         IProfissionalEscopoAcessoService profissionalEscopoAcessoService,
-        ICurrentUserContext currentUserContext)
+        ICurrentUserContext currentUserContext,
+        IAvaliacaoAtendimentoService avaliacaoAtendimentoService)
     {
         _agendamentoItemRepository = agendamentoItemRepository;
         _agendamentoHistoricoRepository = agendamentoHistoricoRepository;
         _autorizacaoNegocioService = autorizacaoNegocioService;
         _profissionalEscopoAcessoService = profissionalEscopoAcessoService;
         _currentUserContext = currentUserContext;
+        _avaliacaoAtendimentoService = avaliacaoAtendimentoService;
     }
 
     public async Task<AtendimentoProfissionalResponseDto> IniciarAsync(
@@ -129,6 +132,10 @@ public class AtendimentoProfissionalService : IAtendimentoProfissionalService
                 agendamento.Status,
                 motivo: null,
                 agendamentoItemId: item.Id,
+                cancellationToken);
+
+            await _avaliacaoAtendimentoService.SolicitarAposConclusaoAsync(
+                agendamento,
                 cancellationToken);
         }
 

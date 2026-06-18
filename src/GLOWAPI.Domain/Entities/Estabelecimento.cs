@@ -15,6 +15,8 @@ public class Estabelecimento
     public string? WhatsAppConfirmacaoCodigoHash { get; set; }
     public DateTime? WhatsAppConfirmacaoExpiraEm { get; set; }
     public bool WhatsAppOptIn { get; set; }
+    public decimal? NotaMedia { get; set; }
+    public int TotalAvaliacoes { get; set; }
     public DateTime CreateAd { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 

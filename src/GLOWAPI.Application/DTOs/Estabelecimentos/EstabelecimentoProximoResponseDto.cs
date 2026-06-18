@@ -13,7 +13,9 @@ public record EstabelecimentoProximoResponseDto(
     string Descricao,
     double DistanciaKm,
     bool DestaqueMarketplace,
-    EnderecoResumoDto Endereco);
+    EnderecoResumoDto Endereco,
+    decimal? NotaMedia = null,
+    int TotalAvaliacoes = 0);
 
 public record EstabelecimentosProximosPaginadoResponseDto(
     string Cidade,

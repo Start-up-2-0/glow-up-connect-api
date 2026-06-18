@@ -39,6 +39,8 @@ builder.Services.Configure<AssinaturaCobrancaOptions>(
     builder.Configuration.GetSection(AssinaturaCobrancaOptions.SectionName));
 builder.Services.Configure<AssinaturaCobrancaWorkerOptions>(
     builder.Configuration.GetSection(AssinaturaCobrancaWorkerOptions.SectionName));
+builder.Services.Configure<AvaliacaoAgregadoWorkerOptions>(
+    builder.Configuration.GetSection(AvaliacaoAgregadoWorkerOptions.SectionName));
 builder.Services.Configure<CorsOptions>(builder.Configuration.GetSection(CorsOptions.SectionName));
 builder.Services.Configure<RateLimitOptions>(builder.Configuration.GetSection(RateLimitOptions.SectionName));
 builder.Services.Configure<CaptchaOptions>(builder.Configuration.GetSection(CaptchaOptions.SectionName));
@@ -64,6 +66,7 @@ HostedConfigurationValidator.ValidarSeAmbienteHospedado(
 builder.Services.AddHostedService<MensagemNotificacaoWorker>();
 builder.Services.AddHostedService<MensagemNotificacaoRecuperacaoWorker>();
 builder.Services.AddHostedService<AssinaturaCobrancaWorker>();
+builder.Services.AddHostedService<AvaliacaoAgregadoWorker>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>

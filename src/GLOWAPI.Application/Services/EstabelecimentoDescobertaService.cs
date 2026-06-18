@@ -121,7 +121,9 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             estabelecimento.Logo,
             TruncarDescricao(estabelecimento.Descricao),
             endereco,
-            distanciaKm);
+            distanciaKm,
+            estabelecimento.NotaMedia,
+            estabelecimento.TotalAvaliacoes);
     }
 
     private static void ValidarCoordenadas(decimal latitude, decimal longitude)
@@ -153,7 +155,9 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
                 endereco.Logradouro,
                 endereco.Bairro,
                 endereco.Cidade,
-                endereco.Estado));
+                endereco.Estado),
+            estabelecimento.NotaMedia,
+            estabelecimento.TotalAvaliacoes);
     }
 
     private static string TruncarDescricao(string descricao) =>

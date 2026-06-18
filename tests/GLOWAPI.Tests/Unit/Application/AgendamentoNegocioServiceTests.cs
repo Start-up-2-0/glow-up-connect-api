@@ -27,6 +27,7 @@ public class AgendamentoNegocioServiceTests
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
     private readonly Mock<IUsuarioService> _usuarioService = new();
     private readonly Mock<IAgendamentoPropostaRemarcacaoRepository> _propostaRemarcacaoRepository = new();
+    private readonly Mock<IAvaliacaoAtendimentoRepository> _avaliacaoAtendimentoRepository = new();
 
     [Fact]
     public async Task ConfirmarAsync_DeveAlterarStatusParaConfirmado()
@@ -195,6 +196,7 @@ public class AgendamentoNegocioServiceTests
             _currentUserContext.Object,
             _usuarioService.Object,
             _propostaRemarcacaoRepository.Object,
+            _avaliacaoAtendimentoRepository.Object,
             Options.Create(new AuthOptions { FrontendBaseUrl = "http://localhost:5173" }));
 
     private static Agendamento CriarAgendamentoPendente()
