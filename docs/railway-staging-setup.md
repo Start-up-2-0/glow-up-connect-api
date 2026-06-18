@@ -121,6 +121,7 @@ $env:MYSQL_CS = "Server=...;Port=...;Database=...;User=...;Password=...;SslMode=
 | `API_INTERNAL_PORT` | `8080` (HTTP) ou omitir quando usar mTLS |
 | `API_INTERNAL_URL` | (mTLS) `https://<servico-api>.railway.internal:8443` |
 | `MTLS_CLIENT_CERT` / `MTLS_CLIENT_KEY` / `MTLS_CA_CERT` | (mTLS) PEMs do cliente Caddy |
+| `MTLS_SERVER_NAME` | (mTLS) CN do certificado do servidor — padrao `glowapi.internal` |
 
 O Caddy faz proxy `/api/*` → API e injeta `X-Glow-Proxy-Secret`. Webhooks externos continuam na URL publica da API.
 

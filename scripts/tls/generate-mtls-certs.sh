@@ -48,6 +48,7 @@ Railway (App/Caddy):
   MTLS_CLIENT_CERT=<conteudo de client.pem>
   MTLS_CLIENT_KEY=<conteudo de client.key>
   MTLS_CA_CERT=<conteudo de ca.pem>
+  MTLS_SERVER_NAME=glowapi.internal
   API_INTERNAL_URL=https://<servico-api>.railway.internal:8443
 
 Rotacione os certificados antes de expirar ($VALID_DAYS dias).
