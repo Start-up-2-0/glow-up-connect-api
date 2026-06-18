@@ -49,6 +49,14 @@ public class PublicPortPathGuardMiddleware
             return;
         }
 
+        if (_proxyOptions.Enabled
+            && context.Request.Headers.TryGetValue(ProxyOriginOptions.SecretHeaderName, out var provided)
+            && string.Equals(provided.ToString(), _proxyOptions.Secret, StringComparison.Ordinal))
+        {
+            await _next(context);
+            return;
+        }
+
         await WriteForbiddenAsync(context);
     }
 
