@@ -26,7 +26,7 @@ public class ProxyOriginIntegrationTests
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
-        Assert.Equal("PROXY_ORIGIN_REQUIRED", body!.Code);
+        Assert.Equal("FORBIDDEN", body!.Code);
     }
 
     [Fact]

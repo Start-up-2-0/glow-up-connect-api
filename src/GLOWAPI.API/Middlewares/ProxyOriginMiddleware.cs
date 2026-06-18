@@ -6,6 +6,9 @@ namespace GLOWAPI.API.Middlewares;
 
 public class ProxyOriginMiddleware
 {
+    private const string ForbiddenMessage = "Acesso negado.";
+    private const string ForbiddenCode = "FORBIDDEN";
+
     private readonly RequestDelegate _next;
     private readonly ProxyOriginOptions _options;
 
@@ -26,7 +29,7 @@ public class ProxyOriginMiddleware
         if (!context.Request.Headers.TryGetValue(ProxyOriginOptions.SecretHeaderName, out var provided)
             || !string.Equals(provided.ToString(), _options.Secret, StringComparison.Ordinal))
         {
-            await WriteForbiddenAsync(context, "Requisicao deve passar pelo proxy do aplicativo.");
+            await WriteForbiddenAsync(context);
             return;
         }
 
@@ -44,7 +47,7 @@ public class ProxyOriginMiddleware
         return value.StartsWith(_options.WebhookPathPrefix, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static async Task WriteForbiddenAsync(HttpContext context, string message)
+    private static async Task WriteForbiddenAsync(HttpContext context)
     {
         if (context.Response.HasStarted)
         {
@@ -53,6 +56,6 @@ public class ProxyOriginMiddleware
 
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         context.Response.ContentType = "application/json";
-        await context.Response.WriteAsJsonAsync(ApiErrorResponse.From(message, "PROXY_ORIGIN_REQUIRED"));
+        await context.Response.WriteAsJsonAsync(ApiErrorResponse.From(ForbiddenMessage, ForbiddenCode));
     }
 }

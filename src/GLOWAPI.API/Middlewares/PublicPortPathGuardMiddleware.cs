@@ -9,6 +9,9 @@ namespace GLOWAPI.API.Middlewares;
 /// </summary>
 public class PublicPortPathGuardMiddleware
 {
+    private const string ForbiddenMessage = "Acesso negado.";
+    private const string ForbiddenCode = "FORBIDDEN";
+
     private readonly RequestDelegate _next;
     private readonly MtlsOptions _options;
     private readonly ProxyOriginOptions _proxyOptions;
@@ -58,8 +61,6 @@ public class PublicPortPathGuardMiddleware
 
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         context.Response.ContentType = "application/json";
-        await context.Response.WriteAsJsonAsync(ApiErrorResponse.From(
-            "Rota de aplicacao disponivel apenas via mTLS (proxy do frontend).",
-            "PUBLIC_PORT_FORBIDDEN"));
+        await context.Response.WriteAsJsonAsync(ApiErrorResponse.From(ForbiddenMessage, ForbiddenCode));
     }
 }
