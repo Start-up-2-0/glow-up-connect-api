@@ -32,6 +32,8 @@ public class GlowApiWebApplicationFactory : WebApplicationFactory<Program>
                 ["RateLimit:Enabled"] = "false",
                 ["Captcha:Enabled"] = "false",
                 ["ProxyOrigin:Enabled"] = "false",
+                ["RequestProof:Enabled"] = "false",
+                ["RequestProof:Secret"] = "glow-dev-request-proof-secret-min-32!!",
                 ["ConnectionStrings:DefaultConnection"] = "Server=localhost;Port=3306;Database=test;User=test;Password=test;",
                 ["Database:Provider"] = "MySQL",
                 ["Mensageria:Habilitado"] = "false"

@@ -10,6 +10,7 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 ProxyOriginConfiguration.ConfigurarProxyOrigin(builder);
+RequestProofConfiguration.ConfigurarRequestProof(builder);
 KestrelMtlsConfiguration.ConfigurarKestrel(builder);
 
 builder.Services.AddControllers()
@@ -113,6 +114,7 @@ await app.ApplyPendingMigrationsAsync();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseMiddleware<PublicPortPathGuardMiddleware>();
 app.UseMiddleware<ProxyOriginMiddleware>();
+app.UseMiddleware<RequestProofMiddleware>();
 app.UseMiddleware<IpBurstRateLimitMiddleware>();
 
 // Railway termina TLS no edge; mTLS interno fica na :8443. Redirect HTTP->HTTPS quebraria o healthcheck em /health.

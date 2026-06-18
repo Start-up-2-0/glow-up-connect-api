@@ -28,6 +28,21 @@ Configurações introduzidas no hardening inicial da GLOWAPI.
 
 Rotas isentas: `GET /health`, `/api/webhooks/**`. Demais rotas de app exigem o header do Caddy.
 
+## Request proof (anti-replay via BFF)
+
+| Variável | Uso |
+|----------|-----|
+| `REQUEST_PROOF_SECRET` | Secret server-side (mín. 32 caracteres) para assinar proofs |
+| `RequestProof__Enabled` | `true` em staging/production (auto quando o secret existe) |
+| `RequestProof__TtlSeconds` | Validade do proof (padrão `60`) |
+| `RequestProof__ClockSkewSeconds` | Tolerância de relógio (padrão `30`) |
+
+**Comportamento:** tráfego via BFF deve enviar `X-Glow-Request-Proof` (uso único). O SPA obtém proofs em `GET /api/security/request-proof` (cookie `guc_rqctx` HttpOnly). Nonces ficam em memória na instância da API (sem Redis).
+
+**Isenções:** `OPTIONS`, `GET /health`, `/api/webhooks/**`, `GET /api/security/request-proof`.
+
+**Erros:** `403` `REQUEST_PROOF_AUSENTE`, `REQUEST_PROOF_INVALIDO`, `REQUEST_PROOF_EXPIRADO`, `REQUEST_PROOF_REPLAY`.
+
 ## CAPTCHA (login e cadastro)
 
 | Variável | Uso |
