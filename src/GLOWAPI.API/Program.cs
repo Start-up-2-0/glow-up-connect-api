@@ -100,10 +100,10 @@ app.UseMiddleware<PublicPortPathGuardMiddleware>();
 app.UseMiddleware<ProxyOriginMiddleware>();
 app.UseMiddleware<IpBurstRateLimitMiddleware>();
 
-if (!app.Environment.IsDevelopment())
+// Railway termina TLS no edge; mTLS interno fica na :8443. Redirect HTTP->HTTPS quebraria o healthcheck em /health.
+if (app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
-    app.UseHsts();
 }
 
 app.UseRouting();
