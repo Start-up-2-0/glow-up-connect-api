@@ -14,13 +14,16 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
     private const int TamanhoPaginaMaximo = 50;
 
     private readonly IEstabelecimentoRepository _estabelecimentoRepository;
+    private readonly IHorarioFuncionamentoEstabelecimentoRepository _horarioFuncionamentoRepository;
     private readonly IGeocodificadorService _geocodificadorService;
 
     public EstabelecimentoDescobertaService(
         IEstabelecimentoRepository estabelecimentoRepository,
+        IHorarioFuncionamentoEstabelecimentoRepository horarioFuncionamentoRepository,
         IGeocodificadorService geocodificadorService)
     {
         _estabelecimentoRepository = estabelecimentoRepository;
+        _horarioFuncionamentoRepository = horarioFuncionamentoRepository;
         _geocodificadorService = geocodificadorService;
     }
 
@@ -115,6 +118,13 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             endereco = new EnderecoResumoDto(end.Logradouro, end.Bairro, end.Cidade, end.Estado);
         }
 
+        var horarios = await _horarioFuncionamentoRepository.ListarPorEstabelecimentoAsync(
+            estabelecimento.Id,
+            ativo: true,
+            cancellationToken: cancellationToken);
+        var (abertoAgora, horarioAbertura, horarioFechamento) =
+            HorarioFuncionamentoPublicoHelper.ResolverParaHoje(horarios);
+
         return new EstabelecimentoPublicoResponseDto(
             estabelecimento.PublicGuid,
             estabelecimento.Nome,
@@ -123,7 +133,10 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             endereco,
             distanciaKm,
             estabelecimento.NotaMedia,
-            estabelecimento.TotalAvaliacoes);
+            estabelecimento.TotalAvaliacoes,
+            abertoAgora,
+            horarioAbertura,
+            horarioFechamento);
     }
 
     private static void ValidarCoordenadas(decimal latitude, decimal longitude)

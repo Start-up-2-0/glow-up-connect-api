@@ -8,4 +8,7 @@ public record EstabelecimentoPublicoResponseDto(
     EnderecoResumoDto? Endereco,
     double? DistanciaKm,
     decimal? NotaMedia = null,
-    int TotalAvaliacoes = 0);
+    int TotalAvaliacoes = 0,
+    bool AbertoAgora = false,
+    string? HorarioAbertura = null,
+    string? HorarioFechamento = null);

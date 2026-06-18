@@ -11,6 +11,7 @@ namespace GLOWAPI.Tests.Unit.Application;
 public class EstabelecimentoDescobertaServiceTests
 {
     private readonly Mock<IEstabelecimentoRepository> _estabelecimentoRepository = new();
+    private readonly Mock<IHorarioFuncionamentoEstabelecimentoRepository> _horarioFuncionamentoRepository = new();
     private readonly Mock<IGeocodificadorService> _geocodificadorService = new();
 
     [Fact]
@@ -73,6 +74,19 @@ public class EstabelecimentoDescobertaServiceTests
         Assert.Equal(1.2d, resultado.Itens[0].DistanciaKm);
     }
 
-    private EstabelecimentoDescobertaService CreateService() =>
-        new(_estabelecimentoRepository.Object, _geocodificadorService.Object);
+    private EstabelecimentoDescobertaService CreateService()
+    {
+        _horarioFuncionamentoRepository
+            .Setup(r => r.ListarPorEstabelecimentoAsync(
+                It.IsAny<int>(),
+                It.IsAny<DayOfWeek?>(),
+                It.IsAny<bool?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<HorarioFuncionamentoEstabelecimento>());
+
+        return new(
+            _estabelecimentoRepository.Object,
+            _horarioFuncionamentoRepository.Object,
+            _geocodificadorService.Object);
+    }
 }
