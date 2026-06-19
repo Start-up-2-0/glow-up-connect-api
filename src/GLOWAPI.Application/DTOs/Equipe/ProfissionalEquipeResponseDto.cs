@@ -11,7 +11,9 @@ public record ProfissionalEquipeResponseDto(
     string Email,
     string Telefone,
     bool PodeReceberAgendamento,
-    bool Ativo)
+    bool Ativo,
+    decimal? NotaMedia,
+    int TotalAvaliacoes)
 {
     public static ProfissionalEquipeResponseDto From(
         ProfissionalEstabelecimento vinculo,
@@ -25,5 +27,7 @@ public record ProfissionalEquipeResponseDto(
             profissional.Email,
             profissional.Telefone,
             vinculo.PodeReceberAgendamento,
-            vinculo.Ativo);
+            vinculo.Ativo,
+            profissional.NotaMedia,
+            profissional.TotalAvaliacoes);
 }
