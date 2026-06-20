@@ -18,6 +18,7 @@ public class AgendamentoNegocioServiceTests
     private readonly Mock<IProfissionalRepository> _profissionalRepository = new();
     private readonly Mock<IProfissionalEstabelecimentoRepository> _profissionalEstabelecimentoRepository = new();
     private readonly Mock<IAgendamentoRepository> _agendamentoRepository = new();
+    private readonly Mock<IAgendamentoItemRepository> _agendamentoItemRepository = new();
     private readonly Mock<IAgendamentoHistoricoRepository> _agendamentoHistoricoRepository = new();
     private readonly Mock<IAgendamentoValidador> _agendamentoValidador = new();
     private readonly Mock<IAgendamentoNotificacaoService> _agendamentoNotificacaoService = new();
@@ -187,6 +188,7 @@ public class AgendamentoNegocioServiceTests
             _profissionalRepository.Object,
             _profissionalEstabelecimentoRepository.Object,
             _agendamentoRepository.Object,
+            _agendamentoItemRepository.Object,
             _agendamentoHistoricoRepository.Object,
             _agendamentoValidador.Object,
             _agendamentoNotificacaoService.Object,

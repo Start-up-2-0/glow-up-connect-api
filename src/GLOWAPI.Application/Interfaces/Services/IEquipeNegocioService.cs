@@ -32,6 +32,17 @@ public interface IEquipeNegocioService
         AtualizarStatusProfissionalEquipeRequestDto request,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<AgendamentoFuturoEquipeResponseDto>> ListarAgendamentosFuturosProfissionalAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        CancellationToken cancellationToken = default);
+
+    Task<CancelarAgendamentosFuturosProfissionalEquipeResponseDto> CancelarAgendamentosFuturosProfissionalAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        CancelarAgendamentosFuturosProfissionalEquipeRequestDto request,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<UsuarioEquipeResponseDto>> ListarUsuariosAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default);

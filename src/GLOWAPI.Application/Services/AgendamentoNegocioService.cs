@@ -32,6 +32,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
     private readonly IProfissionalRepository _profissionalRepository;
     private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
     private readonly IAgendamentoRepository _agendamentoRepository;
+    private readonly IAgendamentoItemRepository _agendamentoItemRepository;
     private readonly IAgendamentoHistoricoRepository _agendamentoHistoricoRepository;
     private readonly IAgendamentoValidador _agendamentoValidador;
     private readonly IAgendamentoNotificacaoService _agendamentoNotificacaoService;
@@ -49,6 +50,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         IProfissionalRepository profissionalRepository,
         IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
         IAgendamentoRepository agendamentoRepository,
+        IAgendamentoItemRepository agendamentoItemRepository,
         IAgendamentoHistoricoRepository agendamentoHistoricoRepository,
         IAgendamentoValidador agendamentoValidador,
         IAgendamentoNotificacaoService agendamentoNotificacaoService,
@@ -65,6 +67,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         _profissionalRepository = profissionalRepository;
         _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
         _agendamentoRepository = agendamentoRepository;
+        _agendamentoItemRepository = agendamentoItemRepository;
         _agendamentoHistoricoRepository = agendamentoHistoricoRepository;
         _agendamentoValidador = agendamentoValidador;
         _agendamentoNotificacaoService = agendamentoNotificacaoService;
@@ -408,6 +411,60 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             cancellationToken);
 
         return AgendamentoCriadoResponseDto.From(agendamento);
+    }
+
+    public async Task<int> CancelarAgendamentosFuturosDoProfissionalAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        string motivo,
+        bool autorizarAgendaCancelar,
+        CancellationToken cancellationToken = default)
+    {
+        if (autorizarAgendaCancelar)
+        {
+            await _autorizacaoNegocioService.AutorizarAsync(
+                estabelecimentoId,
+                PermissaoNegocio.AgendaCancelar,
+                cancellationToken);
+        }
+
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            throw new AgendamentoStatusInvalidoException("Motivo do cancelamento e obrigatorio.");
+        }
+
+        var itensFuturos = await _agendamentoItemRepository.ListarAgendamentosFuturosAtivosPorProfissionalAsync(
+            estabelecimentoId,
+            profissionalId,
+            cancellationToken);
+
+        var agendamentoIds = itensFuturos
+            .Select(item => item.AgendamentoId)
+            .Distinct()
+            .ToArray();
+
+        var quantidadeCancelada = 0;
+        foreach (var agendamentoId in agendamentoIds)
+        {
+            var agendamento = await _agendamentoRepository.ObterPorIdEEstabelecimentoComItensAsync(
+                agendamentoId,
+                estabelecimentoId,
+                cancellationToken);
+
+            if (agendamento is null || !StatusAtivos.Contains(agendamento.Status))
+            {
+                continue;
+            }
+
+            await ExecutarCancelamentoAsync(
+                agendamento,
+                motivo.Trim(),
+                registrarAuditoriaEstabelecimento: true,
+                cancellationToken);
+            quantidadeCancelada++;
+        }
+
+        return quantidadeCancelada;
     }
 
     public async Task<AgendamentoCriadoResponseDto> RemarcarAsync(

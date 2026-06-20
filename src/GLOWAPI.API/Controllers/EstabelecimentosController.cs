@@ -321,6 +321,44 @@ public class EstabelecimentosController : ControllerBase
             profissional));
     }
 
+    [HttpGet("{estabelecimentoId:int}/equipe/profissionais/{profissionalId:int}/agendamentos-futuros")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarAgendamentosFuturosProfissionalEquipe(
+        int estabelecimentoId,
+        int profissionalId,
+        CancellationToken cancellationToken)
+    {
+        var agendamentos = await _equipeNegocioService.ListarAgendamentosFuturosProfissionalAsync(
+            estabelecimentoId,
+            profissionalId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<AgendamentoFuturoEquipeResponseDto>>.From(
+            "Agendamentos futuros listados com sucesso.",
+            agendamentos));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/equipe/profissionais/{profissionalId:int}/agendamentos-futuros/cancelar")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> CancelarAgendamentosFuturosProfissionalEquipe(
+        int estabelecimentoId,
+        int profissionalId,
+        [FromBody] CancelarAgendamentosFuturosProfissionalEquipeRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await _equipeNegocioService.CancelarAgendamentosFuturosProfissionalAsync(
+            estabelecimentoId,
+            profissionalId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<CancelarAgendamentosFuturosProfissionalEquipeResponseDto>.From(
+            "Agendamentos futuros cancelados com sucesso.",
+            resultado));
+    }
+
     [HttpPatch("{estabelecimentoId:int}/equipe/profissionais/{profissionalId:int}/status")]
     [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
     [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]

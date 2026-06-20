@@ -1,3 +1,4 @@
+using GLOWAPI.Application.DTOs.Equipe;
 using GLOWAPI.Application.DTOs.Horarios;
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
@@ -197,6 +198,22 @@ public class AgendamentoItemRepository : Repository<AgendamentoItem>, IAgendamen
             cancellationToken);
     }
 
+    public async Task<IReadOnlyList<AgendamentoFuturoEquipeResponseDto>> ListarAgendamentosFuturosAtivosPorProfissionalAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        CancellationToken cancellationToken = default)
+    {
+        var itens = await ListarItensFuturosAtivosAsync(
+            estabelecimentoId,
+            profissionalId,
+            cancellationToken);
+
+        return itens
+            .Select(MapearAgendamentoFuturoEquipe)
+            .OrderBy(item => item.Inicio)
+            .ToList();
+    }
+
     private async Task<List<AgendamentoItem>> ListarItensFuturosAtivosAsync(
         int estabelecimentoId,
         int profissionalId,
@@ -206,7 +223,9 @@ public class AgendamentoItemRepository : Repository<AgendamentoItem>, IAgendamen
 
         return await DbSet
             .AsNoTracking()
+            .Include(item => item.Servico)
             .Include(item => item.Agendamento)
+                .ThenInclude(agendamento => agendamento!.UsuarioCliente)
             .Where(item => item.ProfissionalId == profissionalId
                 && item.Inicio >= agora
                 && item.Status != AgendamentoItemStatus.Cancelado
@@ -256,4 +275,23 @@ public class AgendamentoItemRepository : Repository<AgendamentoItem>, IAgendamen
             Inicio = item.Inicio,
             Fim = item.Fim
         };
+
+    private static AgendamentoFuturoEquipeResponseDto MapearAgendamentoFuturoEquipe(AgendamentoItem item)
+    {
+        var agendamento = item.Agendamento
+            ?? throw new InvalidOperationException("Agendamento do item nao carregado.");
+
+        return new AgendamentoFuturoEquipeResponseDto
+        {
+            AgendamentoId = item.AgendamentoId,
+            AgendamentoItemId = item.Id,
+            ClienteNome = agendamento.UsuarioCliente?.Nome
+                ?? agendamento.ClienteNome
+                ?? "Cliente",
+            ServicoNome = item.Servico?.Nome ?? "Servico",
+            Inicio = item.Inicio,
+            Fim = item.Fim,
+            Status = agendamento.Status.ToString()
+        };
+    }
 }

@@ -86,6 +86,7 @@ public class ExceptionMiddleware
                     or LimiteServicosNegocioExcedidoException
                     or ServicoNegocioInvalidoException
                     or ProfissionalServicoComAgendamentoFuturoException
+                    or ProfissionalEquipeComAgendamentoFuturoException
                     or AgendamentoDadosClienteInvalidosException
                     or AgendamentoStatusInvalidoException
                     or AgendamentoServicosInvalidosException
@@ -124,6 +125,7 @@ public class ExceptionMiddleware
             var details = ex switch
             {
                 HorarioAlteracaoImpactaAgendamentosFuturosException impacto => impacto.AgendamentosImpactados,
+                ProfissionalEquipeComAgendamentoFuturoException profissionalEquipe => profissionalEquipe.AgendamentosFuturos,
                 GatewayPagamentoException gateway => gateway.Details,
                 _ => null
             };
