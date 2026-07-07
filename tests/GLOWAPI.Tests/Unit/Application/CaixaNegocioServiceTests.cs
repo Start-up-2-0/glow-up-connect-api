@@ -112,9 +112,10 @@ public class CaixaNegocioServiceTests
             .Setup(r => r.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Caixa { Id = 30, EstabelecimentoId = 20 });
         _lancamentoCaixaRepository
-            .Setup(r => r.ListarPorCaixaAsync(It.IsAny<LancamentoCaixaFiltro>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.ListarPorCaixaPaginadoAsync(It.IsAny<LancamentoCaixaFiltro>(), It.IsAny<CancellationToken>()))
             .Callback<LancamentoCaixaFiltro, CancellationToken>((filtro, _) => filtroCapturado = filtro)
-            .ReturnsAsync([
+            .ReturnsAsync((
+            [
                 new LancamentoCaixa
                 {
                     Id = 40,
@@ -127,7 +128,8 @@ public class CaixaNegocioServiceTests
                     Descricao = "Pagamento aprovado",
                     CreateAd = inicio.AddDays(1)
                 }
-            ]);
+            ],
+            1));
 
         var service = CreateService();
 
@@ -141,9 +143,10 @@ public class CaixaNegocioServiceTests
         Assert.Equal(30, filtroCapturado!.CaixaId);
         Assert.Equal(inicio, filtroCapturado.Inicio);
         Assert.Equal(fim, filtroCapturado.Fim);
-        Assert.Single(response);
-        Assert.Equal("EntradaAgendamento", response[0].Tipo);
-        Assert.Equal(150, response[0].Valor);
+        Assert.Equal(1, response.Total);
+        Assert.Single(response.Itens);
+        Assert.Equal("EntradaAgendamento", response.Itens[0].Tipo);
+        Assert.Equal(150, response.Itens[0].Valor);
         _auditoriaNegocioService.Verify(s => s.RegistrarAsync(
             20,
             TipoAcaoAuditoriaNegocio.CaixaLancamentosConsultados,

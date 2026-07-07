@@ -14,4 +14,8 @@ public interface IContaPagarRepository : IRepository<ContaPagar>
         int contaId,
         int estabelecimentoId,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ContaPagar>> ListarAbertasVencidasAsync(
+        DateTime ateData,
+        CancellationToken cancellationToken = default);
 }

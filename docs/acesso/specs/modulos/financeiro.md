@@ -7,7 +7,7 @@
 
 ## Objetivo
 
-Fluxo financeiro operacional do negocio: caixa, recebimento presencial, comissoes, relatorios, contas a pagar/receber e conciliacao basica.
+Fluxo financeiro operacional do negocio: caixa, recebimento presencial, comissoes, relatorios, contas a pagar/receber, conciliacao e busca unificada.
 
 ## Funcionalidades implementadas
 
@@ -18,16 +18,19 @@ Fluxo financeiro operacional do negocio: caixa, recebimento presencial, comissoe
 - Sessao de caixa (abrir/fechar)
 - CRUD de regras de comissao + calculo automatico no recebimento
 - Extrato do profissional (`GET /financeiro/comissoes/minhas`)
-- Relatorios analiticos, fluxo de caixa e export CSV
-- Contas a pagar/receber com baixa vinculada ao caixa
+- Relatorios analiticos, fluxo de caixa e export CSV/Excel/PDF
+- Busca unificada (`GET /financeiro/busca`)
+- Contas a pagar/receber com baixa vinculada ao caixa e cancelamento
 - Conciliacao por importacao de linhas de extrato
 - Painel da rede com faturamento por unidade
+- Pagamento via webhook gera lancamento de caixa (`EntradaAgendamento`)
+- Job diario marca contas vencidas (`ContasVencimentoBackgroundService`)
 
 ## Endpoints principais
 
 | Metodo | Rota | Permissao |
 |--------|------|-----------|
-| GET | `/caixa`, `/caixa/lancamentos` | `CaixaVisualizar` |
+| GET | `/caixa`, `/caixa/lancamentos` (paginado) | `CaixaVisualizar` |
 | POST | `/caixa/lancamentos` | `CaixaGerenciar` |
 | POST | `/caixa/lancamentos/{id}/estornar` | `CaixaGerenciar` |
 | POST | `/agendamentos/{id}/receber` | `CaixaGerenciar` |
@@ -35,8 +38,11 @@ Fluxo financeiro operacional do negocio: caixa, recebimento presencial, comissoe
 | GET/POST/PUT/PATCH | `/financeiro/comissoes*` | visualizar / gerenciar |
 | GET | `/financeiro/comissoes/minhas` | `ComissaoVisualizarPropria` |
 | GET | `/financeiro/relatorios*`, `/financeiro/fluxo-caixa` | `CaixaVisualizar` |
-| GET/POST | `/financeiro/contas-receber*`, `/financeiro/contas-pagar*` | visualizar / gerenciar |
-| POST | `/financeiro/conciliacao/importar` | `CaixaGerenciar` |
+| GET | `/financeiro/relatorios/export?formato=csv\|xlsx\|pdf` | `CaixaVisualizar` |
+| GET | `/financeiro/busca` | `CaixaVisualizar` |
+| GET/POST/PATCH | `/financeiro/contas-receber*` | visualizar / gerenciar |
+| GET/POST/PATCH | `/financeiro/contas-pagar*` | visualizar / gerenciar |
+| GET/POST | `/financeiro/conciliacao*` | visualizar / gerenciar |
 
 ## Permissoes
 
@@ -54,10 +60,10 @@ Escritas financeiras registram acoes em `TipoAcaoAuditoriaNegocio` (valores 32+)
 
 ## Status
 
-**Implementado** — API e app com fluxo operacional ponta a ponta.
+**Implementado** — API e app com fluxo operacional ponta a ponta, dashboard com graficos, busca global e exportacoes.
 
 ## Codigo de referencia
 
-- `MovimentacaoCaixaService`, `RecebimentoAgendamentoService`, `FinanceiroNegocioService`
+- `MovimentacaoCaixaService`, `RecebimentoAgendamentoService`, `FinanceiroNegocioService`, `WebhookPagamentoService`
 - `EstabelecimentosController` (rotas `/caixa` e `/financeiro`)
-- App: `caixaService.ts`, views em `src/views/modulos/financeiro/`
+- App: `caixaService.ts`, views em `src/views/modulos/financeiro/`, componentes em `src/components/financeiro/`

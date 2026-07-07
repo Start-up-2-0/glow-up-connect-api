@@ -67,6 +67,9 @@ builder.Services.AddHostedService<MensagemNotificacaoWorker>();
 builder.Services.AddHostedService<MensagemNotificacaoRecuperacaoWorker>();
 builder.Services.AddHostedService<AssinaturaCobrancaWorker>();
 builder.Services.AddHostedService<AvaliacaoAgregadoWorker>();
+builder.Services.AddHostedService<GLOWAPI.Application.Services.ContasVencimentoBackgroundService>();
+
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>

@@ -40,5 +40,7 @@ public enum TipoAcaoAuditoriaNegocio
     ContaReceberBaixada = 41,
     ContaPagarCriada = 42,
     ContaPagarBaixada = 43,
+    ContaReceberCancelada = 44,
+    ContaPagarCancelada = 45,
     ConciliacaoImportada = 44
 }

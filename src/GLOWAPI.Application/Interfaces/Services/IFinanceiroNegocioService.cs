@@ -56,6 +56,18 @@ public interface IFinanceiroNegocioService
         FinanceiroFiltroDto filtro,
         CancellationToken cancellationToken = default);
 
+    Task<FinanceiroExportacaoResponseDto> ExportarRelatorioAsync(
+        int estabelecimentoId,
+        FinanceiroFiltroDto filtro,
+        string formato,
+        CancellationToken cancellationToken = default);
+
+    Task<FinanceiroBuscaResponseDto> BuscarAsync(
+        int estabelecimentoId,
+        string termo,
+        string? tipo,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<ContaReceberResponseDto>> ListarContasReceberAsync(
         int estabelecimentoId,
         ContaFinanceiraStatus? status,
@@ -70,6 +82,11 @@ public interface IFinanceiroNegocioService
         int estabelecimentoId,
         int contaId,
         BaixarContaRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    Task<ContaReceberResponseDto> CancelarContaReceberAsync(
+        int estabelecimentoId,
+        int contaId,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<ContaPagarResponseDto>> ListarContasPagarAsync(
@@ -88,6 +105,11 @@ public interface IFinanceiroNegocioService
         BaixarContaRequestDto request,
         CancellationToken cancellationToken = default);
 
+    Task<ContaPagarResponseDto> CancelarContaPagarAsync(
+        int estabelecimentoId,
+        int contaId,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<ConciliacaoItemResponseDto>> ListarConciliacaoAsync(
         int estabelecimentoId,
         bool? conciliado,
@@ -97,4 +119,6 @@ public interface IFinanceiroNegocioService
         int estabelecimentoId,
         ConciliacaoImportacaoRequestDto request,
         CancellationToken cancellationToken = default);
+
+    Task AtualizarContasVencidasAsync(CancellationToken cancellationToken = default);
 }

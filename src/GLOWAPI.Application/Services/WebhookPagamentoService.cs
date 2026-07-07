@@ -2,6 +2,7 @@ using System.Text.Json;
 using GLOWAPI.Application.DTOs.Pagamentos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Models.Caixa;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Pagamentos;
@@ -17,6 +18,8 @@ public class WebhookPagamentoService : IWebhookPagamentoService
     private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
     private readonly IAssinaturaHistoricoService _assinaturaHistoricoService;
     private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
+    private readonly IMovimentacaoCaixaService _movimentacaoCaixaService;
+    private readonly IAgendamentoRepository _agendamentoRepository;
 
     public WebhookPagamentoService(
         IWebhookPagamentoRepository webhookPagamentoRepository,
@@ -25,7 +28,9 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         IGatewayPagamentoResolver gatewayPagamentoResolver,
         ICobrancaAssinaturaService cobrancaAssinaturaService,
         IAssinaturaHistoricoService assinaturaHistoricoService,
-        IAssinaturaNotificacaoService assinaturaNotificacaoService)
+        IAssinaturaNotificacaoService assinaturaNotificacaoService,
+        IMovimentacaoCaixaService movimentacaoCaixaService,
+        IAgendamentoRepository agendamentoRepository)
     {
         _webhookPagamentoRepository = webhookPagamentoRepository;
         _pagamentoRepository = pagamentoRepository;
@@ -34,6 +39,8 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         _cobrancaAssinaturaService = cobrancaAssinaturaService;
         _assinaturaHistoricoService = assinaturaHistoricoService;
         _assinaturaNotificacaoService = assinaturaNotificacaoService;
+        _movimentacaoCaixaService = movimentacaoCaixaService;
+        _agendamentoRepository = agendamentoRepository;
     }
 
     public async Task<WebhookPagamentoResponseDto> RegistrarAsync(
@@ -155,6 +162,30 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         if (pagamento is null)
         {
             webhook.ErroProcessamento = "Pagamento nao encontrado para o gatewayPaymentId informado.";
+            return;
+        }
+
+        if (pagamento.AgendamentoId.HasValue)
+        {
+            var agendamento = await _agendamentoRepository.ObterPorIdAsync(
+                pagamento.AgendamentoId.Value,
+                cancellationToken);
+
+            if (agendamento is not null && agendamento.EstabelecimentoId.HasValue)
+            {
+                await _movimentacaoCaixaService.RegistrarLancamentoAsync(
+                    agendamento.EstabelecimentoId.Value,
+                    new RegistrarLancamentoCaixaComando(
+                        LancamentoCaixaTipo.EntradaAgendamento,
+                        pagamento.Valor,
+                        $"Pagamento online agendamento #{pagamento.AgendamentoId}",
+                        AgendamentoId: pagamento.AgendamentoId,
+                        PagamentoId: pagamento.Id),
+                    cancellationToken);
+            }
+
+            webhook.Processado = true;
+            webhook.ProcessadoEm = DateTime.UtcNow;
             return;
         }
 

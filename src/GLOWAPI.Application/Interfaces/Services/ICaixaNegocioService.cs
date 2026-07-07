@@ -8,7 +8,7 @@ public interface ICaixaNegocioService
         int estabelecimentoId,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<LancamentoCaixaResponseDto>> ListarLancamentosAsync(
+    Task<LancamentoCaixaPaginadoResponseDto> ListarLancamentosAsync(
         int estabelecimentoId,
         LancamentoCaixaFiltroDto filtro,
         CancellationToken cancellationToken = default);

@@ -38,4 +38,15 @@ public class ContaReceberRepository : Repository<ContaReceber>, IContaReceberRep
             conta => conta.Id == contaId && conta.EstabelecimentoId == estabelecimentoId,
             cancellationToken);
     }
+
+    public async Task<IReadOnlyList<ContaReceber>> ListarAbertasVencidasAsync(
+        DateTime ateData,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .Where(conta =>
+                conta.Status == ContaFinanceiraStatus.Aberta
+                && conta.Vencimento.Date < ateData.Date)
+            .ToListAsync(cancellationToken);
+    }
 }

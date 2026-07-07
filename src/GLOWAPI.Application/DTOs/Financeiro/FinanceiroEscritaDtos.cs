@@ -1,3 +1,4 @@
+using GLOWAPI.Application.DTOs.Caixa;
 using GLOWAPI.Domain.Enums;
 
 namespace GLOWAPI.Application.DTOs.Financeiro;
@@ -71,8 +72,18 @@ public record CriarContaPagarRequestDto(
     bool Recorrente);
 
 public record BaixarContaRequestDto(
-    SubtipoAjusteManual? FormaBaixa,
+    string? FormaBaixa,
     string? Observacao);
+
+public record FinanceiroBuscaResponseDto(
+    IReadOnlyList<LancamentoCaixaResponseDto> Lancamentos,
+    IReadOnlyList<ContaReceberResponseDto> ContasReceber,
+    IReadOnlyList<ContaPagarResponseDto> ContasPagar);
+
+public record FinanceiroExportacaoResponseDto(
+    byte[] Conteudo,
+    string ContentType,
+    string NomeArquivo);
 
 public record ConciliacaoImportacaoRequestDto(
     IReadOnlyList<ConciliacaoLinhaExtratoDto> Linhas);

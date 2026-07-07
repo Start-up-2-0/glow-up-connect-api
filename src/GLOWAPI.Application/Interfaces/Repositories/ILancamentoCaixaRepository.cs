@@ -10,6 +10,10 @@ public interface ILancamentoCaixaRepository : IRepository<LancamentoCaixa>
         LancamentoCaixaFiltro filtro,
         CancellationToken cancellationToken = default);
 
+    Task<(IReadOnlyList<LancamentoCaixa> Itens, int Total)> ListarPorCaixaPaginadoAsync(
+        LancamentoCaixaFiltro filtro,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<LancamentoCaixa>> ListarTodosPorCaixaAsync(
         int caixaId,
         CancellationToken cancellationToken = default);

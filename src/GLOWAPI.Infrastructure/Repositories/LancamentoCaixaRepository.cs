@@ -16,24 +16,32 @@ public class LancamentoCaixaRepository : Repository<LancamentoCaixa>, ILancament
         LancamentoCaixaFiltro filtro,
         CancellationToken cancellationToken = default)
     {
-        var query = DbSet
-            .AsNoTracking()
-            .Where(lancamento => lancamento.CaixaId == filtro.CaixaId);
-
-        if (filtro.Inicio.HasValue)
-        {
-            query = query.Where(lancamento => lancamento.CreateAd >= filtro.Inicio.Value);
-        }
-
-        if (filtro.Fim.HasValue)
-        {
-            query = query.Where(lancamento => lancamento.CreateAd < filtro.Fim.Value);
-        }
+        var query = AplicarFiltros(filtro);
 
         return await query
             .OrderByDescending(lancamento => lancamento.CreateAd)
             .ThenByDescending(lancamento => lancamento.Id)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<(IReadOnlyList<LancamentoCaixa> Itens, int Total)> ListarPorCaixaPaginadoAsync(
+        LancamentoCaixaFiltro filtro,
+        CancellationToken cancellationToken = default)
+    {
+        var query = AplicarFiltros(filtro);
+        var total = await query.CountAsync(cancellationToken);
+        var pagina = Math.Max(1, filtro.Pagina);
+        var tamanho = Math.Clamp(filtro.TamanhoPagina, 1, 200);
+        var skip = (pagina - 1) * tamanho;
+
+        var itens = await query
+            .OrderByDescending(lancamento => lancamento.CreateAd)
+            .ThenByDescending(lancamento => lancamento.Id)
+            .Skip(skip)
+            .Take(tamanho)
+            .ToListAsync(cancellationToken);
+
+        return (itens, total);
     }
 
     public async Task<IReadOnlyList<LancamentoCaixa>> ListarTodosPorCaixaAsync(
@@ -94,5 +102,52 @@ public class LancamentoCaixaRepository : Repository<LancamentoCaixa>, ILancament
         return await query
             .OrderByDescending(l => l.CreateAd)
             .ToListAsync(cancellationToken);
+    }
+
+    private IQueryable<LancamentoCaixa> AplicarFiltros(LancamentoCaixaFiltro filtro)
+    {
+        var query = DbSet
+            .AsNoTracking()
+            .Where(lancamento => lancamento.CaixaId == filtro.CaixaId);
+
+        if (filtro.Inicio.HasValue)
+        {
+            query = query.Where(lancamento => lancamento.CreateAd >= filtro.Inicio.Value);
+        }
+
+        if (filtro.Fim.HasValue)
+        {
+            query = query.Where(lancamento => lancamento.CreateAd < filtro.Fim.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filtro.Q))
+        {
+            var termo = filtro.Q.Trim();
+            query = query.Where(l =>
+                l.Descricao.Contains(termo)
+                || l.Id.ToString() == termo
+                || (l.AgendamentoId.HasValue && l.AgendamentoId.Value.ToString() == termo));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filtro.Tipo)
+            && Enum.TryParse<LancamentoCaixaTipo>(filtro.Tipo, true, out var tipo))
+        {
+            query = query.Where(l => l.Tipo == tipo);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filtro.Status))
+        {
+            var status = filtro.Status.Trim();
+            if (status.Equals("Estornada", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(l => l.Tipo == LancamentoCaixaTipo.Estorno);
+            }
+            else if (status.Equals("Ativa", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(l => l.Tipo != LancamentoCaixaTipo.Estorno);
+            }
+        }
+
+        return query;
     }
 }

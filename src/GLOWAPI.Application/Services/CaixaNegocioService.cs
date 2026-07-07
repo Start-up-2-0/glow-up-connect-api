@@ -50,7 +50,7 @@ public class CaixaNegocioService : ICaixaNegocioService
         return CaixaResumoResponseDto.From(caixa);
     }
 
-    public async Task<IReadOnlyList<LancamentoCaixaResponseDto>> ListarLancamentosAsync(
+    public async Task<LancamentoCaixaPaginadoResponseDto> ListarLancamentosAsync(
         int estabelecimentoId,
         LancamentoCaixaFiltroDto filtro,
         CancellationToken cancellationToken = default)
@@ -61,9 +61,20 @@ public class CaixaNegocioService : ICaixaNegocioService
             cancellationToken);
 
         var caixa = await ObterCaixaAsync(estabelecimentoId, cancellationToken);
-        var lancamentos = await _lancamentoCaixaRepository.ListarPorCaixaAsync(
-            new LancamentoCaixaFiltro(caixa.Id, filtro.Inicio, filtro.Fim),
+        var filtroInterno = new LancamentoCaixaFiltro(
+            caixa.Id,
+            filtro.Inicio,
+            filtro.Fim,
+            filtro.Q,
+            filtro.Tipo,
+            filtro.Status,
+            filtro.Pagina,
+            filtro.TamanhoPagina);
+
+        var (lancamentos, total) = await _lancamentoCaixaRepository.ListarPorCaixaPaginadoAsync(
+            filtroInterno,
             cancellationToken);
+
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.CaixaLancamentosConsultados,
@@ -74,11 +85,18 @@ public class CaixaNegocioService : ICaixaNegocioService
                 caixaId = caixa.Id,
                 filtro.Inicio,
                 filtro.Fim,
-                quantidade = lancamentos.Count
+                filtro.Pagina,
+                filtro.TamanhoPagina,
+                quantidade = lancamentos.Count,
+                total
             },
             cancellationToken);
 
-        return lancamentos.Select(LancamentoCaixaResponseDto.From).ToList();
+        return new LancamentoCaixaPaginadoResponseDto(
+            total,
+            Math.Max(1, filtro.Pagina),
+            Math.Clamp(filtro.TamanhoPagina, 1, 200),
+            lancamentos.Select(LancamentoCaixaResponseDto.From).ToList());
     }
 
     public async Task<LancamentoCaixaResponseDto> RegistrarAjusteManualAsync(

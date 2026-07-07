@@ -46,7 +46,7 @@ public class MatrizPermissaoNegocioServiceTests
         Assert.Contains(PermissaoNegocio.AtendimentoIniciar, permissoes);
         Assert.Contains(PermissaoNegocio.AtendimentoFinalizar, permissoes);
         Assert.Contains(PermissaoNegocio.ClienteVisualizarProprio, permissoes);
-        Assert.DoesNotContain(PermissaoNegocio.ComissaoVisualizarPropria, permissoes);
+        Assert.Contains(PermissaoNegocio.ComissaoVisualizarPropria, permissoes);
         Assert.DoesNotContain(PermissaoNegocio.AgendaVisualizarGeral, permissoes);
         Assert.DoesNotContain(PermissaoNegocio.ClienteVisualizarGeral, permissoes);
         Assert.DoesNotContain(PermissaoNegocio.CaixaVisualizar, permissoes);
