@@ -18,4 +18,13 @@ public class CaixaRepository : Repository<Caixa>, ICaixaRepository
             caixa => caixa.EstabelecimentoId == estabelecimentoId,
             cancellationToken);
     }
+
+    public Task<Caixa?> ObterPorEstabelecimentoComTrackingAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet.FirstOrDefaultAsync(
+            caixa => caixa.EstabelecimentoId == estabelecimentoId,
+            cancellationToken);
+    }
 }

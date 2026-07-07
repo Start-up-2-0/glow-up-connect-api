@@ -12,4 +12,15 @@ public interface ICaixaNegocioService
         int estabelecimentoId,
         LancamentoCaixaFiltroDto filtro,
         CancellationToken cancellationToken = default);
+
+    Task<LancamentoCaixaResponseDto> RegistrarAjusteManualAsync(
+        int estabelecimentoId,
+        RegistrarAjusteCaixaRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    Task<LancamentoCaixaResponseDto> EstornarLancamentoAsync(
+        int estabelecimentoId,
+        int lancamentoId,
+        EstornarLancamentoCaixaRequestDto request,
+        CancellationToken cancellationToken = default);
 }

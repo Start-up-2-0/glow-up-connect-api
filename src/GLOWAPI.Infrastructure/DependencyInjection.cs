@@ -73,6 +73,10 @@ public static class DependencyInjection
         services.AddScoped<ILancamentoCaixaRepository, LancamentoCaixaRepository>();
         services.AddScoped<IWebhookPagamentoRepository, WebhookPagamentoRepository>();
         services.AddScoped<IComissaoProfissionalRepository, ComissaoProfissionalRepository>();
+        services.AddScoped<ISessaoCaixaRepository, SessaoCaixaRepository>();
+        services.AddScoped<IContaReceberRepository, ContaReceberRepository>();
+        services.AddScoped<IContaPagarRepository, ContaPagarRepository>();
+        services.AddScoped<IConciliacaoItemRepository, ConciliacaoItemRepository>();
         services.AddScoped<IMetaProfissionalRepository, MetaProfissionalRepository>();
         services.AddScoped<ISessaoAutenticacaoRepository, SessaoAutenticacaoRepository>();
         services.AddScoped<ILogAutenticacaoRepository, LogAutenticacaoRepository>();

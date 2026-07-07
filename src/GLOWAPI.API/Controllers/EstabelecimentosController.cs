@@ -33,6 +33,8 @@ public class EstabelecimentosController : ControllerBase
     private readonly IDisponibilidadeAgendaService _disponibilidadeAgendaService;
     private readonly IAgendamentoNegocioService _agendamentoNegocioService;
     private readonly IFinanceiroNegocioService _financeiroNegocioService;
+    private readonly IRecebimentoAgendamentoService _recebimentoAgendamentoService;
+    private readonly ISessaoCaixaNegocioService _sessaoCaixaNegocioService;
     private readonly IClienteNegocioService _clienteNegocioService;
     private readonly IAuditoriaConsultaNegocioService _auditoriaConsultaNegocioService;
     private readonly IAvaliacaoResumoService _avaliacaoResumoService;
@@ -50,6 +52,8 @@ public class EstabelecimentosController : ControllerBase
         IDisponibilidadeAgendaService disponibilidadeAgendaService,
         IAgendamentoNegocioService agendamentoNegocioService,
         IFinanceiroNegocioService financeiroNegocioService,
+        IRecebimentoAgendamentoService recebimentoAgendamentoService,
+        ISessaoCaixaNegocioService sessaoCaixaNegocioService,
         IClienteNegocioService clienteNegocioService,
         IAuditoriaConsultaNegocioService auditoriaConsultaNegocioService,
         IAvaliacaoResumoService avaliacaoResumoService)
@@ -66,6 +70,8 @@ public class EstabelecimentosController : ControllerBase
         _disponibilidadeAgendaService = disponibilidadeAgendaService;
         _agendamentoNegocioService = agendamentoNegocioService;
         _financeiroNegocioService = financeiroNegocioService;
+        _recebimentoAgendamentoService = recebimentoAgendamentoService;
+        _sessaoCaixaNegocioService = sessaoCaixaNegocioService;
         _clienteNegocioService = clienteNegocioService;
         _auditoriaConsultaNegocioService = auditoriaConsultaNegocioService;
         _avaliacaoResumoService = avaliacaoResumoService;
@@ -535,6 +541,395 @@ public class EstabelecimentosController : ControllerBase
         return Ok(ApiSuccessResponse<IReadOnlyList<ComissaoProfissionalResponseDto>>.From(
             "Comissoes listadas com sucesso.",
             comissoes));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/caixa/lancamentos")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Caixa, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> RegistrarAjusteCaixa(
+        int estabelecimentoId,
+        [FromBody] RegistrarAjusteCaixaRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var lancamento = await _caixaNegocioService.RegistrarAjusteManualAsync(
+            estabelecimentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<LancamentoCaixaResponseDto>.From(
+            "Lancamento registrado com sucesso.",
+            lancamento));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/caixa/lancamentos/{lancamentoId:int}/estornar")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Caixa, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> EstornarLancamentoCaixa(
+        int estabelecimentoId,
+        int lancamentoId,
+        [FromBody] EstornarLancamentoCaixaRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var lancamento = await _caixaNegocioService.EstornarLancamentoAsync(
+            estabelecimentoId,
+            lancamentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<LancamentoCaixaResponseDto>.From(
+            "Lancamento estornado com sucesso.",
+            lancamento));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/caixa/sessoes/atual")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Caixa, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ObterSessaoCaixaAtual(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var sessao = await _sessaoCaixaNegocioService.ObterSessaoAtualAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<SessaoCaixaResponseDto>.From(
+            "Sessao de caixa obtida com sucesso.",
+            sessao));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/caixa/sessoes/abrir")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Caixa, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> AbrirSessaoCaixa(
+        int estabelecimentoId,
+        [FromBody] AbrirSessaoCaixaRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var sessao = await _sessaoCaixaNegocioService.AbrirSessaoAsync(
+            estabelecimentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<SessaoCaixaResponseDto>.From(
+            "Sessao de caixa aberta com sucesso.",
+            sessao));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/caixa/sessoes/{sessaoId:int}/fechar")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Caixa, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> FecharSessaoCaixa(
+        int estabelecimentoId,
+        int sessaoId,
+        [FromBody] FecharSessaoCaixaRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var sessao = await _sessaoCaixaNegocioService.FecharSessaoAsync(
+            estabelecimentoId,
+            sessaoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<SessaoCaixaResponseDto>.From(
+            "Sessao de caixa fechada com sucesso.",
+            sessao));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/financeiro/comissoes")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.ComissaoProfissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> CriarComissaoFinanceiro(
+        int estabelecimentoId,
+        [FromBody] CriarComissaoProfissionalRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var comissao = await _financeiroNegocioService.CriarComissaoAsync(
+            estabelecimentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ComissaoProfissionalResponseDto>.From(
+            "Comissao criada com sucesso.",
+            comissao));
+    }
+
+    [HttpPut("{estabelecimentoId:int}/financeiro/comissoes/{comissaoId:int}")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.ComissaoProfissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> AtualizarComissaoFinanceiro(
+        int estabelecimentoId,
+        int comissaoId,
+        [FromBody] AtualizarComissaoProfissionalRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var comissao = await _financeiroNegocioService.AtualizarComissaoAsync(
+            estabelecimentoId,
+            comissaoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ComissaoProfissionalResponseDto>.From(
+            "Comissao atualizada com sucesso.",
+            comissao));
+    }
+
+    [HttpPatch("{estabelecimentoId:int}/financeiro/comissoes/{comissaoId:int}/desativar")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.ComissaoProfissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> DesativarComissaoFinanceiro(
+        int estabelecimentoId,
+        int comissaoId,
+        CancellationToken cancellationToken)
+    {
+        await _financeiroNegocioService.DesativarComissaoAsync(
+            estabelecimentoId,
+            comissaoId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<object>.From(
+            "Comissao desativada com sucesso.",
+            new { comissaoId }));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/comissoes/minhas")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.ComissaoProfissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ComissaoVisualizarPropria, "estabelecimentoId")]
+    public async Task<IActionResult> ListarMinhasComissoes(
+        int estabelecimentoId,
+        [FromQuery] FinanceiroFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var extrato = await _financeiroNegocioService.ListarMinhasComissoesAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<ComissaoProfissionalExtratoDto>>.From(
+            "Extrato de comissoes obtido com sucesso.",
+            extrato));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/relatorios/analitico")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ObterRelatorioAnalitico(
+        int estabelecimentoId,
+        [FromQuery] FinanceiroFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var relatorio = await _financeiroNegocioService.ObterRelatorioAnaliticoAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<RelatorioAnaliticoResponseDto>.From(
+            "Relatorio analitico obtido com sucesso.",
+            relatorio));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/fluxo-caixa")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ObterFluxoCaixa(
+        int estabelecimentoId,
+        [FromQuery] FinanceiroFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var fluxo = await _financeiroNegocioService.ObterFluxoCaixaAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<FluxoCaixaResponseDto>.From(
+            "Fluxo de caixa obtido com sucesso.",
+            fluxo));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/relatorios/export")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ExportarRelatorioFinanceiro(
+        int estabelecimentoId,
+        [FromQuery] FinanceiroFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var csv = await _financeiroNegocioService.ExportarRelatorioCsvAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return File(
+            System.Text.Encoding.UTF8.GetBytes(csv),
+            "text/csv",
+            $"relatorio-financeiro-{estabelecimentoId}.csv");
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/contas-receber")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarContasReceber(
+        int estabelecimentoId,
+        [FromQuery] ContaFinanceiraStatus? status,
+        CancellationToken cancellationToken)
+    {
+        var contas = await _financeiroNegocioService.ListarContasReceberAsync(
+            estabelecimentoId,
+            status,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<ContaReceberResponseDto>>.From(
+            "Contas a receber listadas com sucesso.",
+            contas));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/financeiro/contas-receber")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> CriarContaReceber(
+        int estabelecimentoId,
+        [FromBody] CriarContaReceberRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var conta = await _financeiroNegocioService.CriarContaReceberAsync(
+            estabelecimentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ContaReceberResponseDto>.From(
+            "Conta a receber criada com sucesso.",
+            conta));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/financeiro/contas-receber/{contaId:int}/baixar")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> BaixarContaReceber(
+        int estabelecimentoId,
+        int contaId,
+        [FromBody] BaixarContaRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var conta = await _financeiroNegocioService.BaixarContaReceberAsync(
+            estabelecimentoId,
+            contaId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ContaReceberResponseDto>.From(
+            "Conta a receber baixada com sucesso.",
+            conta));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/contas-pagar")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarContasPagar(
+        int estabelecimentoId,
+        [FromQuery] ContaFinanceiraStatus? status,
+        CancellationToken cancellationToken)
+    {
+        var contas = await _financeiroNegocioService.ListarContasPagarAsync(
+            estabelecimentoId,
+            status,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<ContaPagarResponseDto>>.From(
+            "Contas a pagar listadas com sucesso.",
+            contas));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/financeiro/contas-pagar")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> CriarContaPagar(
+        int estabelecimentoId,
+        [FromBody] CriarContaPagarRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var conta = await _financeiroNegocioService.CriarContaPagarAsync(
+            estabelecimentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ContaPagarResponseDto>.From(
+            "Conta a pagar criada com sucesso.",
+            conta));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/financeiro/contas-pagar/{contaId:int}/baixar")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> BaixarContaPagar(
+        int estabelecimentoId,
+        int contaId,
+        [FromBody] BaixarContaRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var conta = await _financeiroNegocioService.BaixarContaPagarAsync(
+            estabelecimentoId,
+            contaId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ContaPagarResponseDto>.From(
+            "Conta a pagar baixada com sucesso.",
+            conta));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/conciliacao")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarConciliacao(
+        int estabelecimentoId,
+        [FromQuery] bool? conciliado,
+        CancellationToken cancellationToken)
+    {
+        var itens = await _financeiroNegocioService.ListarConciliacaoAsync(
+            estabelecimentoId,
+            conciliado,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<ConciliacaoItemResponseDto>>.From(
+            "Itens de conciliacao listados com sucesso.",
+            itens));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/financeiro/conciliacao/importar")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> ImportarConciliacao(
+        int estabelecimentoId,
+        [FromBody] ConciliacaoImportacaoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var itens = await _financeiroNegocioService.ImportarConciliacaoCsvAsync(
+            estabelecimentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<ConciliacaoItemResponseDto>>.From(
+            "Conciliacao importada com sucesso.",
+            itens));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/agendamentos/{agendamentoId:int}/receber")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Caixa, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> ReceberAgendamentoPresencial(
+        int estabelecimentoId,
+        int agendamentoId,
+        [FromBody] ReceberAgendamentoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await _recebimentoAgendamentoService.ReceberPresencialAsync(
+            estabelecimentoId,
+            agendamentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ReceberAgendamentoResponseDto>.From(
+            "Agendamento recebido com sucesso.",
+            resultado));
     }
 
     [HttpGet("{estabelecimentoId:int}/servicos")]

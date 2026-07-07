@@ -99,6 +99,11 @@ public class ExceptionMiddleware
                 WebhookWhatsAppNaoAutorizadoException => HttpStatusCode.Unauthorized,
                 LoginIpRateLimitException => HttpStatusCode.TooManyRequests,
                 HorarioIndisponivelException => HttpStatusCode.Conflict,
+                AgendamentoJaRecebidoException => HttpStatusCode.Conflict,
+                LancamentoCaixaInvalidoException
+                    or RecebimentoAgendamentoInvalidoException
+                    or ComissaoProfissionalInvalidaException
+                    or SessaoCaixaInvalidaException => HttpStatusCode.BadRequest,
                 UsuarioSemPermissaoAssinaturaException
                     or UsuarioSemPermissaoNegocioException
                     or UsuarioSemVinculoNegocioException
@@ -118,7 +123,8 @@ public class ExceptionMiddleware
                     or HorarioFuncionamentoNaoEncontradoException
                     or ProfissionalNegocioNaoEncontradoException
                     or ConviteNegocioNaoEncontradoException
-                    or AgendamentoNaoEncontradoException => HttpStatusCode.NotFound,
+                    or AgendamentoNaoEncontradoException
+                    or LancamentoCaixaNaoEncontradoException => HttpStatusCode.NotFound,
                 _ => HttpStatusCode.NotFound
             };
 

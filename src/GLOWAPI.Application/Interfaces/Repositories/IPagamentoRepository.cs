@@ -16,4 +16,8 @@ public interface IPagamentoRepository : IRepository<Pagamento>
     Task<IReadOnlyList<Pagamento>> ListarPorAssinaturaAsync(int assinaturaId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Pagamento>> ListarPendentesVencidosAsync(DateTime dataReferenciaUtc, CancellationToken cancellationToken = default);
+
+    Task<Pagamento?> ObterPagoPorAgendamentoAsync(
+        int agendamentoId,
+        CancellationToken cancellationToken = default);
 }

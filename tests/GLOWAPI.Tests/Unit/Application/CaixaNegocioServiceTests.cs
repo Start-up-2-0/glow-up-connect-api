@@ -153,10 +153,13 @@ public class CaixaNegocioServiceTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    private readonly Mock<IMovimentacaoCaixaService> _movimentacaoCaixaService = new();
+
     private CaixaNegocioService CreateService() =>
         new(
             _caixaRepository.Object,
             _lancamentoCaixaRepository.Object,
+            _movimentacaoCaixaService.Object,
             _autorizacaoNegocioService.Object,
             _auditoriaNegocioService.Object);
 }

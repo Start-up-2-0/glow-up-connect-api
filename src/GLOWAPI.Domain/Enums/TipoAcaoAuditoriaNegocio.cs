@@ -27,5 +27,18 @@ public enum TipoAcaoAuditoriaNegocio
     AgendamentoRemarcado = 23,
     AgendamentoConcluido = 24,
     AgendamentoNaoCompareceu = 25,
-    AvaliacaoCriada = 26
+    AvaliacaoCriada = 26,
+    CaixaLancamentoRegistrado = 32,
+    CaixaLancamentoEstornado = 33,
+    AgendamentoRecebidoPresencial = 34,
+    ComissaoRegraCriada = 35,
+    ComissaoRegraAlterada = 36,
+    ComissaoRegraDesativada = 37,
+    SessaoCaixaAberta = 38,
+    SessaoCaixaFechada = 39,
+    ContaReceberCriada = 40,
+    ContaReceberBaixada = 41,
+    ContaPagarCriada = 42,
+    ContaPagarBaixada = 43,
+    ConciliacaoImportada = 44
 }

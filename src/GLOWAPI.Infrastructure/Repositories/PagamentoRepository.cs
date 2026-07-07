@@ -66,4 +66,14 @@ public class PagamentoRepository : Repository<Pagamento>, IPagamentoRepository
                 && pagamento.DataVencimento.HasValue
                 && pagamento.DataVencimento.Value.Date < dataReferenciaUtc.Date)
             .ToListAsync(cancellationToken);
+
+    public Task<Pagamento?> ObterPagoPorAgendamentoAsync(
+        int agendamentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet.AsNoTracking().FirstOrDefaultAsync(
+            pagamento => pagamento.AgendamentoId == agendamentoId
+                && pagamento.Status == PagamentoStatus.Pago,
+            cancellationToken);
+    }
 }

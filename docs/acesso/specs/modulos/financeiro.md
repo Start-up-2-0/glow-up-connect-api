@@ -7,45 +7,57 @@
 
 ## Objetivo
 
-Fluxo financeiro completo do negocio: relatorios, metricas, historico financeiro e operacoes de gestao alem da visualizacao de caixa.
+Fluxo financeiro operacional do negocio: caixa, recebimento presencial, comissoes, relatorios, contas a pagar/receber e conciliacao basica.
 
-## Funcionalidades comerciais (catalogo)
+## Funcionalidades implementadas
 
-- Fluxo financeiro
-- Relatorios financeiros
-- Dashboard avancado
-- Metricas do estabelecimento
-- Historico financeiro
+- Motor de movimentacao de caixa (`MovimentacaoCaixaService`) com recalculo de saldos
+- Recebimento presencial de agendamentos (`POST /agendamentos/{id}/receber`)
+- Sangria e reforco (`POST /caixa/lancamentos`)
+- Estornos (`POST /caixa/lancamentos/{id}/estornar`)
+- Sessao de caixa (abrir/fechar)
+- CRUD de regras de comissao + calculo automatico no recebimento
+- Extrato do profissional (`GET /financeiro/comissoes/minhas`)
+- Relatorios analiticos, fluxo de caixa e export CSV
+- Contas a pagar/receber com baixa vinculada ao caixa
+- Conciliacao por importacao de linhas de extrato
+- Painel da rede com faturamento por unidade
 
-## Enforcement
+## Endpoints principais
 
-- **Catalogo:** incluido no Premium; aparece em `modulos[]`.
-- **HTTP:** **sem** `[RequerModuloAssinatura(Financeiro)]` hoje — endpoints dedicados ainda nao expostos.
-- Caixa (subconjunto) ja protegido pelo modulo `Caixa`.
+| Metodo | Rota | Permissao |
+|--------|------|-----------|
+| GET | `/caixa`, `/caixa/lancamentos` | `CaixaVisualizar` |
+| POST | `/caixa/lancamentos` | `CaixaGerenciar` |
+| POST | `/caixa/lancamentos/{id}/estornar` | `CaixaGerenciar` |
+| POST | `/agendamentos/{id}/receber` | `CaixaGerenciar` |
+| GET/POST | `/caixa/sessoes/*` | visualizar / gerenciar |
+| GET/POST/PUT/PATCH | `/financeiro/comissoes*` | visualizar / gerenciar |
+| GET | `/financeiro/comissoes/minhas` | `ComissaoVisualizarPropria` |
+| GET | `/financeiro/relatorios*`, `/financeiro/fluxo-caixa` | `CaixaVisualizar` |
+| GET/POST | `/financeiro/contas-receber*`, `/financeiro/contas-pagar*` | visualizar / gerenciar |
+| POST | `/financeiro/conciliacao/importar` | `CaixaGerenciar` |
 
-## Endpoints planejados
+## Permissoes
 
-| Area | Status |
-|------|--------|
-| GET `/caixa` | Implementado (modulo Caixa) |
-| Relatorios financeiros | Planejado |
-| Dashboard avancado | Planejado |
-| Gestao de lancamentos (POST) | Planejado |
+- `CaixaVisualizar` — leitura de caixa e relatorios
+- `CaixaGerenciar` — Owner/Admin; escritas financeiras
+- `ComissaoVisualizarPropria` — profissional; extrato proprio
 
-## Permissoes previstas
+## Auditoria
 
-- `CaixaVisualizar` — leitura
-- `CaixaGerenciar` — Owner; operacoes de escrita
+Escritas financeiras registram acoes em `TipoAcaoAuditoriaNegocio` (valores 32+).
 
-## Limites
+## Migration
 
-Nenhum.
+`ModuloFinanceiroCompleto` — entidades `SessaoCaixa`, `ContaReceber`, `ContaPagar`, `ConciliacaoItem` e campos extras em `LancamentoCaixa`/`Caixa`.
 
 ## Status
 
-**Planejado** — modulo no catalogo e API de planos; enforcement HTTP dedicado **pendente**.
+**Implementado** — API e app com fluxo operacional ponta a ponta.
 
 ## Codigo de referencia
 
-- `PlanoComercialCatalogo.ModulosPremium`
-- `docs/acesso/planos/plano-premium.md`
+- `MovimentacaoCaixaService`, `RecebimentoAgendamentoService`, `FinanceiroNegocioService`
+- `EstabelecimentosController` (rotas `/caixa` e `/financeiro`)
+- App: `caixaService.ts`, views em `src/views/modulos/financeiro/`

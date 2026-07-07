@@ -25,6 +25,13 @@ public class LancamentoCaixaConfiguration : IEntityTypeConfiguration<LancamentoC
         builder.Property(lancamento => lancamento.Descricao)
             .HasMaxLength(500);
 
+        builder.Property(lancamento => lancamento.ConciliacaoStatus)
+            .HasConversion(
+                status => status.ToString(),
+                status => Enum.Parse<ConciliacaoStatus>(status))
+            .HasMaxLength(20)
+            .HasDefaultValue(ConciliacaoStatus.Pendente);
+
         builder.Property(lancamento => lancamento.CreateAd)
             .IsRequired();
 
@@ -46,6 +53,16 @@ public class LancamentoCaixaConfiguration : IEntityTypeConfiguration<LancamentoC
         builder.HasOne(lancamento => lancamento.Profissional)
             .WithMany()
             .HasForeignKey(lancamento => lancamento.ProfissionalId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(lancamento => lancamento.LancamentoOriginal)
+            .WithMany()
+            .HasForeignKey(lancamento => lancamento.LancamentoOriginalId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(lancamento => lancamento.SessaoCaixa)
+            .WithMany(sessao => sessao.Lancamentos)
+            .HasForeignKey(lancamento => lancamento.SessaoCaixaId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(lancamento => lancamento.CaixaId);

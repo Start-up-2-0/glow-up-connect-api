@@ -71,7 +71,8 @@ public class MatrizPermissaoNegocioService : IMatrizPermissaoNegocioService
         PermissaoNegocio.AtendimentoVisualizarProprio,
         PermissaoNegocio.AtendimentoIniciar,
         PermissaoNegocio.AtendimentoFinalizar,
-        PermissaoNegocio.ClienteVisualizarProprio
+        PermissaoNegocio.ClienteVisualizarProprio,
+        PermissaoNegocio.ComissaoVisualizarPropria
     };
 
     public IReadOnlySet<PermissaoNegocio> ObterPermissoes(
