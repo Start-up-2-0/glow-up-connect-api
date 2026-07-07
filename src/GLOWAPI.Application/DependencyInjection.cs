@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<IRecebimentoAgendamentoService, RecebimentoAgendamentoService>();
         services.AddScoped<ISessaoCaixaNegocioService, SessaoCaixaNegocioService>();
         services.AddScoped<IFinanceiroNegocioService, FinanceiroNegocioService>();
+        services.AddScoped<IMovimentosFinanceirosService, MovimentosFinanceirosService>();
         services.AddScoped<IProfissionalServicoNegocioService, ProfissionalServicoNegocioService>();
         services.AddScoped<IServicoNegocioService, ServicoNegocioService>();
         services.AddScoped<IServicoProfissionalAutonomoService, ServicoProfissionalAutonomoService>();

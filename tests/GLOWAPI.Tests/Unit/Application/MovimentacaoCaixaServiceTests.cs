@@ -1,4 +1,5 @@
 using GLOWAPI.Application.Interfaces.Repositories;
+using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Caixa;
 using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
@@ -13,6 +14,12 @@ public class MovimentacaoCaixaServiceTests
     private readonly Mock<ICaixaRepository> _caixaRepository = new();
     private readonly Mock<ILancamentoCaixaRepository> _lancamentoCaixaRepository = new();
     private readonly Mock<ISessaoCaixaRepository> _sessaoCaixaRepository = new();
+    private readonly Mock<ICurrentUserContext> _currentUserContext = new();
+
+    public MovimentacaoCaixaServiceTests()
+    {
+        _currentUserContext.Setup(c => c.UserId).Returns(1);
+    }
 
     [Fact]
     public async Task RegistrarLancamentoAsync_DeveCriarLancamentoERecalcularSaldo()
@@ -80,5 +87,6 @@ public class MovimentacaoCaixaServiceTests
         new(
             _caixaRepository.Object,
             _lancamentoCaixaRepository.Object,
-            _sessaoCaixaRepository.Object);
+            _sessaoCaixaRepository.Object,
+            _currentUserContext.Object);
 }

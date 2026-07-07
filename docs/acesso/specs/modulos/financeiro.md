@@ -7,41 +7,54 @@
 
 ## Objetivo
 
-Fluxo financeiro operacional do negocio: caixa, recebimento presencial, comissoes, relatorios, contas a pagar/receber, conciliacao e busca unificada.
+Fluxo financeiro operacional do negocio em torno de **Entradas**, **Saídas** e **Comissões**: dashboard enxuto, listas unificadas, recebimento presencial na agenda, relatorios e ferramentas avancadas (conciliacao, painel da rede).
+
+## Modelo unificado (UI)
+
+`MovimentoFinanceiro` agrega lancamentos de caixa e contas a pagar/receber:
+
+- `id`: `lancamento:{id}` ou `conta:{id}`
+- `direcao`: `entrada` | `saida`
+- `status`: `recebido` | `pago` | `pendente` | `vencido` | `estornado` | `cancelado`
+- `origem`: `atendimento` | `manual` | `conta` | `pagamento_online` | `comissao`
 
 ## Funcionalidades implementadas
 
 - Motor de movimentacao de caixa (`MovimentacaoCaixaService`) com recalculo de saldos
-- Recebimento presencial de agendamentos (`POST /agendamentos/{id}/receber`)
-- Sangria e reforco (`POST /caixa/lancamentos`)
-- Estornos (`POST /caixa/lancamentos/{id}/estornar`)
-- Sessao de caixa (abrir/fechar)
+- **Sessao de caixa automatica** quando `ExigirSessaoCaixaAberta` e nao ha sessao aberta (invisivel na UI)
+- Endpoints agregadores de entradas/saidas (`MovimentosFinanceirosService`)
+- Dashboard com 6 KPIs (`GET /financeiro/dashboard`)
+- Recebimento presencial de agendamentos (`POST /agendamentos/{id}/receber`) — permanece na Agenda
 - CRUD de regras de comissao + calculo automatico no recebimento
 - Extrato do profissional (`GET /financeiro/comissoes/minhas`)
-- Relatorios analiticos, fluxo de caixa e export CSV/Excel/PDF
-- Busca unificada (`GET /financeiro/busca`)
-- Contas a pagar/receber com baixa vinculada ao caixa e cancelamento
+- Relatorios analiticos e export CSV/Excel/PDF
+- Contas a pagar/receber (legado) com baixa vinculada ao caixa
 - Conciliacao por importacao de linhas de extrato
 - Painel da rede com faturamento por unidade
 - Pagamento via webhook gera lancamento de caixa (`EntradaAgendamento`)
-- Job diario marca contas vencidas (`ContasVencimentoBackgroundService`)
 
-## Endpoints principais
+## Endpoints principais (novos agregadores)
 
 | Metodo | Rota | Permissao |
 |--------|------|-----------|
-| GET | `/caixa`, `/caixa/lancamentos` (paginado) | `CaixaVisualizar` |
-| POST | `/caixa/lancamentos` | `CaixaGerenciar` |
-| POST | `/caixa/lancamentos/{id}/estornar` | `CaixaGerenciar` |
+| GET | `/financeiro/dashboard` | `CaixaVisualizar` |
+| GET | `/financeiro/entradas` | `CaixaVisualizar` |
+| POST | `/financeiro/entradas` | `CaixaGerenciar` |
+| PATCH | `/financeiro/entradas/{id}/receber` | `CaixaGerenciar` |
+| GET | `/financeiro/saidas` | `CaixaVisualizar` |
+| POST | `/financeiro/saidas` | `CaixaGerenciar` |
+| PATCH | `/financeiro/saidas/{id}/pagar` | `CaixaGerenciar` |
+
+## Endpoints legados (compatibilidade)
+
+| Metodo | Rota | Permissao |
+|--------|------|-----------|
+| GET | `/caixa`, `/caixa/lancamentos` | `CaixaVisualizar` |
+| POST | `/caixa/lancamentos`, `/caixa/lancamentos/{id}/estornar` | `CaixaGerenciar` |
 | POST | `/agendamentos/{id}/receber` | `CaixaGerenciar` |
-| GET/POST | `/caixa/sessoes/*` | visualizar / gerenciar |
 | GET/POST/PUT/PATCH | `/financeiro/comissoes*` | visualizar / gerenciar |
-| GET | `/financeiro/comissoes/minhas` | `ComissaoVisualizarPropria` |
 | GET | `/financeiro/relatorios*`, `/financeiro/fluxo-caixa` | `CaixaVisualizar` |
-| GET | `/financeiro/relatorios/export?formato=csv\|xlsx\|pdf` | `CaixaVisualizar` |
-| GET | `/financeiro/busca` | `CaixaVisualizar` |
-| GET/POST/PATCH | `/financeiro/contas-receber*` | visualizar / gerenciar |
-| GET/POST/PATCH | `/financeiro/contas-pagar*` | visualizar / gerenciar |
+| GET/POST/PATCH | `/financeiro/contas-receber*`, `/financeiro/contas-pagar*` | visualizar / gerenciar |
 | GET/POST | `/financeiro/conciliacao*` | visualizar / gerenciar |
 
 ## Permissoes
@@ -50,20 +63,22 @@ Fluxo financeiro operacional do negocio: caixa, recebimento presencial, comissoe
 - `CaixaGerenciar` — Owner/Admin; escritas financeiras
 - `ComissaoVisualizarPropria` — profissional; extrato proprio
 
-## Auditoria
+## App (menu)
 
-Escritas financeiras registram acoes em `TipoAcaoAuditoriaNegocio` (valores 32+).
+- Visao geral (`/financeiro`)
+- Entradas (`/financeiro/entradas`)
+- Saidas (`/financeiro/saidas`)
+- Comissoes (`/financeiro/comissoes`)
+- Relatorios (`/financeiro/relatorios`) — inclui Conciliacao e Painel da rede em secao Avancado
 
-## Migration
-
-`ModuloFinanceiroCompleto` — entidades `SessaoCaixa`, `ContaReceber`, `ContaPagar`, `ConciliacaoItem` e campos extras em `LancamentoCaixa`/`Caixa`.
-
-## Status
-
-**Implementado** — API e app com fluxo operacional ponta a ponta, dashboard com graficos, busca global e exportacoes.
+Redirects legados: `/financeiro/caixa` e `/financeiro/movimentacoes` → entradas; `/financeiro/contas` → entradas/saidas pendentes; `/financeiro/conciliacao` e `/financeiro/rede` → relatorios.
 
 ## Codigo de referencia
 
-- `MovimentacaoCaixaService`, `RecebimentoAgendamentoService`, `FinanceiroNegocioService`, `WebhookPagamentoService`
-- `EstabelecimentosController` (rotas `/caixa` e `/financeiro`)
-- App: `caixaService.ts`, views em `src/views/modulos/financeiro/`, componentes em `src/components/financeiro/`
+- `MovimentosFinanceirosService`, `MovimentacaoCaixaService`, `FinanceiroNegocioService`
+- `EstabelecimentosController` (rotas `/financeiro/entradas`, `/financeiro/saidas`, `/financeiro/dashboard`)
+- App: `financeiroService.ts`, `financeiro.types.ts`, views em `src/views/modulos/financeiro/`
+
+## Status
+
+**Implementado** — reforma Entradas/Saidas/Comissoes com API agregadora e UI simplificada.

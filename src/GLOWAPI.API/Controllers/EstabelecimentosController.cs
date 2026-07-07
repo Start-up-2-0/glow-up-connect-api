@@ -33,6 +33,7 @@ public class EstabelecimentosController : ControllerBase
     private readonly IDisponibilidadeAgendaService _disponibilidadeAgendaService;
     private readonly IAgendamentoNegocioService _agendamentoNegocioService;
     private readonly IFinanceiroNegocioService _financeiroNegocioService;
+    private readonly IMovimentosFinanceirosService _movimentosFinanceirosService;
     private readonly IRecebimentoAgendamentoService _recebimentoAgendamentoService;
     private readonly ISessaoCaixaNegocioService _sessaoCaixaNegocioService;
     private readonly IClienteNegocioService _clienteNegocioService;
@@ -52,6 +53,7 @@ public class EstabelecimentosController : ControllerBase
         IDisponibilidadeAgendaService disponibilidadeAgendaService,
         IAgendamentoNegocioService agendamentoNegocioService,
         IFinanceiroNegocioService financeiroNegocioService,
+        IMovimentosFinanceirosService movimentosFinanceirosService,
         IRecebimentoAgendamentoService recebimentoAgendamentoService,
         ISessaoCaixaNegocioService sessaoCaixaNegocioService,
         IClienteNegocioService clienteNegocioService,
@@ -70,6 +72,7 @@ public class EstabelecimentosController : ControllerBase
         _disponibilidadeAgendaService = disponibilidadeAgendaService;
         _agendamentoNegocioService = agendamentoNegocioService;
         _financeiroNegocioService = financeiroNegocioService;
+        _movimentosFinanceirosService = movimentosFinanceirosService;
         _recebimentoAgendamentoService = recebimentoAgendamentoService;
         _sessaoCaixaNegocioService = sessaoCaixaNegocioService;
         _clienteNegocioService = clienteNegocioService;
@@ -781,6 +784,136 @@ public class EstabelecimentosController : ControllerBase
         return Ok(ApiSuccessResponse<FinanceiroBuscaResponseDto>.From(
             "Busca financeira realizada com sucesso.",
             resultado));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/dashboard")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ObterFinanceiroDashboard(
+        int estabelecimentoId,
+        [FromQuery] FinanceiroFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var dashboard = await _movimentosFinanceirosService.ObterDashboardAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<FinanceiroDashboardResponseDto>.From(
+            "Dashboard financeiro obtido com sucesso.",
+            dashboard));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/entradas")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarEntradasFinanceiras(
+        int estabelecimentoId,
+        [FromQuery] MovimentosFinanceirosFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await _movimentosFinanceirosService.ListarEntradasAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<MovimentosFinanceirosPaginadoResponseDto>.From(
+            "Entradas listadas com sucesso.",
+            resultado));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/financeiro/entradas")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> CriarEntradaFinanceira(
+        int estabelecimentoId,
+        [FromBody] CriarMovimentoFinanceiroRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var movimento = await _movimentosFinanceirosService.CriarEntradaAsync(
+            estabelecimentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<MovimentoFinanceiroResponseDto>.From(
+            "Entrada registrada com sucesso.",
+            movimento));
+    }
+
+    [HttpPatch("{estabelecimentoId:int}/financeiro/entradas/{movimentoId}/receber")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> MarcarEntradaRecebida(
+        int estabelecimentoId,
+        string movimentoId,
+        [FromBody] BaixarContaRequestDto? request,
+        CancellationToken cancellationToken)
+    {
+        var movimento = await _movimentosFinanceirosService.MarcarEntradaRecebidaAsync(
+            estabelecimentoId,
+            movimentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<MovimentoFinanceiroResponseDto>.From(
+            "Entrada marcada como recebida.",
+            movimento));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/saidas")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarSaidasFinanceiras(
+        int estabelecimentoId,
+        [FromQuery] MovimentosFinanceirosFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await _movimentosFinanceirosService.ListarSaidasAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<MovimentosFinanceirosPaginadoResponseDto>.From(
+            "Saidas listadas com sucesso.",
+            resultado));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/financeiro/saidas")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> CriarSaidaFinanceira(
+        int estabelecimentoId,
+        [FromBody] CriarMovimentoFinanceiroRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var movimento = await _movimentosFinanceirosService.CriarSaidaAsync(
+            estabelecimentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<MovimentoFinanceiroResponseDto>.From(
+            "Saida registrada com sucesso.",
+            movimento));
+    }
+
+    [HttpPatch("{estabelecimentoId:int}/financeiro/saidas/{movimentoId}/pagar")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Financeiro, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> MarcarSaidaPaga(
+        int estabelecimentoId,
+        string movimentoId,
+        [FromBody] BaixarContaRequestDto? request,
+        CancellationToken cancellationToken)
+    {
+        var movimento = await _movimentosFinanceirosService.MarcarSaidaPagaAsync(
+            estabelecimentoId,
+            movimentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<MovimentoFinanceiroResponseDto>.From(
+            "Saida marcada como paga.",
+            movimento));
     }
 
     [HttpGet("{estabelecimentoId:int}/financeiro/contas-receber")]

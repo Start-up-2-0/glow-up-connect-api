@@ -12,15 +12,18 @@ public class MovimentacaoCaixaService : IMovimentacaoCaixaService
     private readonly ICaixaRepository _caixaRepository;
     private readonly ILancamentoCaixaRepository _lancamentoCaixaRepository;
     private readonly ISessaoCaixaRepository _sessaoCaixaRepository;
+    private readonly ICurrentUserContext _currentUserContext;
 
     public MovimentacaoCaixaService(
         ICaixaRepository caixaRepository,
         ILancamentoCaixaRepository lancamentoCaixaRepository,
-        ISessaoCaixaRepository sessaoCaixaRepository)
+        ISessaoCaixaRepository sessaoCaixaRepository,
+        ICurrentUserContext currentUserContext)
     {
         _caixaRepository = caixaRepository;
         _lancamentoCaixaRepository = lancamentoCaixaRepository;
         _sessaoCaixaRepository = sessaoCaixaRepository;
+        _currentUserContext = currentUserContext;
     }
 
     public async Task<LancamentoCaixa> RegistrarLancamentoAsync(
@@ -47,8 +50,7 @@ public class MovimentacaoCaixaService : IMovimentacaoCaixaService
 
             if (sessaoAberta is null)
             {
-                throw new SessaoCaixaInvalidaException(
-                    "E necessario abrir uma sessao de caixa antes de registrar lancamentos.");
+                sessaoAberta = await AbrirSessaoAutomaticaAsync(caixa, cancellationToken);
             }
 
             comando = comando with { SessaoCaixaId = sessaoAberta.Id };
@@ -128,5 +130,31 @@ public class MovimentacaoCaixaService : IMovimentacaoCaixaService
         {
             throw new LancamentoCaixaInvalidoException("Tipo de lancamento nao suportado.");
         }
+    }
+
+    private async Task<SessaoCaixa> AbrirSessaoAutomaticaAsync(
+        Caixa caixa,
+        CancellationToken cancellationToken)
+    {
+        if (!_currentUserContext.UserId.HasValue)
+        {
+            throw new SessaoCaixaInvalidaException(
+                "Nao foi possivel abrir sessao de caixa automaticamente sem usuario autenticado.");
+        }
+
+        var sessao = new SessaoCaixa
+        {
+            CaixaId = caixa.Id,
+            UsuarioId = _currentUserContext.UserId.Value,
+            AbertoEm = DateTime.UtcNow,
+            SaldoInicial = caixa.SaldoDisponivel,
+            Status = SessaoCaixaStatus.Aberta,
+            CreateAd = DateTime.UtcNow
+        };
+
+        await _sessaoCaixaRepository.AdicionarAsync(sessao, cancellationToken);
+        await _sessaoCaixaRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        return sessao;
     }
 }
