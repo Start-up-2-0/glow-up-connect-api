@@ -21,10 +21,11 @@ ENV ASPNETCORE_URLS=http://0.0.0.0:8080
 EXPOSE 8080
 
 COPY --from=build /app/publish .
-COPY scripts/railway-entrypoint.sh ./railway-entrypoint.sh
-RUN chmod +x ./railway-entrypoint.sh \
-    && chown appuser:appuser ./railway-entrypoint.sh
+COPY scripts/railway-entrypoint.sh ./scripts/railway-entrypoint.sh
+COPY scripts/railway-predeploy.sh ./scripts/railway-predeploy.sh
+RUN chmod +x ./scripts/railway-entrypoint.sh ./scripts/railway-predeploy.sh \
+    && chown -R appuser:appuser ./scripts
 
 USER appuser
 
-ENTRYPOINT ["./railway-entrypoint.sh"]
+ENTRYPOINT ["./scripts/railway-entrypoint.sh"]

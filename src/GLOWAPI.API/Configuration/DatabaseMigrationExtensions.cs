@@ -5,10 +5,10 @@ namespace GLOWAPI.API.Configuration;
 
 public static class DatabaseMigrationExtensions
 {
-    public static async Task ApplyPendingMigrationsAsync(this WebApplication app)
+    public static async Task ApplyPendingMigrationsAsync(this WebApplication app, bool force = false)
     {
         var environment = app.Environment;
-        var applyOnStartup = app.Configuration.GetValue(
+        var applyOnStartup = force || app.Configuration.GetValue(
             "Database:ApplyMigrationsOnStartup",
             environment.IsStaging() || environment.IsProduction());
 

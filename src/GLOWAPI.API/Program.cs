@@ -115,7 +115,15 @@ else
         mtlsStartup.PublicPort);
 }
 
-await app.ApplyPendingMigrationsAsync();
+var migrateOnly = args.Any(static a => string.Equals(a, "--migrate-only", StringComparison.OrdinalIgnoreCase));
+
+await app.ApplyPendingMigrationsAsync(force: migrateOnly);
+
+if (migrateOnly)
+{
+    app.Logger.LogInformation("Modo --migrate-only concluido; encerrando sem iniciar a API.");
+    return;
+}
 
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseMiddleware<PublicPortPathGuardMiddleware>();
