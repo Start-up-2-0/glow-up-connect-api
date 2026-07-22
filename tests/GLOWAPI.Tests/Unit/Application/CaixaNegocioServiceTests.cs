@@ -36,7 +36,7 @@ public class CaixaNegocioServiceTests
     public async Task ObterResumoAsync_DeveAutorizarERetornarSaldos()
     {
         _caixaRepository
-            .Setup(r => r.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterOuProvisionarPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Caixa
             {
                 Id = 30,
@@ -84,21 +84,30 @@ public class CaixaNegocioServiceTests
             service.ObterResumoAsync(20));
 
         _caixaRepository.Verify(
-            r => r.ObterPorEstabelecimentoAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            r => r.ObterOuProvisionarPorEstabelecimentoAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
     [Fact]
-    public async Task ObterResumoAsync_DeveLancarExcecao_QuandoCaixaNaoExistir()
+    public async Task ObterResumoAsync_DeveProvisionarCaixa_QuandoNaoExistir()
     {
         _caixaRepository
-            .Setup(r => r.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Caixa?)null);
+            .Setup(r => r.ObterOuProvisionarPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Caixa
+            {
+                Id = 30,
+                EstabelecimentoId = 20,
+                SaldoTotal = 0,
+                SaldoDisponivel = 0,
+                SaldoRetido = 0
+            });
 
         var service = CreateService();
 
-        await Assert.ThrowsAsync<CaixaNegocioNaoEncontradoException>(() =>
-            service.ObterResumoAsync(20));
+        var response = await service.ObterResumoAsync(20);
+
+        Assert.Equal(30, response.Id);
+        Assert.Equal(0, response.SaldoTotal);
     }
 
     [Fact]
@@ -109,7 +118,7 @@ public class CaixaNegocioServiceTests
         LancamentoCaixaFiltro? filtroCapturado = null;
 
         _caixaRepository
-            .Setup(r => r.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterOuProvisionarPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Caixa { Id = 30, EstabelecimentoId = 20 });
         _lancamentoCaixaRepository
             .Setup(r => r.ListarPorCaixaPaginadoAsync(It.IsAny<LancamentoCaixaFiltro>(), It.IsAny<CancellationToken>()))

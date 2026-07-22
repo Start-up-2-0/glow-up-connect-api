@@ -1128,14 +1128,8 @@ public class FinanceiroNegocioService : IFinanceiroNegocioService
 
     private async Task<Caixa> ObterCaixaAsync(
         int estabelecimentoId,
-        CancellationToken cancellationToken)
-    {
-        var caixa = await _caixaRepository.ObterPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
-        if (caixa is null)
-        {
-            throw new CaixaNegocioNaoEncontradoException();
-        }
-
-        return caixa;
-    }
+        CancellationToken cancellationToken) =>
+        await _caixaRepository.ObterOuProvisionarPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
 }

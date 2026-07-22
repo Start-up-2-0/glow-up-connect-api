@@ -479,16 +479,10 @@ public class MovimentosFinanceirosService : IMovimentosFinanceirosService
                 false));
     }
 
-    private async Task<Caixa> ObterCaixaAsync(int estabelecimentoId, CancellationToken cancellationToken)
-    {
-        var caixa = await _caixaRepository.ObterPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
-        if (caixa is null)
-        {
-            throw new CaixaNegocioNaoEncontradoException();
-        }
-
-        return caixa;
-    }
+    private async Task<Caixa> ObterCaixaAsync(int estabelecimentoId, CancellationToken cancellationToken) =>
+        await _caixaRepository.ObterOuProvisionarPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
 
     private static void ValidarCriacao(CriarMovimentoFinanceiroRequestDto request)
     {

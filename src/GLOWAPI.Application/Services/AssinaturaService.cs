@@ -818,7 +818,8 @@ public class AssinaturaService : IAssinaturaService
                 OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Telefone, "Telefone do estabelecimento", 20, CriarExcecao)),
             Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Email, "Email do estabelecimento", 255, CriarExcecao),
             Ativo = true,
-            Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao)
+            Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao),
+            Caixa = new Caixa()
         };
     }
 

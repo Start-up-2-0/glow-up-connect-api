@@ -33,7 +33,7 @@ public class MovimentacaoCaixaServiceTests
         };
 
         _caixaRepository
-            .Setup(r => r.ObterPorEstabelecimentoComTrackingAsync(20, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterOuProvisionarPorEstabelecimentoComTrackingAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(caixa);
 
         _caixaRepository
@@ -67,6 +67,51 @@ public class MovimentacaoCaixaServiceTests
         _lancamentoCaixaRepository.Verify(r => r.AdicionarAsync(
             It.IsAny<LancamentoCaixa>(),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RegistrarLancamentoAsync_DeveProvisionarCaixa_QuandoNaoExistir()
+    {
+        var caixa = new Caixa
+        {
+            Id = 1,
+            EstabelecimentoId = 20,
+            SaldoTotal = 0,
+            SaldoDisponivel = 0
+        };
+
+        _caixaRepository
+            .Setup(r => r.ObterOuProvisionarPorEstabelecimentoComTrackingAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(caixa);
+
+        _caixaRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(caixa);
+
+        _lancamentoCaixaRepository
+            .Setup(r => r.ListarTodosPorCaixaAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<LancamentoCaixa>
+            {
+                new()
+                {
+                    Id = 10,
+                    CaixaId = 1,
+                    Tipo = LancamentoCaixaTipo.Saque,
+                    Valor = 500,
+                    CreateAd = DateTime.UtcNow
+                }
+            });
+
+        var service = CreateService();
+        var lancamento = await service.RegistrarLancamentoAsync(
+            20,
+            new RegistrarLancamentoCaixaComando(
+                LancamentoCaixaTipo.Saque,
+                500,
+                "Pagamento Aluguel"));
+
+        Assert.Equal(LancamentoCaixaTipo.Saque, lancamento.Tipo);
+        Assert.Equal(-500, caixa.SaldoTotal);
     }
 
     [Fact]

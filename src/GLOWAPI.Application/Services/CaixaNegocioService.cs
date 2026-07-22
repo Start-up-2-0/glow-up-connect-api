@@ -207,17 +207,8 @@ public class CaixaNegocioService : ICaixaNegocioService
 
     private async Task<GLOWAPI.Domain.Entities.Caixa> ObterCaixaAsync(
         int estabelecimentoId,
-        CancellationToken cancellationToken)
-    {
-        var caixa = await _caixaRepository.ObterPorEstabelecimentoAsync(
+        CancellationToken cancellationToken) =>
+        await _caixaRepository.ObterOuProvisionarPorEstabelecimentoAsync(
             estabelecimentoId,
             cancellationToken);
-
-        if (caixa is null)
-        {
-            throw new CaixaNegocioNaoEncontradoException();
-        }
-
-        return caixa;
-    }
 }

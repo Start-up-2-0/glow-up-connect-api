@@ -33,14 +33,9 @@ public class MovimentacaoCaixaService : IMovimentacaoCaixaService
     {
         ValidarComando(comando);
 
-        var caixa = await _caixaRepository.ObterPorEstabelecimentoComTrackingAsync(
+        var caixa = await _caixaRepository.ObterOuProvisionarPorEstabelecimentoComTrackingAsync(
             estabelecimentoId,
             cancellationToken);
-
-        if (caixa is null)
-        {
-            throw new CaixaNegocioNaoEncontradoException();
-        }
 
         if (caixa.ExigirSessaoCaixaAberta)
         {

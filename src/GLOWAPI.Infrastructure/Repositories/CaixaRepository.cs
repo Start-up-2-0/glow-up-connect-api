@@ -27,4 +27,40 @@ public class CaixaRepository : Repository<Caixa>, ICaixaRepository
             caixa => caixa.EstabelecimentoId == estabelecimentoId,
             cancellationToken);
     }
+
+    public async Task<Caixa> ObterOuProvisionarPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        var caixa = await ObterPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
+        if (caixa is not null)
+        {
+            return caixa;
+        }
+
+        return await ObterOuProvisionarPorEstabelecimentoComTrackingAsync(
+            estabelecimentoId,
+            cancellationToken);
+    }
+
+    public async Task<Caixa> ObterOuProvisionarPorEstabelecimentoComTrackingAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        var caixa = await ObterPorEstabelecimentoComTrackingAsync(estabelecimentoId, cancellationToken);
+        if (caixa is not null)
+        {
+            return caixa;
+        }
+
+        caixa = new Caixa
+        {
+            EstabelecimentoId = estabelecimentoId,
+            CreateAd = DateTime.UtcNow
+        };
+
+        await AdicionarAsync(caixa, cancellationToken);
+        await SalvarAlteracoesAsync(cancellationToken);
+        return caixa;
+    }
 }

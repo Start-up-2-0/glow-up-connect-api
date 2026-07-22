@@ -11,4 +11,12 @@ public interface ICaixaRepository : IRepository<Caixa>
     Task<Caixa?> ObterPorEstabelecimentoComTrackingAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default);
+
+    Task<Caixa> ObterOuProvisionarPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default);
+
+    Task<Caixa> ObterOuProvisionarPorEstabelecimentoComTrackingAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default);
 }
