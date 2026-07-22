@@ -75,7 +75,6 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.Estabelecimento,
-            diaVencimento = 10,
             pagamento = PagamentoValido(),
             estabelecimento = new
             {
@@ -129,7 +128,6 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.Estabelecimento,
             estabelecimentoId = seed.EstabelecimentoId,
-            diaVencimento = 10,
             pagamento = PagamentoValido()
         });
 
@@ -166,7 +164,6 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.Estabelecimento,
-            diaVencimento = 10,
             pagamento = PagamentoValido(),
             estabelecimento = new
             {
@@ -238,7 +235,6 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
               "planoId": 0,
               "tipoAssinatura": "Estabelecimento",
               "gateway": "MercadoPago",
-              "diaVencimento": 10,
               "pagamento": {
                 "paymentMethodId": "pix"
               },
@@ -278,7 +274,6 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
-            diaVencimento = 10,
             pagamento = PagamentoValido(),
             profissionalAutonomo = new
             {
@@ -367,7 +362,6 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         {
             planoId,
             tipoAssinatura = TipoAssinatura.Estabelecimento,
-            diaVencimento = 10,
             pagamento = PagamentoValido(),
             estabelecimento = new
             {

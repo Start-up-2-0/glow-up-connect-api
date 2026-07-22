@@ -36,6 +36,7 @@ public class AssinaturaService : IAssinaturaService
     private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
     private readonly IAvatarBase64Decoder _avatarBase64Decoder;
     private readonly IUsuarioRepository _usuarioRepository;
+    private readonly IAssinaturaVisibilidadeService _assinaturaVisibilidadeService;
     private readonly MercadoPagoOptions _mercadoPagoOptions;
 
     public AssinaturaService(
@@ -58,6 +59,7 @@ public class AssinaturaService : IAssinaturaService
         ICobrancaAssinaturaService cobrancaAssinaturaService,
         IAvatarBase64Decoder avatarBase64Decoder,
         IUsuarioRepository usuarioRepository,
+        IAssinaturaVisibilidadeService assinaturaVisibilidadeService,
         IOptions<MercadoPagoOptions> mercadoPagoOptions)
     {
         _assinaturaRepository = assinaturaRepository;
@@ -79,6 +81,7 @@ public class AssinaturaService : IAssinaturaService
         _cobrancaAssinaturaService = cobrancaAssinaturaService;
         _avatarBase64Decoder = avatarBase64Decoder;
         _usuarioRepository = usuarioRepository;
+        _assinaturaVisibilidadeService = assinaturaVisibilidadeService;
         _mercadoPagoOptions = mercadoPagoOptions.Value;
     }
 
@@ -94,7 +97,6 @@ public class AssinaturaService : IAssinaturaService
         }
 
         ValidarTitular(request);
-        _cicloCobrancaService.ValidarDiaVencimento(request.DiaVencimento);
 
         var elegivelTrial = await ElegivelPromocaoTrialAsync(request, cancellationToken);
         var onboardingPendente = DeveAdiarOnboarding(request, elegivelTrial);
@@ -113,7 +115,7 @@ public class AssinaturaService : IAssinaturaService
             };
         }
 
-        assinatura.DiaVencimento = request.DiaVencimento;
+        InicializarReferenciaCiclo(assinatura);
 
         var diasTrialIniciado = await TentarIniciarComTrialAsync(assinatura, plano, request, cancellationToken);
         if (diasTrialIniciado.HasValue)
@@ -145,7 +147,10 @@ public class AssinaturaService : IAssinaturaService
             return await MontarRespostaInicioAsync(assinatura, cancellationToken, diasTrial: diasTrial);
         }
 
-        var ciclo = _cicloCobrancaService.CalcularPrimeiroCiclo(request.DiaVencimento, DateTime.UtcNow);
+        var ciclo = _cicloCobrancaService.CalcularPrimeiroCiclo(
+            assinatura.DataReferenciaCiclo,
+            DateTime.UtcNow,
+            plano.Periodo);
         _cicloCobrancaService.AplicarCicloNaAssinatura(assinatura, ciclo);
         assinatura.Fim = ciclo.Vencimento;
 
@@ -349,6 +354,8 @@ public class AssinaturaService : IAssinaturaService
             observacao: "Renovacao automatica desativada por cancelamento.",
             cancellationToken: cancellationToken);
         await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        await _assinaturaVisibilidadeService.OcultarLojasVinculadasAsync(assinatura, cancellationToken);
 
         await _assinaturaNotificacaoService.AssinaturaCanceladaAsync(
             assinatura,
@@ -931,15 +938,30 @@ public class AssinaturaService : IAssinaturaService
             mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
     }
 
-    private static Assinatura CriarAssinaturaBase(int planoId, GatewayPagamento gateway) =>
-        new()
+    private static Assinatura CriarAssinaturaBase(int planoId, GatewayPagamento gateway)
+    {
+        var agora = DateTime.UtcNow;
+        return new()
         {
             PlanoId = planoId,
             Status = AssinaturaStatus.PendentePagamento,
-            Inicio = DateTime.UtcNow,
+            Inicio = agora,
+            DataReferenciaCiclo = agora.Date,
+            DiaVencimento = agora.Day,
             Gateway = gateway,
             RenovacaoAutomatica = true
         };
+    }
+
+    private static void InicializarReferenciaCiclo(Assinatura assinatura)
+    {
+        if (assinatura.DataReferenciaCiclo == default)
+        {
+            var referencia = assinatura.Inicio == default ? DateTime.UtcNow : assinatura.Inicio;
+            assinatura.DataReferenciaCiclo = referencia.Date;
+            assinatura.DiaVencimento = referencia.Day;
+        }
+    }
 
     private async Task<bool> ElegivelPromocaoTrialAsync(
         IniciarAssinaturaRequestDto request,
@@ -1005,7 +1027,10 @@ public class AssinaturaService : IAssinaturaService
 
         var inicio = DateTime.UtcNow;
         var fimTrial = _cicloCobrancaService.CalcularFimTrial(inicio, campanha.DiasTrial);
-        var ciclo = _cicloCobrancaService.CalcularPrimeiroCiclo(request.DiaVencimento, fimTrial);
+        var ciclo = _cicloCobrancaService.CalcularPrimeiroCiclo(
+            assinatura.DataReferenciaCiclo,
+            fimTrial,
+            plano.Periodo);
 
         var gateway = _gatewayPagamentoResolver.Resolver(assinatura.Gateway);
         var referenciaInterna = $"trial-{Guid.NewGuid():N}";
@@ -1030,7 +1055,7 @@ public class AssinaturaService : IAssinaturaService
                 {
                     ["planoId"] = plano.Id.ToString(),
                     ["campanha"] = campanha.Codigo,
-                    ["diaVencimento"] = request.DiaVencimento.ToString()
+                    ["dataReferenciaCiclo"] = assinatura.DataReferenciaCiclo.ToString("O")
                 }),
                 cancellationToken);
 

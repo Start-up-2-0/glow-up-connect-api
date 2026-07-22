@@ -10,6 +10,7 @@ public class Estabelecimento
     public string Telefone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public bool Ativo { get; set; } = true;
+    public bool VisivelPublicamente { get; set; } = true;
     public DateTime? WhatsAppConfirmadoEm { get; set; }
     public string? WhatsAppConfirmacaoTokenHash { get; set; }
     public string? WhatsAppConfirmacaoCodigoHash { get; set; }

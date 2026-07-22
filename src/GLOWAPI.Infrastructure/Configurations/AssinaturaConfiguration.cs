@@ -38,6 +38,9 @@ public class AssinaturaConfiguration : IEntityTypeConfiguration<Assinatura>
         builder.Property(assinatura => assinatura.DiaVencimento)
             .IsRequired();
 
+        builder.Property(assinatura => assinatura.DataReferenciaCiclo)
+            .IsRequired();
+
         builder.Property(assinatura => assinatura.ProximaDataVencimento);
         builder.Property(assinatura => assinatura.ProximaDataGeracaoCobranca);
         builder.Property(assinatura => assinatura.ProximaDataAlerta);

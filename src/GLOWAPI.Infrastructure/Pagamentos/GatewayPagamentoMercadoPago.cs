@@ -691,12 +691,20 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
 
     private static int? ObterDiaVencimento(IReadOnlyDictionary<string, string>? metadados)
     {
-        if (metadados is null || !metadados.TryGetValue("diaVencimento", out var dia))
+        if (metadados is not null
+            && metadados.TryGetValue("dataReferenciaCiclo", out var dataReferencia)
+            && DateTime.TryParse(dataReferencia, out var data))
+        {
+            var dia = data.Day;
+            return dia is >= 1 and <= 28 ? dia : 28;
+        }
+
+        if (metadados is null || !metadados.TryGetValue("diaVencimento", out var diaLegado))
         {
             return null;
         }
 
-        return int.TryParse(dia, out var valor) && valor is >= 1 and <= 28 ? valor : null;
+        return int.TryParse(diaLegado, out var valor) && valor is >= 1 and <= 28 ? valor : null;
     }
 
     private async Task<(bool Sucesso, HttpResponseMessage? Response, string? Erro)> TentarEnviarAsync(

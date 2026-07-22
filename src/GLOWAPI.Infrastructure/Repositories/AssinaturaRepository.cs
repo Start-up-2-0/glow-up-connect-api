@@ -11,6 +11,20 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
     [
         AssinaturaStatus.Ativa,
         AssinaturaStatus.PendentePagamento,
+        AssinaturaStatus.Trial,
+        AssinaturaStatus.Inadimplente
+    ];
+
+    private static readonly AssinaturaStatus[] StatusAssinaturaComAcesso =
+    [
+        AssinaturaStatus.Ativa,
+        AssinaturaStatus.Trial,
+        AssinaturaStatus.Inadimplente
+    ];
+
+    private static readonly AssinaturaStatus[] StatusAssinaturaCicloRegular =
+    [
+        AssinaturaStatus.Ativa,
         AssinaturaStatus.Trial
     ];
 
@@ -51,7 +65,7 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
         CancellationToken cancellationToken = default)
     {
         var direta = await ObterAtualPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
-        if (direta?.Status is AssinaturaStatus.Ativa or AssinaturaStatus.Trial)
+        if (direta?.Status is AssinaturaStatus.Ativa or AssinaturaStatus.Trial or AssinaturaStatus.Inadimplente)
         {
             return direta;
         }
@@ -61,7 +75,7 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
                 .ThenInclude(assinatura => assinatura!.Plano)
             .FirstOrDefaultAsync(v => v.EstabelecimentoId == estabelecimentoId, cancellationToken);
 
-        if (vinculo?.Assinatura?.Status is AssinaturaStatus.Ativa or AssinaturaStatus.Trial)
+        if (vinculo?.Assinatura?.Status is AssinaturaStatus.Ativa or AssinaturaStatus.Trial or AssinaturaStatus.Inadimplente)
         {
             return vinculo.Assinatura;
         }
@@ -106,7 +120,7 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
             .Include(assinatura => assinatura.Plano)
             .Include(assinatura => assinatura.Estabelecimento)
             .Where(assinatura =>
-                (assinatura.Status == AssinaturaStatus.Ativa || assinatura.Status == AssinaturaStatus.Trial)
+                StatusAssinaturaCicloRegular.Contains(assinatura.Status)
                 && assinatura.ProximaDataAlerta.HasValue
                 && assinatura.ProximaDataAlerta.Value.Date == data
                 && (assinatura.UltimoAlertaFaturaEm == null
@@ -123,7 +137,7 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
             .Include(assinatura => assinatura.Plano)
             .Include(assinatura => assinatura.Estabelecimento)
             .Where(assinatura =>
-                (assinatura.Status == AssinaturaStatus.Ativa || assinatura.Status == AssinaturaStatus.Trial)
+                StatusAssinaturaCicloRegular.Contains(assinatura.Status)
                 && assinatura.ProximaDataGeracaoCobranca.HasValue
                 && assinatura.ProximaDataGeracaoCobranca.Value.Date == data)
             .ToListAsync(cancellationToken);

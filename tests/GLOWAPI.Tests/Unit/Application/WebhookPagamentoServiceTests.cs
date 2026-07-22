@@ -26,6 +26,7 @@ public class WebhookPagamentoServiceTests
     private readonly Mock<IAssinaturaOnboardingFinalizacaoService> _onboardingFinalizacao = new();
     private readonly Mock<IMovimentacaoCaixaService> _movimentacaoCaixaService = new();
     private readonly Mock<IAgendamentoRepository> _agendamentoRepository = new();
+    private readonly Mock<IAssinaturaVisibilidadeService> _assinaturaVisibilidadeService = new();
 
     [Fact]
     public async Task RegistrarAsync_DeveCriarWebhook_QuandoEventoNaoExiste()
@@ -416,6 +417,9 @@ public class WebhookPagamentoServiceTests
             assinatura,
             "cliente@email.com",
             It.IsAny<CancellationToken>()), Times.Once);
+        _assinaturaVisibilidadeService.Verify(v => v.OcultarLojasVinculadasAsync(
+            assinatura,
+            It.IsAny<CancellationToken>()), Times.Once);
         _repository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -462,6 +466,9 @@ public class WebhookPagamentoServiceTests
             assinatura,
             "cliente@email.com",
             It.IsAny<CancellationToken>()), Times.Once);
+        _assinaturaVisibilidadeService.Verify(v => v.OcultarLojasVinculadasAsync(
+            assinatura,
+            It.IsAny<CancellationToken>()), Times.Once);
         _repository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -494,7 +501,9 @@ public class WebhookPagamentoServiceTests
             new CicloCobrancaAssinaturaService(Options.Create(new AssinaturaCobrancaOptions())),
             _currentUser.Object,
             _onboardingFinalizacao.Object,
-            Options.Create(new MercadoPagoOptions()));
+            new Mock<IAssinaturaVisibilidadeService>().Object,
+            Options.Create(new MercadoPagoOptions()),
+            Options.Create(new AssinaturaCobrancaOptions()));
 
         return new WebhookPagamentoService(
             _repository.Object,
@@ -504,6 +513,7 @@ public class WebhookPagamentoServiceTests
             cobrancaService,
             _assinaturaHistoricoService.Object,
             _assinaturaNotificacaoService.Object,
+            _assinaturaVisibilidadeService.Object,
             _movimentacaoCaixaService.Object,
             _agendamentoRepository.Object);
     }

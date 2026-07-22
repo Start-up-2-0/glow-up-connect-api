@@ -10,6 +10,7 @@ public class Assinatura
     public int? EstabelecimentoId { get; set; }
     public int? CampanhaPromocionalId { get; set; }
     public int DiaVencimento { get; set; }
+    public DateTime DataReferenciaCiclo { get; set; }
     public DateTime? ProximaDataVencimento { get; set; }
     public DateTime? ProximaDataGeracaoCobranca { get; set; }
     public DateTime? ProximaDataAlerta { get; set; }

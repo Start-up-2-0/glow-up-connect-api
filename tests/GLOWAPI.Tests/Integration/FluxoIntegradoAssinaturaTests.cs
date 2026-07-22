@@ -31,7 +31,6 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.Estabelecimento,
-            diaVencimento = 10,
             pagamento = PagamentoValido(),
             estabelecimento = new
             {
@@ -116,7 +115,6 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
-            diaVencimento = 15,
             pagamento = PagamentoValido(),
             profissionalAutonomo = new
             {

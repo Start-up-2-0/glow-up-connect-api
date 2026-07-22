@@ -37,6 +37,8 @@ public interface ICobrancaAssinaturaService
 
     Task<int> MarcarAtrasadasAsync(CancellationToken cancellationToken = default);
 
+    Task<int> EncerrarInadimplentesAsync(CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<CobrancaAssinaturaResponseDto>> ListarPorAssinaturaAsync(
         int assinaturaId,
         int usuarioId,

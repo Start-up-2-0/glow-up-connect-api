@@ -2,7 +2,7 @@ using GLOWAPI.Application.DTOs.Assinaturas;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Entities;
-using GLOWAPI.Domain.Exceptions.Assinatura;
+using GLOWAPI.Domain.Enums;
 using Microsoft.Extensions.Options;
 
 namespace GLOWAPI.Application.Services;
@@ -16,21 +16,19 @@ public class CicloCobrancaAssinaturaService : ICicloCobrancaAssinaturaService
         _options = options.Value;
     }
 
-    public void ValidarDiaVencimento(int diaVencimento)
+    public CicloCobrancaDatasDto CalcularPrimeiroCiclo(
+        DateTime dataReferenciaCiclo,
+        DateTime referenciaUtc,
+        PlanoPeriodo periodo)
     {
-        if (!_options.DiasVencimentoPermitidos.Contains(diaVencimento))
-        {
-            throw new DiaVencimentoAssinaturaInvalidoException();
-        }
+        var vencimento = CalcularProximaRenovacao(dataReferenciaCiclo.Date, referenciaUtc.Date, periodo);
+        return CriarCicloDto(vencimento);
     }
 
-    public CicloCobrancaDatasDto CalcularPrimeiroCiclo(int diaVencimento, DateTime referenciaUtc) =>
-        CalcularCiclo(diaVencimento, referenciaUtc);
-
-    public CicloCobrancaDatasDto CalcularProximoCiclo(int diaVencimento, DateTime vencimentoAtual)
+    public CicloCobrancaDatasDto CalcularProximoCiclo(DateTime vencimentoAtual, PlanoPeriodo periodo)
     {
-        var referencia = vencimentoAtual.Date.AddDays(1);
-        return CalcularCiclo(diaVencimento, referencia);
+        var vencimento = AdicionarPeriodo(vencimentoAtual.Date, periodo);
+        return CriarCicloDto(vencimento);
     }
 
     public void AplicarCicloNaAssinatura(Assinatura assinatura, CicloCobrancaDatasDto ciclo)
@@ -43,24 +41,33 @@ public class CicloCobrancaAssinaturaService : ICicloCobrancaAssinaturaService
     public DateTime CalcularFimTrial(DateTime inicioUtc, int diasTrial) =>
         inicioUtc.Date.AddDays(diasTrial);
 
-    private CicloCobrancaDatasDto CalcularCiclo(int diaVencimento, DateTime referenciaUtc)
-    {
-        var vencimento = CalcularProximaDataVencimento(diaVencimento, referenciaUtc);
-        return new CicloCobrancaDatasDto(
+    private CicloCobrancaDatasDto CriarCicloDto(DateTime vencimento) =>
+        new(
             vencimento,
             vencimento.AddDays(-_options.DiasAntecedenciaGeracaoCobranca),
             vencimento.AddDays(-_options.DiasAntecedenciaAlertaFatura));
-    }
 
-    private static DateTime CalcularProximaDataVencimento(int diaVencimento, DateTime referenciaUtc)
+    private static DateTime CalcularProximaRenovacao(
+        DateTime dataReferenciaCiclo,
+        DateTime referenciaUtc,
+        PlanoPeriodo periodo)
     {
-        var referencia = referenciaUtc.Date;
-        var candidato = new DateTime(referencia.Year, referencia.Month, diaVencimento, 0, 0, 0, DateTimeKind.Utc);
-        if (candidato < referencia)
+        var candidato = AdicionarPeriodo(dataReferenciaCiclo, periodo);
+        while (candidato < referenciaUtc)
         {
-            candidato = candidato.AddMonths(1);
+            candidato = AdicionarPeriodo(candidato, periodo);
         }
 
         return candidato;
     }
+
+    internal static DateTime AdicionarPeriodo(DateTime data, PlanoPeriodo periodo) =>
+        periodo switch
+        {
+            PlanoPeriodo.Mensal => data.AddMonths(1),
+            PlanoPeriodo.Trimestral => data.AddMonths(3),
+            PlanoPeriodo.Semestral => data.AddMonths(6),
+            PlanoPeriodo.Anual => data.AddYears(1),
+            _ => data.AddMonths(1)
+        };
 }

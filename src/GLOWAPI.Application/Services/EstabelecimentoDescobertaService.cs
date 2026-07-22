@@ -90,7 +90,7 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
         CancellationToken cancellationToken = default)
     {
         var estabelecimento = await _estabelecimentoRepository.ObterPorPublicGuidAsync(publicGuid, cancellationToken);
-        if (estabelecimento is null || !estabelecimento.Ativo)
+        if (estabelecimento is null || !estabelecimento.Ativo || !estabelecimento.VisivelPublicamente)
         {
             throw new NegocioNaoEncontradoException();
         }

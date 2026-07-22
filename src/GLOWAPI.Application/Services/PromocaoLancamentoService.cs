@@ -47,9 +47,9 @@ public class PromocaoLancamentoService : IPromocaoLancamentoService
             disponivel,
             vagasRestantes,
             campanha?.DiasTrial ?? 30,
-            _options.DiasVencimentoPermitidos,
             _options.DiasAntecedenciaAlertaFatura,
-            _options.DiasAntecedenciaGeracaoCobranca);
+            _options.DiasAntecedenciaGeracaoCobranca,
+            _options.DiasToleranciaInadimplencia);
     }
 
     public async Task<bool> EstabelecimentoJaUsouPromocaoAsync(

@@ -80,6 +80,7 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
             .Include(estabelecimento => estabelecimento.Endereco)
             .Where(estabelecimento =>
                 estabelecimento.Ativo
+                && estabelecimento.VisivelPublicamente
                 && estabelecimento.Endereco != null
                 && estabelecimento.Endereco.Latitude != null
                 && estabelecimento.Endereco.Longitude != null
@@ -134,7 +135,9 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
             .Where(assinatura =>
                 assinatura.EstabelecimentoId.HasValue
                 && estabelecimentoIds.Contains(assinatura.EstabelecimentoId.Value)
-                && (assinatura.Status == AssinaturaStatus.Ativa || assinatura.Status == AssinaturaStatus.Trial))
+                && (assinatura.Status == AssinaturaStatus.Ativa
+                    || assinatura.Status == AssinaturaStatus.Trial
+                    || assinatura.Status == AssinaturaStatus.Inadimplente))
             .ToListAsync(cancellationToken);
 
         return assinaturas

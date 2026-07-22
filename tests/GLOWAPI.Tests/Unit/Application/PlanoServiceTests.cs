@@ -37,7 +37,7 @@ public class PlanoServiceTests
         var promocao = new Mock<IPromocaoLancamentoService>();
         promocao
             .Setup(s => s.ObterStatusAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PromocaoLancamentoStatusDto(true, 50, 30, [5, 10, 15, 20], 3, 2));
+            .ReturnsAsync(new PromocaoLancamentoStatusDto(true, 50, 30, 7, 7, 10));
 
         var service = new PlanoService(repository.Object, promocao.Object);
 

@@ -63,6 +63,7 @@ public class CobrancaAssinaturaServiceTests
         {
             Id = 10,
             EstabelecimentoId = 1,
+            DataReferenciaCiclo = new DateTime(2026, 7, 15, 0, 0, 0, DateTimeKind.Utc),
             DiaVencimento = 15,
             Gateway = GatewayPagamento.MercadoPago,
             GatewaySubscriptionId = "sub-test-1",
@@ -112,6 +113,7 @@ public class CobrancaAssinaturaServiceTests
         var assinatura = new Assinatura
         {
             Id = 10,
+            DataReferenciaCiclo = new DateTime(2026, 7, 15, 0, 0, 0, DateTimeKind.Utc),
             DiaVencimento = 15,
             Gateway = GatewayPagamento.MercadoPago,
             GatewaySubscriptionId = "sub-test-1",
@@ -186,5 +188,7 @@ public class CobrancaAssinaturaServiceTests
             new CicloCobrancaAssinaturaService(Options.Create(new AssinaturaCobrancaOptions())),
             _currentUser.Object,
             new Mock<IAssinaturaOnboardingFinalizacaoService>().Object,
-            Options.Create(new MercadoPagoOptions { UsarCheckoutPro = usarCheckoutPro }));
+            new Mock<IAssinaturaVisibilidadeService>().Object,
+            Options.Create(new MercadoPagoOptions { UsarCheckoutPro = usarCheckoutPro }),
+            Options.Create(new AssinaturaCobrancaOptions()));
 }

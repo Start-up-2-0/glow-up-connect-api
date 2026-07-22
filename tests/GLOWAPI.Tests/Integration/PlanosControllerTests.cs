@@ -41,7 +41,8 @@ public class PlanosControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         Assert.True(promocao.GetProperty("disponivel").GetBoolean());
         Assert.Equal(100, promocao.GetProperty("vagasRestantes").GetInt32());
         Assert.Equal(30, promocao.GetProperty("diasTrial").GetInt32());
-        Assert.Contains(5, promocao.GetProperty("diasVencimentoPermitidos").EnumerateArray().Select(item => item.GetInt32()));
+        Assert.Equal(7, promocao.GetProperty("diasAntecedenciaGeracaoCobranca").GetInt32());
+        Assert.Equal(10, promocao.GetProperty("diasToleranciaInadimplencia").GetInt32());
 
         var plano = planos[0];
         Assert.Equal("Basic", plano.GetProperty("nome").GetString());

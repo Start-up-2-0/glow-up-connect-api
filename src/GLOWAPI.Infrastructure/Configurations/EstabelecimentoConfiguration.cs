@@ -37,6 +37,9 @@ public class EstabelecimentoConfiguration : IEntityTypeConfiguration<Estabelecim
         builder.Property(estabelecimento => estabelecimento.Ativo)
             .HasDefaultValue(true);
 
+        builder.Property(estabelecimento => estabelecimento.VisivelPublicamente)
+            .HasDefaultValue(true);
+
         builder.Property(estabelecimento => estabelecimento.WhatsAppConfirmadoEm);
 
         builder.Property(estabelecimento => estabelecimento.WhatsAppConfirmacaoTokenHash)

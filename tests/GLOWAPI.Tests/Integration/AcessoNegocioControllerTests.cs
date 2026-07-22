@@ -362,7 +362,7 @@ public class AcessoNegocioControllerTests : IClassFixture<GlowApiWebApplicationF
         {
             EstabelecimentoId = estabelecimento.Id,
             PlanoId = plano.Id,
-            DiaVencimento = 10,
+            DataReferenciaCiclo = DateTime.UtcNow.Date,
             Status = AssinaturaStatus.Ativa,
             Inicio = DateTime.UtcNow.AddDays(-1),
             Fim = DateTime.UtcNow.AddMonths(1)

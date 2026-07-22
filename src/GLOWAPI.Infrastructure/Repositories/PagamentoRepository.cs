@@ -67,6 +67,19 @@ public class PagamentoRepository : Repository<Pagamento>, IPagamentoRepository
                 && pagamento.DataVencimento.Value.Date < dataReferenciaUtc.Date)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Pagamento>> ListarAtrasadosAlemToleranciaAsync(
+        DateTime dataLimiteVencimento,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Include(pagamento => pagamento.Assinatura)
+                .ThenInclude(assinatura => assinatura!.Plano)
+            .Where(pagamento =>
+                pagamento.AssinaturaId != null
+                && pagamento.Status == PagamentoStatus.Atrasado
+                && pagamento.DataVencimento.HasValue
+                && pagamento.DataVencimento.Value.Date <= dataLimiteVencimento.Date)
+            .ToListAsync(cancellationToken);
+
     public Task<Pagamento?> ObterPagoPorAgendamentoAsync(
         int agendamentoId,
         CancellationToken cancellationToken = default)

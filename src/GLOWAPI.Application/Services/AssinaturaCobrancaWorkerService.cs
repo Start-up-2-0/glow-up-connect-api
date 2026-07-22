@@ -29,6 +29,7 @@ public class AssinaturaCobrancaWorkerService : IAssinaturaCobrancaWorkerService
         await ProcessarAlertasAsync(hoje, cancellationToken);
         await ProcessarGeracaoCobrancasAsync(hoje, cancellationToken);
         await _cobrancaAssinaturaService.MarcarAtrasadasAsync(cancellationToken);
+        await _cobrancaAssinaturaService.EncerrarInadimplentesAsync(cancellationToken);
     }
 
     private async Task ProcessarAlertasAsync(DateTime dataReferenciaUtc, CancellationToken cancellationToken)

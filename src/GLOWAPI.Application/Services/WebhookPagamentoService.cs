@@ -18,6 +18,7 @@ public class WebhookPagamentoService : IWebhookPagamentoService
     private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
     private readonly IAssinaturaHistoricoService _assinaturaHistoricoService;
     private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
+    private readonly IAssinaturaVisibilidadeService _assinaturaVisibilidadeService;
     private readonly IMovimentacaoCaixaService _movimentacaoCaixaService;
     private readonly IAgendamentoRepository _agendamentoRepository;
 
@@ -29,6 +30,7 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         ICobrancaAssinaturaService cobrancaAssinaturaService,
         IAssinaturaHistoricoService assinaturaHistoricoService,
         IAssinaturaNotificacaoService assinaturaNotificacaoService,
+        IAssinaturaVisibilidadeService assinaturaVisibilidadeService,
         IMovimentacaoCaixaService movimentacaoCaixaService,
         IAgendamentoRepository agendamentoRepository)
     {
@@ -39,6 +41,7 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         _cobrancaAssinaturaService = cobrancaAssinaturaService;
         _assinaturaHistoricoService = assinaturaHistoricoService;
         _assinaturaNotificacaoService = assinaturaNotificacaoService;
+        _assinaturaVisibilidadeService = assinaturaVisibilidadeService;
         _movimentacaoCaixaService = movimentacaoCaixaService;
         _agendamentoRepository = agendamentoRepository;
     }
@@ -310,6 +313,8 @@ public class WebhookPagamentoService : IWebhookPagamentoService
                 ExtrairEmail(webhook.Payload),
                 cancellationToken);
         }
+
+        await _assinaturaVisibilidadeService.OcultarLojasVinculadasAsync(assinatura, cancellationToken);
 
         webhook.Processado = true;
         webhook.ProcessadoEm = DateTime.UtcNow;

@@ -42,7 +42,7 @@ public class AssinaturaServiceTests
             .ReturnsAsync(UsuarioBuilder.Criar(id: 10));
         _promocaoLancamentoService
             .Setup(s => s.ObterStatusAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PromocaoLancamentoStatusDto(false, 0, 30, [5, 10, 15, 20], 3, 2));
+            .ReturnsAsync(new PromocaoLancamentoStatusDto(false, 0, 30, 7, 7, 10));
         _promocaoLancamentoService
             .Setup(s => s.TentarReservarVagaAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
@@ -1085,6 +1085,7 @@ public class AssinaturaServiceTests
             _cobrancaAssinaturaService.Object,
             new AvatarBase64Decoder(Options.Create(new AvatarOptions())),
             _usuarioRepository.Object,
+            new Mock<IAssinaturaVisibilidadeService>().Object,
             Options.Create(new MercadoPagoOptions()));
 
     private static PagamentoTransparenteMercadoPagoDto PagamentoValido() =>
