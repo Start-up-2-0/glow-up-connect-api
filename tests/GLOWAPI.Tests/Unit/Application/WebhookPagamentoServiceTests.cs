@@ -26,7 +26,8 @@ public class WebhookPagamentoServiceTests
     private readonly Mock<IAssinaturaOnboardingFinalizacaoService> _onboardingFinalizacao = new();
     private readonly Mock<IMovimentacaoCaixaService> _movimentacaoCaixaService = new();
     private readonly Mock<IAgendamentoRepository> _agendamentoRepository = new();
-    private readonly Mock<IAssinaturaVisibilidadeService> _assinaturaVisibilidadeService = new();
+    private readonly Mock<IAssinaturaEncerramentoService> _assinaturaEncerramentoService = new();
+    private readonly Mock<IUsuarioRepository> _usuarioRepository = new();
 
     [Fact]
     public async Task RegistrarAsync_DeveCriarWebhook_QuandoEventoNaoExiste()
@@ -407,18 +408,17 @@ public class WebhookPagamentoServiceTests
         });
 
         Assert.True(response.Processado);
-        Assert.Equal(AssinaturaStatus.Cancelada, assinatura.Status);
-        Assert.NotNull(assinatura.CanceladoEm);
-        Assert.False(assinatura.RenovacaoAutomatica);
-        Assert.Null(assinatura.PlanoAlteracaoPendenteId);
 
-        _assinaturaRepository.Verify(r => r.Atualizar(assinatura), Times.Once);
         _assinaturaNotificacaoService.Verify(n => n.AssinaturaCanceladaAsync(
             assinatura,
             "cliente@email.com",
             It.IsAny<CancellationToken>()), Times.Once);
-        _assinaturaVisibilidadeService.Verify(v => v.OcultarLojasVinculadasAsync(
+        _assinaturaEncerramentoService.Verify(v => v.EncerrarAsync(
             assinatura,
+            AssinaturaStatus.Cancelada,
+            "AssinaturaCanceladaPorWebhook",
+            It.IsAny<string>(),
+            null,
             It.IsAny<CancellationToken>()), Times.Once);
         _repository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -457,17 +457,17 @@ public class WebhookPagamentoServiceTests
         });
 
         Assert.True(response.Processado);
-        Assert.Equal(AssinaturaStatus.Suspensa, assinatura.Status);
-        Assert.Null(assinatura.CanceladoEm);
-        Assert.False(assinatura.RenovacaoAutomatica);
 
-        _assinaturaRepository.Verify(r => r.Atualizar(assinatura), Times.Once);
         _assinaturaNotificacaoService.Verify(n => n.AssinaturaSuspensaAsync(
             assinatura,
             "cliente@email.com",
             It.IsAny<CancellationToken>()), Times.Once);
-        _assinaturaVisibilidadeService.Verify(v => v.OcultarLojasVinculadasAsync(
+        _assinaturaEncerramentoService.Verify(v => v.EncerrarAsync(
             assinatura,
+            AssinaturaStatus.Suspensa,
+            "AssinaturaSuspensaPorWebhook",
+            It.IsAny<string>(),
+            null,
             It.IsAny<CancellationToken>()), Times.Once);
         _repository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -502,8 +502,17 @@ public class WebhookPagamentoServiceTests
             _currentUser.Object,
             _onboardingFinalizacao.Object,
             new Mock<IAssinaturaVisibilidadeService>().Object,
+            new Mock<IAssinaturaEncerramentoService>().Object,
+            new Mock<IUsuarioRepository>().Object,
             Options.Create(new MercadoPagoOptions()),
             Options.Create(new AssinaturaCobrancaOptions()));
+
+        _assinaturaRepository
+            .Setup(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _usuarioRepository
+            .Setup(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
 
         return new WebhookPagamentoService(
             _repository.Object,
@@ -513,7 +522,8 @@ public class WebhookPagamentoServiceTests
             cobrancaService,
             _assinaturaHistoricoService.Object,
             _assinaturaNotificacaoService.Object,
-            _assinaturaVisibilidadeService.Object,
+            _assinaturaEncerramentoService.Object,
+            _usuarioRepository.Object,
             _movimentacaoCaixaService.Object,
             _agendamentoRepository.Object);
     }

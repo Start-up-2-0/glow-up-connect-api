@@ -18,7 +18,8 @@ public class WebhookPagamentoService : IWebhookPagamentoService
     private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
     private readonly IAssinaturaHistoricoService _assinaturaHistoricoService;
     private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
-    private readonly IAssinaturaVisibilidadeService _assinaturaVisibilidadeService;
+    private readonly IAssinaturaEncerramentoService _assinaturaEncerramentoService;
+    private readonly IUsuarioRepository _usuarioRepository;
     private readonly IMovimentacaoCaixaService _movimentacaoCaixaService;
     private readonly IAgendamentoRepository _agendamentoRepository;
 
@@ -30,7 +31,8 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         ICobrancaAssinaturaService cobrancaAssinaturaService,
         IAssinaturaHistoricoService assinaturaHistoricoService,
         IAssinaturaNotificacaoService assinaturaNotificacaoService,
-        IAssinaturaVisibilidadeService assinaturaVisibilidadeService,
+        IAssinaturaEncerramentoService assinaturaEncerramentoService,
+        IUsuarioRepository usuarioRepository,
         IMovimentacaoCaixaService movimentacaoCaixaService,
         IAgendamentoRepository agendamentoRepository)
     {
@@ -41,7 +43,8 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         _cobrancaAssinaturaService = cobrancaAssinaturaService;
         _assinaturaHistoricoService = assinaturaHistoricoService;
         _assinaturaNotificacaoService = assinaturaNotificacaoService;
-        _assinaturaVisibilidadeService = assinaturaVisibilidadeService;
+        _assinaturaEncerramentoService = assinaturaEncerramentoService;
+        _usuarioRepository = usuarioRepository;
         _movimentacaoCaixaService = movimentacaoCaixaService;
         _agendamentoRepository = agendamentoRepository;
     }
@@ -261,43 +264,32 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return;
         }
 
-        if (assinatura.Status == novoStatus)
+        if (assinatura.Status == novoStatus
+            || assinatura.Status is AssinaturaStatus.Cancelada or AssinaturaStatus.Expirada)
         {
             webhook.Processado = true;
             webhook.ProcessadoEm ??= DateTime.UtcNow;
             return;
         }
 
-        var statusAnterior = assinatura.Status;
-        assinatura.Status = novoStatus;
-        assinatura.RenovacaoAutomatica = false;
-        assinatura.PlanoAlteracaoPendenteId = null;
-        assinatura.PlanoAlteracaoPendente = null;
-        assinatura.UpdatedAt = DateTime.UtcNow;
+        var evento = novoStatus == AssinaturaStatus.Cancelada
+            ? "AssinaturaCanceladaPorWebhook"
+            : "AssinaturaSuspensaPorWebhook";
 
         if (registrarCanceladoEm)
         {
             assinatura.CanceladoEm ??= DateTime.UtcNow;
         }
 
-        _assinaturaRepository.Atualizar(assinatura);
-        await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+        await _assinaturaEncerramentoService.EncerrarAsync(
             assinatura,
-            novoStatus == AssinaturaStatus.Cancelada ? "AssinaturaCanceladaPorWebhook" : "AssinaturaSuspensaPorWebhook",
-            statusAnterior,
-            assinatura.Status,
-            observacao: "Status alterado por webhook do gateway.",
-            payloadJson: webhook.Payload,
+            novoStatus,
+            evento,
+            "Status alterado por webhook do gateway.",
             cancellationToken: cancellationToken);
-        await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
-            assinatura,
-            novoStatus == AssinaturaStatus.Cancelada ? "RecorrenciaCanceladaPorWebhook" : "RecorrenciaSuspensaPorWebhook",
-            novoStatus.ToString(),
-            cicloInicio: assinatura.Inicio,
-            cicloFim: assinatura.Fim,
-            observacao: "Recorrencia alterada por webhook do gateway.",
-            payloadJson: webhook.Payload,
-            cancellationToken: cancellationToken);
+
+        await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
 
         if (novoStatus == AssinaturaStatus.Cancelada)
         {
@@ -313,8 +305,6 @@ public class WebhookPagamentoService : IWebhookPagamentoService
                 ExtrairEmail(webhook.Payload),
                 cancellationToken);
         }
-
-        await _assinaturaVisibilidadeService.OcultarLojasVinculadasAsync(assinatura, cancellationToken);
 
         webhook.Processado = true;
         webhook.ProcessadoEm = DateTime.UtcNow;

@@ -12,14 +12,16 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
         AssinaturaStatus.Ativa,
         AssinaturaStatus.PendentePagamento,
         AssinaturaStatus.Trial,
-        AssinaturaStatus.Inadimplente
+        AssinaturaStatus.Inadimplente,
+        AssinaturaStatus.CancelamentoAgendado
     ];
 
     private static readonly AssinaturaStatus[] StatusAssinaturaComAcesso =
     [
         AssinaturaStatus.Ativa,
         AssinaturaStatus.Trial,
-        AssinaturaStatus.Inadimplente
+        AssinaturaStatus.Inadimplente,
+        AssinaturaStatus.CancelamentoAgendado
     ];
 
     private static readonly AssinaturaStatus[] StatusAssinaturaCicloRegular =
@@ -65,7 +67,7 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
         CancellationToken cancellationToken = default)
     {
         var direta = await ObterAtualPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
-        if (direta?.Status is AssinaturaStatus.Ativa or AssinaturaStatus.Trial or AssinaturaStatus.Inadimplente)
+        if (direta?.Status is not null && StatusAssinaturaComAcesso.Contains(direta.Status))
         {
             return direta;
         }
@@ -75,7 +77,8 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
                 .ThenInclude(assinatura => assinatura!.Plano)
             .FirstOrDefaultAsync(v => v.EstabelecimentoId == estabelecimentoId, cancellationToken);
 
-        if (vinculo?.Assinatura?.Status is AssinaturaStatus.Ativa or AssinaturaStatus.Trial or AssinaturaStatus.Inadimplente)
+        if (vinculo?.Assinatura?.Status is not null
+            && StatusAssinaturaComAcesso.Contains(vinculo.Assinatura.Status))
         {
             return vinculo.Assinatura;
         }
@@ -141,6 +144,90 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
                 && assinatura.ProximaDataGeracaoCobranca.HasValue
                 && assinatura.ProximaDataGeracaoCobranca.Value.Date == data)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Assinatura>> ListarCancelamentosAgendadosParaEncerrarAsync(
+        DateTime dataReferenciaUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var data = dataReferenciaUtc.Date;
+        return await DbSet
+            .Include(assinatura => assinatura.Plano)
+            .Where(assinatura =>
+                assinatura.Status == AssinaturaStatus.CancelamentoAgendado
+                && assinatura.Fim.HasValue
+                && assinatura.Fim.Value.Date <= data)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<bool> UsuarioJaTeveAssinaturaAsync(
+        int usuarioId,
+        CancellationToken cancellationToken = default)
+    {
+        var estabelecimentoIds = await Context.Set<EstabelecimentoUsuario>()
+            .Where(vinculo =>
+                vinculo.UsuarioId == usuarioId
+                && vinculo.Ativo
+                && vinculo.RoleNoEstabelecimento == EstablishmentUserRole.Owner)
+            .Select(vinculo => vinculo.EstabelecimentoId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (estabelecimentoIds.Count == 0)
+        {
+            return false;
+        }
+
+        var possuiDireta = await DbSet.AnyAsync(
+            assinatura => assinatura.EstabelecimentoId.HasValue
+                && estabelecimentoIds.Contains(assinatura.EstabelecimentoId.Value),
+            cancellationToken);
+
+        if (possuiDireta)
+        {
+            return true;
+        }
+
+        return await Context.Set<AssinaturaEstabelecimento>()
+            .AnyAsync(
+                vinculo => estabelecimentoIds.Contains(vinculo.EstabelecimentoId),
+                cancellationToken);
+    }
+
+    public async Task<bool> UsuarioPossuiAssinaturaComAcessoAsync(
+        int usuarioId,
+        int? ignorarAssinaturaId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var estabelecimentoIds = await Context.Set<EstabelecimentoUsuario>()
+            .Where(vinculo =>
+                vinculo.UsuarioId == usuarioId
+                && vinculo.Ativo
+                && vinculo.RoleNoEstabelecimento == EstablishmentUserRole.Owner)
+            .Select(vinculo => vinculo.EstabelecimentoId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        foreach (var estabelecimentoId in estabelecimentoIds)
+        {
+            var assinatura = await ObterAssinaturaEfetivaPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
+            if (assinatura is null)
+            {
+                continue;
+            }
+
+            if (ignorarAssinaturaId.HasValue && assinatura.Id == ignorarAssinaturaId.Value)
+            {
+                continue;
+            }
+
+            if (StatusAssinaturaComAcesso.Contains(assinatura.Status))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 }

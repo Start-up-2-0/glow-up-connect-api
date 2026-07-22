@@ -9,17 +9,20 @@ public class AssinaturaCobrancaWorkerService : IAssinaturaCobrancaWorkerService
     private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
     private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
     private readonly IAssinaturaTitularContatoService _assinaturaTitularContatoService;
+    private readonly IAssinaturaEncerramentoService _assinaturaEncerramentoService;
 
     public AssinaturaCobrancaWorkerService(
         IAssinaturaRepository assinaturaRepository,
         ICobrancaAssinaturaService cobrancaAssinaturaService,
         IAssinaturaNotificacaoService assinaturaNotificacaoService,
-        IAssinaturaTitularContatoService assinaturaTitularContatoService)
+        IAssinaturaTitularContatoService assinaturaTitularContatoService,
+        IAssinaturaEncerramentoService assinaturaEncerramentoService)
     {
         _assinaturaRepository = assinaturaRepository;
         _cobrancaAssinaturaService = cobrancaAssinaturaService;
         _assinaturaNotificacaoService = assinaturaNotificacaoService;
         _assinaturaTitularContatoService = assinaturaTitularContatoService;
+        _assinaturaEncerramentoService = assinaturaEncerramentoService;
     }
 
     public async Task ProcessarCicloDiarioAsync(CancellationToken cancellationToken = default)
@@ -29,6 +32,7 @@ public class AssinaturaCobrancaWorkerService : IAssinaturaCobrancaWorkerService
         await ProcessarAlertasAsync(hoje, cancellationToken);
         await ProcessarGeracaoCobrancasAsync(hoje, cancellationToken);
         await _cobrancaAssinaturaService.MarcarAtrasadasAsync(cancellationToken);
+        await _assinaturaEncerramentoService.ProcessarCancelamentosAgendadosAsync(hoje, cancellationToken);
         await _cobrancaAssinaturaService.EncerrarInadimplentesAsync(cancellationToken);
     }
 

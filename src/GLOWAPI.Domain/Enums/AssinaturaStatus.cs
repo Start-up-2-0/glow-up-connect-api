@@ -8,5 +8,6 @@ public enum AssinaturaStatus
     Expirada = 4,
     Suspensa = 5,
     Trial = 6,
-    Inadimplente = 7
+    Inadimplente = 7,
+    CancelamentoAgendado = 8
 }

@@ -50,7 +50,8 @@ public class ModulosAssinaturaService : IModulosAssinaturaService
             || assinatura.Status is not (
                 AssinaturaStatus.Ativa
                 or AssinaturaStatus.Trial
-                or AssinaturaStatus.Inadimplente))
+                or AssinaturaStatus.Inadimplente
+                or AssinaturaStatus.CancelamentoAgendado))
         {
             return ModulosAssinaturaResponseDto.Bloqueado(assinatura, estabelecimentoId);
         }

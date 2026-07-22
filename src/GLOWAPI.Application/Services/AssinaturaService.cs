@@ -37,6 +37,7 @@ public class AssinaturaService : IAssinaturaService
     private readonly IAvatarBase64Decoder _avatarBase64Decoder;
     private readonly IUsuarioRepository _usuarioRepository;
     private readonly IAssinaturaVisibilidadeService _assinaturaVisibilidadeService;
+    private readonly IAssinaturaEncerramentoService _assinaturaEncerramentoService;
     private readonly MercadoPagoOptions _mercadoPagoOptions;
 
     public AssinaturaService(
@@ -60,6 +61,7 @@ public class AssinaturaService : IAssinaturaService
         IAvatarBase64Decoder avatarBase64Decoder,
         IUsuarioRepository usuarioRepository,
         IAssinaturaVisibilidadeService assinaturaVisibilidadeService,
+        IAssinaturaEncerramentoService assinaturaEncerramentoService,
         IOptions<MercadoPagoOptions> mercadoPagoOptions)
     {
         _assinaturaRepository = assinaturaRepository;
@@ -82,6 +84,7 @@ public class AssinaturaService : IAssinaturaService
         _avatarBase64Decoder = avatarBase64Decoder;
         _usuarioRepository = usuarioRepository;
         _assinaturaVisibilidadeService = assinaturaVisibilidadeService;
+        _assinaturaEncerramentoService = assinaturaEncerramentoService;
         _mercadoPagoOptions = mercadoPagoOptions.Value;
     }
 
@@ -98,7 +101,7 @@ public class AssinaturaService : IAssinaturaService
 
         ValidarTitular(request);
 
-        var elegivelTrial = await ElegivelPromocaoTrialAsync(request, cancellationToken);
+        var elegivelTrial = await ElegivelPromocaoTrialAsync(request, userId, cancellationToken);
         var onboardingPendente = DeveAdiarOnboarding(request, elegivelTrial);
         Assinatura assinatura;
         if (onboardingPendente)
@@ -324,38 +327,61 @@ public class AssinaturaService : IAssinaturaService
 
         await ValidarPermissaoGerenciarAssinaturaAsync(assinatura, userId, cancellationToken);
 
-        if (assinatura.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Trial))
+        if (assinatura.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Trial or AssinaturaStatus.Inadimplente))
         {
-            throw new CancelamentoAssinaturaInvalidoException("Somente assinatura ativa ou em trial pode ser cancelada pelo usuario.");
+            throw new CancelamentoAssinaturaInvalidoException("Somente assinatura ativa, em trial ou inadimplente pode ser cancelada pelo usuario.");
+        }
+
+        var fimPeriodo = assinatura.ProximaDataVencimento
+            ?? assinatura.Fim
+            ?? DateTime.UtcNow;
+
+        if (fimPeriodo.Date <= DateTime.UtcNow.Date)
+        {
+            await _assinaturaEncerramentoService.EncerrarAsync(
+                assinatura,
+                AssinaturaStatus.Cancelada,
+                "AssinaturaCanceladaPeloUsuario",
+                "Cancelamento solicitado pelo usuario.",
+                cancellationToken: cancellationToken);
+
+            await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+            await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
+
+            await _assinaturaNotificacaoService.AssinaturaCanceladaAsync(
+                assinatura,
+                _currentUser.Email,
+                cancellationToken);
+
+            return AssinaturaResponseDto.From(assinatura);
         }
 
         var statusAnterior = assinatura.Status;
-        assinatura.Status = AssinaturaStatus.Cancelada;
+        assinatura.Status = AssinaturaStatus.CancelamentoAgendado;
         assinatura.CanceladoEm = DateTime.UtcNow;
         assinatura.RenovacaoAutomatica = false;
         assinatura.PlanoAlteracaoPendenteId = null;
         assinatura.PlanoAlteracaoPendente = null;
+        assinatura.Fim = fimPeriodo;
         assinatura.UpdatedAt = DateTime.UtcNow;
 
         _assinaturaRepository.Atualizar(assinatura);
         await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
             assinatura,
-            "AssinaturaCanceladaPeloUsuario",
+            "AssinaturaCancelamentoAgendado",
             statusAnterior,
             assinatura.Status,
-            observacao: "Cancelamento solicitado pelo usuario.",
+            observacao: "Cancelamento agendado para o fim do periodo contratado.",
             cancellationToken: cancellationToken);
         await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
             assinatura,
-            "RecorrenciaCancelada",
-            "Cancelada",
+            "RecorrenciaCancelamentoAgendado",
+            "CancelamentoAgendado",
             cicloInicio: assinatura.Inicio,
             cicloFim: assinatura.Fim,
-            observacao: "Renovacao automatica desativada por cancelamento.",
+            observacao: "Renovacao automatica desativada; acesso mantido ate o fim do periodo.",
             cancellationToken: cancellationToken);
         await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
-
-        await _assinaturaVisibilidadeService.OcultarLojasVinculadasAsync(assinatura, cancellationToken);
 
         await _assinaturaNotificacaoService.AssinaturaCanceladaAsync(
             assinatura,
@@ -965,8 +991,14 @@ public class AssinaturaService : IAssinaturaService
 
     private async Task<bool> ElegivelPromocaoTrialAsync(
         IniciarAssinaturaRequestDto request,
+        int userId,
         CancellationToken cancellationToken)
     {
+        if (await _assinaturaRepository.UsuarioJaTeveAssinaturaAsync(userId, cancellationToken))
+        {
+            return false;
+        }
+
         var promoStatus = await _promocaoLancamentoService.ObterStatusAsync(cancellationToken);
         if (!promoStatus.Disponivel)
         {
@@ -1011,7 +1043,7 @@ public class AssinaturaService : IAssinaturaService
         IniciarAssinaturaRequestDto request,
         CancellationToken cancellationToken)
     {
-        if (!await ElegivelPromocaoTrialAsync(request, cancellationToken))
+        if (!await ElegivelPromocaoTrialAsync(request, ObterUserIdAutenticado(), cancellationToken))
         {
             return null;
         }

@@ -27,6 +27,8 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
     private readonly ICurrentUserContext _currentUser;
     private readonly IAssinaturaOnboardingFinalizacaoService _assinaturaOnboardingFinalizacaoService;
     private readonly IAssinaturaVisibilidadeService _assinaturaVisibilidadeService;
+    private readonly IAssinaturaEncerramentoService _assinaturaEncerramentoService;
+    private readonly IUsuarioRepository _usuarioRepository;
     private readonly MercadoPagoOptions _mercadoPagoOptions;
     private readonly AssinaturaCobrancaOptions _assinaturaCobrancaOptions;
 
@@ -42,6 +44,8 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         ICurrentUserContext currentUser,
         IAssinaturaOnboardingFinalizacaoService assinaturaOnboardingFinalizacaoService,
         IAssinaturaVisibilidadeService assinaturaVisibilidadeService,
+        IAssinaturaEncerramentoService assinaturaEncerramentoService,
+        IUsuarioRepository usuarioRepository,
         IOptions<MercadoPagoOptions> mercadoPagoOptions,
         IOptions<AssinaturaCobrancaOptions> assinaturaCobrancaOptions)
     {
@@ -56,6 +60,8 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         _currentUser = currentUser;
         _assinaturaOnboardingFinalizacaoService = assinaturaOnboardingFinalizacaoService;
         _assinaturaVisibilidadeService = assinaturaVisibilidadeService;
+        _assinaturaEncerramentoService = assinaturaEncerramentoService;
+        _usuarioRepository = usuarioRepository;
         _mercadoPagoOptions = mercadoPagoOptions.Value;
         _assinaturaCobrancaOptions = assinaturaCobrancaOptions.Value;
     }
@@ -472,36 +478,18 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             }
 
             var assinatura = pagamento.Assinatura;
-            if (assinatura.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Inadimplente or AssinaturaStatus.Trial))
+            if (assinatura.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Inadimplente or AssinaturaStatus.Trial or AssinaturaStatus.CancelamentoAgendado))
             {
                 continue;
             }
 
-            var statusAnterior = assinatura.Status;
-            assinatura.Status = AssinaturaStatus.Expirada;
-            assinatura.Fim = DateTime.UtcNow;
-            assinatura.RenovacaoAutomatica = false;
-            assinatura.UpdatedAt = DateTime.UtcNow;
-            _assinaturaRepository.Atualizar(assinatura);
-
-            await _assinaturaVisibilidadeService.OcultarLojasVinculadasAsync(assinatura, cancellationToken);
-            await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+            await _assinaturaEncerramentoService.EncerrarAsync(
                 assinatura,
+                AssinaturaStatus.Expirada,
                 "AssinaturaEncerradaInadimplencia",
-                statusAnterior,
-                assinatura.Status,
-                pagamento,
                 "Assinatura encerrada automaticamente apos tolerancia de inadimplencia.",
-                cancellationToken: cancellationToken);
-            await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
-                assinatura,
-                "RecorrenciaEncerradaInadimplencia",
-                assinatura.Status.ToString(),
                 pagamento,
-                assinatura.Inicio,
-                assinatura.Fim,
-                "Recorrencia encerrada por inadimplencia.",
-                cancellationToken: cancellationToken);
+                cancellationToken);
 
             encerradas++;
         }
@@ -509,6 +497,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         if (encerradas > 0)
         {
             await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+            await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
         }
 
         return encerradas;

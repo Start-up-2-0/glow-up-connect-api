@@ -18,6 +18,7 @@ public record AssinaturaResponseDto(
     DateTime? ProximaDataVencimento = null,
     DateTime? ProximaDataGeracaoCobranca = null,
     DateTime? ProximaDataAlerta = null,
+    DateTime? CanceladoEm = null,
     bool EmTrial = false,
     int? DiasTrial = null,
     bool RequerConfirmacaoEmail = false)
@@ -42,6 +43,7 @@ public record AssinaturaResponseDto(
             assinatura.ProximaDataVencimento,
             assinatura.ProximaDataGeracaoCobranca,
             assinatura.ProximaDataAlerta,
+            assinatura.CanceladoEm,
             assinatura.Status == AssinaturaStatus.Trial,
             diasTrial,
             requerConfirmacaoEmail);

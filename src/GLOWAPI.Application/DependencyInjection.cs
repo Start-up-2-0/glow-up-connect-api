@@ -33,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<ICobrancaAssinaturaService, CobrancaAssinaturaService>();
         services.AddScoped<IAssinaturaCobrancaWorkerService, AssinaturaCobrancaWorkerService>();
         services.AddScoped<IAssinaturaVisibilidadeService, AssinaturaVisibilidadeService>();
+        services.AddScoped<IAssinaturaEncerramentoService, AssinaturaEncerramentoService>();
         services.AddScoped<IAssinaturaService, AssinaturaService>();
         services.AddScoped<IAssinaturaOnboardingFinalizacaoService, AssinaturaOnboardingFinalizacaoService>();
         services.AddScoped<IAssinaturaOnboardingContextoService, AssinaturaOnboardingContextoService>();

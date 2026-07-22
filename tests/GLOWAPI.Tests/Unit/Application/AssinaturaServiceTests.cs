@@ -878,6 +878,7 @@ public class AssinaturaServiceTests
             Status = AssinaturaStatus.Ativa,
             RenovacaoAutomatica = true,
             PlanoAlteracaoPendenteId = 2,
+            ProximaDataVencimento = DateTime.UtcNow.AddDays(20),
             Plano = new Plano { Id = 1 }
         };
 
@@ -894,8 +895,8 @@ public class AssinaturaServiceTests
         var response = await service.CancelarAsync(30);
 
         Assert.Equal(30, response.Id);
-        Assert.Equal("Cancelada", response.Status);
-        Assert.Equal(AssinaturaStatus.Cancelada, assinatura.Status);
+        Assert.Equal("CancelamentoAgendado", response.Status);
+        Assert.Equal(AssinaturaStatus.CancelamentoAgendado, assinatura.Status);
         Assert.NotNull(assinatura.CanceladoEm);
         Assert.False(assinatura.RenovacaoAutomatica);
         Assert.Null(assinatura.PlanoAlteracaoPendenteId);
@@ -1086,6 +1087,7 @@ public class AssinaturaServiceTests
             new AvatarBase64Decoder(Options.Create(new AvatarOptions())),
             _usuarioRepository.Object,
             new Mock<IAssinaturaVisibilidadeService>().Object,
+            new Mock<IAssinaturaEncerramentoService>().Object,
             Options.Create(new MercadoPagoOptions()));
 
     private static PagamentoTransparenteMercadoPagoDto PagamentoValido() =>
