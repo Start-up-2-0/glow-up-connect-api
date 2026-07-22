@@ -87,6 +87,39 @@ public class MovimentosFinanceirosServiceTests
         Assert.Equal("recebido", resultado.Status);
     }
 
+    [Fact]
+    public async Task ObterDashboardAsync_SemCaixa_RetornaDashboardZerado()
+    {
+        _caixaRepository
+            .Setup(r => r.ObterPorEstabelecimentoAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Caixa?)null);
+        _contaReceberRepository
+            .Setup(r => r.ListarPorEstabelecimentoAsync(1, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<ContaReceber>());
+        _contaPagarRepository
+            .Setup(r => r.ListarPorEstabelecimentoAsync(1, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<ContaPagar>());
+
+        var service = CreateService();
+        var inicio = new DateTime(2026, 7, 1, 0, 0, 0, DateTimeKind.Utc);
+        var fim = new DateTime(2026, 7, 31, 23, 59, 59, DateTimeKind.Utc);
+
+        var resultado = await service.ObterDashboardAsync(
+            1,
+            new FinanceiroFiltroDto(inicio, fim),
+            CancellationToken.None);
+
+        Assert.Equal(0, resultado.SaldoAtual);
+        Assert.Equal(0, resultado.TotalEntradas);
+        Assert.Equal(0, resultado.TotalSaidas);
+        Assert.Equal(0, resultado.LucroLiquido);
+        Assert.Equal(0, resultado.ContasEmAberto);
+        Assert.Equal(0, resultado.QuantidadeContasEmAberto);
+        Assert.Equal(0, resultado.ComissoesPeriodo);
+        Assert.Equal(inicio, resultado.PeriodoInicio);
+        Assert.Equal(fim, resultado.PeriodoFim);
+    }
+
     private MovimentosFinanceirosService CreateService() =>
         new(
             _caixaRepository.Object,

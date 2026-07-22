@@ -46,10 +46,30 @@ public class MovimentosFinanceirosService : IMovimentosFinanceirosService
             PermissaoNegocio.CaixaVisualizar,
             cancellationToken);
 
-        var resumo = await _financeiroNegocioService.ObterResumoAsync(
-            estabelecimentoId,
-            filtro,
-            cancellationToken);
+        var caixa = await _caixaRepository.ObterPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
+
+        decimal saldoAtual = 0;
+        decimal totalEntradas = 0;
+        decimal totalSaidas = 0;
+        decimal comissoesPeriodo = 0;
+
+        if (caixa is not null)
+        {
+            var lancamentos = await _lancamentoCaixaRepository.ListarPorCaixaAsync(
+                new LancamentoCaixaFiltro(caixa.Id, filtro.Inicio, filtro.Fim),
+                cancellationToken);
+
+            totalEntradas = lancamentos
+                .Where(l => LancamentoCaixaClassificador.EhEntrada(l.Tipo))
+                .Sum(l => l.Valor);
+            totalSaidas = lancamentos
+                .Where(l => LancamentoCaixaClassificador.EhSaida(l.Tipo))
+                .Sum(l => l.Valor);
+            saldoAtual = caixa.SaldoDisponivel;
+            comissoesPeriodo = lancamentos
+                .Where(l => l.Tipo == LancamentoCaixaTipo.ComissaoProfissional)
+                .Sum(l => l.Valor);
+        }
 
         var contasReceber = await _contaReceberRepository.ListarPorEstabelecimentoAsync(
             estabelecimentoId,
@@ -65,26 +85,14 @@ public class MovimentosFinanceirosService : IMovimentosFinanceirosService
         var abertasPagar = contasPagar
             .Where(c => c.Status is ContaFinanceiraStatus.Aberta or ContaFinanceiraStatus.Vencida);
 
-        var caixa = await _caixaRepository.ObterPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
-        var comissoesPeriodo = 0m;
-        if (caixa is not null)
-        {
-            var lancamentos = await _lancamentoCaixaRepository.ListarPorCaixaAsync(
-                new LancamentoCaixaFiltro(caixa.Id, filtro.Inicio, filtro.Fim),
-                cancellationToken);
-            comissoesPeriodo = lancamentos
-                .Where(l => l.Tipo == LancamentoCaixaTipo.ComissaoProfissional)
-                .Sum(l => l.Valor);
-        }
-
         var contasEmAberto = abertasReceber.Sum(c => c.Valor) + abertasPagar.Sum(c => c.Valor);
         var qtdAbertas = abertasReceber.Count() + abertasPagar.Count();
 
         return new FinanceiroDashboardResponseDto(
-            resumo.SaldoDisponivel,
-            resumo.EntradasPeriodo,
-            resumo.SaidasPeriodo,
-            resumo.EntradasPeriodo - resumo.SaidasPeriodo,
+            saldoAtual,
+            totalEntradas,
+            totalSaidas,
+            totalEntradas - totalSaidas,
             contasEmAberto,
             qtdAbertas,
             comissoesPeriodo,
