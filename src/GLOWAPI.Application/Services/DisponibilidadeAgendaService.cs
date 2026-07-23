@@ -170,6 +170,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
         }
 
         var profissionais = await ResolverProfissionaisAsync(
+            estabelecimentoId,
             request.ProfissionalId,
             servicos,
             cancellationToken);
@@ -234,10 +235,13 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
                     ativo: true,
                     cancellationToken);
 
-                var janelas = ResolverJanelasAtendimento(
+                var janelas = await ResolverJanelasAtendimentoAsync(
                     exigirFuncionamentoEstabelecimento,
                     funcionamentos,
-                    horariosProfissional);
+                    horariosProfissional,
+                    estabelecimentoId,
+                    profissionalId,
+                    cancellationToken);
 
                 if (janelas.Count == 0)
                 {
@@ -298,6 +302,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
     }
 
     private async Task<IReadOnlyList<int>> ResolverProfissionaisAsync(
+        int estabelecimentoId,
         int? profissionalId,
         IReadOnlyList<Servico> servicos,
         CancellationToken cancellationToken)
@@ -315,9 +320,24 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             return [profissionalId.Value];
         }
 
-        var candidatos = await _profissionalServicoRepository.ListarProfissionaisAtivosPorServicoAsync(
-            servicos[0].Id,
-            cancellationToken);
+        IReadOnlyList<int>? candidatos = null;
+
+        foreach (var servico in servicos)
+        {
+            var candidatosServico = await ListarCandidatosSemPreferenciaPorServicoAsync(
+                estabelecimentoId,
+                servico,
+                cancellationToken);
+
+            candidatos = candidatos is null
+                ? candidatosServico
+                : candidatos.Intersect(candidatosServico).ToList();
+        }
+
+        if (candidatos is null || candidatos.Count == 0)
+        {
+            return [];
+        }
 
         var profissionaisValidos = new List<int>();
         foreach (var candidato in candidatos)
@@ -332,6 +352,27 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
         }
 
         return profissionaisValidos;
+    }
+
+    private async Task<IReadOnlyList<int>> ListarCandidatosSemPreferenciaPorServicoAsync(
+        int estabelecimentoId,
+        Servico servico,
+        CancellationToken cancellationToken)
+    {
+        if (!ServicoExecucaoHelper.ServicoPossuiVinculosAtivos(servico))
+        {
+            var vinculos = await _profissionalEstabelecimentoRepository
+                .ListarAtivosComAgendamentoPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
+
+            return vinculos
+                .Select(vinculo => vinculo.ProfissionalId)
+                .Distinct()
+                .ToList();
+        }
+
+        return await _profissionalServicoRepository.ListarProfissionaisAtivosPorServicoAsync(
+            servico.Id,
+            cancellationToken);
     }
 
     private async Task<Dictionary<int, Dictionary<int, ProfissionalServico>>> CarregarVinculosAtivosAsync(
@@ -407,10 +448,13 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             || (permitirSomenteExibicao && vinculo.SomenteExibicao);
     }
 
-    private static List<(TimeOnly Inicio, TimeOnly Fim)> ResolverJanelasAtendimento(
+    private async Task<List<(TimeOnly Inicio, TimeOnly Fim)>> ResolverJanelasAtendimentoAsync(
         bool exigirFuncionamentoEstabelecimento,
         IReadOnlyList<HorarioFuncionamentoEstabelecimento> funcionamentos,
-        IReadOnlyList<HorarioAtendimentoProfissional> horariosProfissional)
+        IReadOnlyList<HorarioAtendimentoProfissional> horariosProfissional,
+        int estabelecimentoId,
+        int profissionalId,
+        CancellationToken cancellationToken)
     {
         if (!exigirFuncionamentoEstabelecimento)
         {
@@ -426,7 +470,20 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
 
         if (horariosProfissional.Count == 0)
         {
-            // Sem agenda do profissional neste dia da semana — não usar só o horário da loja.
+            var agendaProfissional = await _horarioAtendimentoProfissionalRepository.ListarPorEstabelecimentoAsync(
+                estabelecimentoId,
+                profissionalId,
+                diaSemana: null,
+                ativo: true,
+                cancellationToken);
+
+            if (agendaProfissional.Count == 0)
+            {
+                return funcionamentos
+                    .Select(funcionamento => (funcionamento.HoraInicio, funcionamento.HoraFim))
+                    .ToList();
+            }
+
             return [];
         }
 
