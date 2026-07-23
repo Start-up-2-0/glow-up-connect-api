@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
 using GLOWAPI.Application.Helpers;
-using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Mensageria;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Entities;
@@ -114,7 +113,7 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
             if (!sucesso)
             {
                 _logger.LogWarning(
-                    "Evolution sendText falhou. MensagemGuid={MensagemGuid}, Destinatario={Destinatario}, Response={Response}",
+                    "Evolution sendText tentativa falhou. MensagemGuid={MensagemGuid}, Destinatario={Destinatario}, Response={Response}",
                     mensagem.Guid,
                     destinatarioUsado,
                     responseBody);
@@ -155,4 +154,13 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
                 TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
         }
     }
+
+    public Task<(bool Sucesso, string? ResponseBody, string DestinatarioUsado, string FormatoUsado)> EnviarAsync(
+        string destinatarioBruto,
+        string conteudo,
+        CancellationToken cancellationToken) =>
+        EnviarAsync(
+            EvolutionDestinoHelper.CriarCandidatosDestinoOutbound(destinatarioBruto),
+            conteudo,
+            cancellationToken);
 }
