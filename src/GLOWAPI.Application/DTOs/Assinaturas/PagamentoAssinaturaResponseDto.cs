@@ -9,14 +9,14 @@ public record PagamentoAssinaturaResponseDto(
     string GatewayPaymentId,
     decimal Valor,
     string Moeda,
-    string CheckoutUrl,
-    string QrCode,
+    string? CheckoutUrl,
+    string? QrCode,
     DateTime? ExpiraEm)
 {
     public static PagamentoAssinaturaResponseDto From(
         Pagamento pagamento,
-        string checkoutUrl,
-        string qrCode) =>
+        string? checkoutUrl,
+        string? qrCode) =>
         new(
             pagamento.Id,
             pagamento.Status.ToString(),

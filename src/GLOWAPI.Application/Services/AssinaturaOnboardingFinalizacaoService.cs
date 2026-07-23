@@ -214,7 +214,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
         {
             Nome = dto.NomePublico.Trim(),
             Descricao = dto.Biografia.Trim(),
-            Logo = dto.Logo?.Trim(),
+            Logo = dto.Logo?.Trim() ?? string.Empty,
             Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone),
             Email = dto.Email.Trim(),
             Ativo = true,
