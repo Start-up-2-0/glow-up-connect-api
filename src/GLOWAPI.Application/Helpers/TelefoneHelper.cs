@@ -65,12 +65,7 @@ public static class TelefoneHelper
             return false;
         }
 
-        if (normalizadoA == normalizadoB)
-        {
-            return true;
-        }
-
-        return SaoEquivalentesCelularBrasil(normalizadoA, normalizadoB);
+        return normalizadoA == normalizadoB;
     }
 
     /// <summary>
@@ -168,19 +163,5 @@ public static class TelefoneHelper
         return $"https://wa.me/{numero}?text={texto}";
     }
 
-    private static bool SaoEquivalentesCelularBrasil(string telefoneA, string telefoneB)
-    {
-        var varianteA = ObterVarianteCelularBrasilSemNonoDigito(telefoneA);
-        var varianteB = ObterVarianteCelularBrasilSemNonoDigito(telefoneB);
-
-        if (varianteA is null || varianteB is null)
-        {
-            return false;
-        }
-
-        return varianteA == varianteB
-            || varianteA == telefoneB
-            || varianteB == telefoneA;
-    }
 
 }
