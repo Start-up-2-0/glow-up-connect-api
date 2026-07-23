@@ -175,22 +175,22 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             servicos,
             cancellationToken);
 
-        if (profissionais.Count == 0)
+        if (request.ProfissionalId.HasValue && profissionais.Count == 0)
         {
             return new DisponibilidadeAgendaResponseDto
             {
                 ServicoId = servicos[0].Id,
                 ServicoIds = servicoIds,
                 DuracaoMinutos = servicos.Sum(servico => servico.DuracaoMinutos),
-                MensagemIndisponibilidade = await ObterMensagemSemProfissionalExecutorAsync(
-                    estabelecimentoId,
-                    servicos,
-                    cancellationToken),
+                MensagemIndisponibilidade =
+                    "Profissional selecionado nao executa um ou mais servicos informados.",
                 Slots = []
             };
         }
 
-        var vinculosPorProfissional = await CarregarVinculosAtivosAsync(servicos, profissionais, cancellationToken);
+        var vinculosPorProfissional = profissionais.Count > 0
+            ? await CarregarVinculosAtivosAsync(servicos, profissionais, cancellationToken)
+            : new Dictionary<int, Dictionary<int, ProfissionalServico>>();
         var duracaoResposta = request.ProfissionalId.HasValue
             && vinculosPorProfissional.TryGetValue(request.ProfissionalId.Value, out var vinculosProfissional)
             ? ObterDuracaoTotal(servicos, vinculosProfissional)
@@ -284,6 +284,19 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
                 }
             }
 
+            if (!request.ProfissionalId.HasValue
+                && slotsDoDia.Count == 0
+                && exigirFuncionamentoEstabelecimento
+                && funcionamentos.Count > 0)
+            {
+                AdicionarSlotsEstabelecimento(
+                    data,
+                    funcionamentos,
+                    servicos.Sum(servico => servico.DuracaoMinutos),
+                    ocupacao,
+                    slotsDoDia);
+            }
+
             if (slotsDoDia.Count > 0)
             {
                 datasAtendimento.Add(data);
@@ -296,6 +309,9 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             ServicoId = servicos[0].Id,
             ServicoIds = servicoIds,
             DuracaoMinutos = duracaoResposta,
+            MensagemIndisponibilidade = slots.Count == 0
+                ? "Nenhum horario de funcionamento disponivel para os servicos selecionados."
+                : null,
             DatasAtendimento = datasAtendimento,
             Slots = slots
                 .OrderBy(slot => slot.Inicio)
@@ -408,25 +424,40 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             .ToList();
     }
 
-    private async Task<string> ObterMensagemSemProfissionalExecutorAsync(
-        int estabelecimentoId,
-        IReadOnlyList<Servico> servicos,
-        CancellationToken cancellationToken)
+    private static void AdicionarSlotsEstabelecimento(
+        DateOnly data,
+        IReadOnlyList<HorarioFuncionamentoEstabelecimento> funcionamentos,
+        int duracaoMinutos,
+        IReadOnlyList<AgendamentoItem> ocupacao,
+        List<SlotDisponivelResponseDto> slotsDoDia)
     {
-        var vinculosEstabelecimento = await _profissionalEstabelecimentoRepository
-            .ListarAtivosPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
-
-        if (vinculosEstabelecimento.Count == 0)
+        foreach (var funcionamento in funcionamentos)
         {
-            return "Nenhum profissional cadastrado na loja. Adicione um membro da equipe ou profissional da vitrine.";
-        }
+            foreach (var (inicioSlot, fimSlot) in GeradorSlotsDisponibilidade.Gerar(
+                         data,
+                         funcionamento.HoraInicio,
+                         funcionamento.HoraFim,
+                         duracaoMinutos,
+                         IntervaloEntreSlotsMinutos))
+            {
+                if (inicioSlot < DateTime.UtcNow)
+                {
+                    continue;
+                }
 
-        if (servicos.Any(ServicoExecucaoHelper.ServicoPossuiVinculosAtivos))
-        {
-            return "Nenhum profissional habilitado executa os servicos selecionados. Vincule um profissional da equipe ou da vitrine aos servicos.";
-        }
+                if (SlotOcupadoEstabelecimento(ocupacao, inicioSlot, fimSlot))
+                {
+                    continue;
+                }
 
-        return "Nenhum profissional habilitado para receber agendamentos. Ative a opcao na equipe ou cadastre profissionais na vitrine.";
+                slotsDoDia.Add(new SlotDisponivelResponseDto
+                {
+                    ProfissionalId = AgendaSemPreferenciaHelper.ProfissionalIdEstabelecimento,
+                    Inicio = inicioSlot,
+                    Fim = fimSlot
+                });
+            }
+        }
     }
 
     private async Task<Dictionary<int, Dictionary<int, ProfissionalServico>>> CarregarVinculosAtivosAsync(
@@ -572,6 +603,14 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
         }
 
         return janelas;
+    }
+
+    private static bool SlotOcupadoEstabelecimento(
+        IReadOnlyList<AgendamentoItem> ocupacao,
+        DateTime inicio,
+        DateTime fim)
+    {
+        return ocupacao.Any(item => item.Inicio < fim && item.Fim > inicio);
     }
 
     private static bool SlotOcupado(

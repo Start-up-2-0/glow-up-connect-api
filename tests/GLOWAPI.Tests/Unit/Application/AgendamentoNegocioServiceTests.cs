@@ -75,6 +75,7 @@ public class AgendamentoNegocioServiceTests
                 null,
                 10,
                 It.IsAny<DateTime?>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(preparacao);
 
@@ -101,6 +102,7 @@ public class AgendamentoNegocioServiceTests
                 null,
                 10,
                 It.IsAny<DateTime?>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -142,6 +144,7 @@ public class AgendamentoNegocioServiceTests
                 null,
                 It.IsAny<int?>(),
                 It.IsAny<DateTime?>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(CriarPreparacao(estabelecimento, profissional));
 

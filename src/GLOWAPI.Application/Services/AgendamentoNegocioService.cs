@@ -591,6 +591,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             usuarioClienteId,
             agendamentoIgnorarId: null,
             inicioSelecionado: request.InicioSelecionado,
+            ignorarVinculoExecutorServico: !publicGuidProfissional.HasValue,
             cancellationToken);
 
         await _agendamentoValidador.ValidarConflitoAsync(
@@ -766,6 +767,11 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
 
         foreach (var slot in slotsCompativeis)
         {
+            if (AgendaSemPreferenciaHelper.SlotEstabelecimento(slot.ProfissionalId))
+            {
+                return await GarantirExecutorEstabelecimentoAsync(estabelecimento, cancellationToken);
+            }
+
             var vinculo = await _profissionalEstabelecimentoRepository.ObterPorProfissionalAsync(
                 slot.ProfissionalId,
                 estabelecimento.Id,
@@ -789,6 +795,52 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
 
         throw new HorarioIndisponivelException(
             "Horario indisponivel para os servicos selecionados.");
+    }
+
+    private async Task<Profissional> GarantirExecutorEstabelecimentoAsync(
+        Estabelecimento estabelecimento,
+        CancellationToken cancellationToken)
+    {
+        var vinculos = await _profissionalEstabelecimentoRepository.ListarAtivosPorEstabelecimentoAsync(
+            estabelecimento.Id,
+            cancellationToken);
+
+        var vinculoPreferido = vinculos.FirstOrDefault(vinculo => vinculo.PodeReceberAgendamento)
+            ?? vinculos.FirstOrDefault(vinculo => vinculo.SomenteExibicao)
+            ?? vinculos.FirstOrDefault();
+
+        if (vinculoPreferido is not null)
+        {
+            var profissionalExistente = await _profissionalRepository.ObterPorIdAsync(
+                vinculoPreferido.ProfissionalId,
+                cancellationToken);
+            if (profissionalExistente is not null && profissionalExistente.Ativo)
+            {
+                return profissionalExistente;
+            }
+        }
+
+        var executor = new Profissional
+        {
+            NomePublico = estabelecimento.Nome,
+            Biografia = string.Empty,
+            Logo = estabelecimento.Logo,
+            TipoProfissional = ProfessionalType.VinculadoEstabelecimento,
+            Ativo = true
+        };
+
+        await _profissionalRepository.AdicionarAsync(executor, cancellationToken);
+        await _profissionalEstabelecimentoRepository.AdicionarAsync(new ProfissionalEstabelecimento
+        {
+            EstabelecimentoId = estabelecimento.Id,
+            Profissional = executor,
+            Ativo = true,
+            PodeReceberAgendamento = true,
+            SomenteExibicao = false
+        }, cancellationToken);
+        await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        return executor;
     }
 
     private async Task<Profissional> ResolverProfissionalPorGuidAsync(
@@ -1033,6 +1085,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             agendamento.UsuarioClienteId,
             agendamentoIgnorarId: agendamento.Id,
             inicioSelecionado: request.InicioSelecionado,
+            ignorarVinculoExecutorServico: false,
             cancellationToken);
 
         var statusAnterior = agendamento.Status;

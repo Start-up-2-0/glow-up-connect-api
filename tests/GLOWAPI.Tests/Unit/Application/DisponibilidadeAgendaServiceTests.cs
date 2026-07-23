@@ -1,4 +1,5 @@
 using GLOWAPI.Application.DTOs.Horarios;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Services;
@@ -270,6 +271,46 @@ public class DisponibilidadeAgendaServiceTests
             });
 
         Assert.NotEmpty(response.Slots);
+        Assert.Contains(segunda, response.DatasAtendimento);
+    }
+
+    [Fact]
+    public async Task ConsultarPublicoPorEstabelecimentoAsync_SemPreferencia_DeveUsarHorarioDaLoja_QuandoNaoHaProfissionais()
+    {
+        var segunda = ObterProximaSegunda();
+        ConfigurarCenarioBasico(segunda, incluirVinculoServico: false);
+
+        _servicoRepository
+            .Setup(r => r.ObterPorIdEEstabelecimentoAsync(5, 20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Servico
+            {
+                Id = 5,
+                EstabelecimentoId = 20,
+                DuracaoMinutos = 60,
+                Ativo = true
+            });
+
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ListarAtivosComAgendamentoPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ListarAtivosPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var service = CreateService();
+        var response = await service.ConsultarPublicoPorEstabelecimentoAsync(
+            Guid.NewGuid(),
+            new ConsultarDisponibilidadeAgendaDto
+            {
+                DataInicio = segunda,
+                DataFim = segunda,
+                ServicoId = 5
+            });
+
+        Assert.NotEmpty(response.Slots);
+        Assert.All(response.Slots, slot =>
+            Assert.Equal(AgendaSemPreferenciaHelper.ProfissionalIdEstabelecimento, slot.ProfissionalId));
         Assert.Contains(segunda, response.DatasAtendimento);
     }
 
