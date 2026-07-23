@@ -1,4 +1,5 @@
 using GLOWAPI.Application.DTOs.Mensageria;
+using Microsoft.Extensions.Logging;
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Mensageria;
@@ -11,14 +12,17 @@ namespace GLOWAPI.Application.Services;
 public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
 {
     private readonly IMensagemNotificacaoService _mensagemNotificacaoService;
+    private readonly ILogger<AgendamentoNotificacaoService> _logger;
     private readonly IModulosAssinaturaService _modulosAssinaturaService;
 
     public AgendamentoNotificacaoService(
         IMensagemNotificacaoService mensagemNotificacaoService,
-        IModulosAssinaturaService modulosAssinaturaService)
+        IModulosAssinaturaService modulosAssinaturaService,
+        ILogger<AgendamentoNotificacaoService> logger)
     {
         _mensagemNotificacaoService = mensagemNotificacaoService;
         _modulosAssinaturaService = modulosAssinaturaService;
+        _logger = logger;
     }
 
     public async Task AgendamentoCriadoAsync(
@@ -27,11 +31,13 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
         Profissional profissional,
         CancellationToken cancellationToken = default)
     {
+        var conteudoLoja = MontarMensagemCriacao(agendamento, estabelecimento, profissional);
+        _logger.LogInformation("WhatsApp Loja (Agendamento Criado): Conteudo gerado: {Conteudo}", conteudoLoja);
         await EnfileirarNegocioAsync(
             estabelecimento,
             profissional,
             "Novo agendamento recebido",
-            MontarMensagemCriacao(agendamento, estabelecimento, profissional),
+            conteudoLoja,
             "agendamento-criado",
             agendamento,
             cancellationToken);
@@ -62,11 +68,13 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             agendamento,
             cancellationToken);
 
+        var conteudoClienteWhatsApp = AgendamentoClienteWhatsAppTemplate.Confirmado(agendamento, estabelecimento);
+        _logger.LogInformation("WhatsApp Cliente (Agendamento Confirmado): Conteudo gerado: {Conteudo}", conteudoClienteWhatsApp);
         await EnfileirarClienteAsync(
             agendamento,
             estabelecimento,
             "Agendamento confirmado",
-            AgendamentoClienteWhatsAppTemplate.Confirmado(agendamento, estabelecimento),
+            conteudoClienteWhatsApp,
             AgendamentoClienteEmailTemplate.Confirmado(agendamento, estabelecimento),
             "agendamento-cliente-confirmado",
             cancellationToken);
@@ -88,11 +96,13 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             agendamento,
             cancellationToken);
 
+        var conteudoClienteWhatsApp = AgendamentoClienteWhatsAppTemplate.Cancelado(agendamento, estabelecimento, motivo);
+        _logger.LogInformation("WhatsApp Cliente (Agendamento Cancelado): Conteudo gerado: {Conteudo}", conteudoClienteWhatsApp);
         await EnfileirarClienteAsync(
             agendamento,
             estabelecimento,
             "Agendamento cancelado",
-            AgendamentoClienteWhatsAppTemplate.Cancelado(agendamento, estabelecimento, motivo),
+            conteudoClienteWhatsApp,
             AgendamentoClienteEmailTemplate.Cancelado(agendamento, estabelecimento, motivo),
             "agendamento-cliente-cancelado",
             cancellationToken);
@@ -169,11 +179,13 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             agendamento,
             cancellationToken);
 
+        var conteudoClienteWhatsApp = AgendamentoClienteWhatsAppTemplate.Remarcado(agendamento, estabelecimento);
+        _logger.LogInformation("WhatsApp Cliente (Agendamento Remarcado): Conteudo gerado: {Conteudo}", conteudoClienteWhatsApp);
         await EnfileirarClienteAsync(
             agendamento,
             estabelecimento,
             "Agendamento remarcado",
-            AgendamentoClienteWhatsAppTemplate.Remarcado(agendamento, estabelecimento),
+            conteudoClienteWhatsApp,
             AgendamentoClienteEmailTemplate.Remarcado(agendamento, estabelecimento),
             "agendamento-cliente-remarcado",
             cancellationToken);
