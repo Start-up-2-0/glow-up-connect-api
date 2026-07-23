@@ -150,7 +150,7 @@ public class MovimentosFinanceirosService : IMovimentosFinanceirosService
                 $"{MontarDescricao(request)}{forma}"),
             cancellationToken);
 
-        return MapearLancamentoEntrada(lancamento);
+        return MapearLancamentoEntrada(lancamento)!;
     }
 
     public async Task<MovimentoFinanceiroResponseDto> CriarSaidaAsync(
@@ -190,7 +190,7 @@ public class MovimentosFinanceirosService : IMovimentosFinanceirosService
                 MontarDescricao(request)),
             cancellationToken);
 
-        return MapearLancamentoSaida(lancamento);
+        return MapearLancamentoSaida(lancamento)!;
     }
 
     public async Task<MovimentoFinanceiroResponseDto> MarcarEntradaRecebidaAsync(
