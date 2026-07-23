@@ -38,11 +38,6 @@ public static class TelefoneHelper
             return string.Empty;
         }
 
-        var semNonoDigito = ObterVarianteCelularBrasilSemNonoDigito(normalizado);
-        if (semNonoDigito is not null && normalizado.Length > semNonoDigito.Length)
-        {
-            return semNonoDigito;
-        }
 
         return normalizado;
     }
@@ -188,25 +183,4 @@ public static class TelefoneHelper
             || varianteB == telefoneA;
     }
 
-    private static string? ObterVarianteCelularBrasilSemNonoDigito(string telefone)
-    {
-        if (!telefone.StartsWith("55", StringComparison.Ordinal))
-        {
-            return null;
-        }
-
-        var numeroLocal = telefone[2..];
-
-        if (numeroLocal.Length == 11 && numeroLocal[2] == '9')
-        {
-            return $"55{numeroLocal[..2]}{numeroLocal[3..]}";
-        }
-
-        if (numeroLocal.Length == 10)
-        {
-            return $"55{numeroLocal[..2]}9{numeroLocal[2..]}";
-        }
-
-        return null;
-    }
 }
