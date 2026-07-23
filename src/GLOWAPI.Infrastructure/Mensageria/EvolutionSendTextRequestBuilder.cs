@@ -22,7 +22,7 @@ internal static class EvolutionSendTextRequestBuilder
             new EvolutionSendTextV1Request
             {
                 Number = number,
-                TextMessage = new EvolutionSendTextV1TextMessage { Text = text },
+                Text = text,
                 Options = new EvolutionSendTextV1Options { LinkPreview = false }
             },
             V1Options);
