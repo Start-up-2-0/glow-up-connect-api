@@ -82,9 +82,8 @@ public class AgendamentoValidador : IAgendamentoValidador
             throw new ProfissionalSemVinculoNegocioException();
         }
 
-        var origemPublica = origem is OrigemAgendamento.PublicoLoja or OrigemAgendamento.PublicoProfissional;
         if (!vinculoEstabelecimento.PodeReceberAgendamento
-            && (origemPublica || !vinculoEstabelecimento.SomenteExibicao))
+            && !vinculoEstabelecimento.SomenteExibicao)
         {
             throw new ProfissionalSemVinculoNegocioException();
         }

@@ -189,6 +189,76 @@ public class DisponibilidadeAgendaServiceTests
                 }
             ]);
 
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ListarAtivosPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([
+                new ProfissionalEstabelecimento
+                {
+                    ProfissionalId = 40,
+                    EstabelecimentoId = 20,
+                    Ativo = true,
+                    PodeReceberAgendamento = true
+                }
+            ]);
+
+        var service = CreateService();
+        var response = await service.ConsultarPublicoPorEstabelecimentoAsync(
+            Guid.NewGuid(),
+            new ConsultarDisponibilidadeAgendaDto
+            {
+                DataInicio = segunda,
+                DataFim = segunda,
+                ServicoId = 5
+            });
+
+        Assert.NotEmpty(response.Slots);
+        Assert.Contains(segunda, response.DatasAtendimento);
+    }
+
+    [Fact]
+    public async Task ConsultarPublicoPorEstabelecimentoAsync_SemPreferencia_DeveUsarProfissionalVitrine_QuandoNaoHaEquipeComAgendamento()
+    {
+        var segunda = ObterProximaSegunda();
+        ConfigurarCenarioBasico(segunda, incluirVinculoServico: false);
+
+        _servicoRepository
+            .Setup(r => r.ObterPorIdEEstabelecimentoAsync(5, 20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Servico
+            {
+                Id = 5,
+                EstabelecimentoId = 20,
+                DuracaoMinutos = 60,
+                Ativo = true
+            });
+
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ListarAtivosComAgendamentoPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ListarAtivosPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([
+                new ProfissionalEstabelecimento
+                {
+                    ProfissionalId = 40,
+                    EstabelecimentoId = 20,
+                    Ativo = true,
+                    SomenteExibicao = true,
+                    PodeReceberAgendamento = false
+                }
+            ]);
+
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ObterPorProfissionalAsync(40, 20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfissionalEstabelecimento
+            {
+                ProfissionalId = 40,
+                EstabelecimentoId = 20,
+                Ativo = true,
+                SomenteExibicao = true,
+                PodeReceberAgendamento = false
+            });
+
         var service = CreateService();
         var response = await service.ConsultarPublicoPorEstabelecimentoAsync(
             Guid.NewGuid(),
@@ -285,6 +355,18 @@ public class DisponibilidadeAgendaServiceTests
                 Ativo = true,
                 PodeReceberAgendamento = true
             });
+
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ListarAtivosPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([
+                new ProfissionalEstabelecimento
+                {
+                    ProfissionalId = 40,
+                    EstabelecimentoId = 20,
+                    Ativo = true,
+                    PodeReceberAgendamento = true
+                }
+            ]);
 
         _horarioFuncionamentoRepository
             .Setup(r => r.ListarAtivosPorEstabelecimentoEDiaAsync(20, DayOfWeek.Monday, It.IsAny<CancellationToken>()))

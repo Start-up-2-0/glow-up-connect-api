@@ -770,7 +770,12 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
                 slot.ProfissionalId,
                 estabelecimento.Id,
                 cancellationToken);
-            if (vinculo is null || !vinculo.Ativo || !vinculo.PodeReceberAgendamento)
+            if (vinculo is null || !vinculo.Ativo)
+            {
+                continue;
+            }
+
+            if (!vinculo.PodeReceberAgendamento && !vinculo.SomenteExibicao)
             {
                 continue;
             }

@@ -100,7 +100,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             estabelecimento.Id,
             request,
             exigirFuncionamentoEstabelecimento: true,
-            permitirSomenteExibicao: false,
+            permitirSomenteExibicao: !request.ProfissionalId.HasValue,
             cancellationToken);
     }
 
@@ -182,7 +182,10 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
                 ServicoId = servicos[0].Id,
                 ServicoIds = servicoIds,
                 DuracaoMinutos = servicos.Sum(servico => servico.DuracaoMinutos),
-                MensagemIndisponibilidade = "Servico indisponivel por falta de profissional executor.",
+                MensagemIndisponibilidade = await ObterMensagemSemProfissionalExecutorAsync(
+                    estabelecimentoId,
+                    servicos,
+                    cancellationToken),
                 Slots = []
             };
         }
@@ -359,20 +362,71 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
         Servico servico,
         CancellationToken cancellationToken)
     {
-        if (!ServicoExecucaoHelper.ServicoPossuiVinculosAtivos(servico))
-        {
-            var vinculos = await _profissionalEstabelecimentoRepository
-                .ListarAtivosComAgendamentoPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
+        var vinculosEstabelecimento = await _profissionalEstabelecimentoRepository
+            .ListarAtivosPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
 
-            return vinculos
-                .Select(vinculo => vinculo.ProfissionalId)
-                .Distinct()
-                .ToList();
+        if (vinculosEstabelecimento.Count == 0)
+        {
+            return [];
         }
 
-        return await _profissionalServicoRepository.ListarProfissionaisAtivosPorServicoAsync(
-            servico.Id,
-            cancellationToken);
+        var idsEstabelecimento = vinculosEstabelecimento
+            .Select(vinculo => vinculo.ProfissionalId)
+            .ToHashSet();
+
+        var preferidos = vinculosEstabelecimento
+            .Where(vinculo => vinculo.PodeReceberAgendamento)
+            .Select(vinculo => vinculo.ProfissionalId)
+            .Distinct()
+            .ToList();
+
+        var pool = preferidos.Count > 0
+            ? preferidos
+            : idsEstabelecimento.ToList();
+
+        if (!ServicoExecucaoHelper.ServicoPossuiVinculosAtivos(servico))
+        {
+            return pool;
+        }
+
+        var executores = pool
+            .Where(profissionalId => ServicoExecucaoHelper.ProfissionalExecutaServico(servico, profissionalId))
+            .ToList();
+
+        if (executores.Count > 0)
+        {
+            return executores;
+        }
+
+        var vinculadosServico = await _profissionalServicoRepository
+            .ListarProfissionaisAtivosPorServicoAsync(servico.Id, cancellationToken);
+
+        return vinculadosServico
+            .Where(profissionalId => idsEstabelecimento.Contains(profissionalId))
+            .Where(profissionalId => ServicoExecucaoHelper.ProfissionalExecutaServico(servico, profissionalId))
+            .Distinct()
+            .ToList();
+    }
+
+    private async Task<string> ObterMensagemSemProfissionalExecutorAsync(
+        int estabelecimentoId,
+        IReadOnlyList<Servico> servicos,
+        CancellationToken cancellationToken)
+    {
+        var vinculosEstabelecimento = await _profissionalEstabelecimentoRepository
+            .ListarAtivosPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
+
+        if (vinculosEstabelecimento.Count == 0)
+        {
+            return "Nenhum profissional cadastrado na loja. Adicione um membro da equipe ou profissional da vitrine.";
+        }
+
+        if (servicos.Any(ServicoExecucaoHelper.ServicoPossuiVinculosAtivos))
+        {
+            return "Nenhum profissional habilitado executa os servicos selecionados. Vincule um profissional da equipe ou da vitrine aos servicos.";
+        }
+
+        return "Nenhum profissional habilitado para receber agendamentos. Ative a opcao na equipe ou cadastre profissionais na vitrine.";
     }
 
     private async Task<Dictionary<int, Dictionary<int, ProfissionalServico>>> CarregarVinculosAtivosAsync(
