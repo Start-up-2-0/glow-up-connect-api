@@ -156,12 +156,4 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
         }
     }
 
-    public Task<(bool Sucesso, string? ResponseBody, string DestinatarioUsado, string FormatoUsado)> EnviarAsync(
-        string destinatarioBruto,
-        string conteudo,
-        CancellationToken cancellationToken) =>
-        EnviarAsync(
-            EvolutionDestinoHelper.CriarCandidatosDestinoOutbound(destinatarioBruto),
-            conteudo,
-            cancellationToken);
 }
