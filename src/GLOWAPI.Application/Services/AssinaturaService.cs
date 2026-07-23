@@ -1071,13 +1071,17 @@ public class AssinaturaService : IAssinaturaService
         var trialSemRecorrenciaNoGateway = _mercadoPagoOptions.UsarCheckoutPro
             || _mercadoPagoOptions.PermitirTrialSemRecorrenciaNoGateway;
 
+        var valorMensalidade = AssinaturaValorCobranca.CalcularMensalidade(
+            plano.Preco,
+            campanha.PercentualDescontoMensalidade);
+
         if (!trialSemRecorrenciaNoGateway)
         {
             response = await gateway.CriarAssinaturaRecorrenteAsync(new CriarAssinaturaRecorrenteGatewayRequest(
                 Gateway: assinatura.Gateway,
                 ReferenciaInterna: referenciaInterna,
                 Descricao: $"Assinatura {plano.Nome} - trial {campanha.DiasTrial} dias",
-                Valor: plano.Preco,
+                Valor: valorMensalidade,
                 Moeda: "BRL",
                 PagadorNome: _currentUser.Email ?? "Usuario Glow",
                 PagadorEmail: _currentUser.Email ?? string.Empty,
@@ -1106,6 +1110,7 @@ public class AssinaturaService : IAssinaturaService
 
         assinatura.Status = AssinaturaStatus.Trial;
         assinatura.CampanhaPromocionalId = campanha.Id;
+        assinatura.PercentualDescontoPermanente = campanha.PercentualDescontoMensalidade;
         assinatura.Inicio = inicio;
         assinatura.Fim = ciclo.Vencimento;
         assinatura.GatewaySubscriptionId = trialSemRecorrenciaNoGateway

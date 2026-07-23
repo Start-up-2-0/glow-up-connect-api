@@ -23,6 +23,7 @@ public class PromocaoLancamentoServiceTests
                 Limite = 100,
                 Utilizados = 0,
                 DiasTrial = 30,
+                PercentualDescontoMensalidade = 50,
                 Ativa = true
             });
         _assinaturaRepository
@@ -35,6 +36,7 @@ public class PromocaoLancamentoServiceTests
         Assert.True(status.Disponivel);
         Assert.Equal(98, status.VagasRestantes);
         Assert.Equal(30, status.DiasTrial);
+        Assert.Equal(50, status.PercentualDescontoMensalidade);
     }
 
     [Fact]
@@ -48,6 +50,7 @@ public class PromocaoLancamentoServiceTests
                 Limite = 100,
                 Utilizados = 40,
                 DiasTrial = 30,
+                PercentualDescontoMensalidade = 50,
                 Ativa = true
             });
         _assinaturaRepository
@@ -74,6 +77,7 @@ public class PromocaoLancamentoServiceTests
         Assert.False(status.Disponivel);
         Assert.Equal(0, status.VagasRestantes);
         Assert.Equal(30, status.DiasTrial);
+        Assert.Equal(50, status.PercentualDescontoMensalidade);
     }
 
     [Fact]

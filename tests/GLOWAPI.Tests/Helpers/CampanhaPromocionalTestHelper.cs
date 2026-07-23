@@ -24,6 +24,7 @@ public static class CampanhaPromocionalTestHelper
                 Limite = 100,
                 Utilizados = utilizados,
                 DiasTrial = 30,
+                PercentualDescontoMensalidade = 50,
                 Ativa = true
             };
             db.CampanhasPromocionais.Add(campanha);
@@ -33,6 +34,7 @@ public static class CampanhaPromocionalTestHelper
             campanha.Limite = 100;
             campanha.Utilizados = utilizados;
             campanha.DiasTrial = 30;
+            campanha.PercentualDescontoMensalidade = 50;
             campanha.Ativa = true;
         }
 
@@ -52,6 +54,7 @@ public static class CampanhaPromocionalTestHelper
                 Limite = 100,
                 Utilizados = 100,
                 DiasTrial = 30,
+                PercentualDescontoMensalidade = 50,
                 Ativa = true
             };
             db.CampanhasPromocionais.Add(campanha);

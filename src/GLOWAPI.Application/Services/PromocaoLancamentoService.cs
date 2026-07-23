@@ -9,6 +9,7 @@ namespace GLOWAPI.Application.Services;
 public class PromocaoLancamentoService : IPromocaoLancamentoService
 {
     public const string CodigoCampanhaLancamento = "lancamento-100";
+    public const decimal PercentualDescontoMensalidadePadrao = 50m;
 
     private readonly ICampanhaPromocionalRepository _campanhaPromocionalRepository;
     private readonly IAssinaturaRepository _assinaturaRepository;
@@ -47,6 +48,7 @@ public class PromocaoLancamentoService : IPromocaoLancamentoService
             disponivel,
             vagasRestantes,
             campanha?.DiasTrial ?? 30,
+            campanha?.PercentualDescontoMensalidade ?? PercentualDescontoMensalidadePadrao,
             _options.DiasAntecedenciaAlertaFatura,
             _options.DiasAntecedenciaGeracaoCobranca,
             _options.DiasToleranciaInadimplencia);

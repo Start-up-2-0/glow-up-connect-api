@@ -25,6 +25,11 @@ public class CampanhaPromocionalConfiguration : IEntityTypeConfiguration<Campanh
         builder.Property(campanha => campanha.DiasTrial)
             .IsRequired();
 
+        builder.Property(campanha => campanha.PercentualDescontoMensalidade)
+            .HasPrecision(5, 2)
+            .HasDefaultValue(50m)
+            .IsRequired();
+
         builder.Property(campanha => campanha.Ativa)
             .HasDefaultValue(true);
 

@@ -85,7 +85,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         var resultado = await CriarCobrancaGatewayAsync(
             assinatura,
             plano,
-            plano.Preco,
+            ResolverValorMensalidade(assinatura, plano),
             TipoCobrancaAssinatura.Inicial,
             1,
             ciclo,
@@ -147,7 +147,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             var resultado = await CriarCobrancaGatewayAsync(
                 assinatura,
                 assinatura.Plano,
-                assinatura.Plano.Preco,
+                ResolverValorMensalidade(assinatura, assinatura.Plano),
                 TipoCobrancaAssinatura.Recorrente,
                 numeroCiclo,
                 ciclo,
@@ -162,7 +162,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         {
             pagamento = CriarPagamentoInterno(
                 assinatura,
-                assinatura.Plano.Preco,
+                ResolverValorMensalidade(assinatura, assinatura.Plano),
                 TipoCobrancaAssinatura.Recorrente,
                 numeroCiclo,
                 ciclo,
@@ -218,7 +218,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         var resultado = await CriarCobrancaGatewayAsync(
             assinatura,
             novoPlano,
-            novoPlano.Preco,
+            ResolverValorMensalidade(assinatura, novoPlano),
             TipoCobrancaAssinatura.TrocaPlano,
             1,
             ciclo,
@@ -658,6 +658,9 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             titular,
             cancellationToken);
     }
+
+    private static decimal ResolverValorMensalidade(Assinatura assinatura, Plano plano) =>
+        AssinaturaValorCobranca.CalcularMensalidade(plano.Preco, assinatura.PercentualDescontoPermanente);
 
     private static Pagamento CriarPagamentoInterno(
         Assinatura assinatura,

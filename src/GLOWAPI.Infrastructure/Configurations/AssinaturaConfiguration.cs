@@ -41,6 +41,9 @@ public class AssinaturaConfiguration : IEntityTypeConfiguration<Assinatura>
         builder.Property(assinatura => assinatura.DataReferenciaCiclo)
             .IsRequired();
 
+        builder.Property(assinatura => assinatura.PercentualDescontoPermanente)
+            .HasPrecision(5, 2);
+
         builder.Property(assinatura => assinatura.ProximaDataVencimento);
         builder.Property(assinatura => assinatura.ProximaDataGeracaoCobranca);
         builder.Property(assinatura => assinatura.ProximaDataAlerta);

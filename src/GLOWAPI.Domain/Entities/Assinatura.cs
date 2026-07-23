@@ -9,6 +9,7 @@ public class Assinatura
     public int? PlanoAlteracaoPendenteId { get; set; }
     public int? EstabelecimentoId { get; set; }
     public int? CampanhaPromocionalId { get; set; }
+    public decimal? PercentualDescontoPermanente { get; set; }
     public int DiaVencimento { get; set; }
     public DateTime DataReferenciaCiclo { get; set; }
     public DateTime? ProximaDataVencimento { get; set; }

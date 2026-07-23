@@ -21,6 +21,7 @@ public record AssinaturaResponseDto(
     DateTime? CanceladoEm = null,
     bool EmTrial = false,
     int? DiasTrial = null,
+    decimal? PercentualDescontoPermanente = null,
     bool RequerConfirmacaoEmail = false)
 {
     public static AssinaturaResponseDto From(
@@ -46,5 +47,6 @@ public record AssinaturaResponseDto(
             assinatura.CanceladoEm,
             assinatura.Status == AssinaturaStatus.Trial,
             diasTrial,
+            assinatura.PercentualDescontoPermanente,
             requerConfirmacaoEmail);
 }
