@@ -22,6 +22,12 @@ internal sealed class EvolutionSendTextV1TextMessage
 
 internal sealed class EvolutionSendTextV1Options
 {
+    [JsonPropertyName("delay")]
+    public int Delay { get; init; }
+
+    [JsonPropertyName("presence")]
+    public string Presence { get; init; } = "composing";
+
     [JsonPropertyName("linkPreview")]
     public bool LinkPreview { get; init; }
 }

@@ -23,7 +23,11 @@ internal static class EvolutionSendTextRequestBuilder
             {
                 Number = number,
                 TextMessage = new EvolutionSendTextV1TextMessage { Text = text },
-                Options = new EvolutionSendTextV1Options { LinkPreview = false }
+                Options = new EvolutionSendTextV1Options {
+                    LinkPreview = false,
+                    Delay = 0,
+                    Presence = "composing"
+                }
             },
             V1Options);
 
