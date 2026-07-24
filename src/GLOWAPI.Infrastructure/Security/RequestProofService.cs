@@ -172,6 +172,13 @@ public class RequestProofService : IRequestProofService
         string.Equals(proofPath, RequestProofOptions.Wildcard, StringComparison.Ordinal)
         || string.Equals(proofPath, requestPath, StringComparison.OrdinalIgnoreCase);
 
-    private static string? NormalizarMetodo(string? method) =>
-        string.IsNullOrWhiteSpace(method) ? null : method.ToUpperInvariant();
+    private static string? NormalizarMetodo(string? method)
+    {
+        if (string.IsNullOrWhiteSpace(method))
+        {
+            return null;
+        }
+
+        return method.Trim().ToUpperInvariant();
+    }
 }
