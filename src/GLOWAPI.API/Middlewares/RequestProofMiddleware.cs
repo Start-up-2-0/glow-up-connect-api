@@ -4,6 +4,7 @@ using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Security;
 using GLOWAPI.Application.Options;
 using Microsoft.Extensions.Options;
+using GLOWAPI.Infrastructure.Security; // Adicionado
 
 namespace GLOWAPI.API.Middlewares;
 
@@ -38,7 +39,7 @@ public class RequestProofMiddleware
         }
 
         var contextId = RequestProofContextCookieHelper.ObterContextId(context.Request, _options);
-        var path = NormalizarPath(context.Request.Path.Value);
+        var path = RequestProofPathNormalizer.NormalizePath(context.Request.Path.Value); // Alterado
         var method = context.Request.Method.ToUpperInvariant();
 
         context.Request.Headers.TryGetValue(_options.HeaderName, out var proofHeader);
@@ -69,7 +70,7 @@ public class RequestProofMiddleware
             return true;
         }
 
-        var path = NormalizarPath(context.Request.Path.Value);
+        var path = RequestProofPathNormalizer.NormalizePath(context.Request.Path.Value); // Alterado
         if (path.Equals(_proxyOptions.HealthPath, StringComparison.OrdinalIgnoreCase))
         {
             return true;
@@ -86,23 +87,6 @@ public class RequestProofMiddleware
         }
 
         return false;
-    }
-
-    private static string NormalizarPath(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return "/";
-        }
-
-        var normalizado = path.Split('?', '#')[0].Trim();
-        if (!normalizado.StartsWith('/'))
-        {
-            normalizado = $"/{normalizado}";
-        }
-
-        var trimmed = normalizado.TrimEnd('/');
-        return string.IsNullOrEmpty(trimmed) ? "/" : trimmed.ToLowerInvariant();
     }
 
     private static async Task WriteForbiddenAsync(HttpContext context, RequestProofFailureCode codigo)

@@ -86,7 +86,7 @@ public static class DependencyInjection
         services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
         services.AddScoped<IIpBurstRateLimitService, IpBurstRateLimitService>();
         services.AddScoped<ILoginFailureRateLimitService, LoginFailureRateLimitService>();
-        services.AddSingleton<IRequestProofNonceStore, RequestProofNonceStore>();
+        services.AddSingleton<IRequestProofNonceStore, RequestProofNonceStoreV2>();
         services.AddSingleton<IRequestProofService, RequestProofService>();
         services.AddMemoryCache();
         services.AddScoped<IMensagemNotificacaoRepository, MensagemNotificacaoRepository>();

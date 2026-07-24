@@ -15,11 +15,13 @@ public class ExceptionMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionMiddleware> _logger;
+    private readonly IWebHostEnvironment _env;
 
-    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
+    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger, IWebHostEnvironment env)
     {
         _next = next;
         _logger = logger;
+        _env = env;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -142,28 +144,26 @@ public class ExceptionMiddleware
         catch (KeyNotFoundException ex)
         {
             _logger.LogWarning(ex, "Recurso não encontrado");
-            await WriteLegacyErrorAsync(context, 404, ex.Message);
+            var message = _env.IsDevelopment() ? ex.Message : "Recurso não encontrado.";
+            await WriteLegacyErrorAsync(context, 404, message);
         }
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning(ex, "Operação inválida");
-            await WriteLegacyErrorAsync(context, 400, ex.Message);
+            var message = _env.IsDevelopment() ? ex.Message : "Operação inválida.";
+            await WriteLegacyErrorAsync(context, 400, message);
         }
         catch (DbUpdateException ex)
         {
             _logger.LogError(ex, "Falha ao persistir no banco de dados");
-            var mensagemInterna = ex.InnerException?.Message ?? ex.Message;
-            var mensagem = mensagemInterna.Contains("OnboardingPendenteJson", StringComparison.OrdinalIgnoreCase)
-                || mensagemInterna.Contains("ReferenciaInterna", StringComparison.OrdinalIgnoreCase)
-                ? "Banco desatualizado. Execute a migration AddCheckoutProOnboardingPendente no ambiente staging."
-                : "Erro ao salvar dados da assinatura. Verifique os logs da API.";
-
+            var mensagem = "Erro ao salvar dados. Por favor, tente novamente mais tarde."; // Mensagem generalizada
             await WriteErrorAsync(context, 500, mensagem, "DATABASE_UPDATE_ERROR");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro interno do servidor");
-            await WriteLegacyErrorAsync(context, 500, "Erro interno do servidor");
+            _logger.LogError(ex, "Erro interno do servidor: {ErrorMessage}", ex.Message);
+            var message = _env.IsDevelopment() ? ex.Message : "Erro interno do servidor.";
+            await WriteLegacyErrorAsync(context, 500, message);
         }
     }
 

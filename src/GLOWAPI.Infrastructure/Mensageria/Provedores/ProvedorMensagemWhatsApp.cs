@@ -160,10 +160,13 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
         string ultimoDestino = candidatosDestino.FirstOrDefault() ?? string.Empty;
         const string formato = "v1-textMessage";
 
+        // Sanitiza o conteúdo para prevenir injeção de HTML/Script
+        var conteudoSanitizado = System.Text.Encodings.Web.HtmlEncoder.Default.Encode(conteudo);
+
         foreach (var candidato in candidatosDestino)
         {
             var url = $"{_options.ApiUrl.TrimEnd('/')}/message/sendText/{Uri.EscapeDataString(_options.InstanceName)}";
-            var requestBody = EvolutionSendTextRequestBuilder.CriarBodyV1(candidato, conteudo); // Forcado V1
+            var requestBody = EvolutionSendTextRequestBuilder.CriarBodyV1(candidato, conteudoSanitizado); // Usa conteúdo sanitizado
 
             _logger.LogInformation(
                 "Evolution sendText request. Url={Url}, Destinatario={Destinatario}, Formato={Formato}, Body={Body}",

@@ -37,7 +37,9 @@ public class RequestProofService : IRequestProofService
 
         var quantidade = Math.Clamp(count, 1, 20);
         var metodo = NormalizarMetodo(method) ?? RequestProofOptions.Wildcard;
-        var caminho = NormalizarPath(path) ?? RequestProofOptions.Wildcard;
+        var caminho = string.Equals(path, RequestProofOptions.Wildcard, StringComparison.Ordinal)
+            ? RequestProofOptions.Wildcard
+            : RequestProofPathNormalizer.NormalizePath(path); // Alterado
         var proofs = new List<string>(quantidade);
 
         for (var i = 0; i < quantidade; i++)
@@ -111,7 +113,9 @@ public class RequestProofService : IRequestProofService
         }
 
         var metodoRequest = NormalizarMetodo(method) ?? string.Empty;
-        var pathRequest = NormalizarPath(path) ?? string.Empty;
+        var pathRequest = string.Equals(path, RequestProofOptions.Wildcard, StringComparison.Ordinal)
+            ? RequestProofOptions.Wildcard
+            : RequestProofPathNormalizer.NormalizePath(path) ?? string.Empty; // Alterado
 
         if (!MetodoCompativel(payload.M, metodoRequest) || !PathCompativel(payload.P, pathRequest))
         {
@@ -169,35 +173,4 @@ public class RequestProofService : IRequestProofService
         || string.Equals(proofPath, requestPath, StringComparison.OrdinalIgnoreCase);
 
     private static string? NormalizarMetodo(string? method)
-    {
-        if (string.IsNullOrWhiteSpace(method))
-        {
-            return null;
-        }
-
-        return method.Trim().ToUpperInvariant();
-    }
-
-    private static string? NormalizarPath(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return null;
-        }
-
-        var trimmedInput = path.Trim();
-        if (string.Equals(trimmedInput, RequestProofOptions.Wildcard, StringComparison.Ordinal))
-        {
-            return RequestProofOptions.Wildcard;
-        }
-
-        var normalizado = trimmedInput.Split('?', '#')[0].Trim();
-        if (!normalizado.StartsWith('/'))
-        {
-            normalizado = $"/{normalizado}";
-        }
-
-        var trimmed = normalizado.TrimEnd('/').ToLowerInvariant();
-        return string.IsNullOrEmpty(trimmed) ? "/" : trimmed;
-    }
 }
