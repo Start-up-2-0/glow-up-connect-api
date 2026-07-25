@@ -47,7 +47,11 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             agendamento,
             estabelecimento,
             "Agendamento recebido",
-            $"Recebemos seu pedido de agendamento em {estabelecimento.Nome} com {profissional.NomePublico} para {inicio:dd/MM/yyyy HH:mm}. Aguarde a confirmacao da loja.",
+            $"📥 *Agendamento Recebido*\n\n"
+            + $"Recebemos seu pedido de agendamento em *{estabelecimento.Nome}* com *{profissional.NomePublico}* "
+            + $"para *{inicio:dd/MM/yyyy HH:mm}*.\n\n"
+            + $"⏳ Aguarde a confirmação da loja.\n\n"
+            + $"───\n💡 *Glow Up Connect* — Seu jeito inteligente de agendar.",
             AgendamentoClienteEmailTemplate.Criado(agendamento, estabelecimento, profissional),
             "agendamento-cliente-criado",
             cancellationToken);
@@ -118,10 +122,14 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
     {
         var inicioAtual = AgendamentoHorarioHelper.ObterInicio(agendamento);
         var mensagem =
-            $"A loja {estabelecimento.Nome} sugeriu um novo horario para seu agendamento: " +
-            $"{proposta.DataSugerida:dd/MM/yyyy} as {proposta.HorarioInicioSugerido:HH:mm}. " +
-            $"Horario atual: {inicioAtual:dd/MM/yyyy HH:mm}. Motivo: {proposta.Motivo}. " +
-            $"Responda em: {linkResposta}";
+            $"🔁 *Sugestão de Reagendamento*\n\n"
+            + $"A loja *{estabelecimento.Nome}* sugeriu um novo horário:\n\n"
+            + $"📅 *Data:* {proposta.DataSugerida:dd/MM/yyyy}\n"
+            + $"⏰ *Horário:* {proposta.HorarioInicioSugerido:HH:mm}\n"
+            + $"📝 *Motivo:* {proposta.Motivo}\n\n"
+            + $"🕐 *Horário atual:* {inicioAtual:dd/MM/yyyy HH:mm}\n\n"
+            + $"👉 Responda em: {linkResposta}\n\n"
+            + $"───\n💡 *Glow Up Connect* — Seu jeito inteligente de agendar.";
 
         await EnfileirarClienteContatoAsync(
             agendamento,
@@ -151,7 +159,10 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             estabelecimento,
             profissional,
             $"Cliente {acao} reagendamento",
-            $"O cliente {acao} a sugestao de reagendamento do agendamento #{agendamento.Id}.",
+            $"{(aceita ? "✅" : "❌")} *Cliente {acao} reagendamento*\n\n"
+            + $"O cliente *{acao}* a sugestão de reagendamento.\n"
+            + $"📋 *Agendamento:* #{agendamento.Id}\n\n"
+            + $"───\n💡 *Glow Up Connect*",
             $"agendamento-proposta-{acao}",
             agendamento,
             cancellationToken);
@@ -200,8 +211,12 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
     {
         var inicio = AgendamentoHorarioHelper.ObterInicio(agendamento);
         var mensagemWhatsApp =
-            $"Seu atendimento em {estabelecimento.Nome} com {profissional.NomePublico} foi concluido. " +
-            $"Avalie sua experiencia em: {linkAvaliacao}";
+            $"✅ *Atendimento Concluído!* ⭐\n\n"
+            + $"Seu atendimento em *{estabelecimento.Nome}* "
+            + $"com *{profissional.NomePublico}* foi concluído.\n\n"
+            + $"👉 Avalie sua experiência: {linkAvaliacao}\n\n"
+            + $"Sua opinião é muito importante!\n\n"
+            + $"───\n💡 *Glow Up Connect* — Seu jeito inteligente de agendar.";
 
         await EnfileirarClienteContatoAsync(
             agendamento,
@@ -411,13 +426,24 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
         var inicio = AgendamentoHorarioHelper.ObterInicio(agendamento);
         var servicos = string.Join(", ", agendamento.Itens.Select(item => item.Servico?.Nome ?? "Servico"));
 
-        return $"Novo agendamento em {estabelecimento.Nome} com {profissional.NomePublico}. Cliente: {cliente}. Data: {inicio:dd/MM/yyyy HH:mm}. Servicos: {servicos}. Valor: R$ {agendamento.ValorTotal:F2}.";
+        return $"📥 *Novo Agendamento*\n\n"
+            + $"🏪 *Loja:* {estabelecimento.Nome}\n"
+            + $"👤 *Cliente:* {cliente}\n"
+            + $"💇 *Profissional:* {profissional.NomePublico}\n"
+            + $"📅 *Data:* {inicio:dd/MM/yyyy HH:mm}\n"
+            + $"💇 *Serviços:* {servicos}\n"
+            + $"💰 *Valor:* R$ {agendamento.ValorTotal:F2}\n\n"
+            + $"───\n💡 *Glow Up Connect*";
     }
 
     private static string MontarMensagemStatus(Agendamento agendamento, string acao)
     {
         var cliente = agendamento.ClienteNome ?? agendamento.UsuarioCliente?.Nome ?? "Cliente";
         var inicio = AgendamentoHorarioHelper.ObterInicio(agendamento);
-        return $"Agendamento {acao} para {cliente} em {inicio:dd/MM/yyyy HH:mm}. Valor: R$ {agendamento.ValorTotal:F2}.";
+        var icone = acao == "confirmado" ? "✅" : acao == "cancelado" ? "❌" : "🔁";
+        return $"{icone} *Agendamento {acao}*\n\n"
+            + $"👤 *Cliente:* {cliente}\n"
+            + $"📅 *Data/Hora:* {inicio:dd/MM/yyyy HH:mm}\n"
+            + $"💰 *Valor:* R$ {agendamento.ValorTotal:F2}";
     }
 }
