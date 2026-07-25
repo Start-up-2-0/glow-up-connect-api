@@ -40,6 +40,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<WebhookPagamento> WebhookPagamentos { get; set; }
     public DbSet<ComissaoProfissional> ComissoesProfissional { get; set; }
     public DbSet<MetaProfissional> MetasProfissional { get; set; }
+    public DbSet<Meta> Metas { get; set; }
     public DbSet<SessaoCaixa> SessoesCaixa { get; set; }
     public DbSet<ContaReceber> ContasReceber { get; set; }
     public DbSet<ContaPagar> ContasPagar { get; set; }

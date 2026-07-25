@@ -25,5 +25,6 @@ public enum PermissaoNegocio
     ComissaoVisualizarPropria = 21,
     HorarioVisualizar = 22,
     HorarioGerenciar = 23,
-    HorarioGerenciarProprio = 24
+    HorarioGerenciarProprio = 24,
+    MetaGerenciar = 25
 }

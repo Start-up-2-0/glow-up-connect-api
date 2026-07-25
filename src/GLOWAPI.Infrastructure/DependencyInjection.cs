@@ -78,6 +78,7 @@ public static class DependencyInjection
         services.AddScoped<IContaPagarRepository, ContaPagarRepository>();
         services.AddScoped<IConciliacaoItemRepository, ConciliacaoItemRepository>();
         services.AddScoped<IMetaProfissionalRepository, MetaProfissionalRepository>();
+        services.AddScoped<IMetaRepository, MetaRepository>();
         services.AddScoped<ISessaoAutenticacaoRepository, SessaoAutenticacaoRepository>();
         services.AddScoped<ILogAutenticacaoRepository, LogAutenticacaoRepository>();
         services.AddScoped<IIpRateLimitBlockRepository, IpRateLimitBlockRepository>();

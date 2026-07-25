@@ -3,6 +3,7 @@ using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Models.Agenda;
 using GLOWAPI.Application.Models.Agendamento;
 using GLOWAPI.Domain.Entities;
+using GLOWAPI.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace GLOWAPI.Infrastructure.Repositories;
@@ -167,6 +168,23 @@ public class AgendamentoRepository : Repository<Agendamento>, IAgendamentoReposi
             agendamento => agendamento.EstabelecimentoId == estabelecimentoId
                 && agendamento.Itens.Any(item => item.Inicio >= inicio && item.Inicio <= fim),
             cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Agendamento>> ListarConcluidosPorProfissionalNoPeriodoAsync(
+        int profissionalId,
+        DateTime inicio,
+        DateTime fim,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Include(a => a.Itens)
+            .Where(a => a.Itens.Any(i =>
+                i.ProfissionalId == profissionalId
+                && i.Status == AgendamentoItemStatus.Concluido
+                && i.Inicio >= inicio
+                && i.Inicio < fim))
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<ClienteAgendamentoResumo>> ListarClientesResumoPorEstabelecimentoAsync(

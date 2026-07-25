@@ -30,6 +30,7 @@ public class Estabelecimento
     public ICollection<Assinatura> Assinaturas { get; set; } = new List<Assinatura>();
     public Endereco? Endereco { get; set; }
     public Caixa? Caixa { get; set; }
+    public ICollection<Meta> Metas { get; set; } = new List<Meta>();
 
     public bool PendenteConfirmacaoWhatsApp() =>
         !string.IsNullOrEmpty(WhatsAppConfirmacaoTokenHash) || !string.IsNullOrEmpty(WhatsAppConfirmacaoCodigoHash);

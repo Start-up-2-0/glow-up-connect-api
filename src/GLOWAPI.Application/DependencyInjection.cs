@@ -81,6 +81,7 @@ public static class DependencyInjection
         services.AddScoped<IAvaliacaoAtendimentoService, AvaliacaoAtendimentoService>();
         services.AddScoped<IAvaliacaoResumoService, AvaliacaoResumoService>();
         services.AddScoped<IAvaliacaoAgregadoWorkerService, AvaliacaoAgregadoWorkerService>();
+        services.AddScoped<IMetaNegocioService, MetaNegocioService>();
 
         return services;
     }

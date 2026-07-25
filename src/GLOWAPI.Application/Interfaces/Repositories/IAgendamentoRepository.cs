@@ -37,4 +37,10 @@ public interface IAgendamentoRepository : IRepository<Agendamento>
     Task<IReadOnlyList<ClienteAgendamentoResumo>> ListarClientesResumoPorEstabelecimentoAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<Agendamento>> ListarConcluidosPorProfissionalNoPeriodoAsync(
+        int profissionalId,
+        DateTime inicio,
+        DateTime fim,
+        CancellationToken cancellationToken = default);
 }

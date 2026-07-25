@@ -27,6 +27,7 @@ public class RecebimentoAgendamentoService : IRecebimentoAgendamentoService
     private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
     private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
+    private readonly IMetaRepository _metaRepository;
 
     public RecebimentoAgendamentoService(
         IAgendamentoRepository agendamentoRepository,
@@ -35,7 +36,8 @@ public class RecebimentoAgendamentoService : IRecebimentoAgendamentoService
         IComissaoProfissionalRepository comissaoProfissionalRepository,
         IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
         IAutorizacaoNegocioService autorizacaoNegocioService,
-        IAuditoriaNegocioService auditoriaNegocioService)
+        IAuditoriaNegocioService auditoriaNegocioService,
+        IMetaRepository metaRepository)
     {
         _agendamentoRepository = agendamentoRepository;
         _pagamentoRepository = pagamentoRepository;
@@ -44,6 +46,7 @@ public class RecebimentoAgendamentoService : IRecebimentoAgendamentoService
         _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
         _autorizacaoNegocioService = autorizacaoNegocioService;
         _auditoriaNegocioService = auditoriaNegocioService;
+        _metaRepository = metaRepository;
     }
 
     public async Task<ReceberAgendamentoResponseDto> ReceberPresencialAsync(
@@ -183,17 +186,13 @@ public class RecebimentoAgendamentoService : IRecebimentoAgendamentoService
                 continue;
             }
 
-            var regra = await _comissaoProfissionalRepository.ObterAtivaPorVinculoAsync(
-                vinculo.Id,
+            var valorComissao = await CalcularMelhorComissaoAsync(
+                estabelecimentoId,
+                vinculo,
+                baseCalculo,
                 referenciaUtc,
                 cancellationToken);
 
-            if (regra is null)
-            {
-                continue;
-            }
-
-            var valorComissao = CalcularValorComissao(regra, baseCalculo);
             if (valorComissao <= 0)
             {
                 continue;
@@ -213,6 +212,97 @@ public class RecebimentoAgendamentoService : IRecebimentoAgendamentoService
         }
 
         return comissaoIds;
+    }
+
+    private async Task<decimal> CalcularMelhorComissaoAsync(
+        int estabelecimentoId,
+        ProfissionalEstabelecimento vinculo,
+        decimal baseCalculo,
+        DateTime referenciaUtc,
+        CancellationToken cancellationToken)
+    {
+        // 1. Comissão normal por regra (percentual / valor fixo)
+        var regra = await _comissaoProfissionalRepository.ObterAtivaPorVinculoAsync(
+            vinculo.Id,
+            referenciaUtc,
+            cancellationToken);
+
+        var valorComissaoRegra = regra is not null
+            ? CalcularValorComissao(regra, baseCalculo)
+            : 0;
+
+        // 2. Comissão por metas mensais (a melhor meta atingida)
+        var valorComissaoMeta = await CalcularMetaComissaoAsync(
+            estabelecimentoId,
+            vinculo,
+            baseCalculo,
+            cancellationToken);
+
+        // 3. Usa a maior entre as duas
+        return Math.Max(valorComissaoRegra, valorComissaoMeta);
+    }
+
+    private async Task<decimal> CalcularMetaComissaoAsync(
+        int estabelecimentoId,
+        ProfissionalEstabelecimento vinculo,
+        decimal baseCalculo,
+        CancellationToken cancellationToken)
+    {
+        var metasAtivas = await _metaRepository.ListarAtivasPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        if (metasAtivas.Count == 0)
+        {
+            return 0;
+        }
+
+        // Período mensal: do início do mês atual até o próximo mês
+        var agora = DateTime.UtcNow;
+        var inicioMes = new DateTime(agora.Year, agora.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var fimMes = inicioMes.AddMonths(1);
+
+        // Busca todos os atendimentos concluídos do profissional no mês
+        var agendamentos = await _agendamentoRepository.ListarConcluidosPorProfissionalNoPeriodoAsync(
+            vinculo.ProfissionalId,
+            inicioMes,
+            fimMes,
+            cancellationToken);
+
+        var itensConcluidos = agendamentos
+            .SelectMany(a => a.Itens)
+            .Where(i => i.ProfissionalId == vinculo.ProfissionalId
+                && i.Status == AgendamentoItemStatus.Concluido
+                && i.Inicio >= inicioMes
+                && i.Inicio < fimMes)
+            .ToList();
+
+        var quantidadeRealizada = itensConcluidos.Count;
+        var valorRealizado = itensConcluidos.Sum(i => i.Valor);
+
+        decimal maiorComissaoMeta = 0;
+
+        foreach (var meta in metasAtivas)
+        {
+            var atingida = meta.TipoMeta switch
+            {
+                TipoMeta.Atendimentos => quantidadeRealizada >= (int)meta.ValorMeta,
+                TipoMeta.Faturamento => valorRealizado >= meta.ValorMeta,
+                TipoMeta.Mista => quantidadeRealizada >= (int)meta.ValorMeta
+                    || valorRealizado >= meta.ValorMeta,
+                _ => false
+            };
+
+            if (!atingida) continue;
+
+            var comissaoMeta = Math.Round(baseCalculo * meta.PercentualComissao / 100m, 2);
+            if (comissaoMeta > maiorComissaoMeta)
+            {
+                maiorComissaoMeta = comissaoMeta;
+            }
+        }
+
+        return maiorComissaoMeta;
     }
 
     private static decimal CalcularValorComissao(ComissaoProfissional regra, decimal baseCalculo)

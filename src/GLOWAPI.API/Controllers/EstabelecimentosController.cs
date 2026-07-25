@@ -39,6 +39,7 @@ public class EstabelecimentosController : ControllerBase
     private readonly IClienteNegocioService _clienteNegocioService;
     private readonly IAuditoriaConsultaNegocioService _auditoriaConsultaNegocioService;
     private readonly IAvaliacaoResumoService _avaliacaoResumoService;
+    private readonly IMetaNegocioService _metaNegocioService;
 
     public EstabelecimentosController(
         IEstabelecimentoPerfilService estabelecimentoPerfilService,
@@ -58,7 +59,8 @@ public class EstabelecimentosController : ControllerBase
         ISessaoCaixaNegocioService sessaoCaixaNegocioService,
         IClienteNegocioService clienteNegocioService,
         IAuditoriaConsultaNegocioService auditoriaConsultaNegocioService,
-        IAvaliacaoResumoService avaliacaoResumoService)
+        IAvaliacaoResumoService avaliacaoResumoService,
+        IMetaNegocioService metaNegocioService)
     {
         _estabelecimentoPerfilService = estabelecimentoPerfilService;
         _equipeNegocioService = equipeNegocioService;
@@ -78,6 +80,7 @@ public class EstabelecimentosController : ControllerBase
         _clienteNegocioService = clienteNegocioService;
         _auditoriaConsultaNegocioService = auditoriaConsultaNegocioService;
         _avaliacaoResumoService = avaliacaoResumoService;
+        _metaNegocioService = metaNegocioService;
     }
 
     [HttpGet("{estabelecimentoId:int}/perfil")]
@@ -1617,5 +1620,95 @@ public class EstabelecimentosController : ControllerBase
         return Ok(ApiSuccessResponse<AvaliacaoResumoPublicoDto>.From(
             "Resumo de avaliacoes obtido com sucesso.",
             resumo));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/metas")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.ComissaoProfissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarMetas(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var metas = await _metaNegocioService.ListarMetasAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<MetaResponseDto>>.From(
+            "Metas listadas com sucesso.",
+            metas));
+    }
+
+    [HttpPost("{estabelecimentoId:int}/financeiro/metas")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.ComissaoProfissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.MetaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> CriarMeta(
+        int estabelecimentoId,
+        [FromBody] CriarMetaRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var meta = await _metaNegocioService.CriarMetaAsync(
+            estabelecimentoId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<MetaResponseDto>.From(
+            "Meta criada com sucesso.",
+            meta));
+    }
+
+    [HttpPut("{estabelecimentoId:int}/financeiro/metas/{metaId:int}")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.ComissaoProfissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.MetaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> AtualizarMeta(
+        int estabelecimentoId,
+        int metaId,
+        [FromBody] AtualizarMetaRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var meta = await _metaNegocioService.AtualizarMetaAsync(
+            estabelecimentoId,
+            metaId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<MetaResponseDto>.From(
+            "Meta atualizada com sucesso.",
+            meta));
+    }
+
+    [HttpPatch("{estabelecimentoId:int}/financeiro/metas/{metaId:int}/desativar")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.ComissaoProfissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.MetaGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> DesativarMeta(
+        int estabelecimentoId,
+        int metaId,
+        CancellationToken cancellationToken)
+    {
+        await _metaNegocioService.DesativarMetaAsync(
+            estabelecimentoId,
+            metaId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<object>.From(
+            "Meta desativada com sucesso.",
+            new { metaId }));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/financeiro/metas/progresso")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.ComissaoProfissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.CaixaVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarProgressoMetas(
+        int estabelecimentoId,
+        [FromQuery] int? metaId,
+        CancellationToken cancellationToken)
+    {
+        var progresso = await _metaNegocioService.ListarProgressoAsync(
+            estabelecimentoId,
+            metaId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<MetaProgressoProfissionalDto>>.From(
+            "Progresso das metas listado com sucesso.",
+            progresso));
     }
 }
