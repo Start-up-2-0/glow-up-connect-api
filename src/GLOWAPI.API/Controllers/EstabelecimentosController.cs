@@ -1700,11 +1700,15 @@ public class EstabelecimentosController : ControllerBase
     public async Task<IActionResult> ListarProgressoMetas(
         int estabelecimentoId,
         [FromQuery] int? metaId,
+        [FromQuery] int? mes,
+        [FromQuery] int? ano,
         CancellationToken cancellationToken)
     {
         var progresso = await _metaNegocioService.ListarProgressoAsync(
             estabelecimentoId,
             metaId,
+            mes,
+            ano,
             cancellationToken);
 
         return Ok(ApiSuccessResponse<IReadOnlyList<MetaProgressoProfissionalDto>>.From(

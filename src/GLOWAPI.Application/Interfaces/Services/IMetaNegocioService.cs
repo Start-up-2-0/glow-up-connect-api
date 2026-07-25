@@ -27,5 +27,7 @@ public interface IMetaNegocioService
     Task<IReadOnlyList<MetaProgressoProfissionalDto>> ListarProgressoAsync(
         int estabelecimentoId,
         int? metaId,
+        int? mes = null,
+        int? ano = null,
         CancellationToken cancellationToken = default);
 }

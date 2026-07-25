@@ -166,6 +166,8 @@ public class MetaNegocioService : IMetaNegocioService
     public async Task<IReadOnlyList<MetaProgressoProfissionalDto>> ListarProgressoAsync(
         int estabelecimentoId,
         int? metaId,
+        int? mes = null,
+        int? ano = null,
         CancellationToken cancellationToken = default)
     {
         await _autorizacaoNegocioService.AutorizarAsync(
@@ -196,7 +198,9 @@ public class MetaNegocioService : IMetaNegocioService
 
         var resultado = new List<MetaProgressoProfissionalDto>();
         var agora = DateTime.UtcNow;
-        var inicioMes = new DateTime(agora.Year, agora.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var anoCalculo = ano ?? agora.Year;
+        var mesCalculo = mes ?? agora.Month;
+        var inicioMes = new DateTime(anoCalculo, mesCalculo, 1, 0, 0, 0, DateTimeKind.Utc);
         var fimMes = inicioMes.AddMonths(1);
 
         foreach (var meta in metas)
