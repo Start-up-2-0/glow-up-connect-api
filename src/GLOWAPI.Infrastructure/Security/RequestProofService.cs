@@ -37,7 +37,7 @@ public class RequestProofService : IRequestProofService
 
         var quantidade = Math.Clamp(count, 1, 20);
         var metodo = NormalizarMetodo(method) ?? RequestProofOptions.Wildcard;
-        var caminho = string.Equals(path, RequestProofOptions.Wildcard, StringComparison.Ordinal)
+        var caminho = string.IsNullOrWhiteSpace(path) || string.Equals(path, RequestProofOptions.Wildcard, StringComparison.Ordinal)
             ? RequestProofOptions.Wildcard
             : RequestProofPathNormalizer.NormalizePath(path); // Alterado
         var proofs = new List<string>(quantidade);

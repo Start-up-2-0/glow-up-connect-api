@@ -3,6 +3,7 @@ using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace GLOWAPI.Tests.Unit.Application;
@@ -27,7 +28,8 @@ public class AgendamentoNotificacaoServiceTests
     {
         var service = new AgendamentoNotificacaoService(
             _mensagemNotificacaoService.Object,
-            _modulosAssinaturaService.Object);
+            _modulosAssinaturaService.Object,
+            NullLogger<AgendamentoNotificacaoService>.Instance);
         var agendamento = CriarAgendamento();
         var estabelecimento = CriarEstabelecimentoConfirmado("11999999999");
         var profissional = CriarProfissionalConfirmado("11988887777");
@@ -56,7 +58,8 @@ public class AgendamentoNotificacaoServiceTests
     {
         var service = new AgendamentoNotificacaoService(
             _mensagemNotificacaoService.Object,
-            _modulosAssinaturaService.Object);
+            _modulosAssinaturaService.Object,
+            NullLogger<AgendamentoNotificacaoService>.Instance);
         var agendamento = CriarAgendamento();
         var estabelecimento = new Estabelecimento { Id = 1, Nome = "Loja", Telefone = "11999999999" };
         var profissional = new Profissional
@@ -79,7 +82,8 @@ public class AgendamentoNotificacaoServiceTests
     {
         var service = new AgendamentoNotificacaoService(
             _mensagemNotificacaoService.Object,
-            _modulosAssinaturaService.Object);
+            _modulosAssinaturaService.Object,
+            NullLogger<AgendamentoNotificacaoService>.Instance);
 
         var agendamento = CriarAgendamento();
         agendamento.UsuarioCliente = new Usuario
@@ -110,7 +114,8 @@ public class AgendamentoNotificacaoServiceTests
     {
         var service = new AgendamentoNotificacaoService(
             _mensagemNotificacaoService.Object,
-            _modulosAssinaturaService.Object);
+            _modulosAssinaturaService.Object,
+            NullLogger<AgendamentoNotificacaoService>.Instance);
 
         var agendamento = CriarAgendamento();
         agendamento.UsuarioCliente = new Usuario
