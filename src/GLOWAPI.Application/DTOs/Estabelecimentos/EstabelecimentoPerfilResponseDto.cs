@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using GLOWAPI.Application.DTOs.Operacoes;
 using GLOWAPI.Domain.Entities;
 
@@ -15,8 +16,8 @@ public record EstabelecimentoPerfilResponseDto(
     bool WhatsAppPendenteConfirmacao,
     EnderecoOperacaoResponseDto Endereco,
     string? Descricao = null,
-    int? CategoriaEstabelecimentoId = null,
-    string? CategoriaEstabelecimento = null)
+    [property: JsonPropertyName("categoriaId")] int? CategoriaEstabelecimentoId = null,
+    [property: JsonPropertyName("categoria")] string? CategoriaEstabelecimento = null)
 {
     public static EstabelecimentoPerfilResponseDto From(Estabelecimento estabelecimento) =>
         new(

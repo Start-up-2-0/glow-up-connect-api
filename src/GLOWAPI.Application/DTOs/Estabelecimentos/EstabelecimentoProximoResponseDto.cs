@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace GLOWAPI.Application.DTOs.Estabelecimentos;
 
 public record EnderecoResumoDto(
@@ -16,8 +18,8 @@ public record EstabelecimentoProximoResponseDto(
     EnderecoResumoDto Endereco,
     decimal? NotaMedia = null,
     int TotalAvaliacoes = 0,
-    int? CategoriaEstabelecimentoId = null,
-    string? CategoriaEstabelecimento = null);
+    [property: JsonPropertyName("categoriaId")] int? CategoriaEstabelecimentoId = null,
+    [property: JsonPropertyName("categoria")] string? CategoriaEstabelecimento = null);
 
 public record EstabelecimentosProximosPaginadoResponseDto(
     string Cidade,

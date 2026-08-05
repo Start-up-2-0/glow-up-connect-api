@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace GLOWAPI.Application.DTOs.Estabelecimentos;
 
 public record EstabelecimentoPublicoResponseDto(
@@ -12,5 +14,5 @@ public record EstabelecimentoPublicoResponseDto(
     bool AbertoAgora = false,
     string? HorarioAbertura = null,
     string? HorarioFechamento = null,
-    int? CategoriaEstabelecimentoId = null,
-    string? CategoriaEstabelecimento = null);
+    [property: JsonPropertyName("categoriaId")] int? CategoriaEstabelecimentoId = null,
+    [property: JsonPropertyName("categoria")] string? CategoriaEstabelecimento = null);

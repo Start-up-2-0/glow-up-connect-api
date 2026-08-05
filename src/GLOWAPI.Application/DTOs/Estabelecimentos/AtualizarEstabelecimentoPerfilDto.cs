@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using GLOWAPI.Application.DTOs.Operacoes;
 
 namespace GLOWAPI.Application.DTOs.Estabelecimentos;
@@ -8,6 +9,9 @@ public class AtualizarEstabelecimentoPerfilDto
     public string Logo { get; set; } = string.Empty;
     public string Telefone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+
+    [JsonPropertyName("categoriaId")]
     public int? CategoriaEstabelecimentoId { get; set; }
+
     public EnderecoOperacaoDto Endereco { get; set; } = new();
 }

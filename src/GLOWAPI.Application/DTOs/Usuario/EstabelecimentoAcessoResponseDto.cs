@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using GLOWAPI.Application.DTOs.Assinaturas;
 
 namespace GLOWAPI.Application.DTOs.Usuario;
@@ -22,5 +23,5 @@ public record EstabelecimentoAcessoResponseDto(
     DateTime? ProximaDataVencimento,
     IReadOnlyList<string> Modulos,
     LimitesAssinaturaDto Limites,
-    int? CategoriaEstabelecimentoId = null,
-    string? CategoriaEstabelecimento = null);
+    [property: JsonPropertyName("categoriaId")] int? CategoriaEstabelecimentoId = null,
+    [property: JsonPropertyName("categoria")] string? CategoriaEstabelecimento = null);
