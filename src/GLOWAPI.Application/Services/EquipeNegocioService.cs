@@ -4,6 +4,7 @@ using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Negocios;
+using GLOWAPI.Domain.Exceptions.Usuario;
 
 namespace GLOWAPI.Application.Services;
 
@@ -19,6 +20,8 @@ public class EquipeNegocioService : IEquipeNegocioService
     private readonly IModulosAssinaturaService _modulosAssinaturaService;
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
     private readonly IEquipeNotificacaoService _equipeNotificacaoService;
+    private readonly IAvatarBase64Decoder _avatarBase64Decoder;
+    private readonly IConviteNegocioRepository _conviteRepository;
 
     public EquipeNegocioService(
         IUsuarioRepository usuarioRepository,
@@ -30,7 +33,9 @@ public class EquipeNegocioService : IEquipeNegocioService
         IAutorizacaoNegocioService autorizacaoNegocioService,
         IModulosAssinaturaService modulosAssinaturaService,
         IAuditoriaNegocioService auditoriaNegocioService,
-        IEquipeNotificacaoService equipeNotificacaoService)
+        IEquipeNotificacaoService equipeNotificacaoService,
+        IAvatarBase64Decoder avatarBase64Decoder,
+        IConviteNegocioRepository conviteRepository)
     {
         _usuarioRepository = usuarioRepository;
         _profissionalRepository = profissionalRepository;
@@ -42,6 +47,8 @@ public class EquipeNegocioService : IEquipeNegocioService
         _modulosAssinaturaService = modulosAssinaturaService;
         _auditoriaNegocioService = auditoriaNegocioService;
         _equipeNotificacaoService = equipeNotificacaoService;
+        _avatarBase64Decoder = avatarBase64Decoder;
+        _conviteRepository = conviteRepository;
     }
 
     public async Task<UsuarioEquipeResponseDto> CadastrarUsuarioAsync(
@@ -194,6 +201,56 @@ public class EquipeNegocioService : IEquipeNegocioService
             vinculo,
             profissional,
             cancellationToken);
+
+        return ProfissionalEquipeResponseDto.From(vinculo, profissional);
+    }
+
+    public async Task<ProfissionalEquipeResponseDto> AtualizarProfissionalAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        AtualizarProfissionalEquipeRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.ProfissionalGerenciar,
+            cancellationToken);
+
+        var vinculo = await _profissionalEstabelecimentoRepository.ObterPorProfissionalAsync(
+            profissionalId,
+            estabelecimentoId,
+            cancellationToken);
+
+        if (vinculo is null)
+        {
+            throw new ProfissionalNegocioNaoEncontradoException();
+        }
+
+        var profissional = await _profissionalRepository.ObterPorIdAsync(profissionalId, cancellationToken)
+            ?? throw new ProfissionalNegocioNaoEncontradoException();
+
+        if (!string.IsNullOrWhiteSpace(request.NomePublico))
+        {
+            profissional.NomePublico = NormalizarTexto(request.NomePublico, profissional.NomePublico);
+        }
+
+        if (request.Biografia is not null)
+        {
+            profissional.Biografia = request.Biografia.Trim();
+        }
+
+        if (request.RemoverFoto)
+        {
+            profissional.Logo = string.Empty;
+        }
+        else if (!string.IsNullOrWhiteSpace(request.Foto))
+        {
+            profissional.Logo = NormalizarFotoProfissional(request.Foto, request.FotoContentType);
+        }
+
+        profissional.UpdatedAt = DateTime.UtcNow;
+        _profissionalRepository.Atualizar(profissional);
+        await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
 
         return ProfissionalEquipeResponseDto.From(vinculo, profissional);
     }
@@ -652,6 +709,11 @@ public class EquipeNegocioService : IEquipeNegocioService
         ConvidarProfissionalEquipeRequestDto request,
         CancellationToken cancellationToken)
     {
+        var fotoInformada = !string.IsNullOrWhiteSpace(request.ResolverFoto());
+        var fotoNormalizada = fotoInformada
+            ? NormalizarFotoProfissional(request.ResolverFoto(), request.FotoContentType)
+            : null;
+
         var profissional = await _profissionalRepository.ObterPorUsuarioIdAsync(usuario.Id, cancellationToken);
         if (profissional is not null)
         {
@@ -661,8 +723,26 @@ public class EquipeNegocioService : IEquipeNegocioService
             }
 
             profissional.TipoProfissional = ProfessionalType.VinculadoEstabelecimento;
+
+            if (!string.IsNullOrWhiteSpace(request.NomePublico))
+            {
+                profissional.NomePublico = NormalizarTexto(request.NomePublico, profissional.NomePublico);
+            }
+
+            if (request.Biografia is not null)
+            {
+                profissional.Biografia = request.Biografia.Trim();
+            }
+
+            // Atualiza a foto do profissional apenas quando enviada; nunca copia o avatar da conta.
+            if (fotoNormalizada is not null)
+            {
+                profissional.Logo = fotoNormalizada;
+            }
+
             profissional.UpdatedAt = DateTime.UtcNow;
             _profissionalRepository.Atualizar(profissional);
+            await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
 
             return profissional;
         }
@@ -672,7 +752,7 @@ public class EquipeNegocioService : IEquipeNegocioService
             UsuarioId = usuario.Id,
             NomePublico = NormalizarTexto(request.NomePublico, usuario.Nome),
             Biografia = request.Biografia?.Trim() ?? string.Empty,
-            Logo = request.Logo?.Trim() ?? usuario.AvatarBase64 ?? string.Empty,
+            Logo = fotoNormalizada ?? string.Empty,
             Telefone = usuario.Telefone,
             Email = usuario.Email,
             TipoProfissional = ProfessionalType.VinculadoEstabelecimento,
@@ -683,6 +763,28 @@ public class EquipeNegocioService : IEquipeNegocioService
         await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
 
         return profissional;
+    }
+
+    /// <summary>
+    /// Valida e normaliza a foto de apresentação do profissional.
+    /// Independente do avatar da conta (<see cref="Usuario.AvatarBase64"/>).
+    /// </summary>
+    private string NormalizarFotoProfissional(string? foto, string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(foto))
+        {
+            throw new AvatarInvalidoException("Foto do profissional e obrigatoria quando enviada.");
+        }
+
+        try
+        {
+            return _avatarBase64Decoder.ValidarENormalizar(foto.Trim(), contentType);
+        }
+        catch (AvatarInvalidoException ex)
+        {
+            throw new AvatarInvalidoException(
+                ex.Message.Replace("Avatar", "Foto do profissional", StringComparison.Ordinal));
+        }
     }
 
     private async Task GarantirAcessoProfissionalAsync(
@@ -760,6 +862,196 @@ public class EquipeNegocioService : IEquipeNegocioService
             .Select(vinculo => ProfissionalEquipeResponseDto.From(vinculo, vinculo.Profissional!))
             .ToList();
     }
+
+    public async Task<EquipeMembrosPaginadoResponseDto> ListarMembrosPaginadoAsync(
+        int estabelecimentoId,
+        EquipeMembrosFiltroDto filtro,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.EquipeGerenciar,
+            cancellationToken);
+
+        var pagina = Math.Max(1, filtro.Pagina);
+        var tamanhoPagina = Math.Clamp(filtro.TamanhoPagina <= 0 ? 6 : filtro.TamanhoPagina, 1, 50);
+
+        var usuarios = await _estabelecimentoUsuarioRepository.ListarAtivosPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+        var profissionais = await _profissionalEstabelecimentoRepository.ListarAtivosPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+        var convites = await _conviteRepository.ListarPorEstabelecimentoAsync(
+            estabelecimentoId,
+            StatusConviteNegocio.Pendente,
+            cancellationToken);
+
+        var profissionalPorUsuarioId = profissionais
+            .Where(v => v.Profissional?.UsuarioId is int uid)
+            .ToDictionary(v => v.Profissional!.UsuarioId!.Value, v => v);
+
+        var usuarioIds = new HashSet<int>();
+        var membros = new List<MembroEquipeResponseDto>();
+
+        foreach (var vinculo in usuarios.Where(v => v.Usuario is not null))
+        {
+            var usuario = vinculo.Usuario!;
+            usuarioIds.Add(usuario.Id);
+            profissionalPorUsuarioId.TryGetValue(usuario.Id, out var vinculoProf);
+            var profissional = vinculoProf?.Profissional;
+
+            membros.Add(new MembroEquipeResponseDto(
+                Id: $"usuario-{vinculo.Id}",
+                Tipo: "usuario",
+                Nome: usuario.Nome,
+                Cargo: RotuloCargo(vinculo.RoleNoEstabelecimento.ToString()),
+                Role: vinculo.RoleNoEstabelecimento.ToString(),
+                Email: string.IsNullOrWhiteSpace(usuario.Email) ? null : usuario.Email,
+                Telefone: string.IsNullOrWhiteSpace(usuario.Telefone) ? null : usuario.Telefone,
+                Ativo: vinculo.Ativo,
+                UsuarioId: usuario.Id,
+                ProfissionalId: profissional?.Id,
+                PodeReceberAgendamento: vinculoProf?.PodeReceberAgendamento,
+                Foto: string.IsNullOrWhiteSpace(profissional?.Logo) ? null : profissional!.Logo,
+                ConviteEm: null));
+        }
+
+        foreach (var vinculo in profissionais.Where(v => v.Profissional is not null))
+        {
+            var profissional = vinculo.Profissional!;
+            if (profissional.UsuarioId is int uid && usuarioIds.Contains(uid))
+            {
+                continue;
+            }
+
+            membros.Add(new MembroEquipeResponseDto(
+                Id: $"profissional-{vinculo.Id}",
+                Tipo: "profissional",
+                Nome: profissional.NomePublico,
+                Cargo: RotuloCargo(nameof(EstablishmentUserRole.Profissional)),
+                Role: nameof(EstablishmentUserRole.Profissional),
+                Email: string.IsNullOrWhiteSpace(profissional.Email) ? null : profissional.Email,
+                Telefone: string.IsNullOrWhiteSpace(profissional.Telefone) ? null : profissional.Telefone,
+                Ativo: vinculo.Ativo,
+                UsuarioId: profissional.UsuarioId,
+                ProfissionalId: profissional.Id,
+                PodeReceberAgendamento: vinculo.PodeReceberAgendamento,
+                Foto: string.IsNullOrWhiteSpace(profissional.Logo) ? null : profissional.Logo,
+                ConviteEm: null));
+        }
+
+        foreach (var convite in convites)
+        {
+            var nome = string.IsNullOrWhiteSpace(convite.NomePublico)
+                ? (convite.Email.Contains('@') ? convite.Email.Split('@')[0] : convite.Email)
+                : convite.NomePublico;
+
+            membros.Add(new MembroEquipeResponseDto(
+                Id: $"convite-{convite.Id}",
+                Tipo: "convite",
+                Nome: string.IsNullOrWhiteSpace(nome) ? convite.Email : nome,
+                Cargo: "Convidado",
+                Role: "Convidado",
+                Email: convite.Email,
+                Telefone: string.IsNullOrWhiteSpace(convite.Telefone) ? null : convite.Telefone,
+                Ativo: false,
+                UsuarioId: null,
+                ProfissionalId: null,
+                PodeReceberAgendamento: null,
+                Foto: null,
+                ConviteEm: convite.CriadoEm.ToString("dd/MM/yyyy")));
+        }
+
+        var resumo = new EquipeMembrosResumoDto(
+            TotalMembros: membros.Count(m => m.Tipo != "convite" && m.Ativo),
+            Administradores: membros.Count(m =>
+                m.Ativo && (m.Role is nameof(EstablishmentUserRole.Owner) or nameof(EstablishmentUserRole.Admin))),
+            Profissionais: membros.Count(m =>
+                m.Ativo && m.Role == nameof(EstablishmentUserRole.Profissional)),
+            Recepcionistas: membros.Count(m =>
+                m.Ativo && m.Role == nameof(EstablishmentUserRole.Receptionist)),
+            Convidados: convites.Count);
+
+        var filtrados = FiltrarMembros(membros, filtro)
+            .OrderBy(m => OrdemCargo(m.Role))
+            .ThenBy(m => m.Nome, StringComparer.Create(new System.Globalization.CultureInfo("pt-BR"), ignoreCase: true))
+            .ToList();
+
+        var total = filtrados.Count;
+        var itens = filtrados
+            .Skip((pagina - 1) * tamanhoPagina)
+            .Take(tamanhoPagina)
+            .ToList();
+
+        return new EquipeMembrosPaginadoResponseDto(total, pagina, tamanhoPagina, itens, resumo);
+    }
+
+    private static IEnumerable<MembroEquipeResponseDto> FiltrarMembros(
+        IEnumerable<MembroEquipeResponseDto> membros,
+        EquipeMembrosFiltroDto filtro)
+    {
+        var cargo = filtro.Cargo?.Trim();
+        var status = filtro.Status?.Trim().ToLowerInvariant();
+        var busca = filtro.Busca?.Trim().ToLowerInvariant();
+
+        foreach (var membro in membros)
+        {
+            if (!string.IsNullOrWhiteSpace(cargo) &&
+                !string.Equals(membro.Role, cargo, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                var statusMembro = membro.Tipo == "convite"
+                    ? "pendente"
+                    : membro.Ativo ? "ativo" : "inativo";
+                if (!string.Equals(statusMembro, status, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(busca))
+            {
+                var hay = string.Join(
+                    ' ',
+                    membro.Nome,
+                    membro.Cargo,
+                    membro.Email ?? string.Empty).ToLowerInvariant();
+                if (!hay.Contains(busca, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+            }
+
+            yield return membro;
+        }
+    }
+
+    private static int OrdemCargo(string role) => role switch
+    {
+        nameof(EstablishmentUserRole.Owner) => 0,
+        nameof(EstablishmentUserRole.Admin) => 1,
+        nameof(EstablishmentUserRole.Manager) => 2,
+        nameof(EstablishmentUserRole.Receptionist) => 3,
+        nameof(EstablishmentUserRole.Profissional) => 4,
+        "Convidado" => 5,
+        _ => 99
+    };
+
+    private static string RotuloCargo(string role) => role switch
+    {
+        nameof(EstablishmentUserRole.Owner) => "Dono",
+        nameof(EstablishmentUserRole.Admin) => "Administrador",
+        nameof(EstablishmentUserRole.Manager) => "Gerente",
+        nameof(EstablishmentUserRole.Receptionist) => "Recepcionista",
+        nameof(EstablishmentUserRole.Profissional) => "Profissional",
+        "Convidado" => "Convidado",
+        _ => role
+    };
 
     public async Task<ProfissionalVitrineResponseDto> CadastrarProfissionalVitrineAsync(
         int estabelecimentoId,

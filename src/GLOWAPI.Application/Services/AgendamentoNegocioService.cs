@@ -116,7 +116,8 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             Profissional = new ProfissionalPublicoResponseDto
             {
                 PublicGuid = profissional.PublicGuid,
-                NomePublico = profissional.NomePublico
+                NomePublico = profissional.NomePublico,
+                Foto = string.IsNullOrWhiteSpace(profissional.Logo) ? null : profissional.Logo
             },
             PodeReceberAgendamento = vinculo?.PodeReceberAgendamento == true
         };
@@ -163,7 +164,8 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             .Select(vinculo => new ProfissionalPublicoResponseDto
             {
                 PublicGuid = vinculo.Profissional!.PublicGuid,
-                NomePublico = vinculo.Profissional.NomePublico
+                NomePublico = vinculo.Profissional.NomePublico,
+                Foto = string.IsNullOrWhiteSpace(vinculo.Profissional.Logo) ? null : vinculo.Profissional.Logo
             })
             .ToList();
     }

@@ -149,6 +149,24 @@ public class EstabelecimentosController : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("{estabelecimentoId:int}/equipe/membros")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.EquipeGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarMembrosEquipe(
+        int estabelecimentoId,
+        [FromQuery] EquipeMembrosFiltroDto filtro,
+        CancellationToken cancellationToken)
+    {
+        var membros = await _equipeNegocioService.ListarMembrosPaginadoAsync(
+            estabelecimentoId,
+            filtro,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<EquipeMembrosPaginadoResponseDto>.From(
+            "Membros da equipe listados com sucesso.",
+            membros));
+    }
+
     [HttpGet("{estabelecimentoId:int}/equipe/usuarios")]
     [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
     [RequerPermissaoNegocio(PermissaoNegocio.EquipeGerenciar, "estabelecimentoId")]
@@ -255,6 +273,26 @@ public class EstabelecimentosController : ControllerBase
             ApiSuccessResponse<ProfissionalEquipeResponseDto>.From(
                 "Profissional vinculado ao negocio com sucesso.",
                 profissionalEquipe));
+    }
+
+    [HttpPatch("{estabelecimentoId:int}/equipe/profissionais/{profissionalId:int}")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> AtualizarProfissionalEquipe(
+        int estabelecimentoId,
+        int profissionalId,
+        [FromBody] AtualizarProfissionalEquipeRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var profissionalEquipe = await _equipeNegocioService.AtualizarProfissionalAsync(
+            estabelecimentoId,
+            profissionalId,
+            request,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ProfissionalEquipeResponseDto>.From(
+            "Profissional da equipe atualizado com sucesso.",
+            profissionalEquipe));
     }
 
     [HttpPost("{estabelecimentoId:int}/profissionais/vitrine")]

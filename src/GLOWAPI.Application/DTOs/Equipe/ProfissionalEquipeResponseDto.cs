@@ -13,7 +13,9 @@ public record ProfissionalEquipeResponseDto(
     bool PodeReceberAgendamento,
     bool Ativo,
     decimal? NotaMedia,
-    int TotalAvaliacoes)
+    int TotalAvaliacoes,
+    /// <summary>Foto de apresentação do profissional (não é o avatar da conta).</summary>
+    string? Foto)
 {
     public static ProfissionalEquipeResponseDto From(
         ProfissionalEstabelecimento vinculo,
@@ -29,5 +31,6 @@ public record ProfissionalEquipeResponseDto(
             vinculo.PodeReceberAgendamento,
             vinculo.Ativo,
             profissional.NotaMedia,
-            profissional.TotalAvaliacoes);
+            profissional.TotalAvaliacoes,
+            string.IsNullOrWhiteSpace(profissional.Logo) ? null : profissional.Logo);
 }

@@ -9,7 +9,14 @@ public class Profissional
     public int? UsuarioId { get; set; }
     public string NomePublico { get; set; } = string.Empty;
     public string Biografia { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Foto de apresentação do profissional perante clientes e agenda.
+    /// Independente de <see cref="Usuario.AvatarBase64"/> (avatar da conta de acesso).
+    /// Armazenada como data URI base64; vazia quando não definida.
+    /// </summary>
     public string Logo { get; set; } = string.Empty;
+
     public string Telefone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public ProfessionalType TipoProfissional { get; set; }
