@@ -71,6 +71,22 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
 
             var (diasTrial, _) = await ObterDiasTrialAsync(modulos.AssinaturaId, cancellationToken);
 
+            // Regra de acesso: em plano de loja única (Básico/Plus), o Dono só enxerga a loja principal.
+            var limiteEstabelecimentos = modulos.Limites.Estabelecimentos;
+            if (vinculo.RoleNoEstabelecimento == EstablishmentUserRole.Owner
+                && limiteEstabelecimentos is > 0 and <= 1
+                && modulos.AssinaturaId.HasValue)
+            {
+                var assinatura = await _assinaturaRepository.ObterPorIdAsync(
+                    modulos.AssinaturaId.Value,
+                    cancellationToken);
+                // Filtra filiais fora do escopo do plano: mantém apenas a matriz da assinatura.
+                if (assinatura?.EstabelecimentoId != vinculo.EstabelecimentoId)
+                {
+                    continue;
+                }
+            }
+
             int? profissionalId = null;
             Guid? profissionalPublicGuid = null;
             if (possuiVinculoProfissional)
@@ -104,7 +120,9 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
                 diasTrial,
                 await ObterProximaDataVencimentoAsync(modulos.AssinaturaId, cancellationToken),
                 modulos.Modulos,
-                modulos.Limites));
+                modulos.Limites,
+                vinculo.Estabelecimento.CategoriaEstabelecimentoId,
+                vinculo.Estabelecimento.CategoriaEstabelecimento?.Nome));
         }
 
         return response;

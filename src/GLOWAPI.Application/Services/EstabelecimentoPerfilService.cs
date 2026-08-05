@@ -125,7 +125,10 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
             await _enderecoGeocodificacaoService.TentarGeocodificarAsync(estabelecimento.Endereco, cancellationToken);
         }
 
-
+        if (request.CategoriaEstabelecimentoId is not null)
+        {
+            estabelecimento.CategoriaEstabelecimentoId = request.CategoriaEstabelecimentoId;
+        }
 
         _estabelecimentoRepository.Atualizar(estabelecimento);
 

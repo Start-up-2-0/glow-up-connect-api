@@ -18,6 +18,9 @@ public class Estabelecimento
     public bool WhatsAppOptIn { get; set; }
     public decimal? NotaMedia { get; set; }
     public int TotalAvaliacoes { get; set; }
+    /// <summary>Categoria do estabelecimento (catálogo extensível).</summary>
+    public int? CategoriaEstabelecimentoId { get; set; }
+    public CategoriaEstabelecimento? CategoriaEstabelecimento { get; set; }
     public DateTime CreateAd { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 

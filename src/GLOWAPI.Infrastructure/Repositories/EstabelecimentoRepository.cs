@@ -14,10 +14,21 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
     {
     }
 
+    public async Task<IReadOnlyList<CategoriaEstabelecimento>> ListarCategoriasAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await Context.Set<CategoriaEstabelecimento>()
+            .AsNoTracking()
+            .Where(categoria => categoria.Ativo)
+            .OrderBy(categoria => categoria.Id)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<Estabelecimento?> ObterPorPublicGuidAsync(Guid publicGuid, CancellationToken cancellationToken = default)
     {
         return DbSet
             .Include(estabelecimento => estabelecimento.Endereco)
+            .Include(estabelecimento => estabelecimento.CategoriaEstabelecimento)
             .FirstOrDefaultAsync(estabelecimento => estabelecimento.PublicGuid == publicGuid, cancellationToken);
     }
 
@@ -25,6 +36,7 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
     {
         return DbSet
             .Include(estabelecimento => estabelecimento.Endereco)
+            .Include(estabelecimento => estabelecimento.CategoriaEstabelecimento)
             .FirstOrDefaultAsync(estabelecimento => estabelecimento.Id == id, cancellationToken);
     }
 
@@ -71,6 +83,7 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
         double raioKm,
         int pagina,
         int tamanhoPagina,
+        int? categoriaId,
         CancellationToken cancellationToken = default)
     {
         var estadoNormalizado = estado.Trim().ToUpperInvariant();
@@ -78,13 +91,15 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
         var candidatos = await DbSet
             .AsNoTracking()
             .Include(estabelecimento => estabelecimento.Endereco)
+            .Include(estabelecimento => estabelecimento.CategoriaEstabelecimento)
             .Where(estabelecimento =>
                 estabelecimento.Ativo
                 && estabelecimento.VisivelPublicamente
                 && estabelecimento.Endereco != null
                 && estabelecimento.Endereco.Latitude != null
                 && estabelecimento.Endereco.Longitude != null
-                && estabelecimento.Endereco.Estado.ToUpper() == estadoNormalizado)
+                && estabelecimento.Endereco.Estado.ToUpper() == estadoNormalizado
+                && (categoriaId == null || estabelecimento.CategoriaEstabelecimentoId == categoriaId))
             .ToListAsync(cancellationToken);
 
         var estabelecimentoIds = candidatos

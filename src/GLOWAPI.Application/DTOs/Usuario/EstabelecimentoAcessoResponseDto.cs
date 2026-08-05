@@ -21,4 +21,6 @@ public record EstabelecimentoAcessoResponseDto(
     int? DiasTrial,
     DateTime? ProximaDataVencimento,
     IReadOnlyList<string> Modulos,
-    LimitesAssinaturaDto Limites);
+    LimitesAssinaturaDto Limites,
+    int? CategoriaEstabelecimentoId = null,
+    string? CategoriaEstabelecimento = null);

@@ -805,6 +805,11 @@ public class AssinaturaService : IAssinaturaService
             throw new EstabelecimentoAssinaturaInvalidoException("Descricao do estabelecimento deve ter no maximo 500 caracteres.");
         }
 
+        if (dto.CategoriaEstabelecimentoId is null)
+        {
+            throw new EstabelecimentoAssinaturaInvalidoException("Categoria do estabelecimento e obrigatoria.");
+        }
+
         return new Estabelecimento
         {
             Nome = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Nome, "Nome do estabelecimento", 150, CriarExcecao),
@@ -817,6 +822,7 @@ public class AssinaturaService : IAssinaturaService
             Telefone = TelefoneHelper.NormalizarParaArmazenamento(
                 OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Telefone, "Telefone do estabelecimento", 20, CriarExcecao)),
             Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Email, "Email do estabelecimento", 255, CriarExcecao),
+            CategoriaEstabelecimentoId = dto.CategoriaEstabelecimentoId,
             Ativo = true,
             Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao),
             Caixa = new Caixa()

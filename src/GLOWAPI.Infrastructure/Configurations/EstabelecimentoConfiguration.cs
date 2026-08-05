@@ -61,5 +61,15 @@ public class EstabelecimentoConfiguration : IEntityTypeConfiguration<Estabelecim
             .IsRequired();
 
         builder.Property(estabelecimento => estabelecimento.UpdatedAt);
+
+        builder.Property(estabelecimento => estabelecimento.CategoriaEstabelecimentoId)
+            .IsRequired(false);
+
+        builder.HasOne(estabelecimento => estabelecimento.CategoriaEstabelecimento)
+            .WithMany()
+            .HasForeignKey(estabelecimento => estabelecimento.CategoriaEstabelecimentoId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(estabelecimento => estabelecimento.CategoriaEstabelecimentoId);
     }
 }

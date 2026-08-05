@@ -33,6 +33,7 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
         double? raioKm,
         int pagina,
         int tamanhoPagina,
+        int? categoriaId,
         CancellationToken cancellationToken = default)
     {
         ValidarCoordenadas(latitude, longitude);
@@ -73,6 +74,7 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             raio,
             pagina,
             tamanhoPagina,
+            categoriaId,
             cancellationToken);
 
         return new EstabelecimentosProximosPaginadoResponseDto(
@@ -81,6 +83,15 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             raio,
             total,
             itens.Select(Mapear).ToList());
+    }
+
+    public async Task<IReadOnlyList<EstabelecimentoCategoriaDto>> ListarCategoriasAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var categorias = await _estabelecimentoRepository.ListarCategoriasAsync(cancellationToken);
+        return categorias
+            .Select(categoria => new EstabelecimentoCategoriaDto(categoria.Id, categoria.Nome))
+            .ToList();
     }
 
     public async Task<EstabelecimentoPublicoResponseDto> ObterPorPublicGuidAsync(
@@ -136,7 +147,9 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             estabelecimento.TotalAvaliacoes,
             abertoAgora,
             horarioAbertura,
-            horarioFechamento);
+            horarioFechamento,
+            estabelecimento.CategoriaEstabelecimentoId,
+            estabelecimento.CategoriaEstabelecimento?.Nome);
     }
 
     private static void ValidarCoordenadas(decimal latitude, decimal longitude)
@@ -170,7 +183,9 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
                 endereco.Cidade,
                 endereco.Estado),
             estabelecimento.NotaMedia,
-            estabelecimento.TotalAvaliacoes);
+            estabelecimento.TotalAvaliacoes,
+            estabelecimento.CategoriaEstabelecimentoId,
+            estabelecimento.CategoriaEstabelecimento?.Nome);
     }
 
     private static string TruncarDescricao(string descricao) =>

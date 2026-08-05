@@ -11,4 +11,6 @@ public record EstabelecimentoPublicoResponseDto(
     int TotalAvaliacoes = 0,
     bool AbertoAgora = false,
     string? HorarioAbertura = null,
-    string? HorarioFechamento = null);
+    string? HorarioFechamento = null,
+    int? CategoriaEstabelecimentoId = null,
+    string? CategoriaEstabelecimento = null);

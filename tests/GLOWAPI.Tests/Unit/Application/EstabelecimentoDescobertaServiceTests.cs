@@ -20,7 +20,7 @@ public class EstabelecimentoDescobertaServiceTests
         var service = CreateService();
 
         await Assert.ThrowsAsync<LocalizacaoClienteInvalidaException>(() =>
-            service.ListarProximosAsync(95m, -47m, 10, 1, 20));
+            service.ListarProximosAsync(95m, -47m, 10, 1, 20, null));
     }
 
     [Fact]
@@ -57,6 +57,7 @@ public class EstabelecimentoDescobertaServiceTests
                 10d,
                 1,
                 20,
+                null,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<EstabelecimentoProximoConsulta>
             {
@@ -64,7 +65,7 @@ public class EstabelecimentoDescobertaServiceTests
             }, 1));
 
         var service = CreateService();
-        var resultado = await service.ListarProximosAsync(-22.9056m, -47.0608m, 10, 1, 20);
+        var resultado = await service.ListarProximosAsync(-22.9056m, -47.0608m, 10, 1, 20, null);
 
         Assert.Equal("Campinas", resultado.Cidade);
         Assert.Equal("SP", resultado.Estado);

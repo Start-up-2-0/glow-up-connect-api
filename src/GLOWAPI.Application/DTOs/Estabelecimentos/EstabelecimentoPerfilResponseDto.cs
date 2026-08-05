@@ -13,7 +13,10 @@ public record EstabelecimentoPerfilResponseDto(
     bool WhatsAppConfirmado,
     bool WhatsAppOptIn,
     bool WhatsAppPendenteConfirmacao,
-    EnderecoOperacaoResponseDto Endereco)
+    EnderecoOperacaoResponseDto Endereco,
+    string? Descricao = null,
+    int? CategoriaEstabelecimentoId = null,
+    string? CategoriaEstabelecimento = null)
 {
     public static EstabelecimentoPerfilResponseDto From(Estabelecimento estabelecimento) =>
         new(
@@ -26,5 +29,8 @@ public record EstabelecimentoPerfilResponseDto(
             estabelecimento.WhatsAppConfirmadoEm.HasValue,
             estabelecimento.WhatsAppOptIn,
             estabelecimento.PendenteConfirmacaoWhatsApp(),
-            EnderecoOperacaoResponseDto.From(estabelecimento.Endereco));
+            EnderecoOperacaoResponseDto.From(estabelecimento.Endereco),
+            estabelecimento.Descricao,
+            estabelecimento.CategoriaEstabelecimentoId,
+            estabelecimento.CategoriaEstabelecimento?.Nome);
 }

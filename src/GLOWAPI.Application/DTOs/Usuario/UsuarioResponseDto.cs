@@ -15,6 +15,7 @@ public class UsuarioResponseDto
     public bool WhatsAppConfirmado { get; set; }
     public bool WhatsAppOptIn { get; set; }
     public bool WhatsAppPendenteConfirmacao { get; set; }
+    public string? Sexo { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
@@ -30,6 +31,7 @@ public class UsuarioResponseDto
         WhatsAppConfirmado = usuario.WhatsAppConfirmadoEm.HasValue,
         WhatsAppOptIn = usuario.WhatsAppOptIn,
         WhatsAppPendenteConfirmacao = usuario.PendenteConfirmacaoWhatsApp(),
+        Sexo = usuario.Sexo?.ToString(),
         CreatedAt = usuario.CreatedAt,
         UpdatedAt = usuario.UpdatedAt
     };

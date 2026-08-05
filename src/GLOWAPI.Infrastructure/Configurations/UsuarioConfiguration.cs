@@ -38,6 +38,13 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
             .IsRequired()
             .HasMaxLength(50);
 
+        builder.Property(usuario => usuario.Sexo)
+            .HasConversion(
+                sexo => sexo != null ? sexo.Value.ToString() : null,
+                sexo => string.IsNullOrEmpty(sexo) ? (Sexo?)null : Enum.Parse<Sexo>(sexo))
+            .HasMaxLength(20)
+            .IsRequired(false);
+
         builder.Property(usuario => usuario.Tentativas)
             .HasDefaultValue(0);
 

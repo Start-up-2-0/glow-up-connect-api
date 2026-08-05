@@ -10,6 +10,7 @@ public class Usuario
     public string Telefone { get; set; } = string.Empty;
     public string Senha { get; set; } = string.Empty;
     public UserRole Role { get; set; }
+    public Sexo? Sexo { get; set; }
     public int Tentativas { get; set; }
     public DateTime? BloqueadoAte { get; set; }
     public bool Ativo { get; set; } = true;

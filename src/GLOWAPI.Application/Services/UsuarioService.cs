@@ -65,7 +65,8 @@ public class UsuarioService : IUsuarioService
             Senha = senhaHash,
             Role = UserRole.Cliente,
             Ativo = false,
-            AvatarBase64 = avatarBase64
+            AvatarBase64 = avatarBase64,
+            Sexo = dto.Sexo is null ? null : Enum.Parse<Sexo>(dto.Sexo)
         };
 
         await _usuarioRepository.AdicionarAsync(usuario, cancellationToken);
@@ -102,6 +103,10 @@ public class UsuarioService : IUsuarioService
 
         usuario.Nome = dto.Nome;
         usuario.Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone);
+        if (dto.Sexo is not null)
+        {
+            usuario.Sexo = Enum.Parse<Sexo>(dto.Sexo);
+        }
         usuario.UpdatedAt = DateTime.UtcNow;
 
         WhatsAppConfirmacaoEntidade.ResetarAoAlterarTelefone(

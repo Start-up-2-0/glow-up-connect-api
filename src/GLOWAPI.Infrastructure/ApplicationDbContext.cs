@@ -12,6 +12,7 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<Usuario> Usuarios { get; set; }
     public DbSet<Estabelecimento> Estabelecimentos { get; set; }
+    public DbSet<CategoriaEstabelecimento> CategoriasEstabelecimento { get; set; }
     public DbSet<EstabelecimentoUsuario> EstabelecimentoUsuarios { get; set; }
     public DbSet<Profissional> Profissionais { get; set; }
     public DbSet<ProfissionalEstabelecimento> ProfissionalEstabelecimentos { get; set; }
