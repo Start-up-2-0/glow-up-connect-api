@@ -1,4 +1,5 @@
 using System.Text.Json;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Auth;
@@ -62,6 +63,51 @@ public class AuthSessionService : IAuthSessionService
         return new IssuedTokenPair(
             accessToken,
             refreshToken,
+            sessao.AccessTokenExpiraEm,
+            sessao.ExpiraEm,
+            sessao.Id);
+    }
+
+    public async Task<IssuedTokenPair> CriarSessaoAgendamentoPublicoAsync(
+        Usuario usuario,
+        AuthSessionContext context,
+        CancellationToken cancellationToken = default)
+    {
+        var agora = DateTime.UtcNow;
+        var accessExpiraEm = _tokenService.ObterExpiracaoAccessToken(agora);
+        // Refresh placeholder — não é enviado ao cliente; ExpiraEm = access (15 min).
+        var refreshToken = _tokenService.GerarRefreshToken();
+
+        var sessao = new SessaoAutenticacao
+        {
+            UsuarioId = usuario.Id,
+            RefreshTokenHash = _tokenService.HashToken(refreshToken),
+            LoginEm = agora,
+            AccessTokenExpiraEm = accessExpiraEm,
+            ExpiraEm = accessExpiraEm,
+            Ip = context.Ip,
+            UserAgent = context.UserAgent,
+            MetadataJson = JsonSerializer.Serialize(new
+            {
+                userId = usuario.Id,
+                email = usuario.Email,
+                issuedAt = agora,
+                scope = CodigoAgendamentoHelper.ScopeAgendamentoPublico
+            })
+        };
+
+        await _sessaoRepository.AdicionarAsync(sessao, cancellationToken);
+        await _sessaoRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        var accessToken = _tokenService.EmitirAccessToken(usuario, sessao.Id, agora);
+        sessao.AccessTokenHash = _tokenService.HashToken(accessToken);
+
+        _sessaoRepository.Atualizar(sessao);
+        await _sessaoRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        return new IssuedTokenPair(
+            accessToken,
+            string.Empty,
             sessao.AccessTokenExpiraEm,
             sessao.ExpiraEm,
             sessao.Id);

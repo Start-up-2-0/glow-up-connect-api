@@ -57,4 +57,14 @@ public class UsuarioRepository : Repository<Usuario>, IUsuarioRepository
     {
         return DbSet.FirstOrDefaultAsync(usuario => usuario.WhatsAppConfirmacaoCodigoHash == codigoHash, cancellationToken);
     }
+
+    public Task<Usuario?> ObterPorCodigoAgendamentoAsync(string codigoAgendamento, CancellationToken cancellationToken = default)
+    {
+        return DbSet.FirstOrDefaultAsync(usuario => usuario.CodigoAgendamento == codigoAgendamento, cancellationToken);
+    }
+
+    public Task<bool> ExisteCodigoAgendamentoAsync(string codigoAgendamento, CancellationToken cancellationToken = default)
+    {
+        return DbSet.AnyAsync(usuario => usuario.CodigoAgendamento == codigoAgendamento, cancellationToken);
+    }
 }

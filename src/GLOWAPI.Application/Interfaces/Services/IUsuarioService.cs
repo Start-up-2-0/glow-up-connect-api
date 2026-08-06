@@ -10,6 +10,7 @@ public interface IUsuarioService
     Task<Usuario?> ObterUsuarioPorIdAsync(int id, CancellationToken cancellationToken = default);
     Task<Usuario?> ObterUsuarioPorEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<Usuario> ObterPerfilAtualAsync(CancellationToken cancellationToken = default);
+    Task<string> RegenerarCodigoAgendamentoAtualAsync(CancellationToken cancellationToken = default);
     Task AtualizarPerfilAtualAsync(AtualizarUsuarioDto dto, CancellationToken cancellationToken = default);
     Task DesativarContaAtualAsync(CancellationToken cancellationToken = default);
     Task<WhatsAppConfirmacaoInstrucoesDto> SolicitarConfirmacaoWhatsAppAtualAsync(CancellationToken cancellationToken = default);

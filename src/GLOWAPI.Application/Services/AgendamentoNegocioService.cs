@@ -41,6 +41,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUsuarioService _usuarioService;
+    private readonly IAuthSessionService _authSessionService;
     private readonly IAgendamentoPropostaRemarcacaoRepository _propostaRemarcacaoRepository;
     private readonly IAvaliacaoAtendimentoRepository _avaliacaoAtendimentoRepository;
     private readonly AuthOptions _authOptions;
@@ -59,6 +60,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         IAuditoriaNegocioService auditoriaNegocioService,
         ICurrentUserContext currentUserContext,
         IUsuarioService usuarioService,
+        IAuthSessionService authSessionService,
         IAgendamentoPropostaRemarcacaoRepository propostaRemarcacaoRepository,
         IAvaliacaoAtendimentoRepository avaliacaoAtendimentoRepository,
         IOptions<AuthOptions> authOptions)
@@ -76,6 +78,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         _auditoriaNegocioService = auditoriaNegocioService;
         _currentUserContext = currentUserContext;
         _usuarioService = usuarioService;
+        _authSessionService = authSessionService;
         _propostaRemarcacaoRepository = propostaRemarcacaoRepository;
         _avaliacaoAtendimentoRepository = avaliacaoAtendimentoRepository;
         _authOptions = authOptions.Value;
@@ -260,6 +263,8 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             OrigemAgendamento.Logado,
             userId,
             cancellationToken: cancellationToken);
+
+        await RevogarSessaoAgendamentoPublicoSeAplicavelAsync(cancellationToken);
 
         var agendamento = await _agendamentoRepository.ObterPorIdEUsuarioClienteAsync(
             criado.Id,
@@ -938,6 +943,25 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         }
 
         return _currentUserContext.UserId.Value;
+    }
+
+    private async Task RevogarSessaoAgendamentoPublicoSeAplicavelAsync(CancellationToken cancellationToken)
+    {
+        if (!_currentUserContext.SessionId.HasValue)
+        {
+            return;
+        }
+
+        var sessao = await _authSessionService.ObterSessaoPorIdAsync(
+            _currentUserContext.SessionId.Value,
+            cancellationToken);
+
+        if (sessao is null || !CodigoAgendamentoHelper.EhEscopoAgendamentoPublico(sessao.MetadataJson))
+        {
+            return;
+        }
+
+        await _authSessionService.RevogarSessaoAsync(sessao, cancellationToken);
     }
 
     private async Task<Agendamento> ObterMeuAgendamentoEntidadeAsync(

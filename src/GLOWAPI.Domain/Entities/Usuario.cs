@@ -23,6 +23,8 @@ public class Usuario
     public string? WhatsAppConfirmacaoCodigoHash { get; set; }
     public DateTime? WhatsAppConfirmacaoExpiraEm { get; set; }
     public bool WhatsAppOptIn { get; set; }
+    /// <summary>Código pessoal para autenticação no link público de agendamento (único).</summary>
+    public string? CodigoAgendamento { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 

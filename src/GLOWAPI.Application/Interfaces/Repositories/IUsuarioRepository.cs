@@ -11,4 +11,6 @@ public interface IUsuarioRepository : IRepository<Usuario>
     Task<Usuario?> ObterPorConfirmacaoCodigoHashAsync(string codigoHash, CancellationToken cancellationToken = default);
     Task<Usuario?> ObterPorWhatsAppConfirmacaoTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default);
     Task<Usuario?> ObterPorWhatsAppConfirmacaoCodigoHashAsync(string codigoHash, CancellationToken cancellationToken = default);
+    Task<Usuario?> ObterPorCodigoAgendamentoAsync(string codigoAgendamento, CancellationToken cancellationToken = default);
+    Task<bool> ExisteCodigoAgendamentoAsync(string codigoAgendamento, CancellationToken cancellationToken = default);
 }

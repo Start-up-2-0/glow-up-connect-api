@@ -42,6 +42,15 @@ public class UsuarioController : ControllerBase
         return Ok(UsuarioResponseDto.From(usuario));
     }
 
+    [HttpPost("me/codigo-agendamento/regenerar")]
+    public async Task<IActionResult> RegenerarCodigoAgendamento(CancellationToken cancellationToken)
+    {
+        var codigo = await _usuarioService.RegenerarCodigoAgendamentoAtualAsync(cancellationToken);
+        return Ok(ApiSuccessResponse<object>.From(
+            "Código de agendamento regenerado. O código anterior deixa de funcionar.",
+            new { codigoAgendamento = codigo }));
+    }
+
     [HttpGet("me/estabelecimentos")]
     public async Task<IActionResult> ListarEstabelecimentos(CancellationToken cancellationToken)
     {

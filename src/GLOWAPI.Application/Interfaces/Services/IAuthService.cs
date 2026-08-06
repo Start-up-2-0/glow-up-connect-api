@@ -10,6 +10,11 @@ public interface IAuthService
         AuthSessionContext context,
         CancellationToken cancellationToken = default);
 
+    Task<AuthLoginResult> AutenticarPorCodigoAgendamentoAsync(
+        AutenticarCodigoAgendamentoRequestDto dto,
+        AuthSessionContext context,
+        CancellationToken cancellationToken = default);
+
     Task LogoutAsync(string accessToken, CancellationToken cancellationToken = default);
 
     Task<AuthRefreshResult> RefreshAsync(

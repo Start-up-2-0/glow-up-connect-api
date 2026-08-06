@@ -16,6 +16,8 @@ public class UsuarioResponseDto
     public bool WhatsAppOptIn { get; set; }
     public bool WhatsAppPendenteConfirmacao { get; set; }
     public string? Sexo { get; set; }
+    /// <summary>Código pessoal para agendar pelo link público.</summary>
+    public string? CodigoAgendamento { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
@@ -32,6 +34,7 @@ public class UsuarioResponseDto
         WhatsAppOptIn = usuario.WhatsAppOptIn,
         WhatsAppPendenteConfirmacao = usuario.PendenteConfirmacaoWhatsApp(),
         Sexo = usuario.Sexo?.ToString(),
+        CodigoAgendamento = usuario.CodigoAgendamento,
         CreatedAt = usuario.CreatedAt,
         UpdatedAt = usuario.UpdatedAt
     };

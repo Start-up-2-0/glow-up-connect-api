@@ -1,4 +1,5 @@
 using GLOWAPI.API.Models;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Auth;
 using GLOWAPI.Application.Options;
@@ -56,7 +57,9 @@ public class GlowTokenAuthenticationMiddleware
                 auth.Sessao.Id);
 
             var sessao = await authSessionService.ObterSessaoPorIdAsync(auth.Sessao.Id, context.RequestAborted);
-            if (sessao is not null && DeveRenovarSessao(sessao.UltimaRenovacaoEm ?? sessao.LoginEm))
+            if (sessao is not null
+                && !CodigoAgendamentoHelper.EhEscopoAgendamentoPublico(sessao.MetadataJson)
+                && DeveRenovarSessao(sessao.UltimaRenovacaoEm ?? sessao.LoginEm))
             {
                 await authSessionService.RenovarExpiracaoAsync(sessao, context.RequestAborted);
             }

@@ -85,6 +85,13 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         builder.Property(usuario => usuario.WhatsAppOptIn)
             .HasDefaultValue(false);
 
+        builder.Property(usuario => usuario.CodigoAgendamento)
+            .HasMaxLength(32);
+
+        builder.HasIndex(usuario => usuario.CodigoAgendamento)
+            .IsUnique()
+            .HasFilter("CodigoAgendamento IS NOT NULL");
+
         builder.Property(usuario => usuario.CreatedAt)
             .IsRequired();
 
