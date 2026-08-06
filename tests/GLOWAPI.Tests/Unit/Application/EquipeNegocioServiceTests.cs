@@ -22,6 +22,8 @@ public class EquipeNegocioServiceTests
     private readonly Mock<IModulosAssinaturaService> _modulosAssinaturaService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
     private readonly Mock<IEquipeNotificacaoService> _equipeNotificacaoService = new();
+    private readonly Mock<IAvatarBase64Decoder> _avatarBase64Decoder = new();
+    private readonly Mock<IConviteNegocioRepository> _conviteNegocioRepository = new();
 
     public EquipeNegocioServiceTests()
     {
@@ -1104,7 +1106,9 @@ public class EquipeNegocioServiceTests
             _autorizacaoNegocioService.Object,
             _modulosAssinaturaService.Object,
             _auditoriaNegocioService.Object,
-            _equipeNotificacaoService.Object);
+            _equipeNotificacaoService.Object,
+            _avatarBase64Decoder.Object,
+            _conviteNegocioRepository.Object);
 
     private static ModulosAssinaturaResponseDto CriarModulosPlus() =>
         ModulosAssinaturaResponseDto.Liberado(

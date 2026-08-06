@@ -55,8 +55,11 @@ public class AvaliacaoResumoService : IAvaliacaoResumoService
         int tamanhoPagina,
         CancellationToken cancellationToken = default)
     {
-        var estabelecimento = await _estabelecimentoRepository.ObterPorPublicGuidAsync(publicGuid, cancellationToken)
-            ?? throw new NegocioNaoEncontradoException();
+        var estabelecimento = await _estabelecimentoRepository.ObterPorPublicGuidAsync(publicGuid, cancellationToken);
+        if (estabelecimento is null || !estabelecimento.Ativo || !estabelecimento.VisivelPublicamente)
+        {
+            throw new NegocioNaoEncontradoException();
+        }
 
         return await ListarEstabelecimentoAsync(
             estabelecimento.Id,
@@ -224,14 +227,14 @@ public class AvaliacaoResumoService : IAvaliacaoResumoService
             avaliacao.NotaEstabelecimento,
             avaliacao.ComentarioEstabelecimento,
             avaliacao.AvaliadoEm,
-            ObterNomeCliente(avaliacao));
+            MascararNomeClientePublico(avaliacao));
 
     private static AvaliacaoComentarioItemDto MapearComentarioProfissional(AvaliacaoAtendimento avaliacao) =>
         new(
             avaliacao.NotaProfissional,
             avaliacao.ComentarioProfissional,
             avaliacao.AvaliadoEm,
-            ObterNomeCliente(avaliacao));
+            MascararNomeClientePublico(avaliacao));
 
     private static AvaliacaoNegocioItemDto MapearNegocio(AvaliacaoAtendimento avaliacao) =>
         new(
@@ -249,4 +252,7 @@ public class AvaliacaoResumoService : IAvaliacaoResumoService
         avaliacao.UsuarioCliente?.Nome
         ?? avaliacao.Agendamento?.ClienteNome
         ?? "Cliente";
+
+    private static string MascararNomeClientePublico(AvaliacaoAtendimento avaliacao) =>
+        NomePublicoHelper.MascararNomeCliente(ObterNomeCliente(avaliacao));
 }

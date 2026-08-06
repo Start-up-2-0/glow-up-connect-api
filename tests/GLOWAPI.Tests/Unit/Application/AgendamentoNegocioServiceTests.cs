@@ -27,6 +27,7 @@ public class AgendamentoNegocioServiceTests
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
     private readonly Mock<IUsuarioService> _usuarioService = new();
+    private readonly Mock<IAuthSessionService> _authSessionService = new();
     private readonly Mock<IAgendamentoPropostaRemarcacaoRepository> _propostaRemarcacaoRepository = new();
     private readonly Mock<IAvaliacaoAtendimentoRepository> _avaliacaoAtendimentoRepository = new();
 
@@ -200,6 +201,7 @@ public class AgendamentoNegocioServiceTests
             _auditoriaNegocioService.Object,
             _currentUserContext.Object,
             _usuarioService.Object,
+            _authSessionService.Object,
             _propostaRemarcacaoRepository.Object,
             _avaliacaoAtendimentoRepository.Object,
             Options.Create(new AuthOptions { FrontendBaseUrl = "http://localhost:5173" }));

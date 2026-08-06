@@ -4,6 +4,7 @@ using System.Text.Json;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Infrastructure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GLOWAPI.Tests.Integration;
@@ -48,6 +49,59 @@ public class WebhooksPagamentoControllerTests : IClassFixture<GlowApiWebApplicat
             webhook.Gateway == GatewayPagamento.MercadoPago
             && webhook.EventId == "evt-int-1"
             && !webhook.Processado);
+    }
+
+    [Fact]
+    public async Task Registrar_DeveRetornarNotFound_QuandoSegredoConfiguradoEHeaderAusente()
+    {
+        await LimparWebhooksAsync();
+        var client = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["WebhookPagamento:RegistrarSecret"] = "segredo-teste-webhook"
+                });
+            });
+        }).CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/webhooks/pagamentos", new
+        {
+            gateway = GatewayPagamento.MercadoPago,
+            eventId = "evt-bloqueado",
+            eventType = "payment.approved",
+            payload = """{"paymentId":"pay-x"}"""
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Registrar_DeveAceitar_QuandoSegredoConfiguradoEHeaderValido()
+    {
+        await LimparWebhooksAsync();
+        var client = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["WebhookPagamento:RegistrarSecret"] = "segredo-teste-webhook"
+                });
+            });
+        }).CreateClient();
+        client.DefaultRequestHeaders.Add("X-Glow-Webhook-Secret", "segredo-teste-webhook");
+
+        var response = await client.PostAsJsonAsync("/api/webhooks/pagamentos", new
+        {
+            gateway = GatewayPagamento.MercadoPago,
+            eventId = "evt-com-segredo",
+            eventType = "payment.approved",
+            payload = """{"paymentId":"pay-ok"}"""
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]

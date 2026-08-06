@@ -17,26 +17,39 @@ public class WebhooksPagamentoController : ControllerBase
     private readonly IWebhookPagamentoService _webhookPagamentoService;
     private readonly IMercadoPagoWebhookSignatureValidator _signatureValidator;
     private readonly MercadoPagoOptions _mercadoPagoOptions;
+    private readonly WebhookPagamentoOptions _webhookPagamentoOptions;
     private readonly IWebHostEnvironment _environment;
 
     public WebhooksPagamentoController(
         IWebhookPagamentoService webhookPagamentoService,
         IMercadoPagoWebhookSignatureValidator signatureValidator,
         IOptions<MercadoPagoOptions> mercadoPagoOptions,
+        IOptions<WebhookPagamentoOptions> webhookPagamentoOptions,
         IWebHostEnvironment environment)
     {
         _webhookPagamentoService = webhookPagamentoService;
         _signatureValidator = signatureValidator;
         _mercadoPagoOptions = mercadoPagoOptions.Value;
+        _webhookPagamentoOptions = webhookPagamentoOptions.Value;
         _environment = environment;
     }
 
+    /// <summary>
+    /// Entrada genérica (ex.: testes / gateways internos). Em produção exige
+    /// <c>X-Glow-Webhook-Secret</c>; o caminho oficial do Mercado Pago é
+    /// <c>/mercado-pago</c> com validação de assinatura.
+    /// </summary>
     [AllowAnonymous]
     [HttpPost]
     public async Task<IActionResult> Registrar(
         [FromBody] RegistrarWebhookPagamentoRequestDto request,
         CancellationToken cancellationToken)
     {
+        if (!AutorizarWebhookGenerico())
+        {
+            return NotFound();
+        }
+
         var webhook = await _webhookPagamentoService.RegistrarAsync(request, cancellationToken);
         return Ok(ApiSuccessResponse<WebhookPagamentoResponseDto>.From(
             webhook.Duplicado
@@ -92,6 +105,20 @@ public class WebhooksPagamentoController : ControllerBase
                 ? "Webhook do Mercado Pago ja registrado."
                 : "Webhook do Mercado Pago registrado com sucesso.",
             webhook));
+    }
+
+    private bool AutorizarWebhookGenerico()
+    {
+        var expected = _webhookPagamentoOptions.RegistrarSecret?.Trim() ?? string.Empty;
+
+        if (!string.IsNullOrEmpty(expected))
+        {
+            return Request.Headers.TryGetValue(WebhookPagamentoOptions.SecretHeaderName, out var provided)
+                && string.Equals(provided.ToString(), expected, StringComparison.Ordinal);
+        }
+
+        // Sem segredo configurado: desabilita em Production/Staging; libera só em ambientes locais/teste.
+        return _environment.IsDevelopment() || _environment.IsEnvironment("Testing");
     }
 
     private bool DeveValidarAssinaturaMercadoPago() =>

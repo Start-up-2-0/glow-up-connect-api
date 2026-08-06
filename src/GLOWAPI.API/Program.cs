@@ -33,6 +33,8 @@ builder.Services.Configure<MensageriaWhatsAppOptions>(
 builder.Services.AddOptions<MercadoPagoOptions>()
     .Bind(builder.Configuration.GetSection(MercadoPagoOptions.SectionName))
     .PostConfigure(options => MercadoPagoCheckoutProUrlDefaults.Aplicar(options, builder.Configuration));
+builder.Services.Configure<WebhookPagamentoOptions>(
+    builder.Configuration.GetSection(WebhookPagamentoOptions.SectionName));
 builder.Services.Configure<GeocodificacaoOptions>(
     builder.Configuration.GetSection(GeocodificacaoOptions.SectionName));
 builder.Services.Configure<AssinaturaCobrancaOptions>(
