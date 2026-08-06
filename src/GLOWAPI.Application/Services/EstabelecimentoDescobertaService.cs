@@ -185,7 +185,9 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             estabelecimento.NotaMedia,
             estabelecimento.TotalAvaliacoes,
             estabelecimento.CategoriaEstabelecimentoId,
-            estabelecimento.CategoriaEstabelecimento?.Nome);
+            estabelecimento.CategoriaEstabelecimento?.Nome,
+            endereco.Latitude.HasValue ? (double)endereco.Latitude.Value : null,
+            endereco.Longitude.HasValue ? (double)endereco.Longitude.Value : null);
     }
 
     private static string TruncarDescricao(string descricao) =>
