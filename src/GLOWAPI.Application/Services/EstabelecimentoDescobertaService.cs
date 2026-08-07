@@ -167,27 +167,25 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
 
     private static EstabelecimentoProximoResponseDto Mapear(Models.Geolocalizacao.EstabelecimentoProximoConsulta consulta)
     {
-        var estabelecimento = consulta.Estabelecimento;
-        var endereco = estabelecimento.Endereco!;
-
         return new EstabelecimentoProximoResponseDto(
-            estabelecimento.PublicGuid,
-            estabelecimento.Nome,
-            estabelecimento.Logo,
-            TruncarDescricao(estabelecimento.Descricao),
+            consulta.PublicGuid,
+            consulta.Nome,
+            // Listagem do marketplace não envia base64 — detalhe público mantém Logo.
+            string.Empty,
+            TruncarDescricao(consulta.Descricao),
             Math.Round(consulta.DistanciaKm, 2),
             consulta.DestaqueMarketplace,
             new EnderecoResumoDto(
-                endereco.Logradouro,
-                endereco.Bairro,
-                endereco.Cidade,
-                endereco.Estado),
-            estabelecimento.NotaMedia,
-            estabelecimento.TotalAvaliacoes,
-            estabelecimento.CategoriaEstabelecimentoId,
-            estabelecimento.CategoriaEstabelecimento?.Nome,
-            endereco.Latitude.HasValue ? (double)endereco.Latitude.Value : null,
-            endereco.Longitude.HasValue ? (double)endereco.Longitude.Value : null);
+                consulta.Logradouro,
+                consulta.Bairro,
+                consulta.Cidade,
+                consulta.Estado),
+            consulta.NotaMedia,
+            consulta.TotalAvaliacoes,
+            consulta.CategoriaEstabelecimentoId,
+            consulta.CategoriaNome,
+            (double)consulta.Latitude,
+            (double)consulta.Longitude);
     }
 
     private static string TruncarDescricao(string descricao) =>

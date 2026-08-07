@@ -92,9 +92,33 @@ public class EstabelecimentoUsuarioRepository : Repository<EstabelecimentoUsuari
     {
         return await DbSet
             .AsNoTracking()
-            .Include(vinculo => vinculo.Usuario)
             .Where(vinculo => vinculo.EstabelecimentoId == estabelecimentoId && vinculo.Ativo)
             .OrderBy(vinculo => vinculo.Usuario!.Nome)
+            .Select(vinculo => new EstabelecimentoUsuario
+            {
+                Id = vinculo.Id,
+                EstabelecimentoId = vinculo.EstabelecimentoId,
+                UsuarioId = vinculo.UsuarioId,
+                RoleNoEstabelecimento = vinculo.RoleNoEstabelecimento,
+                Ativo = vinculo.Ativo,
+                CreateAd = vinculo.CreateAd,
+                UpdatedAt = vinculo.UpdatedAt,
+                Usuario = vinculo.Usuario == null
+                    ? null
+                    : new Usuario
+                    {
+                        Id = vinculo.Usuario.Id,
+                        Nome = vinculo.Usuario.Nome,
+                        Email = vinculo.Usuario.Email,
+                        Telefone = vinculo.Usuario.Telefone,
+                        Role = vinculo.Usuario.Role,
+                        Sexo = vinculo.Usuario.Sexo,
+                        Ativo = vinculo.Usuario.Ativo,
+                        AvatarBase64 = null,
+                        CreatedAt = vinculo.Usuario.CreatedAt,
+                        UpdatedAt = vinculo.Usuario.UpdatedAt,
+                    },
+            })
             .ToListAsync(cancellationToken);
     }
 }

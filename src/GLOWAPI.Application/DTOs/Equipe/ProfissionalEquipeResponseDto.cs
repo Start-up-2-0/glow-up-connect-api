@@ -32,5 +32,6 @@ public record ProfissionalEquipeResponseDto(
             vinculo.Ativo,
             profissional.NotaMedia,
             profissional.TotalAvaliacoes,
+            // Listagens usam projeção sem Logo; mutações que carregam entidade completa ainda enviam foto.
             string.IsNullOrWhiteSpace(profissional.Logo) ? null : profissional.Logo);
 }

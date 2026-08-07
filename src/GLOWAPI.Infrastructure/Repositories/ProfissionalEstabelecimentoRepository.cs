@@ -90,64 +90,98 @@ public class ProfissionalEstabelecimentoRepository : Repository<ProfissionalEsta
         int estabelecimentoId,
         CancellationToken cancellationToken = default)
     {
-        return await DbSet
-            .AsNoTracking()
-            .Include(vinculo => vinculo.Profissional)
-            .Where(vinculo =>
+        return await ListarProjecaoLeveAsync(
+            vinculo =>
                 vinculo.EstabelecimentoId == estabelecimentoId
                 && vinculo.Ativo
                 && vinculo.PodeReceberAgendamento
                 && vinculo.Profissional != null
-                && vinculo.Profissional.Ativo)
-            .OrderBy(vinculo => vinculo.Profissional!.NomePublico)
-            .ToListAsync(cancellationToken);
+                && vinculo.Profissional.Ativo,
+            cancellationToken);
     }
 
     public async Task<IReadOnlyList<ProfissionalEstabelecimento>> ListarAtivosPorEstabelecimentoAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default)
     {
-        return await DbSet
-            .AsNoTracking()
-            .Include(vinculo => vinculo.Profissional)
-            .Where(vinculo =>
+        return await ListarProjecaoLeveAsync(
+            vinculo =>
                 vinculo.EstabelecimentoId == estabelecimentoId
                 && vinculo.Ativo
                 && vinculo.Profissional != null
-                && vinculo.Profissional.Ativo)
-            .OrderBy(vinculo => vinculo.Profissional!.NomePublico)
-            .ToListAsync(cancellationToken);
+                && vinculo.Profissional.Ativo,
+            cancellationToken);
     }
 
     public async Task<IReadOnlyList<ProfissionalEstabelecimento>> ListarAtivosParaVitrinePorEstabelecimentoAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default)
     {
-        return await DbSet
-            .AsNoTracking()
-            .Include(vinculo => vinculo.Profissional)
-            .Where(vinculo =>
+        return await ListarProjecaoLeveAsync(
+            vinculo =>
                 vinculo.EstabelecimentoId == estabelecimentoId
                 && vinculo.Ativo
                 && vinculo.SomenteExibicao
                 && vinculo.Profissional != null
-                && vinculo.Profissional.Ativo)
-            .OrderBy(vinculo => vinculo.Profissional!.NomePublico)
-            .ToListAsync(cancellationToken);
+                && vinculo.Profissional.Ativo,
+            cancellationToken);
     }
 
     public async Task<IReadOnlyList<ProfissionalEstabelecimento>> ListarVitrinePorEstabelecimentoAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default)
     {
-        return await DbSet
-            .AsNoTracking()
-            .Include(vinculo => vinculo.Profissional)
-            .Where(vinculo =>
+        return await ListarProjecaoLeveAsync(
+            vinculo =>
                 vinculo.EstabelecimentoId == estabelecimentoId
                 && vinculo.SomenteExibicao
-                && vinculo.Profissional != null)
+                && vinculo.Profissional != null,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Projeta vínculo + profissional sem a coluna Logo (longtext/base64).
+    /// </summary>
+    private async Task<IReadOnlyList<ProfissionalEstabelecimento>> ListarProjecaoLeveAsync(
+        System.Linq.Expressions.Expression<Func<ProfissionalEstabelecimento, bool>> predicado,
+        CancellationToken cancellationToken)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Where(predicado)
             .OrderBy(vinculo => vinculo.Profissional!.NomePublico)
+            .Select(vinculo => new ProfissionalEstabelecimento
+            {
+                Id = vinculo.Id,
+                ProfissionalId = vinculo.ProfissionalId,
+                EstabelecimentoId = vinculo.EstabelecimentoId,
+                Ativo = vinculo.Ativo,
+                DataEntrada = vinculo.DataEntrada,
+                DataSaida = vinculo.DataSaida,
+                PodeReceberAgendamento = vinculo.PodeReceberAgendamento,
+                SomenteExibicao = vinculo.SomenteExibicao,
+                CreateAd = vinculo.CreateAd,
+                UpdatedAt = vinculo.UpdatedAt,
+                Profissional = vinculo.Profissional == null
+                    ? null
+                    : new Profissional
+                    {
+                        Id = vinculo.Profissional.Id,
+                        PublicGuid = vinculo.Profissional.PublicGuid,
+                        UsuarioId = vinculo.Profissional.UsuarioId,
+                        NomePublico = vinculo.Profissional.NomePublico,
+                        Biografia = vinculo.Profissional.Biografia,
+                        Logo = string.Empty,
+                        Telefone = vinculo.Profissional.Telefone,
+                        Email = vinculo.Profissional.Email,
+                        TipoProfissional = vinculo.Profissional.TipoProfissional,
+                        Ativo = vinculo.Profissional.Ativo,
+                        NotaMedia = vinculo.Profissional.NotaMedia,
+                        TotalAvaliacoes = vinculo.Profissional.TotalAvaliacoes,
+                        CreateAd = vinculo.Profissional.CreateAd,
+                        UpdatedAt = vinculo.Profissional.UpdatedAt,
+                    },
+            })
             .ToListAsync(cancellationToken);
     }
 }

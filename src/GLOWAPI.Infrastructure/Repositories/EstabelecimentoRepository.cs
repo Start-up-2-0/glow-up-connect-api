@@ -88,10 +88,17 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
     {
         var estadoNormalizado = estado.Trim().ToUpperInvariant();
 
+        // Bounding box aproxima o raio e evita materializar o estado inteiro + longtext.
+        var deltaLat = (decimal)(raioKm / 111.0d * 1.35d);
+        var cosLat = Math.Cos((double)latitudeCliente * Math.PI / 180d);
+        var deltaLng = (decimal)(raioKm / (111.0d * Math.Max(0.01d, Math.Abs(cosLat))) * 1.35d);
+        var latMin = latitudeCliente - deltaLat;
+        var latMax = latitudeCliente + deltaLat;
+        var lngMin = longitudeCliente - deltaLng;
+        var lngMax = longitudeCliente + deltaLng;
+
         var candidatos = await DbSet
             .AsNoTracking()
-            .Include(estabelecimento => estabelecimento.Endereco)
-            .Include(estabelecimento => estabelecimento.CategoriaEstabelecimento)
             .Where(estabelecimento =>
                 estabelecimento.Ativo
                 && estabelecimento.VisivelPublicamente
@@ -99,27 +106,61 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
                 && estabelecimento.Endereco.Latitude != null
                 && estabelecimento.Endereco.Longitude != null
                 && estabelecimento.Endereco.Estado.ToUpper() == estadoNormalizado
+                && estabelecimento.Endereco.Latitude >= latMin
+                && estabelecimento.Endereco.Latitude <= latMax
+                && estabelecimento.Endereco.Longitude >= lngMin
+                && estabelecimento.Endereco.Longitude <= lngMax
                 && (categoriaId == null || estabelecimento.CategoriaEstabelecimentoId == categoriaId))
+            .Select(estabelecimento => new
+            {
+                estabelecimento.Id,
+                estabelecimento.PublicGuid,
+                estabelecimento.Nome,
+                estabelecimento.Descricao,
+                estabelecimento.NotaMedia,
+                estabelecimento.TotalAvaliacoes,
+                estabelecimento.CategoriaEstabelecimentoId,
+                CategoriaNome = estabelecimento.CategoriaEstabelecimento != null
+                    ? estabelecimento.CategoriaEstabelecimento.Nome
+                    : null,
+                estabelecimento.Endereco!.Logradouro,
+                estabelecimento.Endereco.Bairro,
+                estabelecimento.Endereco.Cidade,
+                estabelecimento.Endereco.Estado,
+                Latitude = estabelecimento.Endereco.Latitude!.Value,
+                Longitude = estabelecimento.Endereco.Longitude!.Value,
+            })
             .ToListAsync(cancellationToken);
 
-        var estabelecimentoIds = candidatos
+        var naCidade = candidatos
             .Where(estabelecimento =>
-                GeolocalizacaoHelper.NormalizarTextoLocalizacao(estabelecimento.Endereco!.Cidade) == cidadeNormalizada)
-            .Select(estabelecimento => estabelecimento.Id)
+                GeolocalizacaoHelper.NormalizarTextoLocalizacao(estabelecimento.Cidade) == cidadeNormalizada)
             .ToList();
 
+        var estabelecimentoIds = naCidade.Select(estabelecimento => estabelecimento.Id).ToList();
         var destaqueIds = await ObterEstabelecimentosDestaqueAsync(estabelecimentoIds, cancellationToken);
 
-        var filtrados = candidatos
-            .Where(estabelecimento =>
-                GeolocalizacaoHelper.NormalizarTextoLocalizacao(estabelecimento.Endereco!.Cidade) == cidadeNormalizada)
+        var filtrados = naCidade
             .Select(estabelecimento => new EstabelecimentoProximoConsulta(
-                estabelecimento,
+                estabelecimento.Id,
+                estabelecimento.PublicGuid,
+                estabelecimento.Nome,
+                estabelecimento.Descricao,
+                estabelecimento.NotaMedia,
+                estabelecimento.TotalAvaliacoes,
+                estabelecimento.CategoriaEstabelecimentoId,
+                estabelecimento.CategoriaNome,
+                estabelecimento.Logradouro,
+                estabelecimento.Bairro,
+                estabelecimento.Cidade,
+                estabelecimento.Estado,
+                estabelecimento.Latitude,
+                estabelecimento.Longitude,
                 GeolocalizacaoHelper.CalcularDistanciaKm(
                     latitudeCliente,
                     longitudeCliente,
-                    estabelecimento.Endereco!.Latitude!.Value,
-                    estabelecimento.Endereco.Longitude!.Value),
+                    estabelecimento.Latitude,
+                    estabelecimento.Longitude),
                 destaqueIds.Contains(estabelecimento.Id)))
             .Where(consulta => consulta.DistanciaKm <= raioKm)
             .OrderByDescending(consulta => consulta.DestaqueMarketplace)

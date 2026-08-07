@@ -200,6 +200,20 @@ public class AgendamentoRepository : Repository<Agendamento>, IAgendamentoReposi
             cancellationToken);
     }
 
+    public Task<int> ContarClientesDistintosPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet
+            .AsNoTracking()
+            .Where(agendamento =>
+                agendamento.EstabelecimentoId == estabelecimentoId
+                && agendamento.UsuarioClienteId != null)
+            .Select(agendamento => agendamento.UsuarioClienteId!.Value)
+            .Distinct()
+            .CountAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Agendamento>> ListarConcluidosPorProfissionalNoPeriodoAsync(
         int profissionalId,
         DateTime inicio,

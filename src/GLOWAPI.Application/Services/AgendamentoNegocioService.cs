@@ -168,7 +168,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             {
                 PublicGuid = vinculo.Profissional!.PublicGuid,
                 NomePublico = vinculo.Profissional.NomePublico,
-                Foto = string.IsNullOrWhiteSpace(vinculo.Profissional.Logo) ? null : vinculo.Profissional.Logo
+                Foto = null,
             })
             .ToList();
     }
@@ -189,7 +189,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
                 PublicGuid = vinculo.Profissional!.PublicGuid,
                 NomePublico = vinculo.Profissional.NomePublico,
                 Biografia = vinculo.Profissional.Biografia,
-                Logo = vinculo.Profissional.Logo,
+                Logo = string.Empty,
                 NotaMedia = vinculo.Profissional.NotaMedia,
                 TotalAvaliacoes = vinculo.Profissional.TotalAvaliacoes
             })

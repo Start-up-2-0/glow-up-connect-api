@@ -1,11 +1,11 @@
 using GLOWAPI.Application.DTOs.Agenda;
-using GLOWAPI.Application.DTOs.Avaliacao;
 using GLOWAPI.Application.DTOs.Dashboard;
 using GLOWAPI.Application.DTOs.Financeiro;
-using GLOWAPI.Application.DTOs.Servicos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Domain.Enums;
+using GLOWAPI.Domain.Exceptions.Negocios;
+using Microsoft.Extensions.Logging;
 
 namespace GLOWAPI.Application.Services;
 
@@ -13,38 +13,37 @@ public class DashboardNegocioService : IDashboardNegocioService
 {
     private readonly IAgendaNegocioService _agendaNegocioService;
     private readonly IMovimentosFinanceirosService _movimentosFinanceirosService;
-    private readonly IClienteNegocioService _clienteNegocioService;
-    private readonly IServicoNegocioService _servicoNegocioService;
-    private readonly IEquipeNegocioService _equipeNegocioService;
     private readonly IAvaliacaoResumoService _avaliacaoResumoService;
     private readonly IAgendamentoRepository _agendamentoRepository;
+    private readonly IServicoRepository _servicoRepository;
+    private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
     private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
+    private readonly ILogger<DashboardNegocioService> _logger;
 
     public DashboardNegocioService(
         IAgendaNegocioService agendaNegocioService,
         IMovimentosFinanceirosService movimentosFinanceirosService,
-        IClienteNegocioService clienteNegocioService,
-        IServicoNegocioService servicoNegocioService,
-        IEquipeNegocioService equipeNegocioService,
         IAvaliacaoResumoService avaliacaoResumoService,
         IAgendamentoRepository agendamentoRepository,
-        IAutorizacaoNegocioService autorizacaoNegocioService)
+        IServicoRepository servicoRepository,
+        IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
+        IAutorizacaoNegocioService autorizacaoNegocioService,
+        ILogger<DashboardNegocioService> logger)
     {
         _agendaNegocioService = agendaNegocioService;
         _movimentosFinanceirosService = movimentosFinanceirosService;
-        _clienteNegocioService = clienteNegocioService;
-        _servicoNegocioService = servicoNegocioService;
-        _equipeNegocioService = equipeNegocioService;
         _avaliacaoResumoService = avaliacaoResumoService;
         _agendamentoRepository = agendamentoRepository;
+        _servicoRepository = servicoRepository;
+        _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
         _autorizacaoNegocioService = autorizacaoNegocioService;
+        _logger = logger;
     }
 
     public async Task<DashboardNegocioResponseDto> ObterAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default)
     {
-        // Garante vínculo com o estabelecimento (qualquer papel autenticado do negócio).
         await _autorizacaoNegocioService.ObterContextoAsync(estabelecimentoId, cancellationToken);
 
         var agora = DateTime.UtcNow;
@@ -54,7 +53,8 @@ public class DashboardNegocioService : IDashboardNegocioService
         var (mesAnteriorInicio, mesAnteriorFim) = MesAnteriorUtc(agora);
         var (semanaInicio, _) = SemanaAtualUtc(agora);
 
-        var agendaHojeTask = Tentar(() => _agendaNegocioService.ListarAgendaGeralAsync(
+        // Sequencial: DbContext scoped não é thread-safe sob Task.WhenAll.
+        var agendaHoje = await _agendaNegocioService.ListarAgendaGeralAsync(
             estabelecimentoId,
             new AgendaGeralFiltroDto
             {
@@ -64,9 +64,9 @@ public class DashboardNegocioService : IDashboardNegocioService
                 TamanhoPagina = 50,
                 Ordenacao = "atendimento_asc",
             },
-            cancellationToken));
+            cancellationToken);
 
-        var ultimosTask = Tentar(() => _agendaNegocioService.ListarAgendaGeralAsync(
+        var ultimos = await _agendaNegocioService.ListarAgendaGeralAsync(
             estabelecimentoId,
             new AgendaGeralFiltroDto
             {
@@ -74,50 +74,31 @@ public class DashboardNegocioService : IDashboardNegocioService
                 TamanhoPagina = 5,
                 Ordenacao = "atendimento_desc",
             },
-            cancellationToken));
+            cancellationToken);
 
-        var ontemTask = _agendamentoRepository.ContarPorEstabelecimentoNoPeriodoAsync(
+        var agendamentosOntem = await _agendamentoRepository.ContarPorEstabelecimentoNoPeriodoAsync(
             estabelecimentoId, ontemInicio, ontemFim.AddTicks(-1), cancellationToken);
-        var semanaTask = _agendamentoRepository.ContarPorEstabelecimentoNoPeriodoAsync(
+        var agendamentosSemana = await _agendamentoRepository.ContarPorEstabelecimentoNoPeriodoAsync(
             estabelecimentoId, semanaInicio, hojeFim.AddTicks(-1), cancellationToken);
+        var clientesAtivos = await _agendamentoRepository.ContarClientesDistintosPorEstabelecimentoAsync(
+            estabelecimentoId, cancellationToken);
+        var servicosAtivos = await _servicoRepository.ContarAtivosPorEstabelecimentoAsync(
+            estabelecimentoId, cancellationToken);
 
-        var finMesTask = Tentar(() => _movimentosFinanceirosService.ObterDashboardAsync(
-            estabelecimentoId, new FinanceiroFiltroDto(mesInicio, agora), cancellationToken));
-        var finMesAntTask = Tentar(() => _movimentosFinanceirosService.ObterDashboardAsync(
-            estabelecimentoId, new FinanceiroFiltroDto(mesAnteriorInicio, mesAnteriorFim), cancellationToken));
-        var finHojeTask = Tentar(() => _movimentosFinanceirosService.ObterDashboardAsync(
-            estabelecimentoId, new FinanceiroFiltroDto(hojeInicio, hojeFim), cancellationToken));
-        var finSemanaTask = Tentar(() => _movimentosFinanceirosService.ObterDashboardAsync(
-            estabelecimentoId, new FinanceiroFiltroDto(semanaInicio, agora), cancellationToken));
+        var vinculos = await _profissionalEstabelecimentoRepository.ListarAtivosPorEstabelecimentoAsync(
+            estabelecimentoId, cancellationToken);
 
-        var clientesTask = Tentar(() => _clienteNegocioService.ListarPorEstabelecimentoAsync(
-            estabelecimentoId, cancellationToken));
-        var servicosTask = Tentar(() => _servicoNegocioService.ListarAsync(
-            estabelecimentoId,
-            new ServicoFiltroDto { Ativo = true },
-            cancellationToken));
-        var equipeTask = Tentar(() => _equipeNegocioService.ListarProfissionaisAsync(
-            estabelecimentoId, cancellationToken));
-        var avaliacaoTask = Tentar(() => _avaliacaoResumoService.ObterResumoEstabelecimentoAsync(
-            estabelecimentoId, cancellationToken));
+        var avaliacaoResumo = await _avaliacaoResumoService.ObterResumoEstabelecimentoAsync(
+            estabelecimentoId, cancellationToken);
 
-        await Task.WhenAll(
-            agendaHojeTask,
-            ultimosTask,
-            ontemTask,
-            semanaTask,
-            finMesTask,
-            finMesAntTask,
-            finHojeTask,
-            finSemanaTask,
-            clientesTask,
-            servicosTask,
-            equipeTask,
-            avaliacaoTask);
+        var finMes = await TentarFinanceiro(estabelecimentoId, mesInicio, agora, cancellationToken);
+        var finMesAnterior = await TentarFinanceiro(
+            estabelecimentoId, mesAnteriorInicio, mesAnteriorFim, cancellationToken);
+        var finHoje = await TentarFinanceiro(estabelecimentoId, hojeInicio, hojeFim, cancellationToken);
+        var finSemana = await TentarFinanceiro(estabelecimentoId, semanaInicio, agora, cancellationToken);
 
-        var agendaHoje = await agendaHojeTask;
-        var proximos = agendaHoje?.Itens ?? [];
-        var agendamentosHoje = agendaHoje?.Total ?? 0;
+        var proximos = agendaHoje.Itens;
+        var agendamentosHoje = agendaHoje.Total;
         var cancelamentosHoje = proximos.Count(a => a.Status == nameof(AgendamentoStatus.Cancelado));
         var distribuicao = proximos
             .SelectMany(a => a.Itens)
@@ -132,50 +113,63 @@ public class DashboardNegocioService : IDashboardNegocioService
             .GroupBy(i => i.ProfissionalId)
             .ToDictionary(g => g.Key, g => g.Count());
 
-        var profissionais = (await equipeTask)?
-            .Where(p => p.Ativo)
+        var profissionais = vinculos
+            .Where(v => v.Ativo && v.Profissional is not null)
             .Take(6)
-            .Select(p => new DashboardNegocioProfissionalDto(
-                p.Id,
-                p.ProfissionalId,
-                p.NomePublico,
-                p.Ativo,
-                p.PodeReceberAgendamento,
-                p.NotaMedia,
-                countsHoje.GetValueOrDefault(p.ProfissionalId)))
-            .ToList()
-            ?? [];
+            .Select(v => new DashboardNegocioProfissionalDto(
+                v.Id,
+                v.ProfissionalId,
+                v.Profissional!.NomePublico,
+                v.Ativo,
+                v.PodeReceberAgendamento,
+                v.Profissional.NotaMedia,
+                countsHoje.GetValueOrDefault(v.ProfissionalId)))
+            .ToList();
 
         return new DashboardNegocioResponseDto(
-            (await finMesTask)?.TotalEntradas ?? 0,
-            (await finMesAntTask)?.TotalEntradas ?? 0,
-            (await finHojeTask)?.TotalEntradas ?? 0,
-            (await finSemanaTask)?.TotalEntradas ?? 0,
+            finMes?.TotalEntradas ?? 0,
+            finMesAnterior?.TotalEntradas ?? 0,
+            finHoje?.TotalEntradas ?? 0,
+            finSemana?.TotalEntradas ?? 0,
             0,
             agendamentosHoje,
-            await ontemTask,
-            await semanaTask,
+            agendamentosOntem,
+            agendamentosSemana,
             cancelamentosHoje,
-            (await clientesTask)?.Count ?? 0,
-            (await servicosTask)?.Count ?? 0,
+            clientesAtivos,
+            servicosAtivos,
             profissionais,
-            (await ultimosTask)?.Itens ?? [],
+            ultimos.Itens,
             proximos,
-            await avaliacaoTask,
+            avaliacaoResumo,
             [],
             [],
             distribuicao);
     }
 
-    private static async Task<T?> Tentar<T>(Func<Task<T>> acao)
-        where T : class
+    private async Task<FinanceiroDashboardResponseDto?> TentarFinanceiro(
+        int estabelecimentoId,
+        DateTime inicio,
+        DateTime fim,
+        CancellationToken cancellationToken)
     {
         try
         {
-            return await acao();
+            return await _movimentosFinanceirosService.ObterDashboardAsync(
+                estabelecimentoId,
+                new FinanceiroFiltroDto(inicio, fim),
+                cancellationToken);
         }
-        catch
+        catch (UsuarioSemPermissaoNegocioException)
         {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Falha ao obter financeiro do dashboard do estabelecimento {EstabelecimentoId}",
+                estabelecimentoId);
             return null;
         }
     }

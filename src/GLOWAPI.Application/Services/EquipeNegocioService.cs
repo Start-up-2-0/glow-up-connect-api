@@ -913,7 +913,7 @@ public class EquipeNegocioService : IEquipeNegocioService
                 UsuarioId: usuario.Id,
                 ProfissionalId: profissional?.Id,
                 PodeReceberAgendamento: vinculoProf?.PodeReceberAgendamento,
-                Foto: string.IsNullOrWhiteSpace(profissional?.Logo) ? null : profissional!.Logo,
+                Foto: null,
                 ConviteEm: null));
         }
 
@@ -937,7 +937,7 @@ public class EquipeNegocioService : IEquipeNegocioService
                 UsuarioId: profissional.UsuarioId,
                 ProfissionalId: profissional.Id,
                 PodeReceberAgendamento: vinculo.PodeReceberAgendamento,
-                Foto: string.IsNullOrWhiteSpace(profissional.Logo) ? null : profissional.Logo,
+                Foto: null,
                 ConviteEm: null));
         }
 

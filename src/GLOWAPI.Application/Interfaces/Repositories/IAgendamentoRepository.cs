@@ -44,6 +44,10 @@ public interface IAgendamentoRepository : IRepository<Agendamento>
         DateTime fim,
         CancellationToken cancellationToken = default);
 
+    Task<int> ContarClientesDistintosPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<ClienteAgendamentoResumo>> ListarClientesResumoPorEstabelecimentoAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default);
