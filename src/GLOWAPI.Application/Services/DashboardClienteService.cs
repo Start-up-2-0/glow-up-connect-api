@@ -44,12 +44,14 @@ public class DashboardClienteService : IDashboardClienteService
         var (mesInicio, mesFim) = ObterMesAtualUtc(agora);
         var (mesAnteriorInicio, mesAnteriorFim) = ObterMesAnteriorUtc(agora);
 
-        var mesTask = _agendamentoRepository.SomarConcluidosClienteNoPeriodoAsync(
+        // Sequencial: o DbContext scoped não aceita queries concorrentes (Task.WhenAll).
+        var (gastoMes, atendimentosMes) = await _agendamentoRepository.SomarConcluidosClienteNoPeriodoAsync(
             userId, mesInicio, mesFim, cancellationToken);
-        var mesAnteriorTask = _agendamentoRepository.SomarConcluidosClienteNoPeriodoAsync(
+        var (gastoMesAnterior, _) = await _agendamentoRepository.SomarConcluidosClienteNoPeriodoAsync(
             userId, mesAnteriorInicio, mesAnteriorFim, cancellationToken);
-        var totalTask = _agendamentoRepository.ContarPorUsuarioClienteAsync(userId, cancellationToken);
-        var historicoTask = _agendamentoRepository.ListarPorUsuarioClienteComFiltroAsync(
+        var totalAgendamentos = await _agendamentoRepository.ContarPorUsuarioClienteAsync(
+            userId, cancellationToken);
+        var (historicoItens, _) = await _agendamentoRepository.ListarPorUsuarioClienteComFiltroAsync(
             AgendamentoClienteFiltro.Criar(
                 userId,
                 status: null,
@@ -60,7 +62,7 @@ public class DashboardClienteService : IDashboardClienteService
                 tamanhoPagina: 24,
                 ordenacao: "recentes"),
             cancellationToken);
-        var proximosTask = _agendamentoRepository.ListarPorUsuarioClienteComFiltroAsync(
+        var (proximosItens, _) = await _agendamentoRepository.ListarPorUsuarioClienteComFiltroAsync(
             AgendamentoClienteFiltro.Criar(
                 userId,
                 status: null,
@@ -71,14 +73,6 @@ public class DashboardClienteService : IDashboardClienteService
                 tamanhoPagina: 10,
                 ordenacao: "proximos"),
             cancellationToken);
-
-        await Task.WhenAll(mesTask, mesAnteriorTask, totalTask, historicoTask, proximosTask);
-
-        var (gastoMes, atendimentosMes) = await mesTask;
-        var (gastoMesAnterior, _) = await mesAnteriorTask;
-        var totalAgendamentos = await totalTask;
-        var (historicoItens, _) = await historicoTask;
-        var (proximosItens, _) = await proximosTask;
 
         var proximo = proximosItens
             .Where(a => StatusProximos.Contains(a.Status)
