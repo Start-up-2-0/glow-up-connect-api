@@ -1,6 +1,7 @@
 using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Agendamento;
 using GLOWAPI.Application.DTOs.Avaliacao;
+using GLOWAPI.Application.DTOs.Dashboard;
 using GLOWAPI.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,13 +13,16 @@ public class AgendamentosController : ControllerBase
 {
     private readonly IAgendamentoNegocioService _agendamentoNegocioService;
     private readonly IAvaliacaoAtendimentoService _avaliacaoAtendimentoService;
+    private readonly IDashboardClienteService _dashboardClienteService;
 
     public AgendamentosController(
         IAgendamentoNegocioService agendamentoNegocioService,
-        IAvaliacaoAtendimentoService avaliacaoAtendimentoService)
+        IAvaliacaoAtendimentoService avaliacaoAtendimentoService,
+        IDashboardClienteService dashboardClienteService)
     {
         _agendamentoNegocioService = agendamentoNegocioService;
         _avaliacaoAtendimentoService = avaliacaoAtendimentoService;
+        _dashboardClienteService = dashboardClienteService;
     }
 
     [HttpPost]
@@ -33,6 +37,16 @@ public class AgendamentosController : ControllerBase
             ApiSuccessResponse<AgendamentoClienteResponseDto>.From(
                 "Agendamento criado com sucesso.",
                 agendamento));
+    }
+
+    [HttpGet("me/dashboard")]
+    public async Task<IActionResult> ObterDashboardCliente(CancellationToken cancellationToken)
+    {
+        var dashboard = await _dashboardClienteService.ObterAsync(cancellationToken);
+
+        return Ok(ApiSuccessResponse<DashboardClienteResponseDto>.From(
+            "Dashboard do cliente obtido com sucesso.",
+            dashboard));
     }
 
     [HttpGet("me")]

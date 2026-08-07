@@ -158,6 +158,36 @@ public class AgendamentoRepository : Repository<Agendamento>, IAgendamentoReposi
         return (itens, total);
     }
 
+    public async Task<(decimal TotalValor, int Quantidade)> SomarConcluidosClienteNoPeriodoAsync(
+        int usuarioClienteId,
+        DateTime inicio,
+        DateTime fim,
+        CancellationToken cancellationToken = default)
+    {
+        var query = DbSet
+            .AsNoTracking()
+            .Where(agendamento =>
+                agendamento.UsuarioClienteId == usuarioClienteId
+                && agendamento.Status == AgendamentoStatus.Concluido
+                && agendamento.Itens.Any(item => item.Inicio >= inicio && item.Inicio < fim));
+
+        var quantidade = await query.CountAsync(cancellationToken);
+        var totalValor = quantidade == 0
+            ? 0m
+            : await query.SumAsync(agendamento => agendamento.ValorTotal, cancellationToken);
+
+        return (totalValor, quantidade);
+    }
+
+    public Task<int> ContarPorUsuarioClienteAsync(
+        int usuarioClienteId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet.CountAsync(
+            agendamento => agendamento.UsuarioClienteId == usuarioClienteId,
+            cancellationToken);
+    }
+
     public Task<int> ContarPorEstabelecimentoNoPeriodoAsync(
         int estabelecimentoId,
         DateTime inicio,

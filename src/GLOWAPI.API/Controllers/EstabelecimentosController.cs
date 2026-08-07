@@ -11,6 +11,7 @@ using GLOWAPI.Application.DTOs.Equipe;
 using GLOWAPI.Application.DTOs.Estabelecimentos;
 using GLOWAPI.Application.DTOs.Servicos;
 using GLOWAPI.Application.DTOs.Horarios;
+using GLOWAPI.Application.DTOs.Dashboard;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
@@ -40,6 +41,7 @@ public class EstabelecimentosController : ControllerBase
     private readonly IAuditoriaConsultaNegocioService _auditoriaConsultaNegocioService;
     private readonly IAvaliacaoResumoService _avaliacaoResumoService;
     private readonly IMetaNegocioService _metaNegocioService;
+    private readonly IDashboardNegocioService _dashboardNegocioService;
 
     public EstabelecimentosController(
         IEstabelecimentoPerfilService estabelecimentoPerfilService,
@@ -60,7 +62,8 @@ public class EstabelecimentosController : ControllerBase
         IClienteNegocioService clienteNegocioService,
         IAuditoriaConsultaNegocioService auditoriaConsultaNegocioService,
         IAvaliacaoResumoService avaliacaoResumoService,
-        IMetaNegocioService metaNegocioService)
+        IMetaNegocioService metaNegocioService,
+        IDashboardNegocioService dashboardNegocioService)
     {
         _estabelecimentoPerfilService = estabelecimentoPerfilService;
         _equipeNegocioService = equipeNegocioService;
@@ -81,6 +84,7 @@ public class EstabelecimentosController : ControllerBase
         _auditoriaConsultaNegocioService = auditoriaConsultaNegocioService;
         _avaliacaoResumoService = avaliacaoResumoService;
         _metaNegocioService = metaNegocioService;
+        _dashboardNegocioService = dashboardNegocioService;
     }
 
     [HttpGet("{estabelecimentoId:int}/perfil")]
@@ -427,6 +431,19 @@ public class EstabelecimentosController : ControllerBase
         return Ok(ApiSuccessResponse<ProfissionalEquipeResponseDto>.From(
             "Status do profissional atualizado com sucesso.",
             profissionalEquipe));
+    }
+
+    [HttpGet("{estabelecimentoId:int}/dashboard")]
+    [RequerPermissaoNegocio(PermissaoNegocio.NegocioVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ObterDashboard(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        var dashboard = await _dashboardNegocioService.ObterAsync(estabelecimentoId, cancellationToken);
+
+        return Ok(ApiSuccessResponse<DashboardNegocioResponseDto>.From(
+            "Dashboard do estabelecimento obtido com sucesso.",
+            dashboard));
     }
 
     [HttpGet("{estabelecimentoId:int}/agenda")]
