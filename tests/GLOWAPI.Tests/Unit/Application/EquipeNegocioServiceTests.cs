@@ -92,6 +92,10 @@ public class EquipeNegocioServiceTests
                 It.IsAny<int>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<AgendamentoFuturoEquipeResponseDto>());
+
+        _avatarBase64Decoder
+            .Setup(d => d.ValidarENormalizar(It.IsAny<string>(), It.IsAny<string?>()))
+            .Returns((string valor, string? _) => valor.Trim());
     }
 
     [Fact]
@@ -1108,6 +1112,7 @@ public class EquipeNegocioServiceTests
             _auditoriaNegocioService.Object,
             _equipeNotificacaoService.Object,
             _avatarBase64Decoder.Object,
+            new Base64ImageThumbnailer(),
             _conviteNegocioRepository.Object);
 
     private static ModulosAssinaturaResponseDto CriarModulosPlus() =>

@@ -44,6 +44,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
     private readonly IAuthSessionService _authSessionService;
     private readonly IAgendamentoPropostaRemarcacaoRepository _propostaRemarcacaoRepository;
     private readonly IAvaliacaoAtendimentoRepository _avaliacaoAtendimentoRepository;
+    private readonly IBase64ImageThumbnailer _thumbnailer;
     private readonly AuthOptions _authOptions;
 
     public AgendamentoNegocioService(
@@ -63,6 +64,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         IAuthSessionService authSessionService,
         IAgendamentoPropostaRemarcacaoRepository propostaRemarcacaoRepository,
         IAvaliacaoAtendimentoRepository avaliacaoAtendimentoRepository,
+        IBase64ImageThumbnailer thumbnailer,
         IOptions<AuthOptions> authOptions)
     {
         _estabelecimentoRepository = estabelecimentoRepository;
@@ -81,6 +83,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         _authSessionService = authSessionService;
         _propostaRemarcacaoRepository = propostaRemarcacaoRepository;
         _avaliacaoAtendimentoRepository = avaliacaoAtendimentoRepository;
+        _thumbnailer = thumbnailer;
         _authOptions = authOptions.Value;
     }
 
@@ -168,7 +171,9 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             {
                 PublicGuid = vinculo.Profissional!.PublicGuid,
                 NomePublico = vinculo.Profissional.NomePublico,
-                Foto = null,
+                Foto = string.IsNullOrWhiteSpace(vinculo.Profissional.Logo)
+                    ? null
+                    : _thumbnailer.ParaListagem(vinculo.Profissional.Logo, maxLadoPx: 96, qualidadeJpeg: 72),
             })
             .ToList();
     }
@@ -189,7 +194,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
                 PublicGuid = vinculo.Profissional!.PublicGuid,
                 NomePublico = vinculo.Profissional.NomePublico,
                 Biografia = vinculo.Profissional.Biografia,
-                Logo = string.Empty,
+                Logo = _thumbnailer.ParaListagem(vinculo.Profissional.Logo, maxLadoPx: 96, qualidadeJpeg: 72),
                 NotaMedia = vinculo.Profissional.NotaMedia,
                 TotalAvaliacoes = vinculo.Profissional.TotalAvaliacoes
             })

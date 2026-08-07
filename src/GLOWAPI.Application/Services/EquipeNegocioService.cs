@@ -21,6 +21,7 @@ public class EquipeNegocioService : IEquipeNegocioService
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
     private readonly IEquipeNotificacaoService _equipeNotificacaoService;
     private readonly IAvatarBase64Decoder _avatarBase64Decoder;
+    private readonly IBase64ImageThumbnailer _thumbnailer;
     private readonly IConviteNegocioRepository _conviteRepository;
 
     public EquipeNegocioService(
@@ -35,6 +36,7 @@ public class EquipeNegocioService : IEquipeNegocioService
         IAuditoriaNegocioService auditoriaNegocioService,
         IEquipeNotificacaoService equipeNotificacaoService,
         IAvatarBase64Decoder avatarBase64Decoder,
+        IBase64ImageThumbnailer thumbnailer,
         IConviteNegocioRepository conviteRepository)
     {
         _usuarioRepository = usuarioRepository;
@@ -48,6 +50,7 @@ public class EquipeNegocioService : IEquipeNegocioService
         _auditoriaNegocioService = auditoriaNegocioService;
         _equipeNotificacaoService = equipeNotificacaoService;
         _avatarBase64Decoder = avatarBase64Decoder;
+        _thumbnailer = thumbnailer;
         _conviteRepository = conviteRepository;
     }
 
@@ -778,7 +781,8 @@ public class EquipeNegocioService : IEquipeNegocioService
 
         try
         {
-            return _avatarBase64Decoder.ValidarENormalizar(foto.Trim(), contentType);
+            return _thumbnailer.ParaPersistencia(
+                _avatarBase64Decoder.ValidarENormalizar(foto.Trim(), contentType));
         }
         catch (AvatarInvalidoException ex)
         {
@@ -859,7 +863,26 @@ public class EquipeNegocioService : IEquipeNegocioService
 
         return vinculos
             .Where(vinculo => vinculo.Profissional is not null)
-            .Select(vinculo => ProfissionalEquipeResponseDto.From(vinculo, vinculo.Profissional!))
+            .Select(vinculo =>
+            {
+                var profissional = vinculo.Profissional!;
+                var foto = string.IsNullOrWhiteSpace(profissional.Logo)
+                    ? null
+                    : _thumbnailer.ParaListagem(profissional.Logo, maxLadoPx: 96, qualidadeJpeg: 72);
+                return new ProfissionalEquipeResponseDto(
+                    vinculo.Id,
+                    vinculo.EstabelecimentoId,
+                    profissional.Id,
+                    profissional.UsuarioId,
+                    profissional.NomePublico,
+                    profissional.Email,
+                    profissional.Telefone,
+                    vinculo.PodeReceberAgendamento,
+                    vinculo.Ativo,
+                    profissional.NotaMedia,
+                    profissional.TotalAvaliacoes,
+                    foto);
+            })
             .ToList();
     }
 
@@ -913,7 +936,9 @@ public class EquipeNegocioService : IEquipeNegocioService
                 UsuarioId: usuario.Id,
                 ProfissionalId: profissional?.Id,
                 PodeReceberAgendamento: vinculoProf?.PodeReceberAgendamento,
-                Foto: null,
+                Foto: string.IsNullOrWhiteSpace(profissional?.Logo)
+                    ? null
+                    : _thumbnailer.ParaListagem(profissional!.Logo, maxLadoPx: 96, qualidadeJpeg: 72),
                 ConviteEm: null));
         }
 
@@ -937,7 +962,9 @@ public class EquipeNegocioService : IEquipeNegocioService
                 UsuarioId: profissional.UsuarioId,
                 ProfissionalId: profissional.Id,
                 PodeReceberAgendamento: vinculo.PodeReceberAgendamento,
-                Foto: null,
+                Foto: string.IsNullOrWhiteSpace(profissional.Logo)
+                    ? null
+                    : _thumbnailer.ParaListagem(profissional.Logo, maxLadoPx: 96, qualidadeJpeg: 72),
                 ConviteEm: null));
         }
 

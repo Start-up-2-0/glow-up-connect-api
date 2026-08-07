@@ -1,12 +1,13 @@
 namespace GLOWAPI.Application.Models.Geolocalizacao;
 
 /// <summary>
-/// Projeção leve do marketplace — sem Logo/longtext.
+/// Projeção do marketplace. Logo vem do banco e é miniaturizada na camada de serviço.
 /// </summary>
 public record EstabelecimentoProximoConsulta(
     int Id,
     Guid PublicGuid,
     string Nome,
+    string Logo,
     string Descricao,
     decimal? NotaMedia,
     int TotalAvaliacoes,

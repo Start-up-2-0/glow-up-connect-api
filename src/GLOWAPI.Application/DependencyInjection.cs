@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddScoped<IConfirmacaoWhatsAppNotificacaoService, ConfirmacaoWhatsAppNotificacaoService>();
         services.AddScoped<IConfirmacaoWhatsAppInboundService, ConfirmacaoWhatsAppInboundService>();
         services.AddScoped<IAvatarBase64Decoder, AvatarBase64Decoder>();
+        services.AddSingleton<IBase64ImageThumbnailer, Base64ImageThumbnailer>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IAuthSessionService, AuthSessionService>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();

@@ -171,7 +171,7 @@ public class ProfissionalEstabelecimentoRepository : Repository<ProfissionalEsta
                         UsuarioId = vinculo.Profissional.UsuarioId,
                         NomePublico = vinculo.Profissional.NomePublico,
                         Biografia = vinculo.Profissional.Biografia,
-                        Logo = string.Empty,
+                        Logo = vinculo.Profissional.Logo,
                         Telefone = vinculo.Profissional.Telefone,
                         Email = vinculo.Profissional.Email,
                         TipoProfissional = vinculo.Profissional.TipoProfissional,

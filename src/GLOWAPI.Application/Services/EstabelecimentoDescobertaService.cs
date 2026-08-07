@@ -16,15 +16,18 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
     private readonly IEstabelecimentoRepository _estabelecimentoRepository;
     private readonly IHorarioFuncionamentoEstabelecimentoRepository _horarioFuncionamentoRepository;
     private readonly IGeocodificadorService _geocodificadorService;
+    private readonly IBase64ImageThumbnailer _thumbnailer;
 
     public EstabelecimentoDescobertaService(
         IEstabelecimentoRepository estabelecimentoRepository,
         IHorarioFuncionamentoEstabelecimentoRepository horarioFuncionamentoRepository,
-        IGeocodificadorService geocodificadorService)
+        IGeocodificadorService geocodificadorService,
+        IBase64ImageThumbnailer thumbnailer)
     {
         _estabelecimentoRepository = estabelecimentoRepository;
         _horarioFuncionamentoRepository = horarioFuncionamentoRepository;
         _geocodificadorService = geocodificadorService;
+        _thumbnailer = thumbnailer;
     }
 
     public async Task<EstabelecimentosProximosPaginadoResponseDto> ListarProximosAsync(
@@ -165,13 +168,12 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
         }
     }
 
-    private static EstabelecimentoProximoResponseDto Mapear(Models.Geolocalizacao.EstabelecimentoProximoConsulta consulta)
+    private EstabelecimentoProximoResponseDto Mapear(Models.Geolocalizacao.EstabelecimentoProximoConsulta consulta)
     {
         return new EstabelecimentoProximoResponseDto(
             consulta.PublicGuid,
             consulta.Nome,
-            // Listagem do marketplace não envia base64 — detalhe público mantém Logo.
-            string.Empty,
+            _thumbnailer.ParaListagem(consulta.Logo, maxLadoPx: 96, qualidadeJpeg: 72),
             TruncarDescricao(consulta.Descricao),
             Math.Round(consulta.DistanciaKm, 2),
             consulta.DestaqueMarketplace,

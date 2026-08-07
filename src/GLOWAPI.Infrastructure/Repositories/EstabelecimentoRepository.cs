@@ -88,9 +88,7 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
     {
         var estadoNormalizado = estado.Trim().ToUpperInvariant();
 
-        // Projeção sem Logo (longtext). Sem bounding box no SQL: o filtro de cidade +
-        // raio continua em memória, como antes — o bbox cortava lojas válidas quando
-        // o centro da busca (GPS/mapa) não coincidia com o cluster real da cidade.
+        // Sem bounding box no SQL (cidade + raio em memória). Logo é miniaturizada no service.
         var candidatos = await DbSet
             .AsNoTracking()
             .Where(estabelecimento =>
@@ -106,6 +104,7 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
                 estabelecimento.Id,
                 estabelecimento.PublicGuid,
                 estabelecimento.Nome,
+                estabelecimento.Logo,
                 estabelecimento.Descricao,
                 estabelecimento.NotaMedia,
                 estabelecimento.TotalAvaliacoes,
@@ -139,6 +138,7 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
                 estabelecimento.Id,
                 estabelecimento.PublicGuid,
                 estabelecimento.Nome,
+                estabelecimento.Logo ?? string.Empty,
                 estabelecimento.Descricao ?? string.Empty,
                 estabelecimento.NotaMedia,
                 estabelecimento.TotalAvaliacoes,
