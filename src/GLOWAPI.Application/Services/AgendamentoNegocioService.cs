@@ -1397,7 +1397,8 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         foreach (var agendamento in agendamentos)
         {
             avaliacoes.TryGetValue(agendamento.Id, out var avaliacao);
-            itens.Add(MapearAgendamentoCliente(agendamento, avaliacao));
+            // Listagem: sem logo base64 (detalhe mantém logo via MapearAgendamentoClienteAsync).
+            itens.Add(MapearAgendamentoCliente(agendamento, avaliacao, incluirLogo: false));
         }
 
         return itens;
@@ -1407,16 +1408,20 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         Agendamento agendamento,
         CancellationToken cancellationToken)
     {
-        var itens = await MapearAgendamentosClienteAsync([agendamento], cancellationToken);
-        return itens[0];
+        var avaliacoes = await _avaliacaoAtendimentoRepository.ObterPorAgendamentoIdsAsync(
+            [agendamento.Id],
+            cancellationToken);
+        avaliacoes.TryGetValue(agendamento.Id, out var avaliacao);
+        return MapearAgendamentoCliente(agendamento, avaliacao, incluirLogo: true);
     }
 
     private static AgendamentoClienteResponseDto MapearAgendamentoCliente(
         Agendamento agendamento,
-        AvaliacaoAtendimento? avaliacao)
+        AvaliacaoAtendimento? avaliacao,
+        bool incluirLogo = true)
     {
         var (status, resumo) = ResolverAvaliacaoCliente(agendamento, avaliacao);
-        return AgendamentoClienteResponseDto.From(agendamento, status, resumo);
+        return AgendamentoClienteResponseDto.From(agendamento, status, resumo, incluirLogo);
     }
 
     private static (string Status, AvaliacaoResumoClienteDto? Resumo) ResolverAvaliacaoCliente(
