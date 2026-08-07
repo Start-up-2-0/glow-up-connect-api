@@ -497,7 +497,7 @@ public class EstabelecimentosController : ControllerBase
             cancellationToken);
 
         return Ok(ApiSuccessResponse<AtendimentoProfissionalResponseDto>.From(
-            "Atendimento finalizado com sucesso.",
+            "Atendimento concluído com sucesso.",
             atendimento));
     }
 
