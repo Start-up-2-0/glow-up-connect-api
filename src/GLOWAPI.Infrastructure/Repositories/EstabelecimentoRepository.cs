@@ -88,15 +88,9 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
     {
         var estadoNormalizado = estado.Trim().ToUpperInvariant();
 
-        // Bounding box aproxima o raio e evita materializar o estado inteiro + longtext.
-        var deltaLat = (decimal)(raioKm / 111.0d * 1.35d);
-        var cosLat = Math.Cos((double)latitudeCliente * Math.PI / 180d);
-        var deltaLng = (decimal)(raioKm / (111.0d * Math.Max(0.01d, Math.Abs(cosLat))) * 1.35d);
-        var latMin = latitudeCliente - deltaLat;
-        var latMax = latitudeCliente + deltaLat;
-        var lngMin = longitudeCliente - deltaLng;
-        var lngMax = longitudeCliente + deltaLng;
-
+        // Projeção sem Logo (longtext). Sem bounding box no SQL: o filtro de cidade +
+        // raio continua em memória, como antes — o bbox cortava lojas válidas quando
+        // o centro da busca (GPS/mapa) não coincidia com o cluster real da cidade.
         var candidatos = await DbSet
             .AsNoTracking()
             .Where(estabelecimento =>
@@ -106,10 +100,6 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
                 && estabelecimento.Endereco.Latitude != null
                 && estabelecimento.Endereco.Longitude != null
                 && estabelecimento.Endereco.Estado.ToUpper() == estadoNormalizado
-                && estabelecimento.Endereco.Latitude >= latMin
-                && estabelecimento.Endereco.Latitude <= latMax
-                && estabelecimento.Endereco.Longitude >= lngMin
-                && estabelecimento.Endereco.Longitude <= lngMax
                 && (categoriaId == null || estabelecimento.CategoriaEstabelecimentoId == categoriaId))
             .Select(estabelecimento => new
             {
@@ -137,15 +127,19 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
                 GeolocalizacaoHelper.NormalizarTextoLocalizacao(estabelecimento.Cidade) == cidadeNormalizada)
             .ToList();
 
-        var estabelecimentoIds = naCidade.Select(estabelecimento => estabelecimento.Id).ToList();
+        // Se o reverse-geocode da cidade não bater com o cadastro, não zera o mapa:
+        // cai para distância no estado (mesmo raio).
+        var baseFiltro = naCidade.Count > 0 ? naCidade : candidatos;
+
+        var estabelecimentoIds = baseFiltro.Select(estabelecimento => estabelecimento.Id).ToList();
         var destaqueIds = await ObterEstabelecimentosDestaqueAsync(estabelecimentoIds, cancellationToken);
 
-        var filtrados = naCidade
+        var filtrados = baseFiltro
             .Select(estabelecimento => new EstabelecimentoProximoConsulta(
                 estabelecimento.Id,
                 estabelecimento.PublicGuid,
                 estabelecimento.Nome,
-                estabelecimento.Descricao,
+                estabelecimento.Descricao ?? string.Empty,
                 estabelecimento.NotaMedia,
                 estabelecimento.TotalAvaliacoes,
                 estabelecimento.CategoriaEstabelecimentoId,

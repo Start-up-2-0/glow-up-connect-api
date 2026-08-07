@@ -188,6 +188,13 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             (double)consulta.Longitude);
     }
 
-    private static string TruncarDescricao(string descricao) =>
-        descricao.Length <= 160 ? descricao : descricao[..157] + "...";
+    private static string TruncarDescricao(string? descricao)
+    {
+        if (string.IsNullOrEmpty(descricao))
+        {
+            return string.Empty;
+        }
+
+        return descricao.Length <= 160 ? descricao : descricao[..157] + "...";
+    }
 }
