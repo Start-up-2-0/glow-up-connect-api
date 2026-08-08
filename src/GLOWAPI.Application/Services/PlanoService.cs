@@ -1,6 +1,7 @@
 using GLOWAPI.Application.DTOs.Planos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Domain.Enums;
 
 namespace GLOWAPI.Application.Services;
 
@@ -17,12 +18,14 @@ public class PlanoService : IPlanoService
         _promocaoLancamentoService = promocaoLancamentoService;
     }
 
-    public async Task<PlanosAtivosResponseDto> ListarAtivosAsync(CancellationToken cancellationToken = default)
+    public async Task<PlanosAtivosResponseDto> ListarAtivosAsync(
+        TipoAssinatura tipoAssinatura = TipoAssinatura.Estabelecimento,
+        CancellationToken cancellationToken = default)
     {
         var planos = await _planoRepository.ListarAtivosAsync(cancellationToken);
         var promocao = await _promocaoLancamentoService.ObterStatusAsync(cancellationToken);
         return new PlanosAtivosResponseDto(
-            planos.Select(PlanoResponseDto.From).ToList(),
+            planos.Select(plano => PlanoResponseDto.From(plano, tipoAssinatura)).ToList(),
             promocao);
     }
 }

@@ -9,7 +9,14 @@ namespace GLOWAPI.Tests.Unit.Application;
 public class ModulosAssinaturaServiceTests
 {
     private readonly Mock<IAssinaturaRepository> _assinaturaRepository = new();
+    private readonly Mock<IProfissionalEstabelecimentoRepository> _profissionalEstabelecimentoRepository = new();
 
+    public ModulosAssinaturaServiceTests()
+    {
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ListarAtivosPorEstabelecimentoAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<ProfissionalEstabelecimento>());
+    }
     [Fact]
     public async Task ObterPorEstabelecimentoAsync_DeveLiberarModulosELimites_QuandoAssinaturaAtiva()
     {
@@ -54,6 +61,57 @@ public class ModulosAssinaturaServiceTests
         Assert.Null(resultado.Limites.Usuarios);
         Assert.Null(resultado.Limites.AgendamentosPorDia);
         Assert.True(resultado.Limites.PrioridadeListagemPublica);
+    }
+
+    [Fact]
+    public async Task ObterPorEstabelecimentoAsync_AutonomoEssencial_DeveLiberarClientesSemEquipe()
+    {
+        _assinaturaRepository
+            .Setup(r => r.ObterAssinaturaEfetivaPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Assinatura
+            {
+                Id = 1,
+                PlanoId = 2,
+                EstabelecimentoId = 10,
+                Status = AssinaturaStatus.Ativa,
+                TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+                Plano = new Plano
+                {
+                    Id = 2,
+                    Nome = "Essencial",
+                    LimiteEstabelecimentos = 1
+                }
+            });
+
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ListarAtivosPorEstabelecimentoAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+            [
+                new ProfissionalEstabelecimento
+                {
+                    Profissional = new Profissional
+                    {
+                        Id = 77,
+                        Ativo = true,
+                        TipoProfissional = ProfessionalType.Autonomo,
+                        NomePublico = "Barbeiro Solo"
+                    }
+                }
+            ]);
+
+        var service = CreateService();
+
+        var resultado = await service.ObterPorEstabelecimentoAsync(10);
+
+        Assert.True(resultado.AssinaturaAtiva);
+        Assert.Equal("ProfissionalAutonomo", resultado.TipoAssinatura);
+        Assert.Equal(77, resultado.ProfissionalAutonomoId);
+        Assert.Contains("Clientes", resultado.Modulos);
+        Assert.DoesNotContain("Profissionais", resultado.Modulos);
+        Assert.DoesNotContain("WhatsApp", resultado.Modulos);
+        Assert.DoesNotContain("ComissaoProfissionais", resultado.Modulos);
+        Assert.Equal(1, resultado.Limites.Usuarios);
+        Assert.Equal(1, resultado.Limites.Estabelecimentos);
     }
 
     [Fact]
@@ -302,5 +360,5 @@ public class ModulosAssinaturaServiceTests
     }
 
     private ModulosAssinaturaService CreateService() =>
-        new(_assinaturaRepository.Object);
+        new(_assinaturaRepository.Object, _profissionalEstabelecimentoRepository.Object);
 }

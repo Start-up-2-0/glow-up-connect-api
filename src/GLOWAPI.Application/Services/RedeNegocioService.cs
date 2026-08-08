@@ -60,7 +60,7 @@ public class RedeNegocioService : IRedeNegocioService
             throw new UsuarioSemPermissaoAssinaturaException();
         }
 
-        if (!PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano))
+        if (!PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano, assinatura.TipoAssinatura))
         {
             throw new TrocaPlanoAssinaturaInvalidaException("Resumo da rede disponivel apenas no plano Premium.");
         }

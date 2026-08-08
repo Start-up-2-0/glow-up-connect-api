@@ -23,5 +23,6 @@ public record EstabelecimentoAcessoResponseDto(
     DateTime? ProximaDataVencimento,
     IReadOnlyList<string> Modulos,
     LimitesAssinaturaDto Limites,
+    string? TipoAssinatura = null,
     [property: JsonPropertyName("categoriaId")] int? CategoriaEstabelecimentoId = null,
     [property: JsonPropertyName("categoria")] string? CategoriaEstabelecimento = null);

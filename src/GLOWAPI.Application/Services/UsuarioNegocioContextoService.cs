@@ -121,6 +121,7 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
                 await ObterProximaDataVencimentoAsync(modulos.AssinaturaId, cancellationToken),
                 modulos.Modulos,
                 modulos.Limites,
+                modulos.TipoAssinatura,
                 vinculo.Estabelecimento.CategoriaEstabelecimentoId,
                 vinculo.Estabelecimento.CategoriaEstabelecimento?.Nome));
         }

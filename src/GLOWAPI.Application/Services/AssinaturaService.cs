@@ -253,7 +253,7 @@ public class AssinaturaService : IAssinaturaService
 
         await ValidarDowngradeMultiLojaAsync(assinatura, novoPlano, cancellationToken);
 
-        if (TrocaExigeCobranca(assinatura.Plano, novoPlano))
+        if (TrocaExigeCobranca(assinatura.Plano, novoPlano, assinatura.TipoAssinatura))
         {
             assinatura.PlanoAlteracaoPendenteId = novoPlano.Id;
             assinatura.PlanoAlteracaoPendente = novoPlano;
@@ -447,7 +447,8 @@ public class AssinaturaService : IAssinaturaService
                 "Somente assinatura ativa ou em trial pode receber novas unidades.");
         }
 
-        if (!PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano))
+        if (assinatura.TipoAssinatura == TipoAssinatura.ProfissionalAutonomo
+            || !PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano, assinatura.TipoAssinatura))
         {
             throw new TrocaPlanoAssinaturaInvalidaException(
                 "O plano atual nao permite multiplas unidades.");
@@ -494,7 +495,7 @@ public class AssinaturaService : IAssinaturaService
         CancellationToken cancellationToken)
     {
         if (!assinatura.EstabelecimentoId.HasValue
-            || !PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano))
+            || !PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano, assinatura.TipoAssinatura))
         {
             return;
         }
@@ -522,8 +523,8 @@ public class AssinaturaService : IAssinaturaService
         Plano novoPlano,
         CancellationToken cancellationToken)
     {
-        if (!PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano)
-            || PlanoComercialCatalogo.PermiteMultiLoja(novoPlano))
+        if (!PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano, assinatura.TipoAssinatura)
+            || PlanoComercialCatalogo.PermiteMultiLoja(novoPlano, assinatura.TipoAssinatura))
         {
             return;
         }
@@ -566,7 +567,7 @@ public class AssinaturaService : IAssinaturaService
             request.Estabelecimento,
             request.ProfissionalAutonomo);
 
-        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
+        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway, request.TipoAssinatura);
         assinatura.OnboardingPendenteJson = JsonSerializer.Serialize(payload, JsonOptions);
         return assinatura;
     }
@@ -601,7 +602,7 @@ public class AssinaturaService : IAssinaturaService
             throw new AssinaturaDuplicadaException();
         }
 
-        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
+        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway, request.TipoAssinatura);
         assinatura.EstabelecimentoId = estabelecimentoId;
 
         return assinatura;
@@ -636,7 +637,7 @@ public class AssinaturaService : IAssinaturaService
             Ativo = true
         }, cancellationToken);
 
-        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
+        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway, request.TipoAssinatura);
         assinatura.Estabelecimento = estabelecimento;
 
         return assinatura;
@@ -690,7 +691,7 @@ public class AssinaturaService : IAssinaturaService
             throw new AssinaturaDuplicadaException();
         }
 
-        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
+        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway, request.TipoAssinatura);
         assinatura.Estabelecimento = estabelecimento;
         if (estabelecimento.Id > 0)
         {
@@ -747,7 +748,7 @@ public class AssinaturaService : IAssinaturaService
                 cancellationToken);
         }
 
-        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
+        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway, request.TipoAssinatura);
         assinatura.Estabelecimento = estabelecimento;
 
         return assinatura;
@@ -971,13 +972,17 @@ public class AssinaturaService : IAssinaturaService
             mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
     }
 
-    private static Assinatura CriarAssinaturaBase(int planoId, GatewayPagamento gateway)
+    private static Assinatura CriarAssinaturaBase(
+        int planoId,
+        GatewayPagamento gateway,
+        TipoAssinatura tipoAssinatura)
     {
         var agora = DateTime.UtcNow;
         return new()
         {
             PlanoId = planoId,
             Status = AssinaturaStatus.PendentePagamento,
+            TipoAssinatura = tipoAssinatura,
             Inicio = agora,
             DataReferenciaCiclo = agora.Date,
             DiaVencimento = agora.Day,
@@ -1078,7 +1083,7 @@ public class AssinaturaService : IAssinaturaService
             || _mercadoPagoOptions.PermitirTrialSemRecorrenciaNoGateway;
 
         var valorMensalidade = AssinaturaValorCobranca.CalcularMensalidade(
-            plano.Preco,
+            PlanoComercialCatalogo.ResolverPreco(plano, assinatura.TipoAssinatura),
             campanha.PercentualDescontoMensalidade);
 
         if (!trialSemRecorrenciaNoGateway)
@@ -1254,14 +1259,19 @@ public class AssinaturaService : IAssinaturaService
         }
     }
 
-    private static bool TrocaExigeCobranca(Plano? planoAtual, Plano novoPlano)
+    private static bool TrocaExigeCobranca(
+        Plano? planoAtual,
+        Plano novoPlano,
+        TipoAssinatura tipoAssinatura)
     {
         if (planoAtual is null)
         {
             return true;
         }
 
-        return planoAtual.Preco != novoPlano.Preco || planoAtual.Periodo != novoPlano.Periodo;
+        var precoAtual = PlanoComercialCatalogo.ResolverPreco(planoAtual, tipoAssinatura);
+        var precoNovo = PlanoComercialCatalogo.ResolverPreco(novoPlano, tipoAssinatura);
+        return precoAtual != precoNovo || planoAtual.Periodo != novoPlano.Periodo;
     }
 
     private async Task TentarGeocodificarEstabelecimentoAsync(

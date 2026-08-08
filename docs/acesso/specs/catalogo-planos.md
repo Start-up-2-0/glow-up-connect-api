@@ -1,64 +1,61 @@
-# Spec — Catalogo de planos (Essencial + Premium)
+# Spec — Catalogo de planos (Essencial + Premium × TipoAssinatura)
 
 ## Objetivo
 
-Garantir que o banco contenha **exatamente 2 planos ativos** para contratacao, alinhados ao `PlanoComercialCatalogo`.
+Garantir que o banco contenha **exatamente 2 planos ativos** para contratacao, com modulos/limites/textos resolvidos por `PlanoComercialCatalogo.Obter(plano, tipoAssinatura)`.
+
+## Dimensoes
+
+| Dimensao | Valores |
+|----------|---------|
+| Plano | Essencial, Premium (mesmos IDs/precos) |
+| TipoAssinatura | `Estabelecimento`, `ProfissionalAutonomo` (persistido em `Assinaturas.TipoAssinatura`) |
 
 ## Planos canonicos
 
-| Id | Nome | Descricao | Preco | LimiteEstabelecimentos | Ativo |
-|:--:|------|-----------|------:|:----------------------:|:-----:|
-| 2 | Essencial | Operacao completa com equipe, WhatsApp e gestao para uma unidade | 79.90 | 1 | true |
-| 3 | Premium | Caixa, financeiro, comissoes, ate 5 unidades e prioridade no marketplace | 199.90 | 5 | true |
+| Id | Nome | Preco | LimiteEstabelecimentos (loja) | Ativo |
+|:--:|------|------:|:-----------------------------:|:-----:|
+| 2 | Essencial | 79.90 (loja) / **49.99 (autônomo)** | 1 | true |
+| 3 | Premium | 199.90 (loja) / **79.99 (autônomo)** | 5 | true |
 
-### Planos legados (inativos)
+## Matriz de modulos (V1)
 
-| Id | Nome | Status |
-|:--:|------|--------|
-| 1 | Basic | `Ativo = false` — assinaturas migradas para Essencial (PlanoId 2) |
+| Modulo | Autonomo Essencial | Autonomo Premium | Loja Essencial | Loja Premium |
+|--------|:------------------:|:----------------:|:--------------:|:------------:|
+| Agenda, Servicos, Horarios, Notificacoes, Email | sim | sim | sim | sim |
+| Clientes | sim | sim | nao | sim |
+| WhatsApp | nao | sim | sim | sim |
+| Caixa, Financeiro | nao | sim | nao | sim |
+| Profissionais | nao | nao | sim | sim |
+| ComissaoProfissionais | nao | nao | nao | sim |
+| Prioridade marketplace | nao | sim | nao | sim |
 
-O antigo **Plus** foi renomeado para **Essencial** no `Plano.Id = 2`.
+Limites efetivos do autônomo: `LimiteUsuarios = 1`, `LimiteProfissionais = 1`, `LimiteEstabelecimentos = 1`.
 
-### Notas sobre limites
-
-- **Essencial:** modulos do antigo Plus; `LimiteEstabelecimentos = 1`.
-- **Premium:** modulos financeiros + `Clientes`; `LimiteEstabelecimentos = 5`.
-- **LimiteUsuarios** vem do catalogo (`null` em ambos).
-
-## Migration
-
-`ReestruturarPlanosEssencialPremium`:
-
-1. Adiciona coluna `LimiteEstabelecimentos` e tabela `AssinaturaEstabelecimentos`.
-2. Migra assinaturas Basic (`PlanoId = 1`) para Essencial (`PlanoId = 2`).
-3. Renomeia Plus para Essencial no `Plano.Id = 2`.
-4. Define Premium com `LimiteEstabelecimentos = 5`.
-5. Desativa Basic (`Ativo = false`).
-6. Backfill de vinculo matriz para assinaturas Premium ativas.
+Preços do autônomo (via `PlanoComercialCatalogo.ResolverPreco`): Essencial **R$ 49,99** e Premium **R$ 79,99**. O `Plano.Preco` no banco permanece o da loja; a cobrança e o `GET /api/planos?tipoAssinatura=ProfissionalAutonomo` usam a tabela do autônomo.
 
 ## API exposta
 
 ```http
-GET /api/planos
+GET /api/planos?tipoAssinatura=Estabelecimento|ProfissionalAutonomo
 ```
 
-Retorna 2 planos ativos ordenados por preco.
+Default: `Estabelecimento`. Retorna os mesmos planos com `modulos`/`funcionalidades`/limites tipados.
 
-```http
-POST /api/assinaturas/{id}/estabelecimentos
-```
+Contexto `GET /api/usuario/me/estabelecimentos` inclui `tipoAssinatura`.
 
-Adiciona unidade filial (Premium).
+## Migration
 
-```http
-GET /api/rede/resumo?assinaturaId=
-```
+`AddTipoAssinaturaNaAssinatura`:
 
-Painel consolidado da rede (Premium).
+1. Coluna `Assinaturas.TipoAssinatura` (default `Estabelecimento`).
+2. Backfill para tenants com profissional `Autonomo`.
+3. Backfill via `OnboardingPendenteJson` contendo `ProfissionalAutonomo`.
 
 ## Criterios de aceite
 
-- [ ] `GET /api/planos` retorna Essencial e Premium.
-- [ ] Essencial: 1 loja, modulos do antigo Plus.
-- [ ] Premium: ate 5 lojas, modulos financeiros + Clientes.
-- [ ] Filial herda modulos da assinatura titular.
+- [x] Catálogo tipado loja vs autônomo.
+- [x] Autônomo Essencial: clientes sem equipe/WhatsApp.
+- [x] Autônomo Premium: WhatsApp + financeiro sem comissão/multi-loja.
+- [x] Loja Essencial/Premium: comportamento anterior preservado.
+- [x] `TipoAssinatura` persistido e exposto no contexto.

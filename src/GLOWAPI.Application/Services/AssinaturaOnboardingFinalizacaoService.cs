@@ -264,7 +264,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
         CancellationToken cancellationToken)
     {
         if (!assinatura.EstabelecimentoId.HasValue
-            || !PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano))
+            || !PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano, assinatura.TipoAssinatura))
         {
             return;
         }

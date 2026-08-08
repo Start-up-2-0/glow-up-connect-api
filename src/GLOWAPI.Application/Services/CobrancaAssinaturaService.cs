@@ -660,7 +660,9 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
     }
 
     private static decimal ResolverValorMensalidade(Assinatura assinatura, Plano plano) =>
-        AssinaturaValorCobranca.CalcularMensalidade(plano.Preco, assinatura.PercentualDescontoPermanente);
+        AssinaturaValorCobranca.CalcularMensalidade(
+            PlanoComercialCatalogo.ResolverPreco(plano, assinatura.TipoAssinatura),
+            assinatura.PercentualDescontoPermanente);
 
     private static Pagamento CriarPagamentoInterno(
         Assinatura assinatura,

@@ -191,7 +191,9 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
             .ToListAsync(cancellationToken);
 
         return assinaturas
-            .Where(assinatura => PlanoComercialCatalogo.Obter(assinatura.Plano).PrioridadeListagemPublica)
+            .Where(assinatura => PlanoComercialCatalogo.Obter(
+                    assinatura.Plano,
+                    assinatura.TipoAssinatura).PrioridadeListagemPublica)
             .Select(assinatura => assinatura.EstabelecimentoId!.Value)
             .ToHashSet();
     }
