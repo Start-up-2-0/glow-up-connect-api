@@ -21,8 +21,7 @@ public class AssinaturaConfiguration : IEntityTypeConfiguration<Assinatura>
         builder.Property(assinatura => assinatura.TipoAssinatura)
             .HasConversion(tipo => tipo.ToString(), tipo => Enum.Parse<TipoAssinatura>(tipo))
             .IsRequired()
-            .HasMaxLength(50)
-            .HasDefaultValue(TipoAssinatura.Estabelecimento);
+            .HasMaxLength(50);
 
         builder.Property(assinatura => assinatura.Gateway)
             .HasConversion(gateway => gateway.ToString(), gateway => Enum.Parse<GatewayPagamento>(gateway))
