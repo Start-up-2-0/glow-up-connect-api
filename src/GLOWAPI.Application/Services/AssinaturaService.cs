@@ -439,7 +439,7 @@ public class AssinaturaService : IAssinaturaService
             throw new AssinaturaNaoEncontradaException();
         }
 
-        await ValidarPermissaoGerenciarAssinaturaAsync(assinatura, userId, cancellationToken);
+        await ValidarPermissaoOwnerAssinaturaAsync(assinatura, userId, cancellationToken);
 
         if (assinatura.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Trial))
         {
@@ -1244,6 +1244,30 @@ public class AssinaturaService : IAssinaturaService
         }
 
         throw new AssinaturaTitularInvalidoException();
+    }
+
+    /// <summary>
+    /// Adicionar unidade é exclusivo do proprietário (Owner) da assinatura titular.
+    /// </summary>
+    private async Task ValidarPermissaoOwnerAssinaturaAsync(
+        Assinatura assinatura,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        if (!assinatura.EstabelecimentoId.HasValue)
+        {
+            throw new AssinaturaTitularInvalidoException();
+        }
+
+        var vinculo = await _estabelecimentoUsuarioRepository.ObterAtivoAsync(
+            assinatura.EstabelecimentoId.Value,
+            userId,
+            cancellationToken);
+
+        if (vinculo is null || vinculo.RoleNoEstabelecimento != EstablishmentUserRole.Owner)
+        {
+            throw new UsuarioSemPermissaoAssinaturaException();
+        }
     }
 
     private static void ValidarAssinaturaPermiteTroca(Assinatura assinatura)

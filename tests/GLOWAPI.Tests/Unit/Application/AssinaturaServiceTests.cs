@@ -979,7 +979,12 @@ public class AssinaturaServiceTests
             .ReturnsAsync(assinatura);
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10 });
+            .ReturnsAsync(new EstabelecimentoUsuario
+            {
+                EstabelecimentoId = 20,
+                UsuarioId = 10,
+                RoleNoEstabelecimento = EstablishmentUserRole.Owner,
+            });
         _assinaturaEstabelecimentoRepository
             .Setup(r => r.ContarPorAssinaturaAsync(50, It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
@@ -1010,12 +1015,62 @@ public class AssinaturaServiceTests
                     Logo = "data:image/png;base64,iVBORw0KGgo=",
                     Telefone = "11999999999",
                     Email = "filial@teste.com",
+                    CategoriaEstabelecimentoId = 1,
                     Endereco = EnderecoOperacaoDtoBuilder.Criar()
                 }
             });
 
         Assert.Equal(99, response.EstabelecimentoId);
         Assert.Equal(50, response.AssinaturaId);
+    }
+
+    [Fact]
+    public async Task AdicionarEstabelecimentoAsync_DeveLancarExcecao_QuandoUsuarioNaoEhOwner()
+    {
+        var assinatura = new Assinatura
+        {
+            Id = 50,
+            EstabelecimentoId = 20,
+            Status = AssinaturaStatus.Ativa,
+            PlanoId = 3,
+            Plano = new Plano
+            {
+                Id = 3,
+                Nome = "Premium",
+                LimiteEstabelecimentos = 5,
+                Ativo = true
+            }
+        };
+
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdComPlanoAsync(50, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(assinatura);
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario
+            {
+                EstabelecimentoId = 20,
+                UsuarioId = 10,
+                RoleNoEstabelecimento = EstablishmentUserRole.Admin,
+            });
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<UsuarioSemPermissaoAssinaturaException>(() =>
+            service.AdicionarEstabelecimentoAsync(
+                50,
+                new AdicionarEstabelecimentoAssinaturaRequestDto
+                {
+                    Estabelecimento = new CriarEstabelecimentoAssinaturaDto
+                    {
+                        Nome = "Filial",
+                        Descricao = "Desc",
+                        Logo = "data:image/png;base64,iVBORw0KGgo=",
+                        Telefone = "11999999999",
+                        Email = "filial@teste.com",
+                        Endereco = EnderecoOperacaoDtoBuilder.Criar()
+                    }
+                }));
     }
 
     [Fact]
@@ -1041,7 +1096,12 @@ public class AssinaturaServiceTests
             .ReturnsAsync(assinatura);
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10 });
+            .ReturnsAsync(new EstabelecimentoUsuario
+            {
+                EstabelecimentoId = 20,
+                UsuarioId = 10,
+                RoleNoEstabelecimento = EstablishmentUserRole.Owner,
+            });
         _assinaturaEstabelecimentoRepository
             .Setup(r => r.ContarPorAssinaturaAsync(50, It.IsAny<CancellationToken>()))
             .ReturnsAsync(5);
