@@ -66,8 +66,8 @@ namespace GLOWAPI.Infrastructure.Migrations
             // Seed das categorias iniciais (extensível — novas categorias são apenas INSERTs).
             migrationBuilder.Sql("""
                 INSERT INTO `CategoriasEstabelecimento` (`Id`, `Nome`, `Ativo`, `CreateAd`)
-                VALUES (1, 'Barbearia', 1, NOW(6)),
-                       (2, 'Salão de Beleza', 1, NOW(6))
+                VALUES (1, 'Cabelo e barba', 1, NOW(6)),
+                       (2, 'Beleza e estética', 1, NOW(6))
                 ON DUPLICATE KEY UPDATE `Nome` = VALUES(`Nome`);
                 """);
         }

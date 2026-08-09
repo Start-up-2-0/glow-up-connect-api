@@ -21,7 +21,8 @@ public record EstabelecimentoProximoResponseDto(
     [property: JsonPropertyName("categoriaId")] int? CategoriaEstabelecimentoId = null,
     [property: JsonPropertyName("categoria")] string? CategoriaEstabelecimento = null,
     double? Latitude = null,
-    double? Longitude = null);
+    double? Longitude = null,
+    [property: JsonPropertyName("tipoAssinatura")] string? TipoAssinatura = null);
 
 public record EstabelecimentosProximosPaginadoResponseDto(
     string Cidade,

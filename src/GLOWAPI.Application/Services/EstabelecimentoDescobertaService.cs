@@ -139,6 +139,10 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
         var (abertoAgora, horarioAbertura, horarioFechamento) =
             HorarioFuncionamentoPublicoHelper.ResolverParaHoje(horarios);
 
+        var tipoAssinatura = await _estabelecimentoRepository.ObterTipoAssinaturaPublicoAsync(
+            estabelecimento.Id,
+            cancellationToken);
+
         return new EstabelecimentoPublicoResponseDto(
             estabelecimento.PublicGuid,
             estabelecimento.Nome,
@@ -152,7 +156,8 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             horarioAbertura,
             horarioFechamento,
             estabelecimento.CategoriaEstabelecimentoId,
-            estabelecimento.CategoriaEstabelecimento?.Nome);
+            estabelecimento.CategoriaEstabelecimento?.Nome,
+            tipoAssinatura.ToString());
     }
 
     private static void ValidarCoordenadas(decimal latitude, decimal longitude)
@@ -187,7 +192,8 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             consulta.CategoriaEstabelecimentoId,
             consulta.CategoriaNome,
             (double)consulta.Latitude,
-            (double)consulta.Longitude);
+            (double)consulta.Longitude,
+            consulta.TipoAssinatura.ToString());
     }
 
     private static string TruncarDescricao(string? descricao)

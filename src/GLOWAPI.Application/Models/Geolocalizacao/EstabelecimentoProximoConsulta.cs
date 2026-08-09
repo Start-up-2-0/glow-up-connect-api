@@ -1,3 +1,5 @@
+using GLOWAPI.Domain.Enums;
+
 namespace GLOWAPI.Application.Models.Geolocalizacao;
 
 /// <summary>
@@ -20,4 +22,5 @@ public record EstabelecimentoProximoConsulta(
     decimal Latitude,
     decimal Longitude,
     double DistanciaKm,
-    bool DestaqueMarketplace);
+    bool DestaqueMarketplace,
+    TipoAssinatura TipoAssinatura);

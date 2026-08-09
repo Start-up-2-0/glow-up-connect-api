@@ -1,5 +1,6 @@
 using GLOWAPI.Application.Models.Geolocalizacao;
 using GLOWAPI.Domain.Entities;
+using GLOWAPI.Domain.Enums;
 
 namespace GLOWAPI.Application.Interfaces.Repositories;
 
@@ -21,5 +22,9 @@ public interface IEstabelecimentoRepository : IRepository<Estabelecimento>
         int pagina,
         int tamanhoPagina,
         int? categoriaId,
+        CancellationToken cancellationToken = default);
+
+    Task<TipoAssinatura> ObterTipoAssinaturaPublicoAsync(
+        int estabelecimentoId,
         CancellationToken cancellationToken = default);
 }

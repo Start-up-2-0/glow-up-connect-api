@@ -15,4 +15,5 @@ public record EstabelecimentoPublicoResponseDto(
     string? HorarioAbertura = null,
     string? HorarioFechamento = null,
     [property: JsonPropertyName("categoriaId")] int? CategoriaEstabelecimentoId = null,
-    [property: JsonPropertyName("categoria")] string? CategoriaEstabelecimento = null);
+    [property: JsonPropertyName("categoria")] string? CategoriaEstabelecimento = null,
+    [property: JsonPropertyName("tipoAssinatura")] string? TipoAssinatura = null);

@@ -840,6 +840,7 @@ public class AssinaturaService : IAssinaturaService
         CriarProfissionalAutonomoAssinaturaDto dto)
     {
         var logo = ValidarLogoProfissionalAutonomo(dto);
+        ValidarCategoriaProfissionalAutonomo(dto);
 
         return new Estabelecimento
         {
@@ -848,6 +849,7 @@ public class AssinaturaService : IAssinaturaService
             Logo = logo,
             Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone),
             Email = dto.Email.Trim(),
+            CategoriaEstabelecimentoId = dto.CategoriaEstabelecimentoId,
             Ativo = true,
             Endereco = OperacaoPerfilValidation.CriarEndereco(
                 dto.Endereco,
@@ -875,12 +877,14 @@ public class AssinaturaService : IAssinaturaService
         CriarProfissionalAutonomoAssinaturaDto dto)
     {
         var logo = ValidarLogoProfissionalAutonomo(dto);
+        ValidarCategoriaProfissionalAutonomo(dto);
 
         estabelecimento.Nome = dto.NomePublico.Trim();
         estabelecimento.Descricao = dto.Biografia.Trim();
         estabelecimento.Logo = logo;
         estabelecimento.Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone);
         estabelecimento.Email = dto.Email.Trim();
+        estabelecimento.CategoriaEstabelecimentoId = dto.CategoriaEstabelecimentoId;
         estabelecimento.Ativo = true;
         estabelecimento.UpdatedAt = DateTime.UtcNow;
 
@@ -999,6 +1003,8 @@ public class AssinaturaService : IAssinaturaService
             throw new ProfissionalAutonomoAssinaturaInvalidoException("Biografia do profissional deve ter no maximo 1000 caracteres.");
         }
 
+        ValidarCategoriaProfissionalAutonomo(dto);
+
         OperacaoPerfilValidation.ValidarTextoObrigatorio(
             dto.Telefone,
             "Telefone do profissional",
@@ -1010,6 +1016,14 @@ public class AssinaturaService : IAssinaturaService
             "Email do profissional",
             255,
             mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
+    }
+
+    private static void ValidarCategoriaProfissionalAutonomo(CriarProfissionalAutonomoAssinaturaDto dto)
+    {
+        if (dto.CategoriaEstabelecimentoId is null)
+        {
+            throw new ProfissionalAutonomoAssinaturaInvalidoException("Area de atuacao do profissional e obrigatoria.");
+        }
     }
 
     private static Assinatura CriarAssinaturaBase(

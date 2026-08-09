@@ -245,20 +245,28 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
         };
     }
 
-    private static Estabelecimento CriarEstabelecimentoAutonomo(CriarProfissionalAutonomoAssinaturaDto dto) =>
-        new()
+    private static Estabelecimento CriarEstabelecimentoAutonomo(CriarProfissionalAutonomoAssinaturaDto dto)
+    {
+        if (dto.CategoriaEstabelecimentoId is null)
+        {
+            throw new ProfissionalAutonomoAssinaturaInvalidoException("Area de atuacao do profissional e obrigatoria.");
+        }
+
+        return new()
         {
             Nome = dto.NomePublico.Trim(),
             Descricao = dto.Biografia.Trim(),
             Logo = dto.Logo?.Trim() ?? string.Empty,
             Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone),
             Email = dto.Email.Trim(),
+            CategoriaEstabelecimentoId = dto.CategoriaEstabelecimentoId,
             Ativo = true,
             Endereco = OperacaoPerfilValidation.CriarEndereco(
                 dto.Endereco,
                 mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem)),
             Caixa = new Caixa()
         };
+    }
 
     private Profissional CriarProfissionalAutonomo(CriarProfissionalAutonomoAssinaturaDto dto, int userId)
     {

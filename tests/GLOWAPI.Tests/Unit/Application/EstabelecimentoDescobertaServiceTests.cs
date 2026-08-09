@@ -66,7 +66,8 @@ public class EstabelecimentoDescobertaServiceTests
                     -22.906m,
                     -47.061m,
                     1.2d,
-                    false)
+                    false,
+                    Domain.Enums.TipoAssinatura.Estabelecimento)
             }, 1));
 
         var service = CreateService();
