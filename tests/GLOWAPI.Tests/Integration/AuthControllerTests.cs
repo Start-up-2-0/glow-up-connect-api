@@ -93,7 +93,9 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         var body = await login.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
         Assert.True(body.GetProperty("data").GetProperty("requerConfirmacaoEmail").GetBoolean());
-        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("data").GetProperty("token").GetString()));
+        Assert.True(string.IsNullOrWhiteSpace(body.GetProperty("data").GetProperty("token").GetString()));
+        Assert.True(login.Headers.TryGetValues("Set-Cookie", out var cookies));
+        Assert.Contains(cookies!, c => c.Contains("guc_access", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -109,9 +111,10 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
         Assert.True(body.GetProperty("success").GetBoolean());
-        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("data").GetProperty("token").GetString()));
+        Assert.True(string.IsNullOrWhiteSpace(body.GetProperty("data").GetProperty("token").GetString()));
         Assert.True(string.IsNullOrWhiteSpace(body.GetProperty("data").GetProperty("refreshToken").GetString()));
         Assert.True(response.Headers.TryGetValues("Set-Cookie", out var cookies));
+        Assert.Contains(cookies!, c => c.Contains("guc_access", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(cookies!, c => c.Contains("guc_refresh", StringComparison.OrdinalIgnoreCase));
     }
 
@@ -152,10 +155,8 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
 
         var client = _factory.CreateClient();
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { email, senha });
-        var loginBody = await loginResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-        var token = loginBody.GetProperty("data").GetProperty("token").GetString();
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
 
-        client.DefaultRequestHeaders.Add("x-glow-token", token);
         var meResponse = await client.GetAsync("/api/usuario/me");
         Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
     }
@@ -166,7 +167,7 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         var expiredToken = CriarTokenExpirado();
 
         var client = _factory.CreateClient();
-        client.DefaultRequestHeaders.Add("x-glow-token", expiredToken);
+        client.DefaultRequestHeaders.Add("Cookie", $"guc_access={expiredToken}");
         var response = await client.GetAsync("/api/usuario/me");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -183,10 +184,8 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
 
         var client = _factory.CreateClient();
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { email, senha });
-        var loginBody = await loginResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-        var token = loginBody.GetProperty("data").GetProperty("token").GetString();
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
 
-        client.DefaultRequestHeaders.Add("x-glow-token", token);
         var logoutResponse = await client.PostAsync("/api/auth/logout", null);
         Assert.Equal(HttpStatusCode.OK, logoutResponse.StatusCode);
 
@@ -194,7 +193,7 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         Assert.Equal(HttpStatusCode.Unauthorized, retryResponse.StatusCode);
 
         var retryBody = await retryResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-        Assert.Equal("INVALID_TOKEN", retryBody.GetProperty("code").GetString());
+        Assert.Equal("UNAUTHORIZED", retryBody.GetProperty("code").GetString());
     }
 
     [Fact]
@@ -206,10 +205,8 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
 
         var client = _factory.CreateClient();
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { email, senha });
-        var loginBody = await loginResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-        var token = loginBody.GetProperty("data").GetProperty("token").GetString();
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
 
-        client.DefaultRequestHeaders.Add("x-glow-token", token);
         var deleteResponse = await client.DeleteAsync("/api/usuario/me");
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
 
@@ -226,15 +223,19 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
 
         var client = _factory.CreateClient();
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { email, senha });
-        var loginBody = await loginResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
 
         var refreshResponse = await client.PostAsJsonAsync("/api/auth/refresh", new { });
         Assert.Equal(HttpStatusCode.OK, refreshResponse.StatusCode);
 
         var refreshBody = await refreshResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-        Assert.False(string.IsNullOrWhiteSpace(refreshBody.GetProperty("data").GetProperty("token").GetString()));
+        Assert.True(string.IsNullOrWhiteSpace(refreshBody.GetProperty("data").GetProperty("token").GetString()));
         Assert.True(string.IsNullOrWhiteSpace(refreshBody.GetProperty("data").GetProperty("refreshToken").GetString()));
-        _ = loginBody;
+        Assert.True(refreshResponse.Headers.TryGetValues("Set-Cookie", out var cookies));
+        Assert.Contains(cookies!, c => c.Contains("guc_access", StringComparison.OrdinalIgnoreCase));
+
+        var meResponse = await client.GetAsync("/api/usuario/me");
+        Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
     }
 
     private string CriarTokenExpirado()

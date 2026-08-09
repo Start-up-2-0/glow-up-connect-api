@@ -1,3 +1,4 @@
+using GLOWAPI.API.Helpers;
 using GLOWAPI.API.Models;
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Services;
@@ -33,15 +34,14 @@ public class GlowTokenAuthenticationMiddleware
             return;
         }
 
-        if (!context.Request.Headers.TryGetValue(_authOptions.TokenHeaderName, out var tokenValues) ||
-            string.IsNullOrWhiteSpace(tokenValues.FirstOrDefault()))
+        var token = AuthAccessCookieHelper.ObterAccessToken(context.Request, _authOptions);
+        if (string.IsNullOrWhiteSpace(token))
         {
             await WriteErrorAsync(context, StatusCodes.Status401Unauthorized, "Não autorizado.", UnauthorizedException.ErrorCode);
             await auditLogger.AccessDeniedAsync("token_ausente", context.Connection.RemoteIpAddress?.ToString(), context.Request.Headers.UserAgent.ToString());
             return;
         }
 
-        var token = tokenValues.ToString();
         var sessionContext = new AuthSessionContext(
             context.Connection.RemoteIpAddress?.ToString(),
             context.Request.Headers.UserAgent.ToString());

@@ -1,3 +1,4 @@
+using GLOWAPI.API.Helpers;
 using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Agendamento;
 using GLOWAPI.Application.DTOs.Auth;
@@ -19,17 +20,20 @@ public class AgendamentoPublicoController : ControllerBase
     private readonly IServicoNegocioService _servicoNegocioService;
     private readonly IAgendamentoNegocioService _agendamentoNegocioService;
     private readonly IAuthService _authService;
+    private readonly IWebHostEnvironment _environment;
 
     public AgendamentoPublicoController(
         IDisponibilidadeAgendaService disponibilidadeAgendaService,
         IServicoNegocioService servicoNegocioService,
         IAgendamentoNegocioService agendamentoNegocioService,
-        IAuthService authService)
+        IAuthService authService,
+        IWebHostEnvironment environment)
     {
         _disponibilidadeAgendaService = disponibilidadeAgendaService;
         _servicoNegocioService = servicoNegocioService;
         _agendamentoNegocioService = agendamentoNegocioService;
         _authService = authService;
+        _environment = environment;
     }
 
     [HttpGet("loja/{publicGuid:guid}/profissional/{profissionalPublicGuid:guid}")]
@@ -229,7 +233,14 @@ public class AgendamentoPublicoController : ControllerBase
                 HttpContext.Request.Headers.UserAgent.ToString()),
             cancellationToken);
 
+        AuthAccessCookieHelper.SetAccessCookie(
+            Response,
+            result.Token,
+            result.ExpiresAt,
+            _environment);
+
         var dto = LoginResponseDto.From(result);
+        dto.Token = string.Empty;
         dto.RefreshToken = string.Empty;
 
         return Ok(ApiSuccessResponse<LoginResponseDto>.From(

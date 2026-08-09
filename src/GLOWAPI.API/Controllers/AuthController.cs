@@ -44,6 +44,11 @@ public class AuthController : ControllerBase
         await CaptchaGuard.GarantirValidoAsync(_captchaValidator, request.CaptchaToken, HttpContext, cancellationToken);
 
         var result = await _authService.LoginAsync(request, BuildSessionContext(), cancellationToken);
+        AuthAccessCookieHelper.SetAccessCookie(
+            Response,
+            result.Token,
+            result.ExpiresAt,
+            _environment);
         AuthRefreshCookieHelper.SetRefreshCookie(
             Response,
             result.RefreshToken,
@@ -51,6 +56,7 @@ public class AuthController : ControllerBase
             _environment);
 
         var dto = LoginResponseDto.From(result);
+        dto.Token = string.Empty;
         dto.RefreshToken = string.Empty;
         return Ok(ApiSuccessResponse<LoginResponseDto>.From(
             "Login realizado com sucesso",
@@ -60,14 +66,17 @@ public class AuthController : ControllerBase
     [HttpPost("logout")]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
-        var token = ObterTokenDoHeader();
+        var token = AuthAccessCookieHelper.ObterAccessToken(Request, _authOptions);
         if (string.IsNullOrWhiteSpace(token))
         {
+            AuthAccessCookieHelper.ClearAccessCookie(Response, _environment);
+            AuthRefreshCookieHelper.ClearRefreshCookie(Response, _environment);
             return Unauthorized(ApiErrorResponse.From("Não autorizado.", "UNAUTHORIZED"));
         }
 
         await _authService.LogoutAsync(token, cancellationToken);
-        AuthRefreshCookieHelper.ClearRefreshCookie(Response);
+        AuthAccessCookieHelper.ClearAccessCookie(Response, _environment);
+        AuthRefreshCookieHelper.ClearRefreshCookie(Response, _environment);
         return Ok(ApiSuccessResponse.From("Logout realizado com sucesso"));
     }
 
@@ -86,6 +95,11 @@ public class AuthController : ControllerBase
             BuildSessionContext(),
             cancellationToken);
 
+        AuthAccessCookieHelper.SetAccessCookie(
+            Response,
+            result.Token,
+            result.ExpiresAt,
+            _environment);
         AuthRefreshCookieHelper.SetRefreshCookie(
             Response,
             result.RefreshToken,
@@ -93,6 +107,7 @@ public class AuthController : ControllerBase
             _environment);
 
         var dto = RefreshTokenResponseDto.From(result);
+        dto.Token = string.Empty;
         dto.RefreshToken = string.Empty;
         return Ok(ApiSuccessResponse<RefreshTokenResponseDto>.From(
             "Token renovado com sucesso",
@@ -168,14 +183,4 @@ public class AuthController : ControllerBase
 
     private AuthSessionContext BuildSessionContext() =>
         new(HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString());
-
-    private string? ObterTokenDoHeader()
-    {
-        if (Request.Headers.TryGetValue(_authOptions.TokenHeaderName, out var values))
-        {
-            return values.FirstOrDefault();
-        }
-
-        return null;
-    }
 }

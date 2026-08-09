@@ -81,7 +81,15 @@ builder.Services.AddSwaggerGen(options =>
         Name = "x-glow-token",
         Type = SecuritySchemeType.ApiKey,
         In = ParameterLocation.Header,
-        Description = "Token de autenticação customizado emitido no login"
+        Description = "Fallback legado. Preferencial: cookie HttpOnly guc_access (Path=/api) + withCredentials"
+    });
+
+    options.AddSecurityDefinition("GlowAccessCookie", new OpenApiSecurityScheme
+    {
+        Name = "guc_access",
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Cookie,
+        Description = "Access token em cookie HttpOnly (emitido no login/refresh)"
     });
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -92,7 +100,7 @@ builder.Services.AddSwaggerGen(options =>
                 Reference = new OpenApiReference
                 {
                     Type = ReferenceType.SecurityScheme,
-                    Id = "GlowToken"
+                    Id = "GlowAccessCookie"
                 }
             },
             Array.Empty<string>()
