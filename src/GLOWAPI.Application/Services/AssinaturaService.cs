@@ -11,6 +11,7 @@ using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
 using GLOWAPI.Domain.Exceptions.Auth;
+using GLOWAPI.Domain.Exceptions.Usuario;
 using Microsoft.Extensions.Options;
 
 namespace GLOWAPI.Application.Services;
@@ -706,6 +707,11 @@ public class AssinaturaService : IAssinaturaService
         int userId,
         CancellationToken cancellationToken)
     {
+        await ValidarTelefoneContaProfissionalAutonomoAsync(
+            request.ProfissionalAutonomo!,
+            userId,
+            cancellationToken);
+
         var profissional = await _profissionalRepository.ObterPorUsuarioIdAsync(userId, cancellationToken);
         if (profissional is null)
         {
@@ -928,6 +934,40 @@ public class AssinaturaService : IAssinaturaService
         {
             throw new ProfissionalAutonomoAssinaturaInvalidoException(
                 "Usuario ja possui um perfil profissional que nao e autonomo.");
+        }
+    }
+
+    /// <summary>
+    /// Garante que o telefone do perfil autonomo coincide com o da conta e esta confirmado via WhatsApp.
+    /// Fonte de verdade: <see cref="Usuario.Telefone"/> + <see cref="Usuario.WhatsAppConfirmadoEm"/>.
+    /// </summary>
+    private async Task ValidarTelefoneContaProfissionalAutonomoAsync(
+        CriarProfissionalAutonomoAssinaturaDto dto,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var usuario = await _usuarioRepository.ObterPorIdAsync(userId, cancellationToken);
+        if (usuario is null)
+        {
+            throw new UsuarioNaoEncontradoException();
+        }
+
+        var telefonePayload = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone);
+        var telefoneConta = TelefoneHelper.NormalizarParaArmazenamento(usuario.Telefone);
+
+        if (string.IsNullOrEmpty(telefonePayload))
+        {
+            throw new ProfissionalAutonomoAssinaturaInvalidoException("Telefone do profissional e obrigatorio.");
+        }
+
+        if (!TelefoneHelper.SaoEquivalentes(telefonePayload, telefoneConta))
+        {
+            throw new TelefoneAssinaturaDivergenteException();
+        }
+
+        if (!usuario.WhatsAppConfirmadoEm.HasValue)
+        {
+            throw new TelefoneAssinaturaNaoConfirmadoException();
         }
     }
 

@@ -39,7 +39,7 @@ public class AssinaturaServiceTests
     {
         _usuarioRepository
             .Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(UsuarioBuilder.Criar(id: 10));
+            .ReturnsAsync(UsuarioBuilder.Criar(id: 10, whatsAppConfirmadoEm: DateTime.UtcNow));
         _promocaoLancamentoService
             .Setup(s => s.ObterStatusAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PromocaoLancamentoStatusDto(false, 0, 30, 50, 7, 7, 10));
@@ -337,7 +337,7 @@ public class AssinaturaServiceTests
                 NomePublico = " Maria Glow ",
                 Biografia = " Especialista em beleza ",
                 Logo = LogoBase64TestHelper.PngDataUri,
-                Telefone = "11988888888",
+                Telefone = "11999999999",
                 Email = "maria@email.com",
                 Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Campinas", logradouro: "Sala 12", numero: "12", bairro: "Centro")
             }
@@ -353,7 +353,7 @@ public class AssinaturaServiceTests
         Assert.Equal("Maria Glow", profissionalCriado.NomePublico);
         Assert.Equal("Especialista em beleza", profissionalCriado.Biografia);
         Assert.StartsWith("data:image/png;base64,", profissionalCriado!.Logo);
-        Assert.Equal("5511988888888", profissionalCriado.Telefone);
+        Assert.Equal("5511999999999", profissionalCriado.Telefone);
         Assert.Equal("maria@email.com", profissionalCriado.Email);
         Assert.Equal(ProfessionalType.Autonomo, profissionalCriado.TipoProfissional);
         Assert.True(profissionalCriado.Ativo);
@@ -430,7 +430,7 @@ public class AssinaturaServiceTests
                 NomePublico = "Novo nome",
                 Biografia = "Nova bio",
                 Logo = LogoBase64TestHelper.PngDataUri,
-                Telefone = "11977777777",
+                Telefone = "11999999999",
                 Email = "novo@email.com",
                 Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Santos", logradouro: "Av Praia")
             }
@@ -441,7 +441,7 @@ public class AssinaturaServiceTests
         Assert.Equal("Novo nome", profissional.NomePublico);
         Assert.Equal("Nova bio", profissional.Biografia);
         Assert.StartsWith("data:image/png;base64,", profissional.Logo);
-        Assert.Equal("5511977777777", profissional.Telefone);
+        Assert.Equal("5511999999999", profissional.Telefone);
         Assert.Equal("novo@email.com", profissional.Email);
         Assert.True(profissional.Ativo);
         Assert.NotNull(profissional.UpdatedAt);
@@ -451,6 +451,79 @@ public class AssinaturaServiceTests
         Assert.Equal("Av Praia", estabelecimentoCriado.Endereco.Logradouro);
 
         _profissionalRepository.Verify(r => r.Atualizar(profissional), Times.Once);
+    }
+
+    [Fact]
+    public async Task IniciarAsync_DeveLancarTelefoneNaoConfirmado_QuandoTelefoneIgualMasWhatsAppPendente()
+    {
+        _usuarioRepository
+            .Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(UsuarioBuilder.Criar(id: 10, telefone: "11999999999", whatsAppConfirmadoEm: null));
+
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Plano { Id = 1, Ativo = true });
+
+        _profissionalRepository
+            .Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Profissional?)null);
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<TelefoneAssinaturaNaoConfirmadoException>(() =>
+            service.IniciarAsync(new IniciarAssinaturaRequestDto
+            {
+                PlanoId = 1,
+                TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+                Pagamento = PagamentoValido(),
+                ProfissionalAutonomo = new CriarProfissionalAutonomoAssinaturaDto
+                {
+                    NomePublico = "Maria Glow",
+                    Biografia = "Bio",
+                    Logo = LogoBase64TestHelper.PngDataUri,
+                    Telefone = "11999999999",
+                    Email = "maria@email.com",
+                    Endereco = EnderecoOperacaoDtoBuilder.Criar()
+                }
+            }));
+    }
+
+    [Fact]
+    public async Task IniciarAsync_DeveLancarTelefoneDivergente_QuandoTelefoneDiferenteDaConta()
+    {
+        _usuarioRepository
+            .Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(UsuarioBuilder.Criar(
+                id: 10,
+                telefone: "11999999999",
+                whatsAppConfirmadoEm: DateTime.UtcNow));
+
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Plano { Id = 1, Ativo = true });
+
+        _profissionalRepository
+            .Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Profissional?)null);
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<TelefoneAssinaturaDivergenteException>(() =>
+            service.IniciarAsync(new IniciarAssinaturaRequestDto
+            {
+                PlanoId = 1,
+                TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+                Pagamento = PagamentoValido(),
+                ProfissionalAutonomo = new CriarProfissionalAutonomoAssinaturaDto
+                {
+                    NomePublico = "Maria Glow",
+                    Biografia = "Bio",
+                    Logo = LogoBase64TestHelper.PngDataUri,
+                    Telefone = "11988888888",
+                    Email = "maria@email.com",
+                    Endereco = EnderecoOperacaoDtoBuilder.Criar()
+                }
+            }));
     }
 
     [Fact]

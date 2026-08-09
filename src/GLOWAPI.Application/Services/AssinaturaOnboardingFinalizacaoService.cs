@@ -7,6 +7,7 @@ using GLOWAPI.Application.Models.Assinaturas;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
+using GLOWAPI.Domain.Exceptions.Usuario;
 
 namespace GLOWAPI.Application.Services;
 
@@ -106,6 +107,11 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
                 throw new AssinaturaTitularInvalidoException();
             }
 
+            await ValidarTelefoneContaProfissionalAutonomoAsync(
+                payload.ProfissionalAutonomo,
+                payload.UsuarioId,
+                cancellationToken);
+
             var profissional = await _profissionalRepository.ObterPorUsuarioIdAsync(payload.UsuarioId, cancellationToken)
                 ?? CriarProfissionalAutonomo(payload.ProfissionalAutonomo, payload.UsuarioId);
 
@@ -151,6 +157,36 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
         if (assinaturaComPlano is not null)
         {
             await GarantirVinculoMatrizAsync(assinaturaComPlano, cancellationToken);
+        }
+    }
+
+    private async Task ValidarTelefoneContaProfissionalAutonomoAsync(
+        CriarProfissionalAutonomoAssinaturaDto dto,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var usuario = await _usuarioRepository.ObterPorIdAsync(userId, cancellationToken);
+        if (usuario is null)
+        {
+            throw new UsuarioNaoEncontradoException();
+        }
+
+        var telefonePayload = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone);
+        var telefoneConta = TelefoneHelper.NormalizarParaArmazenamento(usuario.Telefone);
+
+        if (string.IsNullOrEmpty(telefonePayload))
+        {
+            throw new ProfissionalAutonomoAssinaturaInvalidoException("Telefone do profissional e obrigatorio.");
+        }
+
+        if (!TelefoneHelper.SaoEquivalentes(telefonePayload, telefoneConta))
+        {
+            throw new TelefoneAssinaturaDivergenteException();
+        }
+
+        if (!usuario.WhatsAppConfirmadoEm.HasValue)
+        {
+            throw new TelefoneAssinaturaNaoConfirmadoException();
         }
     }
 
