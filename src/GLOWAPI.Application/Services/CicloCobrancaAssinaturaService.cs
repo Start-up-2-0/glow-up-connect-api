@@ -31,6 +31,9 @@ public class CicloCobrancaAssinaturaService : ICicloCobrancaAssinaturaService
         return CriarCicloDto(vencimento);
     }
 
+    public CicloCobrancaDatasDto CalcularCicloPorVencimento(DateTime vencimento) =>
+        CriarCicloDto(vencimento.Date);
+
     public void AplicarCicloNaAssinatura(Assinatura assinatura, CicloCobrancaDatasDto ciclo)
     {
         assinatura.ProximaDataVencimento = ciclo.Vencimento;

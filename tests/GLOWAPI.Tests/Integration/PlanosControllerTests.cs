@@ -40,7 +40,7 @@ public class PlanosControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         var promocao = data.GetProperty("promocaoLancamento");
         Assert.True(promocao.GetProperty("disponivel").GetBoolean());
         Assert.Equal(100, promocao.GetProperty("vagasRestantes").GetInt32());
-        Assert.Equal(30, promocao.GetProperty("diasTrial").GetInt32());
+        Assert.Equal(14, promocao.GetProperty("diasTrial").GetInt32());
         Assert.Equal(7, promocao.GetProperty("diasAntecedenciaGeracaoCobranca").GetInt32());
         Assert.Equal(10, promocao.GetProperty("diasToleranciaInadimplencia").GetInt32());
 

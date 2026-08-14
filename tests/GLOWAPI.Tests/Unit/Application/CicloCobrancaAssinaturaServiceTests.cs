@@ -32,6 +32,18 @@ public class CicloCobrancaAssinaturaServiceTests
     }
 
     [Fact]
+    public void CalcularCicloPorVencimento_DeveUsarFimDoTrialComoPrimeiraCobranca()
+    {
+        var inicio = new DateTime(2026, 8, 14, 12, 0, 0, DateTimeKind.Utc);
+        var fimTrial = _service.CalcularFimTrial(inicio, 14);
+        var ciclo = _service.CalcularCicloPorVencimento(fimTrial);
+
+        Assert.Equal(new DateTime(2026, 8, 28, 0, 0, 0, DateTimeKind.Utc), fimTrial);
+        Assert.Equal(fimTrial, ciclo.Vencimento);
+        Assert.Equal(new DateTime(2026, 8, 21, 0, 0, 0, DateTimeKind.Utc), ciclo.Geracao);
+    }
+
+    [Fact]
     public void CalcularProximoCiclo_DeveAvancarUmMes()
     {
         var vencimentoAtual = new DateTime(2026, 2, 15, 0, 0, 0, DateTimeKind.Utc);

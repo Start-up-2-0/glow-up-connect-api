@@ -1125,10 +1125,7 @@ public class AssinaturaService : IAssinaturaService
 
         var inicio = DateTime.UtcNow;
         var fimTrial = _cicloCobrancaService.CalcularFimTrial(inicio, campanha.DiasTrial);
-        var ciclo = _cicloCobrancaService.CalcularPrimeiroCiclo(
-            assinatura.DataReferenciaCiclo,
-            fimTrial,
-            plano.Periodo);
+        var ciclo = _cicloCobrancaService.CalcularCicloPorVencimento(fimTrial);
 
         var gateway = _gatewayPagamentoResolver.Resolver(assinatura.Gateway);
         var referenciaInterna = $"trial-{Guid.NewGuid():N}";

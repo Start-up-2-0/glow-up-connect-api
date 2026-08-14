@@ -13,6 +13,8 @@ public interface ICicloCobrancaAssinaturaService
 
     CicloCobrancaDatasDto CalcularProximoCiclo(DateTime vencimentoAtual, PlanoPeriodo periodo);
 
+    CicloCobrancaDatasDto CalcularCicloPorVencimento(DateTime vencimento);
+
     void AplicarCicloNaAssinatura(Assinatura assinatura, CicloCobrancaDatasDto ciclo);
 
     DateTime CalcularFimTrial(DateTime inicioUtc, int diasTrial);

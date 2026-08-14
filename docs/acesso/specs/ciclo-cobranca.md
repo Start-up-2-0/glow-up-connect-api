@@ -17,7 +17,8 @@ A data de referencia (`DataReferenciaCiclo`) e definida automaticamente na criac
 
 `CicloCobrancaAssinaturaService`:
 
-- Primeiro ciclo: proxima renovacao mensal (ou conforme `PlanoPeriodo`) em ou apos a referencia (fim do trial ou hoje).
+- Primeiro ciclo (pago imediato): proxima renovacao mensal (ou conforme `PlanoPeriodo`) a partir da contratacao.
+- Primeiro ciclo (trial): vencimento no fim do trial (`inicio + DiasTrial`). Apos o pagamento, os ciclos seguintes avancam um periodo.
 - Proximo ciclo: adiciona um periodo ao vencimento atual.
 
 ## Inadimplencia

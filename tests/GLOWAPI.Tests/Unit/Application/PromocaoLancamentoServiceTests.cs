@@ -22,7 +22,7 @@ public class PromocaoLancamentoServiceTests
                 Codigo = PromocaoLancamentoService.CodigoCampanhaLancamento,
                 Limite = 100,
                 Utilizados = 0,
-                DiasTrial = 30,
+                DiasTrial = PromocaoLancamentoService.DiasTrialPadrao,
                 PercentualDescontoMensalidade = 50,
                 Ativa = true
             });
@@ -35,7 +35,7 @@ public class PromocaoLancamentoServiceTests
 
         Assert.True(status.Disponivel);
         Assert.Equal(98, status.VagasRestantes);
-        Assert.Equal(30, status.DiasTrial);
+        Assert.Equal(PromocaoLancamentoService.DiasTrialPadrao, status.DiasTrial);
         Assert.Equal(50, status.PercentualDescontoMensalidade);
     }
 
@@ -49,7 +49,7 @@ public class PromocaoLancamentoServiceTests
                 Codigo = PromocaoLancamentoService.CodigoCampanhaLancamento,
                 Limite = 100,
                 Utilizados = 40,
-                DiasTrial = 30,
+                DiasTrial = PromocaoLancamentoService.DiasTrialPadrao,
                 PercentualDescontoMensalidade = 50,
                 Ativa = true
             });
@@ -76,7 +76,7 @@ public class PromocaoLancamentoServiceTests
 
         Assert.False(status.Disponivel);
         Assert.Equal(0, status.VagasRestantes);
-        Assert.Equal(30, status.DiasTrial);
+        Assert.Equal(PromocaoLancamentoService.DiasTrialPadrao, status.DiasTrial);
         Assert.Equal(50, status.PercentualDescontoMensalidade);
     }
 

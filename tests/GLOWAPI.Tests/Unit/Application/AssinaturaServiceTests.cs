@@ -42,7 +42,7 @@ public class AssinaturaServiceTests
             .ReturnsAsync(UsuarioBuilder.Criar(id: 10, whatsAppConfirmadoEm: DateTime.UtcNow));
         _promocaoLancamentoService
             .Setup(s => s.ObterStatusAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PromocaoLancamentoStatusDto(false, 0, 30, 50, 7, 7, 10));
+            .ReturnsAsync(new PromocaoLancamentoStatusDto(false, 0, 14, 50, 7, 7, 10));
         _promocaoLancamentoService
             .Setup(s => s.TentarReservarVagaAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
