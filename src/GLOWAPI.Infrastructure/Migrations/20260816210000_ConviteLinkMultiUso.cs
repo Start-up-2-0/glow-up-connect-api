@@ -1,6 +1,5 @@
 using GLOWAPI.Infrastructure;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -11,21 +10,47 @@ namespace GLOWAPI.Infrastructure.Migrations
     [Migration("20260816210000_ConviteLinkMultiUso")]
     public partial class ConviteLinkMultiUso : Migration
     {
+        /// <summary>
+        /// Idempotente: staging já pode ter LimiteUsuarios/QuantidadeUtilizacoes
+        /// (schema parcial fora do histórico EF) sem esta migration aplicada.
+        /// </summary>
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<int>(
-                name: "LimiteUsuarios",
-                table: "ConvitesNegocio",
-                type: "int",
-                nullable: false,
-                defaultValue: 1);
+            migrationBuilder.Sql("""
+                SET @col_exists := (
+                    SELECT COUNT(*)
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'ConvitesNegocio'
+                      AND COLUMN_NAME = 'LimiteUsuarios'
+                );
+                SET @sql := IF(
+                    @col_exists = 0,
+                    'ALTER TABLE `ConvitesNegocio` ADD `LimiteUsuarios` int NOT NULL DEFAULT 1',
+                    'SELECT 1'
+                );
+                PREPARE stmt FROM @sql;
+                EXECUTE stmt;
+                DEALLOCATE PREPARE stmt;
+                """);
 
-            migrationBuilder.AddColumn<int>(
-                name: "QuantidadeUtilizacoes",
-                table: "ConvitesNegocio",
-                type: "int",
-                nullable: false,
-                defaultValue: 0);
+            migrationBuilder.Sql("""
+                SET @col_exists := (
+                    SELECT COUNT(*)
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'ConvitesNegocio'
+                      AND COLUMN_NAME = 'QuantidadeUtilizacoes'
+                );
+                SET @sql := IF(
+                    @col_exists = 0,
+                    'ALTER TABLE `ConvitesNegocio` ADD `QuantidadeUtilizacoes` int NOT NULL DEFAULT 0',
+                    'SELECT 1'
+                );
+                PREPARE stmt FROM @sql;
+                EXECUTE stmt;
+                DEALLOCATE PREPARE stmt;
+                """);
 
             migrationBuilder.Sql("""
                 UPDATE `ConvitesNegocio`
@@ -34,69 +59,136 @@ namespace GLOWAPI.Infrastructure.Migrations
                 WHERE `Status` IN ('Pendente', 'Aceito', 'Rejeitado');
                 """);
 
-            migrationBuilder.DropIndex(
-                name: "IX_ConvitesNegocio_EstabelecimentoId_Email_TipoConvite_Status",
-                table: "ConvitesNegocio");
+            migrationBuilder.Sql("""
+                SET @idx_exists := (
+                    SELECT COUNT(*)
+                    FROM INFORMATION_SCHEMA.STATISTICS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'ConvitesNegocio'
+                      AND INDEX_NAME = 'IX_ConvitesNegocio_EstabelecimentoId_Email_TipoConvite_Status'
+                );
+                SET @sql := IF(
+                    @idx_exists > 0,
+                    'DROP INDEX `IX_ConvitesNegocio_EstabelecimentoId_Email_TipoConvite_Status` ON `ConvitesNegocio`',
+                    'SELECT 1'
+                );
+                PREPARE stmt FROM @sql;
+                EXECUTE stmt;
+                DEALLOCATE PREPARE stmt;
+                """);
 
-            migrationBuilder.CreateIndex(
-                name: "IX_ConvitesNegocio_EstabelecimentoId_Status",
-                table: "ConvitesNegocio",
-                columns: new[] { "EstabelecimentoId", "Status" });
+            migrationBuilder.Sql("""
+                SET @idx_exists := (
+                    SELECT COUNT(*)
+                    FROM INFORMATION_SCHEMA.STATISTICS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'ConvitesNegocio'
+                      AND INDEX_NAME = 'IX_ConvitesNegocio_EstabelecimentoId_Status'
+                );
+                SET @sql := IF(
+                    @idx_exists = 0,
+                    'CREATE INDEX `IX_ConvitesNegocio_EstabelecimentoId_Status` ON `ConvitesNegocio` (`EstabelecimentoId`, `Status`)',
+                    'SELECT 1'
+                );
+                PREPARE stmt FROM @sql;
+                EXECUTE stmt;
+                DEALLOCATE PREPARE stmt;
+                """);
 
-            migrationBuilder.CreateTable(
-                name: "ConvitesNegocioUtilizacoes",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
-                    ConviteNegocioId = table.Column<int>(type: "int", nullable: false),
-                    UsuarioId = table.Column<int>(type: "int", nullable: false),
-                    UtilizadoEm = table.Column<DateTime>(type: "datetime(6)", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_ConvitesNegocioUtilizacoes", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_ConvitesNegocioUtilizacoes_ConvitesNegocio_ConviteNegocioId",
-                        column: x => x.ConviteNegocioId,
-                        principalTable: "ConvitesNegocio",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_ConvitesNegocioUtilizacoes_Usuarios_UsuarioId",
-                        column: x => x.UsuarioId,
-                        principalTable: "Usuarios",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ConvitesNegocioUtilizacoes_ConviteNegocioId_UsuarioId",
-                table: "ConvitesNegocioUtilizacoes",
-                columns: new[] { "ConviteNegocioId", "UsuarioId" },
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ConvitesNegocioUtilizacoes_UsuarioId",
-                table: "ConvitesNegocioUtilizacoes",
-                column: "UsuarioId");
+            migrationBuilder.Sql("""
+                CREATE TABLE IF NOT EXISTS `ConvitesNegocioUtilizacoes` (
+                    `Id` int NOT NULL AUTO_INCREMENT,
+                    `ConviteNegocioId` int NOT NULL,
+                    `UsuarioId` int NOT NULL,
+                    `UtilizadoEm` datetime(6) NOT NULL,
+                    PRIMARY KEY (`Id`),
+                    UNIQUE KEY `IX_ConvitesNegocioUtilizacoes_ConviteNegocioId_UsuarioId` (`ConviteNegocioId`, `UsuarioId`),
+                    KEY `IX_ConvitesNegocioUtilizacoes_UsuarioId` (`UsuarioId`),
+                    CONSTRAINT `FK_ConvitesNegocioUtilizacoes_ConvitesNegocio_ConviteNegocioId`
+                        FOREIGN KEY (`ConviteNegocioId`) REFERENCES `ConvitesNegocio` (`Id`) ON DELETE CASCADE,
+                    CONSTRAINT `FK_ConvitesNegocioUtilizacoes_Usuarios_UsuarioId`
+                        FOREIGN KEY (`UsuarioId`) REFERENCES `Usuarios` (`Id`) ON DELETE RESTRICT
+                ) CHARACTER SET=utf8mb4;
+                """);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(name: "ConvitesNegocioUtilizacoes");
+            migrationBuilder.Sql("""
+                DROP TABLE IF EXISTS `ConvitesNegocioUtilizacoes`;
+                """);
 
-            migrationBuilder.DropIndex(
-                name: "IX_ConvitesNegocio_EstabelecimentoId_Status",
-                table: "ConvitesNegocio");
+            migrationBuilder.Sql("""
+                SET @idx_exists := (
+                    SELECT COUNT(*)
+                    FROM INFORMATION_SCHEMA.STATISTICS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'ConvitesNegocio'
+                      AND INDEX_NAME = 'IX_ConvitesNegocio_EstabelecimentoId_Status'
+                );
+                SET @sql := IF(
+                    @idx_exists > 0,
+                    'DROP INDEX `IX_ConvitesNegocio_EstabelecimentoId_Status` ON `ConvitesNegocio`',
+                    'SELECT 1'
+                );
+                PREPARE stmt FROM @sql;
+                EXECUTE stmt;
+                DEALLOCATE PREPARE stmt;
+                """);
 
-            migrationBuilder.DropColumn(name: "LimiteUsuarios", table: "ConvitesNegocio");
-            migrationBuilder.DropColumn(name: "QuantidadeUtilizacoes", table: "ConvitesNegocio");
+            migrationBuilder.Sql("""
+                SET @col_exists := (
+                    SELECT COUNT(*)
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'ConvitesNegocio'
+                      AND COLUMN_NAME = 'LimiteUsuarios'
+                );
+                SET @sql := IF(
+                    @col_exists > 0,
+                    'ALTER TABLE `ConvitesNegocio` DROP COLUMN `LimiteUsuarios`',
+                    'SELECT 1'
+                );
+                PREPARE stmt FROM @sql;
+                EXECUTE stmt;
+                DEALLOCATE PREPARE stmt;
+                """);
 
-            migrationBuilder.CreateIndex(
-                name: "IX_ConvitesNegocio_EstabelecimentoId_Email_TipoConvite_Status",
-                table: "ConvitesNegocio",
-                columns: new[] { "EstabelecimentoId", "Email", "TipoConvite", "Status" });
+            migrationBuilder.Sql("""
+                SET @col_exists := (
+                    SELECT COUNT(*)
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'ConvitesNegocio'
+                      AND COLUMN_NAME = 'QuantidadeUtilizacoes'
+                );
+                SET @sql := IF(
+                    @col_exists > 0,
+                    'ALTER TABLE `ConvitesNegocio` DROP COLUMN `QuantidadeUtilizacoes`',
+                    'SELECT 1'
+                );
+                PREPARE stmt FROM @sql;
+                EXECUTE stmt;
+                DEALLOCATE PREPARE stmt;
+                """);
+
+            migrationBuilder.Sql("""
+                SET @idx_exists := (
+                    SELECT COUNT(*)
+                    FROM INFORMATION_SCHEMA.STATISTICS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'ConvitesNegocio'
+                      AND INDEX_NAME = 'IX_ConvitesNegocio_EstabelecimentoId_Email_TipoConvite_Status'
+                );
+                SET @sql := IF(
+                    @idx_exists = 0,
+                    'CREATE INDEX `IX_ConvitesNegocio_EstabelecimentoId_Email_TipoConvite_Status` ON `ConvitesNegocio` (`EstabelecimentoId`, `Email`, `TipoConvite`, `Status`)',
+                    'SELECT 1'
+                );
+                PREPARE stmt FROM @sql;
+                EXECUTE stmt;
+                DEALLOCATE PREPARE stmt;
+                """);
         }
     }
 }
