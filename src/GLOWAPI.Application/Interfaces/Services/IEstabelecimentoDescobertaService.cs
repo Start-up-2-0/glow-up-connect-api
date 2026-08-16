@@ -1,4 +1,5 @@
 using GLOWAPI.Application.DTOs.Estabelecimentos;
+using GLOWAPI.Domain.Enums;
 
 namespace GLOWAPI.Application.Interfaces.Services;
 
@@ -20,5 +21,6 @@ public interface IEstabelecimentoDescobertaService
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<EstabelecimentoCategoriaDto>> ListarCategoriasAsync(
+        TipoAssinatura? tipoAssinatura = null,
         CancellationToken cancellationToken = default);
 }

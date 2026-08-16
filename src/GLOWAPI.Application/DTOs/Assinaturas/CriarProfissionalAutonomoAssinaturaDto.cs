@@ -1,6 +1,7 @@
-namespace GLOWAPI.Application.DTOs.Assinaturas;
-
+using System.Text.Json.Serialization;
 using GLOWAPI.Application.DTOs.Operacoes;
+
+namespace GLOWAPI.Application.DTOs.Assinaturas;
 
 public class CriarProfissionalAutonomoAssinaturaDto
 {
@@ -9,7 +10,10 @@ public class CriarProfissionalAutonomoAssinaturaDto
     public string Logo { get; set; } = string.Empty;
     public string Telefone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
-    /// <summary>Área de atuação (mesmo catálogo de categorias do marketplace).</summary>
+
+    /// <summary>Categoria do ofício (id do catálogo filtrado por profissional autônomo).</summary>
+    [JsonPropertyName("categoriaId")]
     public int? CategoriaEstabelecimentoId { get; set; }
+
     public EnderecoOperacaoDto Endereco { get; set; } = new();
 }

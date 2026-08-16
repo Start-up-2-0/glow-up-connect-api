@@ -131,7 +131,15 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
 
         if (request.CategoriaEstabelecimentoId is not null)
         {
-            estabelecimento.CategoriaEstabelecimentoId = request.CategoriaEstabelecimentoId;
+            var tipoAssinatura = await _estabelecimentoRepository.ObterTipoAssinaturaPublicoAsync(
+                estabelecimento.Id,
+                cancellationToken);
+            var categorias = await _estabelecimentoRepository.ListarCategoriasAsync(cancellationToken);
+            estabelecimento.CategoriaEstabelecimentoId = CategoriaEstabelecimentoCatalogo.ResolverId(
+                request.CategoriaEstabelecimentoId,
+                tipoAssinatura,
+                categorias,
+                CriarExcecao);
         }
 
         _estabelecimentoRepository.Atualizar(estabelecimento);

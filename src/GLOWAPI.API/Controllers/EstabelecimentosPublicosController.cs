@@ -2,6 +2,7 @@ using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Agendamento;
 using GLOWAPI.Application.DTOs.Estabelecimentos;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -48,9 +49,13 @@ public class EstabelecimentosPublicosController : ControllerBase
     }
 
     [HttpGet("categorias")]
-    public async Task<IActionResult> ListarCategorias(CancellationToken cancellationToken)
+    public async Task<IActionResult> ListarCategorias(
+        [FromQuery] TipoAssinatura? tipoAssinatura,
+        CancellationToken cancellationToken)
     {
-        var categorias = await _estabelecimentoDescobertaService.ListarCategoriasAsync(cancellationToken);
+        var categorias = await _estabelecimentoDescobertaService.ListarCategoriasAsync(
+            tipoAssinatura,
+            cancellationToken);
 
         return Ok(ApiSuccessResponse<IReadOnlyList<EstabelecimentoCategoriaDto>>.From(
             "Categorias de estabelecimento listadas com sucesso.",

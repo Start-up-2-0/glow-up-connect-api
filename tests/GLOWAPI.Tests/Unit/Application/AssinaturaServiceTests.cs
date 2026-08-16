@@ -40,6 +40,25 @@ public class AssinaturaServiceTests
         _usuarioRepository
             .Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(UsuarioBuilder.Criar(id: 10, whatsAppConfirmadoEm: DateTime.UtcNow));
+        _estabelecimentoRepository
+            .Setup(r => r.ListarCategoriasAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<CategoriaEstabelecimento>
+            {
+                new()
+                {
+                    Id = 1,
+                    Nome = "Barbearia ou salão de beleza",
+                    TipoAssinatura = TipoAssinatura.Estabelecimento,
+                    Ativo = true
+                },
+                new()
+                {
+                    Id = 2,
+                    Nome = "Barbeiro ou cabeleireiro(a)",
+                    TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+                    Ativo = true
+                }
+            });
         _promocaoLancamentoService
             .Setup(s => s.ObterStatusAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PromocaoLancamentoStatusDto(false, 0, 14, 50, 7, 7, 10));
@@ -242,6 +261,7 @@ public class AssinaturaServiceTests
         Assert.Equal("SP", estabelecimentoCriado.Endereco.Estado);
         Assert.Equal("Rua Glow", estabelecimentoCriado.Endereco.Logradouro);
         Assert.True(estabelecimentoCriado.Ativo);
+        Assert.Equal(1, estabelecimentoCriado.CategoriaEstabelecimentoId);
         Assert.NotEqual(Guid.Empty, estabelecimentoCriado.PublicGuid);
 
         Assert.NotNull(vinculoCriado);
@@ -362,6 +382,7 @@ public class AssinaturaServiceTests
         Assert.NotNull(estabelecimentoCriado);
         Assert.Equal("Maria Glow", estabelecimentoCriado!.Nome);
         Assert.Equal("Especialista em beleza", estabelecimentoCriado.Descricao);
+        Assert.Equal(2, estabelecimentoCriado.CategoriaEstabelecimentoId);
         Assert.NotNull(estabelecimentoCriado.Endereco);
         Assert.Equal("Campinas", estabelecimentoCriado.Endereco!.Cidade);
         Assert.Equal("SP", estabelecimentoCriado.Endereco.Estado);

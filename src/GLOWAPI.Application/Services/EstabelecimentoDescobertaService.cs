@@ -2,6 +2,7 @@ using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.DTOs.Estabelecimentos;
 using GLOWAPI.Application.Helpers;
+using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Negocios;
 
 namespace GLOWAPI.Application.Services;
@@ -89,11 +90,16 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
     }
 
     public async Task<IReadOnlyList<EstabelecimentoCategoriaDto>> ListarCategoriasAsync(
+        TipoAssinatura? tipoAssinatura = null,
         CancellationToken cancellationToken = default)
     {
         var categorias = await _estabelecimentoRepository.ListarCategoriasAsync(cancellationToken);
         return categorias
-            .Select(categoria => new EstabelecimentoCategoriaDto(categoria.Id, categoria.Nome))
+            .Where(categoria => tipoAssinatura is null || categoria.TipoAssinatura == tipoAssinatura)
+            .Select(categoria => new EstabelecimentoCategoriaDto(
+                categoria.Id,
+                categoria.Nome,
+                categoria.TipoAssinatura.ToString()))
             .ToList();
     }
 

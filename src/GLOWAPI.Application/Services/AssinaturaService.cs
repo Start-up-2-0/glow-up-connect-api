@@ -464,7 +464,14 @@ public class AssinaturaService : IAssinaturaService
             throw new LimiteEstabelecimentosExcedidoException();
         }
 
-        var estabelecimento = CriarEstabelecimento(request.Estabelecimento);
+        var estabelecimentoDto = request.Estabelecimento;
+        estabelecimentoDto.CategoriaEstabelecimentoId = await ResolverCategoriaIdAsync(
+            estabelecimentoDto.CategoriaEstabelecimentoId,
+            TipoAssinatura.Estabelecimento,
+            mensagem => new EstabelecimentoAssinaturaInvalidoException(mensagem),
+            cancellationToken);
+
+        var estabelecimento = CriarEstabelecimento(estabelecimentoDto);
         await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
         await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
 
@@ -626,7 +633,13 @@ public class AssinaturaService : IAssinaturaService
             throw new EstabelecimentoOnboardingDuplicadoException();
         }
 
-        var estabelecimento = CriarEstabelecimento(request.Estabelecimento!);
+        request.Estabelecimento!.CategoriaEstabelecimentoId = await ResolverCategoriaIdAsync(
+            request.Estabelecimento.CategoriaEstabelecimentoId,
+            TipoAssinatura.Estabelecimento,
+            mensagem => new EstabelecimentoAssinaturaInvalidoException(mensagem),
+            cancellationToken);
+
+        var estabelecimento = CriarEstabelecimento(request.Estabelecimento);
         await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
         await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
 
@@ -677,7 +690,9 @@ public class AssinaturaService : IAssinaturaService
         }
         else
         {
-            estabelecimento = CriarEstabelecimentoParaProfissionalAutonomo(profissional);
+            estabelecimento = await CriarEstabelecimentoParaProfissionalAutonomoAsync(
+                profissional,
+                cancellationToken);
             await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
             await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
             await CriarVinculosTenantProfissionalAutonomoAsync(
@@ -738,13 +753,18 @@ public class AssinaturaService : IAssinaturaService
                 throw new AssinaturaDuplicadaException();
             }
 
-            AtualizarEstabelecimentoAutonomo(estabelecimento, request.ProfissionalAutonomo!);
+            await AtualizarEstabelecimentoAutonomoAsync(
+                estabelecimento,
+                request.ProfissionalAutonomo!,
+                cancellationToken);
             await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
             _estabelecimentoRepository.Atualizar(estabelecimento);
         }
         else
         {
-            estabelecimento = CriarEstabelecimentoParaProfissionalAutonomo(request.ProfissionalAutonomo!);
+            estabelecimento = await CriarEstabelecimentoParaProfissionalAutonomoAsync(
+                request.ProfissionalAutonomo!,
+                cancellationToken);
             await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
             await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
             await CriarVinculosTenantProfissionalAutonomoAsync(
@@ -836,11 +856,16 @@ public class AssinaturaService : IAssinaturaService
         };
     }
 
-    private Estabelecimento CriarEstabelecimentoParaProfissionalAutonomo(
-        CriarProfissionalAutonomoAssinaturaDto dto)
+    private async Task<Estabelecimento> CriarEstabelecimentoParaProfissionalAutonomoAsync(
+        CriarProfissionalAutonomoAssinaturaDto dto,
+        CancellationToken cancellationToken)
     {
         var logo = ValidarLogoProfissionalAutonomo(dto);
-        ValidarCategoriaProfissionalAutonomo(dto);
+        dto.CategoriaEstabelecimentoId = await ResolverCategoriaIdAsync(
+            dto.CategoriaEstabelecimentoId,
+            TipoAssinatura.ProfissionalAutonomo,
+            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem),
+            cancellationToken);
 
         return new Estabelecimento
         {
@@ -858,8 +883,16 @@ public class AssinaturaService : IAssinaturaService
         };
     }
 
-    private static Estabelecimento CriarEstabelecimentoParaProfissionalAutonomo(Profissional profissional)
+    private async Task<Estabelecimento> CriarEstabelecimentoParaProfissionalAutonomoAsync(
+        Profissional profissional,
+        CancellationToken cancellationToken)
     {
+        var categoriaId = await ResolverCategoriaIdAsync(
+            null,
+            TipoAssinatura.ProfissionalAutonomo,
+            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem),
+            cancellationToken);
+
         return new Estabelecimento
         {
             Nome = profissional.NomePublico.Trim(),
@@ -867,17 +900,23 @@ public class AssinaturaService : IAssinaturaService
             Logo = profissional.Logo.Trim(),
             Telefone = TelefoneHelper.NormalizarParaArmazenamento(profissional.Telefone),
             Email = profissional.Email.Trim(),
+            CategoriaEstabelecimentoId = categoriaId,
             Ativo = true,
             Caixa = new Caixa()
         };
     }
 
-    private void AtualizarEstabelecimentoAutonomo(
+    private async Task AtualizarEstabelecimentoAutonomoAsync(
         Estabelecimento estabelecimento,
-        CriarProfissionalAutonomoAssinaturaDto dto)
+        CriarProfissionalAutonomoAssinaturaDto dto,
+        CancellationToken cancellationToken)
     {
         var logo = ValidarLogoProfissionalAutonomo(dto);
-        ValidarCategoriaProfissionalAutonomo(dto);
+        dto.CategoriaEstabelecimentoId = await ResolverCategoriaIdAsync(
+            dto.CategoriaEstabelecimentoId,
+            TipoAssinatura.ProfissionalAutonomo,
+            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem),
+            cancellationToken);
 
         estabelecimento.Nome = dto.NomePublico.Trim();
         estabelecimento.Descricao = dto.Biografia.Trim();
@@ -1003,8 +1042,6 @@ public class AssinaturaService : IAssinaturaService
             throw new ProfissionalAutonomoAssinaturaInvalidoException("Biografia do profissional deve ter no maximo 1000 caracteres.");
         }
 
-        ValidarCategoriaProfissionalAutonomo(dto);
-
         OperacaoPerfilValidation.ValidarTextoObrigatorio(
             dto.Telefone,
             "Telefone do profissional",
@@ -1018,12 +1055,18 @@ public class AssinaturaService : IAssinaturaService
             mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
     }
 
-    private static void ValidarCategoriaProfissionalAutonomo(CriarProfissionalAutonomoAssinaturaDto dto)
+    private async Task<int> ResolverCategoriaIdAsync(
+        int? informado,
+        TipoAssinatura tipoAssinatura,
+        Func<string, Exception> criarExcecao,
+        CancellationToken cancellationToken)
     {
-        if (dto.CategoriaEstabelecimentoId is null)
-        {
-            throw new ProfissionalAutonomoAssinaturaInvalidoException("Area de atuacao do profissional e obrigatoria.");
-        }
+        var categorias = await _estabelecimentoRepository.ListarCategoriasAsync(cancellationToken);
+        return CategoriaEstabelecimentoCatalogo.ResolverId(
+            informado,
+            tipoAssinatura,
+            categorias,
+            criarExcecao);
     }
 
     private static Assinatura CriarAssinaturaBase(

@@ -3,6 +3,7 @@ using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Geolocalizacao;
 using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
+using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Negocios;
 using Moq;
 
@@ -67,7 +68,7 @@ public class EstabelecimentoDescobertaServiceTests
                     -47.061m,
                     1.2d,
                     false,
-                    Domain.Enums.TipoAssinatura.Estabelecimento)
+                    TipoAssinatura.Estabelecimento)
             }, 1));
 
         var service = CreateService();
@@ -80,6 +81,43 @@ public class EstabelecimentoDescobertaServiceTests
         Assert.Equal("Barbearia Glow", resultado.Itens[0].Nome);
         Assert.Equal(1.2d, resultado.Itens[0].DistanciaKm);
         Assert.Equal("data:image/png;base64,abc", resultado.Itens[0].Logo);
+    }
+
+    [Fact]
+    public async Task ListarCategoriasAsync_DeveFiltrarPorTipoAssinatura_QuandoInformado()
+    {
+        _estabelecimentoRepository
+            .Setup(r => r.ListarCategoriasAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<CategoriaEstabelecimento>
+            {
+                new()
+                {
+                    Id = 1,
+                    Nome = "Barbearia ou salão de beleza",
+                    TipoAssinatura = TipoAssinatura.Estabelecimento,
+                    Ativo = true
+                },
+                new()
+                {
+                    Id = 2,
+                    Nome = "Barbeiro ou cabeleireiro(a)",
+                    TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+                    Ativo = true
+                }
+            });
+
+        var service = CreateService();
+        var lojas = await service.ListarCategoriasAsync(TipoAssinatura.Estabelecimento);
+        var autonomos = await service.ListarCategoriasAsync(TipoAssinatura.ProfissionalAutonomo);
+
+        Assert.Single(lojas);
+        Assert.Equal(1, lojas[0].Id);
+        Assert.Equal("Barbearia ou salão de beleza", lojas[0].Nome);
+        Assert.Equal("Estabelecimento", lojas[0].TipoAssinatura);
+        Assert.Single(autonomos);
+        Assert.Equal(2, autonomos[0].Id);
+        Assert.Equal("Barbeiro ou cabeleireiro(a)", autonomos[0].Nome);
+        Assert.Equal("ProfissionalAutonomo", autonomos[0].TipoAssinatura);
     }
 
     private EstabelecimentoDescobertaService CreateService()

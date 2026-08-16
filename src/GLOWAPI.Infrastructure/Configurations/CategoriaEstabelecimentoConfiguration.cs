@@ -1,4 +1,5 @@
 using GLOWAPI.Domain.Entities;
+using GLOWAPI.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -18,6 +19,11 @@ public class CategoriaEstabelecimentoConfiguration : IEntityTypeConfiguration<Ca
 
         builder.HasIndex(categoria => categoria.Nome)
             .IsUnique();
+
+        builder.Property(categoria => categoria.TipoAssinatura)
+            .IsRequired()
+            .HasMaxLength(50)
+            .HasConversion(tipo => tipo.ToString(), tipo => Enum.Parse<TipoAssinatura>(tipo));
 
         builder.Property(categoria => categoria.Ativo)
             .HasDefaultValue(true);
