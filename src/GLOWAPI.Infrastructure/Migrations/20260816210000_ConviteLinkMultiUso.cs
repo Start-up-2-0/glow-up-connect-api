@@ -59,17 +59,19 @@ namespace GLOWAPI.Infrastructure.Migrations
                 WHERE `Status` IN ('Pendente', 'Aceito', 'Rejeitado');
                 """);
 
+            // Cria o índice novo antes de dropar o antigo: a FK de EstabelecimentoId
+            // depende de um índice que comece por essa coluna (MySQL).
             migrationBuilder.Sql("""
                 SET @idx_exists := (
                     SELECT COUNT(*)
                     FROM INFORMATION_SCHEMA.STATISTICS
                     WHERE TABLE_SCHEMA = DATABASE()
                       AND TABLE_NAME = 'ConvitesNegocio'
-                      AND INDEX_NAME = 'IX_ConvitesNegocio_EstabelecimentoId_Email_TipoConvite_Status'
+                      AND INDEX_NAME = 'IX_ConvitesNegocio_EstabelecimentoId_Status'
                 );
                 SET @sql := IF(
-                    @idx_exists > 0,
-                    'DROP INDEX `IX_ConvitesNegocio_EstabelecimentoId_Email_TipoConvite_Status` ON `ConvitesNegocio`',
+                    @idx_exists = 0,
+                    'CREATE INDEX `IX_ConvitesNegocio_EstabelecimentoId_Status` ON `ConvitesNegocio` (`EstabelecimentoId`, `Status`)',
                     'SELECT 1'
                 );
                 PREPARE stmt FROM @sql;
@@ -83,11 +85,11 @@ namespace GLOWAPI.Infrastructure.Migrations
                     FROM INFORMATION_SCHEMA.STATISTICS
                     WHERE TABLE_SCHEMA = DATABASE()
                       AND TABLE_NAME = 'ConvitesNegocio'
-                      AND INDEX_NAME = 'IX_ConvitesNegocio_EstabelecimentoId_Status'
+                      AND INDEX_NAME = 'IX_ConvitesNegocio_EstabelecimentoId_Email_TipoConvite_Status'
                 );
                 SET @sql := IF(
-                    @idx_exists = 0,
-                    'CREATE INDEX `IX_ConvitesNegocio_EstabelecimentoId_Status` ON `ConvitesNegocio` (`EstabelecimentoId`, `Status`)',
+                    @idx_exists > 0,
+                    'DROP INDEX `IX_ConvitesNegocio_EstabelecimentoId_Email_TipoConvite_Status` ON `ConvitesNegocio`',
                     'SELECT 1'
                 );
                 PREPARE stmt FROM @sql;
@@ -116,6 +118,24 @@ namespace GLOWAPI.Infrastructure.Migrations
         {
             migrationBuilder.Sql("""
                 DROP TABLE IF EXISTS `ConvitesNegocioUtilizacoes`;
+                """);
+
+            migrationBuilder.Sql("""
+                SET @idx_exists := (
+                    SELECT COUNT(*)
+                    FROM INFORMATION_SCHEMA.STATISTICS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'ConvitesNegocio'
+                      AND INDEX_NAME = 'IX_ConvitesNegocio_EstabelecimentoId_Email_TipoConvite_Status'
+                );
+                SET @sql := IF(
+                    @idx_exists = 0,
+                    'CREATE INDEX `IX_ConvitesNegocio_EstabelecimentoId_Email_TipoConvite_Status` ON `ConvitesNegocio` (`EstabelecimentoId`, `Email`, `TipoConvite`, `Status`)',
+                    'SELECT 1'
+                );
+                PREPARE stmt FROM @sql;
+                EXECUTE stmt;
+                DEALLOCATE PREPARE stmt;
                 """);
 
             migrationBuilder.Sql("""
@@ -165,24 +185,6 @@ namespace GLOWAPI.Infrastructure.Migrations
                 SET @sql := IF(
                     @col_exists > 0,
                     'ALTER TABLE `ConvitesNegocio` DROP COLUMN `QuantidadeUtilizacoes`',
-                    'SELECT 1'
-                );
-                PREPARE stmt FROM @sql;
-                EXECUTE stmt;
-                DEALLOCATE PREPARE stmt;
-                """);
-
-            migrationBuilder.Sql("""
-                SET @idx_exists := (
-                    SELECT COUNT(*)
-                    FROM INFORMATION_SCHEMA.STATISTICS
-                    WHERE TABLE_SCHEMA = DATABASE()
-                      AND TABLE_NAME = 'ConvitesNegocio'
-                      AND INDEX_NAME = 'IX_ConvitesNegocio_EstabelecimentoId_Email_TipoConvite_Status'
-                );
-                SET @sql := IF(
-                    @idx_exists = 0,
-                    'CREATE INDEX `IX_ConvitesNegocio_EstabelecimentoId_Email_TipoConvite_Status` ON `ConvitesNegocio` (`EstabelecimentoId`, `Email`, `TipoConvite`, `Status`)',
                     'SELECT 1'
                 );
                 PREPARE stmt FROM @sql;
