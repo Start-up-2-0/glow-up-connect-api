@@ -80,6 +80,7 @@ public class ExceptionMiddleware
                     or HorarioAlteracaoImpactaAgendamentosFuturosException
                     or UltimoOwnerNegocioException
                     or ConviteNegocioInvalidoException
+                    or ConviteNegocioIndisponivelException
                     or ConviteUsuarioNaoConfirmadoException
                     or ProfissionalNegocioInvalidoException
                     or ProfissionalVitrineNegocioIndisponivelException

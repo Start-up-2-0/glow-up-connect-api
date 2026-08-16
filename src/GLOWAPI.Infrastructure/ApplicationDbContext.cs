@@ -52,6 +52,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<MensagemNotificacaoLog> MensagensNotificacaoLogs { get; set; }
     public DbSet<AuditoriaNegocio> AuditoriasNegocio { get; set; }
     public DbSet<ConviteNegocio> ConvitesNegocio { get; set; }
+    public DbSet<ConviteNegocioUtilizacao> ConvitesNegocioUtilizacoes { get; set; }
     public DbSet<IpRateLimitBlock> IpRateLimitBlocks { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

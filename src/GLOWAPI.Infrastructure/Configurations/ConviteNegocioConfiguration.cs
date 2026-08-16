@@ -41,6 +41,12 @@ public class ConviteNegocioConfiguration : IEntityTypeConfiguration<ConviteNegoc
             .HasMaxLength(128)
             .IsRequired();
 
+        builder.Property(convite => convite.LimiteUsuarios)
+            .IsRequired();
+
+        builder.Property(convite => convite.QuantidadeUtilizacoes)
+            .IsRequired();
+
         builder.HasOne(convite => convite.Estabelecimento)
             .WithMany()
             .HasForeignKey(convite => convite.EstabelecimentoId)
@@ -57,6 +63,6 @@ public class ConviteNegocioConfiguration : IEntityTypeConfiguration<ConviteNegoc
             .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasIndex(convite => convite.TokenHash).IsUnique();
-        builder.HasIndex(convite => new { convite.EstabelecimentoId, convite.Email, convite.TipoConvite, convite.Status });
+        builder.HasIndex(convite => new { convite.EstabelecimentoId, convite.Status });
     }
 }

@@ -1008,6 +1008,9 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Property<DateTime>("ExpiraEm")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int>("LimiteUsuarios")
+                        .HasColumnType("int");
+
                     b.Property<string>("NomePublico")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -1015,6 +1018,9 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.Property<bool>("PodeReceberAgendamento")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("QuantidadeUtilizacoes")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("RespondidoEm")
                         .HasColumnType("datetime(6)");
@@ -1056,9 +1062,34 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.HasIndex("TokenHash")
                         .IsUnique();
 
-                    b.HasIndex("EstabelecimentoId", "Email", "TipoConvite", "Status");
+                    b.HasIndex("EstabelecimentoId", "Status");
 
                     b.ToTable("ConvitesNegocio", (string)null);
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.ConviteNegocioUtilizacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<int>("ConviteNegocioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UtilizadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.HasIndex("ConviteNegocioId", "UsuarioId")
+                        .IsUnique();
+
+                    b.ToTable("ConvitesNegocioUtilizacoes", (string)null);
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Endereco", b =>
@@ -2783,6 +2814,27 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Navigation("CriadoPorUsuario");
 
                     b.Navigation("Estabelecimento");
+
+                    b.Navigation("Utilizacoes");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.ConviteNegocioUtilizacao", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.ConviteNegocio", "ConviteNegocio")
+                        .WithMany("Utilizacoes")
+                        .HasForeignKey("ConviteNegocioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ConviteNegocio");
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Endereco", b =>

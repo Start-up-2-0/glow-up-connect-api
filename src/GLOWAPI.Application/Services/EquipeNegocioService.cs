@@ -905,10 +905,14 @@ public class EquipeNegocioService : IEquipeNegocioService
         var profissionais = await _profissionalEstabelecimentoRepository.ListarAtivosPorEstabelecimentoAsync(
             estabelecimentoId,
             cancellationToken);
-        var convites = await _conviteRepository.ListarPorEstabelecimentoAsync(
+        var convitesAtivos = await _conviteRepository.ListarPorEstabelecimentoAsync(
             estabelecimentoId,
-            StatusConviteNegocio.Pendente,
+            StatusConviteNegocio.Ativo,
             cancellationToken);
+        var agoraUtc = DateTime.UtcNow;
+        var vagasEmConvites = convitesAtivos
+            .Where(c => c.ExpiraEm > agoraUtc)
+            .Sum(c => Math.Max(0, c.LimiteUsuarios - c.QuantidadeUtilizacoes));
 
         var profissionalPorUsuarioId = profissionais
             .Where(v => v.Profissional?.UsuarioId is int uid)
@@ -968,28 +972,6 @@ public class EquipeNegocioService : IEquipeNegocioService
                 ConviteEm: null));
         }
 
-        foreach (var convite in convites)
-        {
-            var nome = string.IsNullOrWhiteSpace(convite.NomePublico)
-                ? (convite.Email.Contains('@') ? convite.Email.Split('@')[0] : convite.Email)
-                : convite.NomePublico;
-
-            membros.Add(new MembroEquipeResponseDto(
-                Id: $"convite-{convite.Id}",
-                Tipo: "convite",
-                Nome: string.IsNullOrWhiteSpace(nome) ? convite.Email : nome,
-                Cargo: "Convidado",
-                Role: "Convidado",
-                Email: convite.Email,
-                Telefone: string.IsNullOrWhiteSpace(convite.Telefone) ? null : convite.Telefone,
-                Ativo: false,
-                UsuarioId: null,
-                ProfissionalId: null,
-                PodeReceberAgendamento: null,
-                Foto: null,
-                ConviteEm: convite.CriadoEm.ToString("dd/MM/yyyy")));
-        }
-
         var resumo = new EquipeMembrosResumoDto(
             TotalMembros: membros.Count(m => m.Tipo != "convite" && m.Ativo),
             Administradores: membros.Count(m =>
@@ -998,7 +980,7 @@ public class EquipeNegocioService : IEquipeNegocioService
                 m.Ativo && m.Role == nameof(EstablishmentUserRole.Profissional)),
             Recepcionistas: membros.Count(m =>
                 m.Ativo && m.Role == nameof(EstablishmentUserRole.Receptionist)),
-            Convidados: convites.Count);
+            Convidados: vagasEmConvites);
 
         var filtrados = FiltrarMembros(membros, filtro)
             .OrderBy(m => OrdemCargo(m.Role))

@@ -5,10 +5,11 @@ namespace GLOWAPI.Application.DTOs.Convites;
 public record ConviteNegocioResponseDto(
     int Id,
     int EstabelecimentoId,
-    string Email,
-    string TipoConvite,
     string RoleSugerida,
+    string TipoConvite,
     string Status,
+    int LimiteUsuarios,
+    int QuantidadeUtilizacoes,
     DateTime ExpiraEm,
     DateTime CriadoEm)
 {
@@ -16,10 +17,11 @@ public record ConviteNegocioResponseDto(
         new(
             convite.Id,
             convite.EstabelecimentoId,
-            convite.Email,
-            convite.TipoConvite.ToString(),
             convite.RoleSugerida.ToString(),
+            convite.TipoConvite.ToString(),
             convite.Status.ToString(),
+            convite.LimiteUsuarios,
+            convite.QuantidadeUtilizacoes,
             convite.ExpiraEm,
             convite.CriadoEm);
 }

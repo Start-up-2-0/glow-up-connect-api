@@ -11,20 +11,6 @@ public class ConviteNegocioRepository : Repository<ConviteNegocio>, IConviteNego
     {
     }
 
-    public Task<ConviteNegocio?> ObterPendentePorDestinatarioAsync(
-        int estabelecimentoId,
-        string email,
-        TipoConviteNegocio tipoConvite,
-        CancellationToken cancellationToken = default)
-    {
-        return DbSet.FirstOrDefaultAsync(
-            convite => convite.EstabelecimentoId == estabelecimentoId
-                && convite.Email == email
-                && convite.TipoConvite == tipoConvite
-                && convite.Status == StatusConviteNegocio.Pendente,
-            cancellationToken);
-    }
-
     public Task<ConviteNegocio?> ObterPorTokenHashAsync(
         string tokenHash,
         CancellationToken cancellationToken = default)
@@ -51,5 +37,69 @@ public class ConviteNegocioRepository : Repository<ConviteNegocio>, IConviteNego
         return await query
             .OrderByDescending(convite => convite.CriadoEm)
             .ToListAsync(cancellationToken);
+    }
+
+    public Task<bool> UsuarioJaUtilizouAsync(
+        int conviteId,
+        int usuarioId,
+        CancellationToken cancellationToken = default)
+    {
+        return Context.ConvitesNegocioUtilizacoes.AnyAsync(
+            utilizacao => utilizacao.ConviteNegocioId == conviteId
+                && utilizacao.UsuarioId == usuarioId,
+            cancellationToken);
+    }
+
+    public async Task AdicionarUtilizacaoAsync(
+        ConviteNegocioUtilizacao utilizacao,
+        CancellationToken cancellationToken = default)
+    {
+        await Context.ConvitesNegocioUtilizacoes.AddAsync(utilizacao, cancellationToken);
+    }
+
+    public async Task<bool> TentarRegistrarUtilizacaoAsync(
+        int conviteId,
+        DateTime agoraUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var afetados = await Context.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+             UPDATE `ConvitesNegocio`
+             SET `QuantidadeUtilizacoes` = `QuantidadeUtilizacoes` + 1,
+                 `Status` = CASE
+                     WHEN `QuantidadeUtilizacoes` + 1 >= `LimiteUsuarios` THEN 'Esgotado'
+                     ELSE `Status`
+                 END,
+                 `UpdatedAt` = {agoraUtc}
+             WHERE `Id` = {conviteId}
+               AND `Status` = 'Ativo'
+               AND `ExpiraEm` > {agoraUtc}
+               AND `QuantidadeUtilizacoes` < `LimiteUsuarios`
+             """,
+            cancellationToken);
+
+        return afetados > 0;
+    }
+
+    public async Task CompensarUtilizacaoAsync(
+        int conviteId,
+        DateTime agoraUtc,
+        CancellationToken cancellationToken = default)
+    {
+        await Context.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+             UPDATE `ConvitesNegocio`
+             SET `QuantidadeUtilizacoes` = GREATEST(`QuantidadeUtilizacoes` - 1, 0),
+                 `Status` = CASE
+                     WHEN `Status` = 'Esgotado'
+                          AND `QuantidadeUtilizacoes` - 1 < `LimiteUsuarios`
+                          AND `ExpiraEm` > {agoraUtc}
+                     THEN 'Ativo'
+                     ELSE `Status`
+                 END,
+                 `UpdatedAt` = {agoraUtc}
+             WHERE `Id` = {conviteId}
+             """,
+            cancellationToken);
     }
 }

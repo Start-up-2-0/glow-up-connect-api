@@ -2,9 +2,8 @@ namespace GLOWAPI.Domain.Enums;
 
 public enum StatusConviteNegocio
 {
-    Pendente = 1,
-    Aceito = 2,
-    Rejeitado = 3,
-    Cancelado = 4,
-    Expirado = 5
+    Ativo = 1,
+    Expirado = 2,
+    Esgotado = 3,
+    Cancelado = 4
 }

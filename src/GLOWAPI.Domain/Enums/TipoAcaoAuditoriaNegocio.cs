@@ -45,5 +45,8 @@ public enum TipoAcaoAuditoriaNegocio
     ConciliacaoImportada = 44,
     MetaCriada = 46,
     MetaAlterada = 47,
-    MetaDesativada = 48
+    MetaDesativada = 48,
+    ConviteLinkCriado = 49,
+    ConviteLinkCancelado = 50,
+    ConviteLinkAceito = 51
 }
