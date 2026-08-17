@@ -51,7 +51,7 @@ public class ConvitesPublicoController : ControllerBase
     {
         var convite = await _conviteNegocioService.AceitarComCadastroAsync(
             token,
-            request.Cadastro,
+            request,
             cancellationToken);
 
         return StatusCode(

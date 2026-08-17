@@ -29,6 +29,8 @@ public class ConviteNegocioServiceTests
     private readonly Mock<IUsuarioService> _usuarioService = new();
     private readonly Mock<IGlowTokenService> _tokenService = new();
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
+    private readonly Mock<IAvatarBase64Decoder> _avatarBase64Decoder = new();
+    private readonly Mock<IBase64ImageThumbnailer> _thumbnailer = new();
 
     public ConviteNegocioServiceTests()
     {
@@ -316,12 +318,15 @@ public class ConviteNegocioServiceTests
             .Returns(Task.CompletedTask);
 
         var service = CreateService();
-        var response = await service.AceitarComCadastroAsync(TokenUuid, new CadastrarClienteDto
+        var response = await service.AceitarComCadastroAsync(TokenUuid, new AceitarConviteComCadastroRequestDto
         {
-            Nome = "Novo",
-            Email = "novo@email.com",
-            Telefone = "11999999999",
-            Senha = "Senha@123"
+            Cadastro = new CadastrarClienteDto
+            {
+                Nome = "Novo",
+                Email = "novo@email.com",
+                Telefone = "11999999999",
+                Senha = "Senha@123"
+            }
         });
 
         Assert.Equal(1, response.QuantidadeUtilizacoes);
@@ -414,6 +419,8 @@ public class ConviteNegocioServiceTests
             _usuarioService.Object,
             _tokenService.Object,
             _currentUserContext.Object,
+            _avatarBase64Decoder.Object,
+            _thumbnailer.Object,
             Options.Create(new AuthOptions
             {
                 FrontendBaseUrl = "https://app.test",

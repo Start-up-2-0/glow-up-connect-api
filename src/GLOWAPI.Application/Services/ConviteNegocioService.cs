@@ -7,6 +7,7 @@ using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Auth;
 using GLOWAPI.Domain.Exceptions.Negocios;
+using GLOWAPI.Domain.Exceptions.Usuario;
 using Microsoft.Extensions.Options;
 
 namespace GLOWAPI.Application.Services;
@@ -34,7 +35,14 @@ public class ConviteNegocioService : IConviteNegocioService
     private readonly IUsuarioService _usuarioService;
     private readonly IGlowTokenService _tokenService;
     private readonly ICurrentUserContext _currentUserContext;
+    private readonly IAvatarBase64Decoder _avatarBase64Decoder;
+    private readonly IBase64ImageThumbnailer _thumbnailer;
     private readonly AuthOptions _authOptions;
+
+    private sealed record AceitarConviteProfissionalExtras(
+        string? NomePublico,
+        string? Foto,
+        string? FotoContentType);
 
     public ConviteNegocioService(
         IConviteNegocioRepository conviteRepository,
@@ -48,6 +56,8 @@ public class ConviteNegocioService : IConviteNegocioService
         IUsuarioService usuarioService,
         IGlowTokenService tokenService,
         ICurrentUserContext currentUserContext,
+        IAvatarBase64Decoder avatarBase64Decoder,
+        IBase64ImageThumbnailer thumbnailer,
         IOptions<AuthOptions> authOptions)
     {
         _conviteRepository = conviteRepository;
@@ -61,6 +71,8 @@ public class ConviteNegocioService : IConviteNegocioService
         _usuarioService = usuarioService;
         _tokenService = tokenService;
         _currentUserContext = currentUserContext;
+        _avatarBase64Decoder = avatarBase64Decoder;
+        _thumbnailer = thumbnailer;
         _authOptions = authOptions.Value;
     }
 
@@ -197,19 +209,30 @@ public class ConviteNegocioService : IConviteNegocioService
         CancellationToken cancellationToken = default)
     {
         var usuario = await ObterUsuarioAtualAsync(cancellationToken);
-        return await AceitarParaUsuarioAsync(token, usuario, cancellationToken);
+        return await AceitarParaUsuarioAsync(token, usuario, null, cancellationToken);
     }
 
     public async Task<ConviteNegocioResponseDto> AceitarComCadastroAsync(
         string token,
-        CadastrarClienteDto cadastro,
+        AceitarConviteComCadastroRequestDto request,
         CancellationToken cancellationToken = default)
     {
         // Valida o convite antes de criar a conta (não consome vaga no preview).
         await ObterConviteValidoAsync(token, cancellationToken);
 
-        var usuario = await _usuarioService.CadastrarClienteAsync(cadastro, cancellationToken);
-        return await AceitarParaUsuarioAsync(token, usuario, cancellationToken);
+        var usuario = await _usuarioService.CadastrarClienteAsync(request.Cadastro, cancellationToken);
+
+        AceitarConviteProfissionalExtras? extras = null;
+        if (!string.IsNullOrWhiteSpace(request.NomePublico)
+            || !string.IsNullOrWhiteSpace(request.Foto))
+        {
+            extras = new AceitarConviteProfissionalExtras(
+                request.NomePublico,
+                request.Foto,
+                request.FotoContentType);
+        }
+
+        return await AceitarParaUsuarioAsync(token, usuario, extras, cancellationToken);
     }
 
     public async Task<ConviteNegocioResponseDto> CancelarAsync(
@@ -246,6 +269,7 @@ public class ConviteNegocioService : IConviteNegocioService
     private async Task<ConviteNegocioResponseDto> AceitarParaUsuarioAsync(
         string token,
         Usuario usuario,
+        AceitarConviteProfissionalExtras? profissionalExtras,
         CancellationToken cancellationToken)
     {
         var convite = await ObterConviteValidoAsync(token, cancellationToken);
@@ -291,7 +315,7 @@ public class ConviteNegocioService : IConviteNegocioService
             }
             else
             {
-                await GarantirVinculosProfissionalAsync(convite, usuario, cancellationToken);
+                await GarantirVinculosProfissionalAsync(convite, usuario, profissionalExtras, cancellationToken);
             }
 
             await _conviteRepository.AdicionarUtilizacaoAsync(
@@ -410,6 +434,7 @@ public class ConviteNegocioService : IConviteNegocioService
     private async Task GarantirVinculosProfissionalAsync(
         ConviteNegocio convite,
         Usuario usuario,
+        AceitarConviteProfissionalExtras? profissionalExtras,
         CancellationToken cancellationToken)
     {
         var vinculoUsuario = await _estabelecimentoUsuarioRepository.ObterPorUsuarioAsync(
@@ -443,6 +468,11 @@ public class ConviteNegocioService : IConviteNegocioService
 
         var profissional = await _profissionalRepository.ObterPorUsuarioIdAsync(usuario.Id, cancellationToken);
         var limiteProfissionalValidado = false;
+        var nomePublico = ResolverNomePublicoProfissional(convite, usuario, profissionalExtras);
+        var fotoProfissional = NormalizarFotoProfissionalOpcional(
+            profissionalExtras?.Foto,
+            profissionalExtras?.FotoContentType);
+
         if (profissional is null)
         {
             await ValidarLimiteProfissionaisAsync(convite.EstabelecimentoId, cancellationToken);
@@ -451,20 +481,31 @@ public class ConviteNegocioService : IConviteNegocioService
             profissional = new Profissional
             {
                 UsuarioId = usuario.Id,
-                NomePublico = string.IsNullOrWhiteSpace(convite.NomePublico) ? usuario.Nome : convite.NomePublico,
+                NomePublico = nomePublico,
                 Email = usuario.Email,
                 Telefone = usuario.Telefone,
                 TipoProfissional = ProfessionalType.VinculadoEstabelecimento,
+                Logo = fotoProfissional ?? string.Empty,
                 Ativo = true
             };
 
             await _profissionalRepository.AdicionarAsync(profissional, cancellationToken);
             await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
         }
-        else if (!profissional.Ativo)
+        else
         {
-            profissional.Ativo = true;
-            profissional.TipoProfissional = ProfessionalType.VinculadoEstabelecimento;
+            if (!profissional.Ativo)
+            {
+                profissional.Ativo = true;
+                profissional.TipoProfissional = ProfessionalType.VinculadoEstabelecimento;
+            }
+
+            profissional.NomePublico = nomePublico;
+            if (fotoProfissional is not null)
+            {
+                profissional.Logo = fotoProfissional;
+            }
+
             profissional.UpdatedAt = DateTime.UtcNow;
             _profissionalRepository.Atualizar(profissional);
         }
@@ -596,6 +637,48 @@ public class ConviteNegocioService : IConviteNegocioService
                 convite.ExpiraEm
             },
             cancellationToken);
+    }
+
+    private static string ResolverNomePublicoProfissional(
+        ConviteNegocio convite,
+        Usuario usuario,
+        AceitarConviteProfissionalExtras? profissionalExtras)
+    {
+        if (!string.IsNullOrWhiteSpace(profissionalExtras?.NomePublico))
+        {
+            return profissionalExtras.NomePublico.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(convite.NomePublico))
+        {
+            return convite.NomePublico;
+        }
+
+        return usuario.Nome;
+    }
+
+    private string? NormalizarFotoProfissionalOpcional(string? foto, string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(foto))
+        {
+            return null;
+        }
+
+        return NormalizarFotoProfissional(foto, contentType);
+    }
+
+    private string NormalizarFotoProfissional(string foto, string? contentType)
+    {
+        try
+        {
+            return _thumbnailer.ParaPersistencia(
+                _avatarBase64Decoder.ValidarENormalizar(foto.Trim(), contentType));
+        }
+        catch (AvatarInvalidoException ex)
+        {
+            throw new AvatarInvalidoException(
+                ex.Message.Replace("Avatar", "Foto do profissional", StringComparison.Ordinal));
+        }
     }
 
     private async Task<Usuario> ObterUsuarioAtualAsync(CancellationToken cancellationToken)

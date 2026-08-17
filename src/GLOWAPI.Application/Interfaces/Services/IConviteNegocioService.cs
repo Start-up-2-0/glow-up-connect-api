@@ -30,7 +30,7 @@ public interface IConviteNegocioService
 
     Task<ConviteNegocioResponseDto> AceitarComCadastroAsync(
         string token,
-        CadastrarClienteDto cadastro,
+        AceitarConviteComCadastroRequestDto request,
         CancellationToken cancellationToken = default);
 
     Task<ConviteNegocioResponseDto> CancelarAsync(
