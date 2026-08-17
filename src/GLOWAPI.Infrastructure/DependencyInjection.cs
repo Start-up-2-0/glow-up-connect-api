@@ -91,6 +91,8 @@ public static class DependencyInjection
         services.AddSingleton<IRequestProofService, RequestProofService>();
         services.AddMemoryCache();
         services.AddScoped<IMensagemNotificacaoRepository, MensagemNotificacaoRepository>();
+        services.AddScoped<ICompactacaoImagensRepository, CompactacaoImagensRepository>();
+        services.AddScoped<IRetencaoDadosRepository, RetencaoDadosRepository>();
 
         services.Configure<MercadoPagoOptions>(configuration.GetSection(MercadoPagoOptions.SectionName));
         services.Configure<GeocodificacaoOptions>(configuration.GetSection(GeocodificacaoOptions.SectionName));

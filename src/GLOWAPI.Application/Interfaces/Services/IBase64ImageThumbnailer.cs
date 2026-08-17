@@ -11,7 +11,8 @@ public interface IBase64ImageThumbnailer
     string ParaListagem(string? dataUriOuBase64, int maxLadoPx = 96, int qualidadeJpeg = 72);
 
     /// <summary>
-    /// Compacta imagem antes de persistir (logo/foto). Em falha devolve a entrada original.
+    /// Compacta imagem antes de persistir (logo/foto). Usa <see cref="Options.AvatarOptions"/> quando omitidos.
+    /// Em falha devolve a entrada original.
     /// </summary>
-    string ParaPersistencia(string dataUriOuBase64, int maxLadoPx = 512, int qualidadeJpeg = 82);
+    string ParaPersistencia(string dataUriOuBase64, int? maxLadoPx = null, int? qualidadeJpeg = null);
 }

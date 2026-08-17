@@ -2,10 +2,12 @@ using GLOWAPI.Application.DTOs.Assinaturas;
 using GLOWAPI.Application.DTOs.Equipe;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Options;
 using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Negocios;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace GLOWAPI.Tests.Unit.Application;
@@ -1112,7 +1114,7 @@ public class EquipeNegocioServiceTests
             _auditoriaNegocioService.Object,
             _equipeNotificacaoService.Object,
             _avatarBase64Decoder.Object,
-            new Base64ImageThumbnailer(),
+            new Base64ImageThumbnailer(Options.Create(new AvatarOptions())),
             _conviteNegocioRepository.Object);
 
     private static ModulosAssinaturaResponseDto CriarModulosPlus() =>

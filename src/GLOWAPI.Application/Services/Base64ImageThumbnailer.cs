@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Options;
+using Microsoft.Extensions.Options;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Processing;
@@ -8,6 +10,13 @@ namespace GLOWAPI.Application.Services;
 
 public partial class Base64ImageThumbnailer : IBase64ImageThumbnailer
 {
+    private readonly AvatarOptions _options;
+
+    public Base64ImageThumbnailer(IOptions<AvatarOptions> options)
+    {
+        _options = options.Value;
+    }
+
     public string ParaListagem(string? dataUriOuBase64, int maxLadoPx = 96, int qualidadeJpeg = 72)
     {
         if (string.IsNullOrWhiteSpace(dataUriOuBase64))
@@ -18,14 +27,16 @@ public partial class Base64ImageThumbnailer : IBase64ImageThumbnailer
         return Redimensionar(dataUriOuBase64, maxLadoPx, qualidadeJpeg, falhaRetornaVazio: true);
     }
 
-    public string ParaPersistencia(string dataUriOuBase64, int maxLadoPx = 512, int qualidadeJpeg = 82)
+    public string ParaPersistencia(string dataUriOuBase64, int? maxLadoPx = null, int? qualidadeJpeg = null)
     {
         if (string.IsNullOrWhiteSpace(dataUriOuBase64))
         {
             return dataUriOuBase64;
         }
 
-        var resultado = Redimensionar(dataUriOuBase64, maxLadoPx, qualidadeJpeg, falhaRetornaVazio: false);
+        var lado = maxLadoPx ?? _options.PersistenciaMaxLadoPx;
+        var qualidade = qualidadeJpeg ?? _options.PersistenciaQualidadeJpeg;
+        var resultado = Redimensionar(dataUriOuBase64, lado, qualidade, falhaRetornaVazio: false);
         return string.IsNullOrEmpty(resultado) ? dataUriOuBase64 : resultado;
     }
 

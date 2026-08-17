@@ -33,6 +33,13 @@ public class AvatarBase64DecoderTests
     }
 
     [Fact]
+    public void ValidarENormalizar_DeveRespeitarLimitePadraoDe512Kb()
+    {
+        var options = Options.Create(new AvatarOptions());
+        Assert.Equal(524_288, options.Value.MaxSizeBytes);
+    }
+
+    [Fact]
     public void ValidarENormalizar_DeveLancarExcecao_QuandoBase64Invalido()
     {
         Assert.Throws<AvatarInvalidoException>(() =>

@@ -12,7 +12,7 @@ public partial class AvatarBase64Decoder : IAvatarBase64Decoder
     private readonly IBase64ImageThumbnailer _thumbnailer;
 
     public AvatarBase64Decoder(IOptions<AvatarOptions> options)
-        : this(options, new Base64ImageThumbnailer())
+        : this(options, new Base64ImageThumbnailer(options))
     {
     }
 

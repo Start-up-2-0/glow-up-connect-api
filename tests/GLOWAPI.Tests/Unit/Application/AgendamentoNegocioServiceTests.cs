@@ -204,7 +204,7 @@ public class AgendamentoNegocioServiceTests
             _authSessionService.Object,
             _propostaRemarcacaoRepository.Object,
             _avaliacaoAtendimentoRepository.Object,
-            new Base64ImageThumbnailer(),
+            new Base64ImageThumbnailer(Options.Create(new AvatarOptions())),
             Options.Create(new AuthOptions { FrontendBaseUrl = "http://localhost:5173" }));
 
     private static Agendamento CriarAgendamentoPendente()

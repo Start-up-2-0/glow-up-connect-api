@@ -72,6 +72,8 @@ builder.Services.AddHostedService<MensagemNotificacaoRecuperacaoWorker>();
 builder.Services.AddHostedService<AssinaturaCobrancaWorker>();
 builder.Services.AddHostedService<AvaliacaoAgregadoWorker>();
 builder.Services.AddHostedService<GLOWAPI.Application.Services.ContasVencimentoBackgroundService>();
+builder.Services.AddHostedService<RetencaoDadosWorker>();
+builder.Services.AddHostedService<CompactacaoImagensWorker>();
 
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
