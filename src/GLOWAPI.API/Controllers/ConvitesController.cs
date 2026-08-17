@@ -56,6 +56,24 @@ public class ConvitesController : ControllerBase
             convites));
     }
 
+    [HttpGet("estabelecimentos/{estabelecimentoId:int}/convites/{conviteId:int}/link")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.EquipeGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> ObterLink(
+        int estabelecimentoId,
+        int conviteId,
+        CancellationToken cancellationToken)
+    {
+        var convite = await _conviteNegocioService.ObterLinkAsync(
+            estabelecimentoId,
+            conviteId,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<ConviteNegocioCriadoResponseDto>.From(
+            "Link de convite recuperado com sucesso.",
+            convite));
+    }
+
     [HttpDelete("estabelecimentos/{estabelecimentoId:int}/convites/{conviteId:int}")]
     [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
     [RequerPermissaoNegocio(PermissaoNegocio.EquipeGerenciar, "estabelecimentoId")]

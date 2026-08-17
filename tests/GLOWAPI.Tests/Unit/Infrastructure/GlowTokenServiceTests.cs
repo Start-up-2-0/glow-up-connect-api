@@ -79,6 +79,24 @@ public class GlowTokenServiceTests
     }
 
     [Fact]
+    public void ProtegerToken_DeveSerRecuperavel()
+    {
+        var token = Guid.NewGuid().ToString("D");
+
+        var protegido = _service.ProtegerToken(token);
+        var recuperado = _service.DesprotegerToken(protegido);
+
+        Assert.Equal(token, recuperado);
+    }
+
+    [Fact]
+    public void DesprotegerToken_DeveRetornarNull_QuandoPayloadInvalido()
+    {
+        Assert.Null(_service.DesprotegerToken("payload-invalido"));
+        Assert.Null(_service.DesprotegerToken(string.Empty));
+    }
+
+    [Fact]
     public void GerarRefreshToken_DeveGerarValoresDistintos()
     {
         var token1 = _service.GerarRefreshToken();

@@ -15,6 +15,8 @@ public class ConviteNegocio
     public bool PodeReceberAgendamento { get; set; } = true;
     public StatusConviteNegocio Status { get; set; } = StatusConviteNegocio.Ativo;
     public string TokenHash { get; set; } = string.Empty;
+    /// <summary>Token do link cifrado (AES-GCM) para recuperação por quem gerencia a equipe.</summary>
+    public string? TokenProtegido { get; set; }
     public int LimiteUsuarios { get; set; } = 1;
     public int QuantidadeUtilizacoes { get; set; }
     public DateTime ExpiraEm { get; set; }

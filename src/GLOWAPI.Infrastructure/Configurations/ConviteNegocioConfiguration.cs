@@ -41,6 +41,9 @@ public class ConviteNegocioConfiguration : IEntityTypeConfiguration<ConviteNegoc
             .HasMaxLength(128)
             .IsRequired();
 
+        builder.Property(convite => convite.TokenProtegido)
+            .HasMaxLength(256);
+
         builder.Property(convite => convite.LimiteUsuarios)
             .IsRequired();
 

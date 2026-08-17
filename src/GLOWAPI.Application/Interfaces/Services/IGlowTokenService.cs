@@ -12,6 +12,8 @@ public interface IGlowTokenService
     GlowTokenMetadata? ValidarMetadata(string token);
     string GerarRefreshToken();
     string HashToken(string token);
+    string ProtegerToken(string token);
+    string? DesprotegerToken(string tokenProtegido);
     DateTime ObterExpiracaoAccessToken(DateTime issuedAt);
     DateTime ObterExpiracaoRefreshToken(DateTime issuedAt);
     bool EstaExpirado(GlowTokenMetadata metadata, DateTime utcNow);

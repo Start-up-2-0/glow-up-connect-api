@@ -110,6 +110,7 @@ public class ConviteNegocioService : IConviteNegocioService
                 && request.PodeReceberAgendamento,
             Status = StatusConviteNegocio.Ativo,
             TokenHash = _tokenService.HashToken(token),
+            TokenProtegido = _tokenService.ProtegerToken(token),
             LimiteUsuarios = request.LimiteUsuarios,
             QuantidadeUtilizacoes = 0,
             ExpiraEm = expiraEm,
@@ -152,6 +153,43 @@ public class ConviteNegocioService : IConviteNegocioService
             cancellationToken);
 
         return convites.Select(ConviteNegocioResponseDto.From).ToList();
+    }
+
+    public async Task<ConviteNegocioCriadoResponseDto> ObterLinkAsync(
+        int estabelecimentoId,
+        int conviteId,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.EquipeGerenciar,
+            cancellationToken);
+
+        var convite = await _conviteRepository.ObterPorIdAsync(conviteId, cancellationToken);
+        if (convite is null || convite.EstabelecimentoId != estabelecimentoId)
+        {
+            throw new ConviteNegocioNaoEncontradoException();
+        }
+
+        if (convite.Status != StatusConviteNegocio.Ativo)
+        {
+            throw new ConviteNegocioIndisponivelException();
+        }
+
+        if (string.IsNullOrWhiteSpace(convite.TokenProtegido))
+        {
+            throw new ConviteNegocioInvalidoException(
+                "Este convite não possui link recuperável. Gere um novo link.");
+        }
+
+        var token = _tokenService.DesprotegerToken(convite.TokenProtegido);
+        if (string.IsNullOrWhiteSpace(token) || !Guid.TryParse(token, out var tokenGuid))
+        {
+            throw new ConviteNegocioInvalidoException(
+                "Não foi possível recuperar o link deste convite. Gere um novo link.");
+        }
+
+        return ConviteNegocioCriadoResponseDto.From(convite, MontarLinkConvite(tokenGuid.ToString("D")));
     }
 
     public async Task<ConviteNegocioResponseDto> AceitarAsync(

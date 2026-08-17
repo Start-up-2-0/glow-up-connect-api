@@ -95,6 +95,9 @@ public class ConviteNegocioServiceTests
             .Setup(s => s.HashToken(It.IsAny<string>()))
             .Callback<string>(token => tokenHasheado = token)
             .Returns("hash-token");
+        _tokenService
+            .Setup(s => s.ProtegerToken(It.IsAny<string>()))
+            .Returns<string>(token => $"protected:{token}");
 
         var service = CreateService();
         var antes = DateTime.UtcNow;
@@ -117,6 +120,7 @@ public class ConviteNegocioServiceTests
         var uuidNoLink = response.LinkConvite["https://landing.test/convite/".Length..];
         Assert.True(Guid.TryParse(uuidNoLink, out _));
         Assert.Equal(uuidNoLink, tokenHasheado);
+        Assert.Equal($"protected:{uuidNoLink}", conviteCriado!.TokenProtegido);
         _auditoriaNegocioService.Verify(s => s.RegistrarAsync(
             20,
             TipoAcaoAuditoriaNegocio.ConviteLinkCriado,
@@ -323,6 +327,58 @@ public class ConviteNegocioServiceTests
         Assert.Equal(1, response.QuantidadeUtilizacoes);
         _usuarioService.Verify(s => s.CadastrarClienteAsync(
             It.IsAny<CadastrarClienteDto>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ObterLinkAsync_DeveRetornarLinkParaConviteAtivo()
+    {
+        var token = Guid.NewGuid().ToString("D");
+        var convite = CriarConviteAtivo();
+        convite.TokenProtegido = "protected-token";
+
+        _conviteRepository.Setup(r => r.ObterPorIdAsync(40, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(convite);
+        _tokenService.Setup(s => s.DesprotegerToken("protected-token")).Returns(token);
+
+        var service = CreateService();
+        var response = await service.ObterLinkAsync(20, 40);
+
+        Assert.StartsWith("https://landing.test/convite/", response.LinkConvite);
+        Assert.EndsWith(token, response.LinkConvite);
+        Assert.Equal(StatusConviteNegocio.Ativo.ToString(), response.Status);
+    }
+
+    [Fact]
+    public async Task ObterLinkAsync_DeveFalharQuandoConviteNaoEstiverAtivo()
+    {
+        var convite = CriarConviteAtivo();
+        convite.Status = StatusConviteNegocio.Cancelado;
+        convite.TokenProtegido = "protected-token";
+
+        _conviteRepository.Setup(r => r.ObterPorIdAsync(40, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(convite);
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<ConviteNegocioIndisponivelException>(() =>
+            service.ObterLinkAsync(20, 40));
+    }
+
+    [Fact]
+    public async Task ObterLinkAsync_DeveFalharQuandoTokenNaoForRecuperavel()
+    {
+        var convite = CriarConviteAtivo();
+        convite.TokenProtegido = null;
+
+        _conviteRepository.Setup(r => r.ObterPorIdAsync(40, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(convite);
+
+        var service = CreateService();
+
+        var ex = await Assert.ThrowsAsync<ConviteNegocioInvalidoException>(() =>
+            service.ObterLinkAsync(20, 40));
+
+        Assert.Contains("link recuperável", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

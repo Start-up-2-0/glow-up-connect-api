@@ -19,6 +19,11 @@ public interface IConviteNegocioService
         ConviteNegocioFiltroDto filtro,
         CancellationToken cancellationToken = default);
 
+    Task<ConviteNegocioCriadoResponseDto> ObterLinkAsync(
+        int estabelecimentoId,
+        int conviteId,
+        CancellationToken cancellationToken = default);
+
     Task<ConviteNegocioResponseDto> AceitarAsync(
         string token,
         CancellationToken cancellationToken = default);
