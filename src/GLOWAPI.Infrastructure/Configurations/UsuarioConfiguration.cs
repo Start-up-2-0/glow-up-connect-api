@@ -85,6 +85,19 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         builder.Property(usuario => usuario.WhatsAppOptIn)
             .HasDefaultValue(false);
 
+        builder.Property(usuario => usuario.ExclusaoStatus)
+            .HasConversion(
+                status => status.ToString(),
+                status => Enum.Parse<ExclusaoStatus>(status))
+            .IsRequired()
+            .HasMaxLength(20)
+            .HasDefaultValue(ExclusaoStatus.Nenhuma);
+
+        builder.Property(usuario => usuario.ExclusaoSolicitadaEm);
+        builder.Property(usuario => usuario.ExclusaoEfetivarEm);
+
+        builder.HasIndex(usuario => new { usuario.ExclusaoStatus, usuario.ExclusaoEfetivarEm });
+
         builder.Property(usuario => usuario.CodigoAgendamento)
             .HasMaxLength(32);
 

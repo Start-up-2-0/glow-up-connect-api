@@ -1329,7 +1329,7 @@ public class AssinaturaService : IAssinaturaService
                 userId,
                 cancellationToken);
 
-            if (vinculo is null)
+            if (vinculo is null || vinculo.RoleNoEstabelecimento != EstablishmentUserRole.Owner)
             {
                 throw new UsuarioSemPermissaoAssinaturaException();
             }

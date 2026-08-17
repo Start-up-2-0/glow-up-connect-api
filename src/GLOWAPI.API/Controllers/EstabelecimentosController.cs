@@ -117,6 +117,7 @@ public class EstabelecimentosController : ControllerBase
     }
 
     [HttpPost("{estabelecimentoId:int}/whatsapp/solicitar-confirmacao")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.WhatsApp, "estabelecimentoId")]
     [RequerPermissaoNegocio(PermissaoNegocio.NegocioEditar, "estabelecimentoId")]
     public async Task<IActionResult> SolicitarConfirmacaoWhatsAppEstabelecimento(
         int estabelecimentoId,
@@ -139,6 +140,7 @@ public class EstabelecimentosController : ControllerBase
             "CONFIRMACAO_WHATSAPP_DESCONTINUADA"));
 
     [HttpPost("{estabelecimentoId:int}/whatsapp/opt-in")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.WhatsApp, "estabelecimentoId")]
     [RequerPermissaoNegocio(PermissaoNegocio.NegocioEditar, "estabelecimentoId")]
     public async Task<IActionResult> AtualizarWhatsAppOptInEstabelecimento(
         int estabelecimentoId,

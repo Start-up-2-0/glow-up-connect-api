@@ -143,7 +143,13 @@ public class AuthSessionService : IAuthSessionService
         ValidarContextoSessao(sessao, context);
 
         var usuario = sessao.Usuario;
-        if (!usuario.PodeAutenticarOnboarding(_authOptions.MaxLoginAttempts))
+        if (usuario.ExclusaoPendenteDentroDoPrazo(DateTime.UtcNow))
+        {
+            throw new ContaEmExclusaoException(usuario.ExclusaoEfetivarEm);
+        }
+
+        if (usuario.ExclusaoStatus == Domain.Enums.ExclusaoStatus.Pendente
+            || !usuario.PodeAutenticarOnboarding(_authOptions.MaxLoginAttempts))
         {
             if (usuario.EstaBloqueado(_authOptions.MaxLoginAttempts))
             {
@@ -192,6 +198,24 @@ public class AuthSessionService : IAuthSessionService
     {
         sessao.Revogar(DateTime.UtcNow);
         _sessaoRepository.Atualizar(sessao);
+        await _sessaoRepository.SalvarAlteracoesAsync(cancellationToken);
+    }
+
+    public async Task RevogarTodasSessoesDoUsuarioAsync(int usuarioId, CancellationToken cancellationToken = default)
+    {
+        var sessoes = await _sessaoRepository.ListarAtivasPorUsuarioAsync(usuarioId, cancellationToken);
+        if (sessoes.Count == 0)
+        {
+            return;
+        }
+
+        var agora = DateTime.UtcNow;
+        foreach (var sessao in sessoes)
+        {
+            sessao.Revogar(agora);
+            _sessaoRepository.Atualizar(sessao);
+        }
+
         await _sessaoRepository.SalvarAlteracoesAsync(cancellationToken);
     }
 

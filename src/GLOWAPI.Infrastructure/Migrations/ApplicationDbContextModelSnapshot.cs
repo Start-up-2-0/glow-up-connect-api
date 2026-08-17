@@ -317,6 +317,10 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
 
+                    b.Property<string>("StatusAntesExclusao")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
                     b.Property<string>("TipoAssinatura")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -1049,6 +1053,10 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("varchar(128)");
+
+                    b.Property<string>("TokenProtegido")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -2330,6 +2338,19 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
+                    b.Property<DateTime?>("ExclusaoEfetivarEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ExclusaoSolicitadaEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ExclusaoStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("Nenhuma");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -2393,6 +2414,8 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("ExclusaoStatus", "ExclusaoEfetivarEm");
 
                     b.HasIndex("WhatsAppConfirmacaoCodigoHash");
 

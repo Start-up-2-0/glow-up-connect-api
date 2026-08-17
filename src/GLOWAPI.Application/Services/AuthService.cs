@@ -4,6 +4,7 @@ using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Auth;
 using GLOWAPI.Application.Options;
+using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Auth;
 using Microsoft.Extensions.Options;
 
@@ -57,6 +58,18 @@ public class AuthService : IAuthService
         }
 
         var requerConfirmacaoEmail = !usuario.Ativo && usuario.PendenteConfirmacaoEmail();
+
+        if (usuario.ExclusaoPendenteDentroDoPrazo(DateTime.UtcNow))
+        {
+            await _auditLogger.LoginFailedAsync(email, "conta_em_exclusao", context.Ip, context.UserAgent, usuario.Id, cancellationToken);
+            throw new ContaEmExclusaoException(usuario.ExclusaoEfetivarEm);
+        }
+
+        if (usuario.ExclusaoStatus == ExclusaoStatus.Pendente)
+        {
+            await _auditLogger.LoginFailedAsync(email, "usuario_inativo", context.Ip, context.UserAgent, usuario.Id, cancellationToken);
+            throw new InactiveUserException();
+        }
 
         if (!usuario.Ativo && !requerConfirmacaoEmail)
         {
@@ -131,6 +144,18 @@ public class AuthService : IAuthService
             await _auditLogger.LoginFailedAsync(codigo, "codigo_agendamento_inexistente", context.Ip, context.UserAgent, cancellationToken: cancellationToken);
             await _loginFailureRateLimit.RegistrarFalhaAsync(ip, cancellationToken);
             throw new InvalidCredentialsException();
+        }
+
+        if (usuario.ExclusaoPendenteDentroDoPrazo(DateTime.UtcNow))
+        {
+            await _auditLogger.LoginFailedAsync(usuario.Email, "conta_em_exclusao", context.Ip, context.UserAgent, usuario.Id, cancellationToken);
+            throw new ContaEmExclusaoException(usuario.ExclusaoEfetivarEm);
+        }
+
+        if (usuario.ExclusaoStatus == ExclusaoStatus.Pendente)
+        {
+            await _auditLogger.LoginFailedAsync(usuario.Email, "usuario_inativo", context.Ip, context.UserAgent, usuario.Id, cancellationToken);
+            throw new InactiveUserException();
         }
 
         if (!usuario.Ativo)

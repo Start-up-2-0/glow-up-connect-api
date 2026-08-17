@@ -68,11 +68,15 @@ public class GlowTokenAuthenticationMiddleware
         }
         catch (AuthenticationException ex)
         {
-            var statusCode = ex is UserBlockedException or InactiveUserException
+            var statusCode = ex is UserBlockedException or InactiveUserException or ContaEmExclusaoException
                 ? StatusCodes.Status403Forbidden
                 : StatusCodes.Status401Unauthorized;
 
-            await WriteErrorAsync(context, statusCode, ex.Message, ex.Code);
+            object? details = ex is ContaEmExclusaoException contaEmExclusao
+                ? new { reativarAte = contaEmExclusao.ReativarAte }
+                : null;
+
+            await WriteErrorAsync(context, statusCode, ex.Message, ex.Code, details);
             await auditLogger.AccessDeniedAsync(ex.Code, sessionContext.Ip, sessionContext.UserAgent);
         }
     }
@@ -83,7 +87,7 @@ public class GlowTokenAuthenticationMiddleware
         return limite <= DateTime.UtcNow;
     }
 
-    private static async Task WriteErrorAsync(HttpContext context, int statusCode, string message, string code)
+    private static async Task WriteErrorAsync(HttpContext context, int statusCode, string message, string code, object? details = null)
     {
         if (context.Response.HasStarted)
         {
@@ -92,6 +96,6 @@ public class GlowTokenAuthenticationMiddleware
 
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/json";
-        await context.Response.WriteAsJsonAsync(ApiErrorResponse.From(message, code));
+        await context.Response.WriteAsJsonAsync(ApiErrorResponse.From(message, code, details));
     }
 }

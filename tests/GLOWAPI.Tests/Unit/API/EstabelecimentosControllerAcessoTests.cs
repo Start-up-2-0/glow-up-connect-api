@@ -310,4 +310,40 @@ public class EstabelecimentosControllerAcessoTests
         Assert.NotNull(modulo);
         Assert.Equal(ModuloAssinatura.HorariosAtendimento, modulo!.Modulo);
     }
+
+    [Fact]
+    public void SolicitarConfirmacaoWhatsAppEstabelecimento_DeveExigirModuloWhatsApp()
+    {
+        var method = typeof(EstabelecimentosController).GetMethod(
+            nameof(EstabelecimentosController.SolicitarConfirmacaoWhatsAppEstabelecimento));
+
+        var permissao = method!.GetCustomAttributes<RequerPermissaoNegocioAttribute>()
+            .SingleOrDefault();
+        var modulo = method!.GetCustomAttributes<RequerModuloAssinaturaAttribute>()
+            .SingleOrDefault();
+
+        Assert.NotNull(permissao);
+        Assert.Equal(PermissaoNegocio.NegocioEditar, permissao!.Permissao);
+        Assert.NotNull(modulo);
+        Assert.Equal(ModuloAssinatura.WhatsApp, modulo!.Modulo);
+        Assert.Equal("estabelecimentoId", modulo.ParametroId);
+    }
+
+    [Fact]
+    public void AtualizarWhatsAppOptInEstabelecimento_DeveExigirModuloWhatsApp()
+    {
+        var method = typeof(EstabelecimentosController).GetMethod(
+            nameof(EstabelecimentosController.AtualizarWhatsAppOptInEstabelecimento));
+
+        var permissao = method!.GetCustomAttributes<RequerPermissaoNegocioAttribute>()
+            .SingleOrDefault();
+        var modulo = method!.GetCustomAttributes<RequerModuloAssinaturaAttribute>()
+            .SingleOrDefault();
+
+        Assert.NotNull(permissao);
+        Assert.Equal(PermissaoNegocio.NegocioEditar, permissao!.Permissao);
+        Assert.NotNull(modulo);
+        Assert.Equal(ModuloAssinatura.WhatsApp, modulo!.Modulo);
+        Assert.Equal("estabelecimentoId", modulo.ParametroId);
+    }
 }

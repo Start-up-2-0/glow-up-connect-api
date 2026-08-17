@@ -36,11 +36,15 @@ public class ExceptionMiddleware
             {
                 InvalidCredentialsException or UnauthorizedException or TokenExpiredException or InvalidTokenException
                     => HttpStatusCode.Unauthorized,
-                UserBlockedException or InactiveUserException or EmailNaoConfirmadoException => HttpStatusCode.Forbidden,
+                UserBlockedException or InactiveUserException or EmailNaoConfirmadoException or ContaEmExclusaoException => HttpStatusCode.Forbidden,
                 _ => HttpStatusCode.Unauthorized
             };
 
-            await WriteErrorAsync(context, (int)statusCode, ex.Message, ex.Code);
+            var details = ex is ContaEmExclusaoException contaEmExclusao
+                ? new { reativarAte = contaEmExclusao.ReativarAte }
+                : null;
+
+            await WriteErrorAsync(context, (int)statusCode, ex.Message, ex.Code, details);
             _logger.LogWarning(ex, "Falha de autenticação: {Code}", ex.Code);
         }
         catch (DomainException ex)

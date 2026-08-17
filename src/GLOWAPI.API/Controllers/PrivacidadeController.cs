@@ -1,4 +1,5 @@
 using GLOWAPI.API.Models;
+using GLOWAPI.Application.DTOs.Privacidade;
 using GLOWAPI.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,10 +10,14 @@ namespace GLOWAPI.API.Controllers;
 public class PrivacidadeController : ControllerBase
 {
     private readonly IPrivacidadeTitularService _privacidadeTitularService;
+    private readonly IExclusaoContaService _exclusaoContaService;
 
-    public PrivacidadeController(IPrivacidadeTitularService privacidadeTitularService)
+    public PrivacidadeController(
+        IPrivacidadeTitularService privacidadeTitularService,
+        IExclusaoContaService exclusaoContaService)
     {
         _privacidadeTitularService = privacidadeTitularService;
+        _exclusaoContaService = exclusaoContaService;
     }
 
     [HttpGet("meus-dados")]
@@ -23,11 +28,13 @@ public class PrivacidadeController : ControllerBase
     }
 
     [HttpPost("solicitar-exclusao")]
-    public async Task<IActionResult> SolicitarExclusao(CancellationToken cancellationToken)
+    public async Task<IActionResult> SolicitarExclusao(
+        [FromBody] SolicitarExclusaoContaRequestDto request,
+        CancellationToken cancellationToken)
     {
-        await _privacidadeTitularService.SolicitarExclusaoAsync(cancellationToken);
+        await _exclusaoContaService.SolicitarAsync(request.Senha, cancellationToken);
         return Ok(ApiSuccessResponse.From(
-            "Solicitacao de exclusao registrada. Nossa equipe entrara em contato conforme prazos legais."));
+            "Exclusao solicitada. Voce tem 30 dias para reativar a conta."));
     }
 
     [HttpPost("revogar-consentimento")]

@@ -10,19 +10,22 @@ public class AssinaturaCobrancaWorkerService : IAssinaturaCobrancaWorkerService
     private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
     private readonly IAssinaturaTitularContatoService _assinaturaTitularContatoService;
     private readonly IAssinaturaEncerramentoService _assinaturaEncerramentoService;
+    private readonly IExclusaoContaService _exclusaoContaService;
 
     public AssinaturaCobrancaWorkerService(
         IAssinaturaRepository assinaturaRepository,
         ICobrancaAssinaturaService cobrancaAssinaturaService,
         IAssinaturaNotificacaoService assinaturaNotificacaoService,
         IAssinaturaTitularContatoService assinaturaTitularContatoService,
-        IAssinaturaEncerramentoService assinaturaEncerramentoService)
+        IAssinaturaEncerramentoService assinaturaEncerramentoService,
+        IExclusaoContaService exclusaoContaService)
     {
         _assinaturaRepository = assinaturaRepository;
         _cobrancaAssinaturaService = cobrancaAssinaturaService;
         _assinaturaNotificacaoService = assinaturaNotificacaoService;
         _assinaturaTitularContatoService = assinaturaTitularContatoService;
         _assinaturaEncerramentoService = assinaturaEncerramentoService;
+        _exclusaoContaService = exclusaoContaService;
     }
 
     public async Task ProcessarCicloDiarioAsync(CancellationToken cancellationToken = default)
@@ -34,6 +37,7 @@ public class AssinaturaCobrancaWorkerService : IAssinaturaCobrancaWorkerService
         await _cobrancaAssinaturaService.MarcarAtrasadasAsync(cancellationToken);
         await _assinaturaEncerramentoService.ProcessarCancelamentosAgendadosAsync(hoje, cancellationToken);
         await _cobrancaAssinaturaService.EncerrarInadimplentesAsync(cancellationToken);
+        await _exclusaoContaService.EfetivarVencidasAsync(cancellationToken);
     }
 
     private async Task ProcessarAlertasAsync(DateTime dataReferenciaUtc, CancellationToken cancellationToken)

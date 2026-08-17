@@ -18,6 +18,7 @@ public class AuthController : ControllerBase
     private readonly IConfirmacaoEmailService _confirmacaoEmailService;
     private readonly IConfirmacaoWhatsAppService _confirmacaoWhatsAppService;
     private readonly ICaptchaValidator _captchaValidator;
+    private readonly IExclusaoContaService _exclusaoContaService;
     private readonly AuthOptions _authOptions;
     private readonly IWebHostEnvironment _environment;
 
@@ -26,6 +27,7 @@ public class AuthController : ControllerBase
         IConfirmacaoEmailService confirmacaoEmailService,
         IConfirmacaoWhatsAppService confirmacaoWhatsAppService,
         ICaptchaValidator captchaValidator,
+        IExclusaoContaService exclusaoContaService,
         IOptions<AuthOptions> authOptions,
         IWebHostEnvironment environment)
     {
@@ -33,6 +35,7 @@ public class AuthController : ControllerBase
         _confirmacaoEmailService = confirmacaoEmailService;
         _confirmacaoWhatsAppService = confirmacaoWhatsAppService;
         _captchaValidator = captchaValidator;
+        _exclusaoContaService = exclusaoContaService;
         _authOptions = authOptions.Value;
         _environment = environment;
     }
@@ -167,6 +170,39 @@ public class AuthController : ControllerBase
         await _confirmacaoWhatsAppService.ReenviarConfirmacaoAsync(request.Email, cancellationToken);
         return Ok(ApiSuccessResponse.From(
             "Se o e-mail estiver cadastrado e pendente de confirmacao WhatsApp, enviaremos novas instrucoes."));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("reativar-conta")]
+    public async Task<IActionResult> ReativarConta(
+        [FromBody] ReativarContaRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        await CaptchaGuard.GarantirValidoAsync(_captchaValidator, request.CaptchaToken, HttpContext, cancellationToken);
+
+        var result = await _exclusaoContaService.ReativarAsync(
+            request.Email,
+            request.Senha,
+            BuildSessionContext(),
+            cancellationToken);
+
+        AuthAccessCookieHelper.SetAccessCookie(
+            Response,
+            result.Token,
+            result.ExpiresAt,
+            _environment);
+        AuthRefreshCookieHelper.SetRefreshCookie(
+            Response,
+            result.RefreshToken,
+            result.RefreshExpiresAt,
+            _environment);
+
+        var dto = LoginResponseDto.From(result);
+        dto.Token = string.Empty;
+        dto.RefreshToken = string.Empty;
+        return Ok(ApiSuccessResponse<LoginResponseDto>.From(
+            "Conta reativada com sucesso.",
+            dto));
     }
 
     [AllowAnonymous]

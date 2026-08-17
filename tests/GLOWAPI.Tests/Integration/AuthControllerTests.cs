@@ -207,8 +207,12 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { email, senha });
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
 
-        var deleteResponse = await client.DeleteAsync("/api/usuario/me");
-        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, "/api/usuario/me")
+        {
+            Content = JsonContent.Create(new { senha })
+        };
+        var deleteResponse = await client.SendAsync(deleteRequest);
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
 
         var retryResponse = await client.GetAsync("/api/usuario/me");
         Assert.Equal(HttpStatusCode.Unauthorized, retryResponse.StatusCode);

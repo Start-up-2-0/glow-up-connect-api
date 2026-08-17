@@ -17,6 +17,7 @@ public class Assinatura
     public DateTime? ProximaDataAlerta { get; set; }
     public DateTime? UltimoAlertaFaturaEm { get; set; }
     public AssinaturaStatus Status { get; set; } = AssinaturaStatus.PendentePagamento;
+    public AssinaturaStatus? StatusAntesExclusao { get; set; }
     public TipoAssinatura TipoAssinatura { get; set; } = TipoAssinatura.Estabelecimento;
     public DateTime Inicio { get; set; }
     public DateTime? Fim { get; set; }

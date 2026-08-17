@@ -18,6 +18,7 @@ public class DashboardNegocioService : IDashboardNegocioService
     private readonly IServicoRepository _servicoRepository;
     private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
     private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
+    private readonly IModulosAssinaturaService _modulosAssinaturaService;
     private readonly ILogger<DashboardNegocioService> _logger;
 
     public DashboardNegocioService(
@@ -28,6 +29,7 @@ public class DashboardNegocioService : IDashboardNegocioService
         IServicoRepository servicoRepository,
         IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
         IAutorizacaoNegocioService autorizacaoNegocioService,
+        IModulosAssinaturaService modulosAssinaturaService,
         ILogger<DashboardNegocioService> logger)
     {
         _agendaNegocioService = agendaNegocioService;
@@ -37,6 +39,7 @@ public class DashboardNegocioService : IDashboardNegocioService
         _servicoRepository = servicoRepository;
         _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
         _autorizacaoNegocioService = autorizacaoNegocioService;
+        _modulosAssinaturaService = modulosAssinaturaService;
         _logger = logger;
     }
 
@@ -91,11 +94,19 @@ public class DashboardNegocioService : IDashboardNegocioService
         var avaliacaoResumo = await _avaliacaoResumoService.ObterResumoEstabelecimentoAsync(
             estabelecimentoId, cancellationToken);
 
-        var finMes = await TentarFinanceiro(estabelecimentoId, mesInicio, agora, cancellationToken);
-        var finMesAnterior = await TentarFinanceiro(
-            estabelecimentoId, mesAnteriorInicio, mesAnteriorFim, cancellationToken);
-        var finHoje = await TentarFinanceiro(estabelecimentoId, hojeInicio, hojeFim, cancellationToken);
-        var finSemana = await TentarFinanceiro(estabelecimentoId, semanaInicio, agora, cancellationToken);
+        var possuiModuloFinanceiro = await PossuiModuloFinanceiroAsync(estabelecimentoId, cancellationToken);
+        var finMes = possuiModuloFinanceiro
+            ? await TentarFinanceiro(estabelecimentoId, mesInicio, agora, cancellationToken)
+            : null;
+        var finMesAnterior = possuiModuloFinanceiro
+            ? await TentarFinanceiro(estabelecimentoId, mesAnteriorInicio, mesAnteriorFim, cancellationToken)
+            : null;
+        var finHoje = possuiModuloFinanceiro
+            ? await TentarFinanceiro(estabelecimentoId, hojeInicio, hojeFim, cancellationToken)
+            : null;
+        var finSemana = possuiModuloFinanceiro
+            ? await TentarFinanceiro(estabelecimentoId, semanaInicio, agora, cancellationToken)
+            : null;
 
         var proximos = agendaHoje.Itens;
         var agendamentosHoje = agendaHoje.Total;
@@ -145,6 +156,20 @@ public class DashboardNegocioService : IDashboardNegocioService
             [],
             [],
             distribuicao);
+    }
+
+    private async Task<bool> PossuiModuloFinanceiroAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        return await _modulosAssinaturaService.PossuiModuloPorEstabelecimentoAsync(
+                estabelecimentoId,
+                ModuloAssinatura.Caixa,
+                cancellationToken)
+            || await _modulosAssinaturaService.PossuiModuloPorEstabelecimentoAsync(
+                estabelecimentoId,
+                ModuloAssinatura.Financeiro,
+                cancellationToken);
     }
 
     private async Task<FinanceiroDashboardResponseDto?> TentarFinanceiro(

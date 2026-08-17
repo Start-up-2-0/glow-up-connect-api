@@ -151,7 +151,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         _assinaturaRepository
             .Setup(r => r.ExisteAtivaOuPendentePorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
@@ -591,7 +591,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         _assinaturaRepository
             .Setup(r => r.ExisteAtivaOuPendentePorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
@@ -640,7 +640,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         _assinaturaRepository
             .Setup(r => r.ExisteAtivaOuPendentePorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
@@ -724,7 +724,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         _assinaturaRepository
             .Setup(r => r.ExisteAtivaOuPendentePorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
@@ -803,7 +803,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         _planoRepository
             .Setup(r => r.ObterPorIdAsync(2, It.IsAny<CancellationToken>()))
@@ -880,7 +880,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         _planoRepository
             .Setup(r => r.ObterPorIdAsync(2, It.IsAny<CancellationToken>()))
@@ -920,7 +920,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         var service = CreateService();
 
@@ -947,7 +947,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         _planoRepository
             .Setup(r => r.ObterPorIdAsync(2, It.IsAny<CancellationToken>()))
@@ -982,7 +982,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         var service = CreateService();
 
@@ -1019,7 +1019,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         var service = CreateService();
 
@@ -1043,6 +1043,35 @@ public class AssinaturaServiceTests
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
             .ReturnsAsync((EstabelecimentoUsuario?)null);
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<UsuarioSemPermissaoAssinaturaException>(() =>
+            service.CancelarAsync(30));
+    }
+
+    [Fact]
+    public async Task CancelarAsync_DeveLancarExcecao_QuandoUsuarioNaoEOwner()
+    {
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdComPlanoAsync(30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Assinatura
+            {
+                Id = 30,
+                EstabelecimentoId = 20,
+                Status = AssinaturaStatus.Ativa,
+                Plano = new Plano { Id = 1 }
+            });
+
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario
+            {
+                EstabelecimentoId = 20,
+                UsuarioId = 10,
+                RoleNoEstabelecimento = EstablishmentUserRole.Admin,
+                Ativo = true
+            });
 
         var service = CreateService();
 

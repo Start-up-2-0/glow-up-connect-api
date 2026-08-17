@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<IAvatarBase64Decoder, AvatarBase64Decoder>();
         services.AddSingleton<IBase64ImageThumbnailer, Base64ImageThumbnailer>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IExclusaoContaService, ExclusaoContaService>();
         services.AddScoped<IAuthSessionService, AuthSessionService>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<ICurrentUserContext, CurrentUserContext>();

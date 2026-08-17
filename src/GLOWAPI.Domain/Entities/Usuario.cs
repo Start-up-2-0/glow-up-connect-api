@@ -25,6 +25,9 @@ public class Usuario
     public bool WhatsAppOptIn { get; set; }
     /// <summary>Código pessoal para autenticação no link público de agendamento (único).</summary>
     public string? CodigoAgendamento { get; set; }
+    public ExclusaoStatus ExclusaoStatus { get; set; } = ExclusaoStatus.Nenhuma;
+    public DateTime? ExclusaoSolicitadaEm { get; set; }
+    public DateTime? ExclusaoEfetivarEm { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
@@ -84,4 +87,13 @@ public class Usuario
         WhatsAppConfirmadoEm.HasValue
         && WhatsAppOptIn
         && !string.IsNullOrWhiteSpace(Telefone);
+
+    public bool ExclusaoPendenteDentroDoPrazo(DateTime utcNow) =>
+        ExclusaoStatus == ExclusaoStatus.Pendente
+        && ExclusaoEfetivarEm.HasValue
+        && ExclusaoEfetivarEm.Value > utcNow;
+
+    public bool ExclusaoPendenteVencida(DateTime utcNow) =>
+        ExclusaoStatus == ExclusaoStatus.Pendente
+        && (!ExclusaoEfetivarEm.HasValue || ExclusaoEfetivarEm.Value <= utcNow);
 }

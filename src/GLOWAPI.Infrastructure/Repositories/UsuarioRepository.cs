@@ -1,6 +1,7 @@
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Domain.Entities;
+using GLOWAPI.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace GLOWAPI.Infrastructure.Repositories;
@@ -66,5 +67,16 @@ public class UsuarioRepository : Repository<Usuario>, IUsuarioRepository
     public Task<bool> ExisteCodigoAgendamentoAsync(string codigoAgendamento, CancellationToken cancellationToken = default)
     {
         return DbSet.AnyAsync(usuario => usuario.CodigoAgendamento == codigoAgendamento, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Usuario>> ListarExclusoesPendentesVencidasAsync(
+        DateTime utcNow,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .Where(usuario =>
+                usuario.ExclusaoStatus == ExclusaoStatus.Pendente
+                && (usuario.ExclusaoEfetivarEm == null || usuario.ExclusaoEfetivarEm <= utcNow))
+            .ToListAsync(cancellationToken);
     }
 }

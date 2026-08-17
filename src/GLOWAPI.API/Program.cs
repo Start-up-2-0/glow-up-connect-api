@@ -41,6 +41,8 @@ builder.Services.Configure<AssinaturaCobrancaOptions>(
     builder.Configuration.GetSection(AssinaturaCobrancaOptions.SectionName));
 builder.Services.Configure<AssinaturaCobrancaWorkerOptions>(
     builder.Configuration.GetSection(AssinaturaCobrancaWorkerOptions.SectionName));
+builder.Services.Configure<ExclusaoContaOptions>(
+    builder.Configuration.GetSection(ExclusaoContaOptions.SectionName));
 builder.Services.Configure<AvaliacaoAgregadoWorkerOptions>(
     builder.Configuration.GetSection(AvaliacaoAgregadoWorkerOptions.SectionName));
 builder.Services.Configure<CorsOptions>(builder.Configuration.GetSection(CorsOptions.SectionName));

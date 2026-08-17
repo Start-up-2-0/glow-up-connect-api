@@ -18,6 +18,12 @@ public class AssinaturaConfiguration : IEntityTypeConfiguration<Assinatura>
             .IsRequired()
             .HasMaxLength(50);
 
+        builder.Property(assinatura => assinatura.StatusAntesExclusao)
+            .HasConversion(
+                status => status.HasValue ? status.Value.ToString() : null,
+                status => string.IsNullOrEmpty(status) ? null : Enum.Parse<AssinaturaStatus>(status))
+            .HasMaxLength(50);
+
         builder.Property(assinatura => assinatura.TipoAssinatura)
             .HasConversion(tipo => tipo.ToString(), tipo => Enum.Parse<TipoAssinatura>(tipo))
             .IsRequired()

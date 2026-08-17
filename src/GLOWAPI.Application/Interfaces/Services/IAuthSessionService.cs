@@ -33,6 +33,8 @@ public interface IAuthSessionService
 
     Task RevogarSessaoAsync(SessaoAutenticacao sessao, CancellationToken cancellationToken = default);
 
+    Task RevogarTodasSessoesDoUsuarioAsync(int usuarioId, CancellationToken cancellationToken = default);
+
     Task<IssuedTokenPair> RotacionarSessaoAsync(
         SessaoAutenticacao sessaoAtual,
         Usuario usuario,
