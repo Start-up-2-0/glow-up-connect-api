@@ -17,10 +17,92 @@ public class MercadoPagoWebhookSignatureValidatorTests
         var payload = """{"data":{"id":"12345"},"type":"payment"}""";
         var requestId = "req-001";
         var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-        var manifest = $"id:12345;request-id:{requestId};ts:{ts};";
+        var manifest = MercadoPagoWebhookSignatureValidator.MontarManifest("12345", requestId, ts);
         var signature = $"ts={ts},v1={ComputeHmacHex(manifest, Secret)}";
 
-        var valido = validator.Validar(signature, requestId, payload, out var motivo);
+        var valido = validator.Validar(signature, requestId, "12345", payload, out var motivo);
+
+        Assert.True(valido);
+        Assert.Null(motivo);
+    }
+
+    [Fact]
+    public void Validar_DeveUsarDataIdDaQuery_QuandoDiferenteDoBody()
+    {
+        var validator = CriarValidator();
+        var payload = """{"data":{"id":"173530401375"},"id":106379580211,"action":"payment.created"}""";
+        var requestId = "req-live";
+        var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var dataIdQuery = "173530401375";
+        var manifest = MercadoPagoWebhookSignatureValidator.MontarManifest(dataIdQuery, requestId, ts);
+        var signature = $"ts={ts},v1={ComputeHmacHex(manifest, Secret)}";
+
+        var valido = validator.Validar(signature, requestId, dataIdQuery, payload, out var motivo);
+
+        Assert.True(valido);
+        Assert.Null(motivo);
+    }
+
+    [Fact]
+    public void Validar_DeveOmitirRequestIdDoManifest_QuandoHeaderEstiverAusente()
+    {
+        var validator = CriarValidator();
+        var payload = """{"data":{"id":"12345"}}""";
+        var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var manifest = MercadoPagoWebhookSignatureValidator.MontarManifest("12345", null, ts);
+        Assert.Equal($"id:12345;ts:{ts};", manifest);
+        var signature = $"ts={ts},v1={ComputeHmacHex(manifest, Secret)}";
+
+        var valido = validator.Validar(signature, null, "12345", payload, out var motivo);
+
+        Assert.True(valido);
+        Assert.Null(motivo);
+    }
+
+    [Fact]
+    public void Validar_DeveAceitarQualquerHashV1DoHeader()
+    {
+        var validator = CriarValidator();
+        var payload = """{"data":{"id":"12345"}}""";
+        var requestId = "req-rotacao";
+        var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var manifesto = MercadoPagoWebhookSignatureValidator.MontarManifest("12345", requestId, ts);
+        var v1Valido = ComputeHmacHex(manifesto, Secret);
+        var signature = $"ts={ts},v1=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,v1={v1Valido}";
+
+        var valido = validator.Validar(signature, requestId, "12345", payload, out var motivo);
+
+        Assert.True(valido);
+        Assert.Null(motivo);
+    }
+
+    [Fact]
+    public void Validar_DeveAceitarTimestampEmMilissegundos()
+    {
+        var validator = CriarValidator();
+        var payload = """{"data":{"id":"12345"}}""";
+        var requestId = "req-ms";
+        var ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+        var manifest = MercadoPagoWebhookSignatureValidator.MontarManifest("12345", requestId, ts);
+        var signature = $"ts={ts},v1={ComputeHmacHex(manifest, Secret)}";
+
+        var valido = validator.Validar(signature, requestId, "12345", payload, out var motivo);
+
+        Assert.True(valido);
+        Assert.Null(motivo);
+    }
+
+    [Fact]
+    public void Validar_DeveUsarDataIdDoBody_QuandoQueryEstiverVazia()
+    {
+        var validator = CriarValidator();
+        var payload = """{"data":{"id":"12345"},"type":"payment"}""";
+        var requestId = "req-body";
+        var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var manifest = MercadoPagoWebhookSignatureValidator.MontarManifest("12345", requestId, ts);
+        var signature = $"ts={ts},v1={ComputeHmacHex(manifest, Secret)}";
+
+        var valido = validator.Validar(signature, requestId, null, payload, out var motivo);
 
         Assert.True(valido);
         Assert.Null(motivo);
@@ -32,10 +114,28 @@ public class MercadoPagoWebhookSignatureValidatorTests
         var validator = CriarValidator();
         var payload = """{"data":{"id":"12345"},"type":"payment"}""";
 
-        var valido = validator.Validar("ts=1,v1=deadbeef", "req", payload, out var motivo);
+        var valido = validator.Validar("ts=1,v1=deadbeef", "req", "12345", payload, out var motivo);
 
         Assert.False(valido);
-        Assert.NotNull(motivo);
+        Assert.Equal("timestamp_expirado", motivo);
+    }
+
+    [Fact]
+    public void Validar_DeveRejeitarQuandoHashNaoConferir()
+    {
+        var validator = CriarValidator();
+        var payload = """{"data":{"id":"12345"}}""";
+        var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+
+        var valido = validator.Validar(
+            $"ts={ts},v1=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "req",
+            "12345",
+            payload,
+            out var motivo);
+
+        Assert.False(valido);
+        Assert.Equal("assinatura_nao_confere", motivo);
     }
 
     private static MercadoPagoWebhookSignatureValidator CriarValidator() =>

@@ -19,7 +19,12 @@ public class MercadoPagoWebhookSignatureValidator : IMercadoPagoWebhookSignature
         _options = options.Value;
     }
 
-    public bool Validar(string? signatureHeader, string? requestIdHeader, string payload, out string? motivoFalha)
+    public bool Validar(
+        string? signatureHeader,
+        string? requestIdHeader,
+        string? dataIdQuery,
+        string payload,
+        out string? motivoFalha)
     {
         motivoFalha = null;
 
@@ -35,38 +40,30 @@ public class MercadoPagoWebhookSignatureValidator : IMercadoPagoWebhookSignature
             return false;
         }
 
-        if (!TryExtrairAssinatura(signatureHeader, out var timestamp, out var assinaturaInformada))
+        if (!TryExtrairAssinatura(signatureHeader, out var timestamp, out var assinaturasInformadas))
         {
             motivoFalha = "assinatura_invalida";
             return false;
         }
 
-        if (!long.TryParse(timestamp, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tsUnix))
+        if (!TryObterHorarioEvento(timestamp, out var eventTime))
         {
             motivoFalha = "timestamp_invalido";
             return false;
         }
 
-        var eventTime = DateTimeOffset.FromUnixTimeSeconds(tsUnix);
         if (Math.Abs((DateTimeOffset.UtcNow - eventTime).TotalMinutes) > MaxSkew.TotalMinutes)
         {
             motivoFalha = "timestamp_expirado";
             return false;
         }
 
-        var dataId = ExtrairDataId(payload);
-        if (string.IsNullOrWhiteSpace(dataId))
-        {
-            motivoFalha = "data_id_ausente";
-            return false;
-        }
-
-        var manifest = $"id:{dataId};request-id:{requestIdHeader ?? string.Empty};ts:{timestamp};";
+        var dataId = NormalizarDataId(dataIdQuery) ?? NormalizarDataId(ExtrairDataId(payload));
+        var requestId = string.IsNullOrWhiteSpace(requestIdHeader) ? null : requestIdHeader.Trim();
+        var manifest = MontarManifest(dataId, requestId, timestamp);
         var assinaturaEsperada = ComputeHmacHex(manifest, _options.WebhookSecret);
 
-        if (!CryptographicOperations.FixedTimeEquals(
-                Encoding.UTF8.GetBytes(assinaturaEsperada),
-                Encoding.UTF8.GetBytes(assinaturaInformada)))
+        if (!assinaturasInformadas.Any(informada => HashesIguais(assinaturaEsperada, informada)))
         {
             motivoFalha = "assinatura_nao_confere";
             return false;
@@ -75,10 +72,30 @@ public class MercadoPagoWebhookSignatureValidator : IMercadoPagoWebhookSignature
         return true;
     }
 
-    private static bool TryExtrairAssinatura(string header, out string timestamp, out string assinatura)
+    internal static string MontarManifest(string? dataId, string? requestId, string timestamp)
+    {
+        var partes = new List<string>();
+        if (!string.IsNullOrWhiteSpace(dataId))
+        {
+            partes.Add($"id:{dataId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(requestId))
+        {
+            partes.Add($"request-id:{requestId}");
+        }
+
+        partes.Add($"ts:{timestamp}");
+        return string.Join(";", partes) + ";";
+    }
+
+    private static bool TryExtrairAssinatura(
+        string header,
+        out string timestamp,
+        out IReadOnlyList<string> assinaturas)
     {
         timestamp = string.Empty;
-        assinatura = string.Empty;
+        var hashes = new List<string>();
 
         foreach (var parte in header.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
         {
@@ -92,17 +109,55 @@ public class MercadoPagoWebhookSignatureValidator : IMercadoPagoWebhookSignature
             {
                 timestamp = kv[1];
             }
-            else if (string.Equals(kv[0], "v1", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(kv[0], "v1", StringComparison.OrdinalIgnoreCase)
+                     && !string.IsNullOrWhiteSpace(kv[1]))
             {
-                assinatura = kv[1];
+                hashes.Add(kv[1]);
             }
         }
 
-        return !string.IsNullOrWhiteSpace(timestamp) && !string.IsNullOrWhiteSpace(assinatura);
+        assinaturas = hashes;
+        return !string.IsNullOrWhiteSpace(timestamp) && hashes.Count > 0;
+    }
+
+    private static bool TryObterHorarioEvento(string timestamp, out DateTimeOffset eventTime)
+    {
+        eventTime = default;
+        if (!long.TryParse(timestamp, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tsUnix))
+        {
+            return false;
+        }
+
+        try
+        {
+            eventTime = timestamp.Length >= 13
+                ? DateTimeOffset.FromUnixTimeMilliseconds(tsUnix)
+                : DateTimeOffset.FromUnixTimeSeconds(tsUnix);
+            return true;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return false;
+        }
+    }
+
+    private static string? NormalizarDataId(string? dataId)
+    {
+        if (string.IsNullOrWhiteSpace(dataId))
+        {
+            return null;
+        }
+
+        return dataId.Trim().ToLowerInvariant();
     }
 
     private static string? ExtrairDataId(string payload)
     {
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return null;
+        }
+
         try
         {
             using var document = JsonDocument.Parse(payload);
@@ -110,22 +165,12 @@ public class MercadoPagoWebhookSignatureValidator : IMercadoPagoWebhookSignature
 
             if (root.TryGetProperty("data", out var data) && data.TryGetProperty("id", out var dataId))
             {
-                return dataId.ValueKind switch
-                {
-                    JsonValueKind.String => dataId.GetString(),
-                    JsonValueKind.Number => dataId.GetRawText(),
-                    _ => null
-                };
+                return ValorId(dataId);
             }
 
             if (root.TryGetProperty("id", out var id))
             {
-                return id.ValueKind switch
-                {
-                    JsonValueKind.String => id.GetString(),
-                    JsonValueKind.Number => id.GetRawText(),
-                    _ => null
-                };
+                return ValorId(id);
             }
         }
         catch (JsonException)
@@ -134,6 +179,27 @@ public class MercadoPagoWebhookSignatureValidator : IMercadoPagoWebhookSignature
         }
 
         return null;
+    }
+
+    private static string? ValorId(JsonElement element) =>
+        element.ValueKind switch
+        {
+            JsonValueKind.String => element.GetString(),
+            JsonValueKind.Number => element.GetRawText(),
+            _ => null
+        };
+
+    private static bool HashesIguais(string esperado, string informado)
+    {
+        var informadoNormalizado = informado.Trim().ToLowerInvariant();
+        if (esperado.Length != informadoNormalizado.Length)
+        {
+            return false;
+        }
+
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(esperado),
+            Encoding.UTF8.GetBytes(informadoNormalizado));
     }
 
     private static string ComputeHmacHex(string manifest, string secret)

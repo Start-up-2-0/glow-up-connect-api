@@ -70,10 +70,14 @@ public class WebhooksPagamentoController : ControllerBase
     {
         var rawPayload = payload.GetRawText();
 
+        var dataIdQuery = Request.Query["data.id"].FirstOrDefault()
+            ?? Request.Query["data_id"].FirstOrDefault();
+
         if (DeveValidarAssinaturaMercadoPago()
             && !_signatureValidator.Validar(
                 Request.Headers["x-signature"].FirstOrDefault(),
                 Request.Headers["x-request-id"].FirstOrDefault(),
+                dataIdQuery,
                 rawPayload,
                 out var motivoFalha))
         {
