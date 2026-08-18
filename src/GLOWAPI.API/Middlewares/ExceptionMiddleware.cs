@@ -67,6 +67,7 @@ public class ExceptionMiddleware
                     => HttpStatusCode.Conflict,
                 GatewayPagamentoException => HttpStatusCode.BadGateway,
                 ConfirmacaoEmailInvalidaException
+                    or ResetSenhaInvalidoException
                     or ConfirmacaoWhatsAppInvalidaException
                     or CaptchaInvalidaException
                     or AvatarInvalidoException

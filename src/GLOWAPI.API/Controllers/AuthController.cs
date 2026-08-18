@@ -17,6 +17,7 @@ public class AuthController : ControllerBase
     private readonly IAuthService _authService;
     private readonly IConfirmacaoEmailService _confirmacaoEmailService;
     private readonly IConfirmacaoWhatsAppService _confirmacaoWhatsAppService;
+    private readonly IRecuperacaoSenhaService _recuperacaoSenhaService;
     private readonly ICaptchaValidator _captchaValidator;
     private readonly IExclusaoContaService _exclusaoContaService;
     private readonly AuthOptions _authOptions;
@@ -26,6 +27,7 @@ public class AuthController : ControllerBase
         IAuthService authService,
         IConfirmacaoEmailService confirmacaoEmailService,
         IConfirmacaoWhatsAppService confirmacaoWhatsAppService,
+        IRecuperacaoSenhaService recuperacaoSenhaService,
         ICaptchaValidator captchaValidator,
         IExclusaoContaService exclusaoContaService,
         IOptions<AuthOptions> authOptions,
@@ -34,6 +36,7 @@ public class AuthController : ControllerBase
         _authService = authService;
         _confirmacaoEmailService = confirmacaoEmailService;
         _confirmacaoWhatsAppService = confirmacaoWhatsAppService;
+        _recuperacaoSenhaService = recuperacaoSenhaService;
         _captchaValidator = captchaValidator;
         _exclusaoContaService = exclusaoContaService;
         _authOptions = authOptions.Value;
@@ -207,15 +210,35 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("forgot-password")]
-    public IActionResult ForgotPassword() =>
-        StatusCode(StatusCodes.Status501NotImplemented,
-            ApiErrorResponse.From("Recuperação de senha ainda não implementada.", "NOT_IMPLEMENTED"));
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        await _recuperacaoSenhaService.SolicitarAsync(request.Email, cancellationToken);
+        return Ok(ApiSuccessResponse.From(
+            "Se o e-mail estiver cadastrado, enviaremos instrucoes para redefinir a senha."));
+    }
 
     [AllowAnonymous]
     [HttpPost("reset-password")]
-    public IActionResult ResetPassword() =>
-        StatusCode(StatusCodes.Status501NotImplemented,
-            ApiErrorResponse.From("Redefinição de senha ainda não implementada.", "NOT_IMPLEMENTED"));
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ResetPasswordRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var temToken = !string.IsNullOrWhiteSpace(request.Token);
+        var temCodigo = !string.IsNullOrWhiteSpace(request.Codigo);
+
+        if (temToken == temCodigo)
+        {
+            return BadRequest(ApiErrorResponse.From(
+                "Informe exatamente token ou codigo.",
+                "RESET_SENHA_INVALIDO"));
+        }
+
+        await _recuperacaoSenhaService.RedefinirAsync(request, cancellationToken);
+        return Ok(ApiSuccessResponse.From(
+            "Senha redefinida com sucesso. Voce ja pode fazer login."));
+    }
 
     private AuthSessionContext BuildSessionContext() =>
         new(HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString());
