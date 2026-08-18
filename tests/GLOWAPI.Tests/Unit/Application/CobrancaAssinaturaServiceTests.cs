@@ -213,6 +213,40 @@ public class CobrancaAssinaturaServiceTests
     }
 
     [Fact]
+    public async Task GerarCobrancaInicialAsync_EmSandbox_DeveUsarExpiracaoMinimaDeTrintaMinutos()
+    {
+        CriarCobrancaGatewayRequest? enviado = null;
+        _gateway
+            .Setup(g => g.CriarCobrancaAsync(It.IsAny<CriarCobrancaGatewayRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<CriarCobrancaGatewayRequest, CancellationToken>((request, _) => enviado = request)
+            .ReturnsAsync(new CriarCobrancaGatewayResponse(
+                Sucesso: true,
+                GatewayPaymentId: "pref-sandbox-exp",
+                CheckoutUrl: "https://sandbox.mercadopago.com.br/checkout",
+                QrCode: string.Empty,
+                RequestPayload: "{}",
+                ResponsePayload: "{}",
+                MetodoPagamento: "checkout_pro"));
+
+        var assinatura = new Assinatura
+        {
+            DataReferenciaCiclo = DateTime.UtcNow,
+            Gateway = GatewayPagamento.MercadoPago,
+            TipoAssinatura = TipoAssinatura.Estabelecimento
+        };
+        var plano = new Plano { Id = 1, Nome = "Premium", Preco = 99.90m, Periodo = PlanoPeriodo.Mensal, Ativo = true };
+
+        var service = CreateService(usarSandbox: true);
+        var resultado = await service.GerarCobrancaInicialAsync(assinatura, plano, null);
+        var agoraBrasil = BrasilDateTimeHelper.Agora();
+
+        Assert.NotNull(resultado.Pagamento.ExpiraEm);
+        Assert.True(resultado.Pagamento.ExpiraEm >= agoraBrasil.AddMinutes(29));
+        Assert.True(resultado.Pagamento.ExpiraEm <= agoraBrasil.AddMinutes(31));
+        Assert.Equal(resultado.Pagamento.ExpiraEm, enviado!.ExpiraEm);
+    }
+
+    [Fact]
     public async Task ObterOuRenovarCheckoutInicialAsync_DeveReutilizarLinkValido()
     {
         var assinatura = new Assinatura
@@ -311,7 +345,7 @@ public class CobrancaAssinaturaServiceTests
         Assert.Equal(AssinaturaStatus.Ativa, assinatura.Status);
     }
 
-    private CobrancaAssinaturaService CreateService(bool usarCheckoutPro = true) =>
+    private CobrancaAssinaturaService CreateService(bool usarCheckoutPro = true, bool usarSandbox = false) =>
         new(
             _pagamentoRepository.Object,
             _assinaturaRepository.Object,
@@ -326,6 +360,6 @@ public class CobrancaAssinaturaServiceTests
             new Mock<IAssinaturaVisibilidadeService>().Object,
             new Mock<IAssinaturaEncerramentoService>().Object,
             new Mock<IUsuarioRepository>().Object,
-            Options.Create(new MercadoPagoOptions { UsarCheckoutPro = usarCheckoutPro }),
+            Options.Create(new MercadoPagoOptions { UsarCheckoutPro = usarCheckoutPro, UsarSandbox = usarSandbox }),
             Options.Create(new AssinaturaCobrancaOptions()));
 }

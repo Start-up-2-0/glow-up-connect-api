@@ -595,13 +595,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         DateTime? expiraEm = null;
         if (comExpiracaoCheckout)
         {
-            var minutos = _assinaturaCobrancaOptions.MinutosExpiracaoCheckout;
-            if (minutos <= 0)
-            {
-                minutos = 5;
-            }
-
-            expiraEm = BrasilDateTimeHelper.Agora().AddMinutes(minutos);
+            expiraEm = CalcularExpiraEmCheckout();
         }
 
         var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
@@ -781,6 +775,22 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             PlanoPeriodo.Anual => baseCalculo.AddYears(1),
             _ => baseCalculo.AddMonths(1)
         };
+    }
+
+    private DateTime CalcularExpiraEmCheckout()
+    {
+        var minutos = _assinaturaCobrancaOptions.MinutosExpiracaoCheckout;
+        if (minutos <= 0)
+        {
+            minutos = 5;
+        }
+
+        if (_mercadoPagoOptions.SandboxAtivo())
+        {
+            minutos = Math.Max(minutos, 30);
+        }
+
+        return BrasilDateTimeHelper.Agora().AddMinutes(minutos);
     }
 
     private static bool CheckoutAindaValido(Pagamento pagamento) =>

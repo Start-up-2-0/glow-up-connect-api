@@ -16,6 +16,7 @@ public class AssinaturaCobrancaOptions
 
     /// <summary>
     /// Validade do link de checkout inicial (Checkout Pro) em minutos, no horário de Brasília.
+    /// Em sandbox o Glow usa no mínimo 30 minutos: 5 minutos estoura no desafio/login do MP.
     /// </summary>
     public int MinutosExpiracaoCheckout { get; set; } = 5;
 }
