@@ -168,6 +168,20 @@ public class MercadoPagoWebhookSignatureValidatorTests
     }
 
     [Fact]
+    public void PodeProcessarViaConsultaGateway_DeveAceitarFeedComAssinaturaInvalida()
+    {
+        Assert.True(MercadoPagoWebhookIpn.PodeProcessarViaConsultaGateway(
+            "MercadoPago Feed v2.0 merchant_order",
+            temIdentificadorQuery: false));
+        Assert.True(MercadoPagoWebhookIpn.PodeProcessarViaConsultaGateway(
+            "MercadoPago WebHook v1.0 payment",
+            temIdentificadorQuery: true));
+        Assert.False(MercadoPagoWebhookIpn.PodeProcessarViaConsultaGateway(
+            "Mozilla/5.0",
+            temIdentificadorQuery: false));
+    }
+
+    [Fact]
     public void ExtrairTimestampAssinatura_DeveRetornarTsSemExporV1()
     {
         Assert.Equal(

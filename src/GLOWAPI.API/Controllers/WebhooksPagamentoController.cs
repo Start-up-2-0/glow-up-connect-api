@@ -89,11 +89,16 @@ public class WebhooksPagamentoController : ControllerBase
             signatureHeader,
             userAgent,
             temIdentificadorQuery);
+        var fallbackConsultaGateway = MercadoPagoWebhookIpn.PodeProcessarViaConsultaGateway(
+            userAgent,
+            temIdentificadorQuery);
         var secretConfigurado = !string.IsNullOrWhiteSpace(_mercadoPagoOptions.WebhookSecret);
         var liveMode = ExtrairLiveMode(payload);
+        var hmacValidado = false;
+        var fallbackPorHmac = false;
 
         _logger.LogInformation(
-            "Webhook Mercado Pago recebido. Path={Path} Query={Query} UserAgent={UserAgent} HasXSignature={HasXSignature} HasXRequestId={HasXRequestId} SignatureTs={SignatureTs} DataIdQuery={DataIdQuery} Id={Id} Topic={Topic} Type={Type} IpnSemAssinatura={IpnSemAssinatura} ValidarHmac={ValidarHmac} SecretConfigurado={SecretConfigurado} SecretLength={SecretLength} ContentLength={ContentLength} LiveMode={LiveMode}",
+            "Webhook Mercado Pago recebido. Path={Path} Query={Query} UserAgent={UserAgent} HasXSignature={HasXSignature} HasXRequestId={HasXRequestId} SignatureTs={SignatureTs} DataIdQuery={DataIdQuery} Id={Id} Topic={Topic} Type={Type} IpnSemAssinatura={IpnSemAssinatura} FallbackConsultaGateway={FallbackConsultaGateway} ValidarHmac={ValidarHmac} SecretConfigurado={SecretConfigurado} SecretLength={SecretLength} ContentLength={ContentLength} LiveMode={LiveMode}",
             Request.Path.Value,
             Request.QueryString.Value,
             Truncar(userAgent, 200),
@@ -105,34 +110,53 @@ public class WebhooksPagamentoController : ControllerBase
             topic,
             type,
             ipnSemAssinatura,
+            fallbackConsultaGateway,
             DeveValidarAssinaturaMercadoPago() && !ipnSemAssinatura,
             secretConfigurado,
             secretConfigurado ? _mercadoPagoOptions.WebhookSecret.Trim().Trim('"').Length : 0,
             Request.ContentLength,
             liveMode);
 
-        if (DeveValidarAssinaturaMercadoPago()
-            && !ipnSemAssinatura
-            && !_signatureValidator.Validar(
+        if (DeveValidarAssinaturaMercadoPago() && !ipnSemAssinatura)
+        {
+            hmacValidado = _signatureValidator.Validar(
                 signatureHeader,
                 requestIdHeader,
-                dataIdQuery,
+                dataIdQuery ?? id,
                 rawPayload,
-                out var motivoFalha))
-        {
-            _logger.LogWarning(
-                "Webhook Mercado Pago recusado. Motivo={Motivo} Path={Path} Query={Query} UserAgent={UserAgent} HasXSignature={HasXSignature} SignatureTs={SignatureTs} DataIdQuery={DataIdQuery} LiveMode={LiveMode}",
-                motivoFalha,
-                Request.Path.Value,
-                Request.QueryString.Value,
-                Truncar(userAgent, 200),
-                !string.IsNullOrWhiteSpace(signatureHeader),
-                MercadoPagoWebhookIpn.ExtrairTimestampAssinatura(signatureHeader),
-                dataIdQuery,
-                liveMode);
-            return Unauthorized(ApiErrorResponse.From(
-                "Webhook do Mercado Pago nao autorizado.",
-                motivoFalha ?? "WEBHOOK_SIGNATURE_INVALID"));
+                out var motivoFalha);
+
+            if (!hmacValidado)
+            {
+                if (!fallbackConsultaGateway)
+                {
+                    _logger.LogWarning(
+                        "Webhook Mercado Pago recusado. Motivo={Motivo} Path={Path} Query={Query} UserAgent={UserAgent} HasXSignature={HasXSignature} SignatureTs={SignatureTs} DataIdQuery={DataIdQuery} LiveMode={LiveMode}",
+                        motivoFalha,
+                        Request.Path.Value,
+                        Request.QueryString.Value,
+                        Truncar(userAgent, 200),
+                        !string.IsNullOrWhiteSpace(signatureHeader),
+                        MercadoPagoWebhookIpn.ExtrairTimestampAssinatura(signatureHeader),
+                        dataIdQuery,
+                        liveMode);
+                    return Unauthorized(ApiErrorResponse.From(
+                        "Webhook do Mercado Pago nao autorizado.",
+                        motivoFalha ?? "WEBHOOK_SIGNATURE_INVALID"));
+                }
+
+                fallbackPorHmac = true;
+                _logger.LogWarning(
+                    "Webhook Mercado Pago HMAC invalido; processando via consulta no gateway. Motivo={Motivo} Path={Path} Query={Query} UserAgent={UserAgent} Id={Id} DataIdQuery={DataIdQuery} Topic={Topic} LiveMode={LiveMode}",
+                    motivoFalha,
+                    Request.Path.Value,
+                    Request.QueryString.Value,
+                    Truncar(userAgent, 200),
+                    id,
+                    dataIdQuery,
+                    topic,
+                    liveMode);
+            }
         }
 
         var eventId = ExtrairString(payload, "id")
@@ -161,13 +185,15 @@ public class WebhooksPagamentoController : ControllerBase
         }, cancellationToken);
 
         _logger.LogInformation(
-            "Webhook Mercado Pago aceito. WebhookId={WebhookId} EventId={EventId} EventType={EventType} Processado={Processado} Duplicado={Duplicado} IpnSemAssinatura={IpnSemAssinatura}",
+            "Webhook Mercado Pago aceito. WebhookId={WebhookId} EventId={EventId} EventType={EventType} Processado={Processado} Duplicado={Duplicado} IpnSemAssinatura={IpnSemAssinatura} HmacValidado={HmacValidado} FallbackConsultaGateway={FallbackConsultaGateway}",
             webhook.Id,
             webhook.EventId,
             webhook.EventType,
             webhook.Processado,
             webhook.Duplicado,
-            ipnSemAssinatura);
+            ipnSemAssinatura,
+            hmacValidado,
+            fallbackPorHmac);
 
         return Ok(ApiSuccessResponse<WebhookPagamentoResponseDto>.From(
             webhook.Duplicado

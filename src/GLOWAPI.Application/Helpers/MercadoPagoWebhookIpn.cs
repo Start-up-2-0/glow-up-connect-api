@@ -12,6 +12,17 @@ public static class MercadoPagoWebhookIpn
             return false;
         }
 
+        return PodeProcessarViaConsultaGateway(userAgent, temIdentificadorQuery);
+    }
+
+    /// <summary>
+    /// IPN/Feed do Mercado Pago: autentica consultando o pagamento/ordem na API
+    /// com o Access Token, mesmo se o HMAC falhar ou vier <c>x-signature</c> inválida.
+    /// </summary>
+    public static bool PodeProcessarViaConsultaGateway(
+        string? userAgent,
+        bool temIdentificadorQuery)
+    {
         if (temIdentificadorQuery)
         {
             return true;

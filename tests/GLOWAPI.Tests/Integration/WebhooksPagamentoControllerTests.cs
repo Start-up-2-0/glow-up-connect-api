@@ -200,6 +200,54 @@ public class WebhooksPagamentoControllerTests : IClassFixture<GlowApiWebApplicat
         Assert.Equal(AssinaturaStatus.Ativa, assinatura!.Status);
     }
 
+    [Fact]
+    public async Task RegistrarMercadoPago_DeveProcessar_QuandoHmacFalharMasParecerFeedDoMercadoPago()
+    {
+        await LimparWebhooksAsync();
+        var client = CriarClienteComWebhookSecret();
+        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "MercadoPago Feed v2.0 merchant_order");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("x-signature", "ts=1,v1=deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("x-request-id", "req-hmac-invalido");
+
+        var response = await client.PostAsJsonAsync(
+            "/api/webhooks/pagamentos/mercado-pago?topic=merchant_order&id=43724756467",
+            new { resource = "43724756467", topic = "merchant_order" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        Assert.True(body.GetProperty("success").GetBoolean());
+        Assert.Equal("43724756467", body.GetProperty("data").GetProperty("eventId").GetString());
+        Assert.Equal("merchant_order", body.GetProperty("data").GetProperty("eventType").GetString());
+    }
+
+    [Fact]
+    public async Task RegistrarMercadoPago_DeveRecusar_QuandoHmacFalharSemIdentidadeDoMercadoPago()
+    {
+        await LimparWebhooksAsync();
+        var client = CriarClienteComWebhookSecret();
+        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("x-signature", "ts=1,v1=deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef");
+
+        var response = await client.PostAsJsonAsync(
+            "/api/webhooks/pagamentos/mercado-pago",
+            new { action = "payment.updated", data = new { id = "123" } });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    private HttpClient CriarClienteComWebhookSecret() =>
+        _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["MercadoPago:WebhookSecret"] = "mp-webhook-secret-test-key-32chars"
+                });
+            });
+        }).CreateClient();
+
     private async Task LimparWebhooksAsync()
     {
         using var scope = _factory.Services.CreateScope();
