@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Pagamentos;
 using GLOWAPI.Application.Options;
@@ -206,6 +207,53 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             ReferenciaExterna: referenciaExterna);
     }
 
+    public async Task<IReadOnlyList<string>> ListarPagamentosDaOrdemAsync(
+        string ordemId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(ordemId) || string.IsNullOrWhiteSpace(_options.AccessToken))
+        {
+            return Array.Empty<string>();
+        }
+
+        using var httpRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            CriarRequestUri($"merchant_orders/{Uri.EscapeDataString(ordemId.Trim())}"));
+        AplicarHeadersMercadoPago(httpRequest);
+
+        var envio = await TentarEnviarAsync(httpRequest, cancellationToken);
+        if (!envio.Sucesso || envio.Response is null)
+        {
+            return Array.Empty<string>();
+        }
+
+        using var response = envio.Response;
+        var responsePayload = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return Array.Empty<string>();
+        }
+
+        using var document = JsonDocument.Parse(responsePayload);
+        if (!document.RootElement.TryGetProperty("payments", out var payments)
+            || payments.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<string>();
+        }
+
+        var ids = new List<string>();
+        foreach (var payment in payments.EnumerateArray())
+        {
+            var paymentId = ObterString(payment, "id");
+            if (!string.IsNullOrWhiteSpace(paymentId))
+            {
+                ids.Add(paymentId);
+            }
+        }
+
+        return ids;
+    }
+
     private async Task<CriarCobrancaGatewayResponse> CriarPreferenciaCheckoutProAsync(
         CriarCobrancaGatewayRequest request,
         CancellationToken cancellationToken)
@@ -262,7 +310,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
 
         if (string.IsNullOrWhiteSpace(checkoutUrl))
         {
-            var ambiente = TokenMercadoPagoSandboxAtivo() ? "sandbox_init_point" : "init_point";
+            var ambiente = _options.SandboxAtivo() ? "sandbox_init_point" : "init_point";
             return CriarCobrancaGatewayResponse.Falha(
                 requestPayload,
                 responsePayload,
@@ -329,22 +377,26 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             payload["notification_url"] = notificationUrl;
         }
 
+        if (request.ExpiraEm.HasValue)
+        {
+            payload["expires"] = true;
+            payload["expiration_date_from"] = BrasilDateTimeHelper.FormatarIsoComOffset(BrasilDateTimeHelper.Agora());
+            payload["expiration_date_to"] = BrasilDateTimeHelper.FormatarIsoComOffset(request.ExpiraEm.Value);
+        }
+
         return payload;
     }
 
     private string? ObterInitPointCheckoutPro(JsonElement root)
     {
-        if (TokenMercadoPagoSandboxAtivo())
+        if (_options.SandboxAtivo())
         {
-            return ObterString(root, "sandbox_init_point");
+            return ObterString(root, "sandbox_init_point")
+                ?? ObterString(root, "init_point");
         }
 
         return ObterString(root, "init_point");
     }
-
-    private bool TokenMercadoPagoSandboxAtivo() =>
-        !string.IsNullOrWhiteSpace(_options.AccessToken)
-        && _options.AccessToken.TrimStart().StartsWith("TEST-", StringComparison.OrdinalIgnoreCase);
 
     private object CriarPayload(CriarCobrancaGatewayRequest request)
     {
@@ -691,12 +743,20 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
 
     private static int? ObterDiaVencimento(IReadOnlyDictionary<string, string>? metadados)
     {
-        if (metadados is null || !metadados.TryGetValue("diaVencimento", out var dia))
+        if (metadados is not null
+            && metadados.TryGetValue("dataReferenciaCiclo", out var dataReferencia)
+            && DateTime.TryParse(dataReferencia, out var data))
+        {
+            var dia = data.Day;
+            return dia is >= 1 and <= 28 ? dia : 28;
+        }
+
+        if (metadados is null || !metadados.TryGetValue("diaVencimento", out var diaLegado))
         {
             return null;
         }
 
-        return int.TryParse(dia, out var valor) && valor is >= 1 and <= 28 ? valor : null;
+        return int.TryParse(diaLegado, out var valor) && valor is >= 1 and <= 28 ? valor : null;
     }
 
     private async Task<(bool Sucesso, HttpResponseMessage? Response, string? Erro)> TentarEnviarAsync(
@@ -736,7 +796,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             request.Headers.Add("X-Idempotency-Key", idempotencyKey);
         }
 
-        if (_options.AccessToken.TrimStart().StartsWith("TEST-", StringComparison.OrdinalIgnoreCase))
+        if (_options.SandboxAtivo())
         {
             request.Headers.Add("X-scope", "stage");
         }

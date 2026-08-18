@@ -54,6 +54,7 @@ public class AgendamentoValidador : IAgendamentoValidador
         int? usuarioClienteId,
         int? agendamentoIgnorarId = null,
         DateTime? inicioSelecionado = null,
+        bool ignorarVinculoExecutorServico = false,
         CancellationToken cancellationToken = default)
     {
         if (servicoIds.Length == 0)
@@ -82,9 +83,8 @@ public class AgendamentoValidador : IAgendamentoValidador
             throw new ProfissionalSemVinculoNegocioException();
         }
 
-        var origemPublica = origem is OrigemAgendamento.PublicoLoja or OrigemAgendamento.PublicoProfissional;
         if (!vinculoEstabelecimento.PodeReceberAgendamento
-            && (origemPublica || !vinculoEstabelecimento.SomenteExibicao))
+            && !vinculoEstabelecimento.SomenteExibicao)
         {
             throw new ProfissionalSemVinculoNegocioException();
         }
@@ -104,14 +104,16 @@ public class AgendamentoValidador : IAgendamentoValidador
                 throw new ServicoNegocioNaoEncontradoException();
             }
 
-            if (!ServicoExecucaoHelper.ProfissionalExecutaServico(servico, profissionalId))
+            if (!ignorarVinculoExecutorServico
+                && !ServicoExecucaoHelper.ProfissionalExecutaServico(servico, profissionalId))
             {
                 throw new AgendamentoServicosInvalidosException(
                     "Profissional nao executa um ou mais servicos selecionados.");
             }
 
             ProfissionalServico? vinculoServico = null;
-            if (ServicoExecucaoHelper.ServicoPossuiVinculosAtivos(servico))
+            if (!ignorarVinculoExecutorServico
+                && ServicoExecucaoHelper.ServicoPossuiVinculosAtivos(servico))
             {
                 vinculoServico = await _profissionalServicoRepository.ObterPorProfissionalEServicoAsync(
                     profissionalId,
@@ -311,6 +313,26 @@ public class AgendamentoValidador : IAgendamentoValidador
 
         if (horariosProfissional.Count == 0)
         {
+            var agendaProfissional = await _horarioAtendimentoProfissionalRepository.ListarPorEstabelecimentoAsync(
+                estabelecimentoId,
+                profissionalId,
+                diaSemana: null,
+                ativo: true,
+                cancellationToken);
+
+            if (agendaProfissional.Count == 0)
+            {
+                var cabeNoFuncionamento = funcionamentos.Any(funcionamento =>
+                    horaInicio >= funcionamento.HoraInicio && horaFim <= funcionamento.HoraFim);
+
+                if (!cabeNoFuncionamento)
+                {
+                    throw new HorarioIndisponivelException("Horario fora do funcionamento do estabelecimento.");
+                }
+
+                return;
+            }
+
             throw new HorarioIndisponivelException("Profissional nao atende neste dia.");
         }
 

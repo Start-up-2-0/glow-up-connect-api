@@ -3,7 +3,6 @@ using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Convites;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Domain.Enums;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GLOWAPI.API.Controllers;
@@ -19,57 +18,24 @@ public class ConvitesController : ControllerBase
         _conviteNegocioService = conviteNegocioService;
     }
 
-    [HttpPost("estabelecimentos/{estabelecimentoId:int}/convites/profissionais")]
-    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
-    [RequerPermissaoNegocio(PermissaoNegocio.ProfissionalConvidar, "estabelecimentoId")]
-    public async Task<IActionResult> CriarConviteProfissional(
-        int estabelecimentoId,
-        [FromBody] CriarConviteProfissionalRequestDto request,
-        CancellationToken cancellationToken)
-    {
-        var convite = await _conviteNegocioService.CriarConviteProfissionalAsync(
-            estabelecimentoId,
-            request,
-            cancellationToken);
-
-        return StatusCode(
-            StatusCodes.Status201Created,
-            ApiSuccessResponse<ConviteOuVinculoResponseDto>.From(
-                "Convite enviado com sucesso.",
-                convite));
-    }
-
-    [HttpPost("estabelecimentos/{estabelecimentoId:int}/convites/usuarios")]
+    [HttpPost("estabelecimentos/{estabelecimentoId:int}/convites")]
     [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
     [RequerPermissaoNegocio(PermissaoNegocio.EquipeGerenciar, "estabelecimentoId")]
-    public async Task<IActionResult> CriarConviteUsuarioEquipe(
+    public async Task<IActionResult> CriarLink(
         int estabelecimentoId,
-        [FromBody] CriarConviteUsuarioEquipeRequestDto request,
+        [FromBody] CriarConviteLinkRequestDto request,
         CancellationToken cancellationToken)
     {
-        var convite = await _conviteNegocioService.CriarConviteUsuarioEquipeAsync(
+        var convite = await _conviteNegocioService.CriarLinkAsync(
             estabelecimentoId,
             request,
             cancellationToken);
 
         return StatusCode(
             StatusCodes.Status201Created,
-            ApiSuccessResponse<ConviteOuVinculoResponseDto>.From(
-                "Convite enviado com sucesso.",
+            ApiSuccessResponse<ConviteNegocioCriadoResponseDto>.From(
+                "Link de convite criado com sucesso.",
                 convite));
-    }
-
-    [AllowAnonymous]
-    [HttpGet("convites/{token}/preview")]
-    public async Task<IActionResult> ObterPreview(
-        string token,
-        CancellationToken cancellationToken)
-    {
-        var preview = await _conviteNegocioService.ObterPreviewAsync(token, cancellationToken);
-
-        return Ok(ApiSuccessResponse<ConviteNegocioPreviewResponseDto>.From(
-            "Convite encontrado.",
-            preview));
     }
 
     [HttpGet("estabelecimentos/{estabelecimentoId:int}/convites")]
@@ -90,27 +56,21 @@ public class ConvitesController : ControllerBase
             convites));
     }
 
-    [HttpPost("convites/{token}/aceitar")]
-    public async Task<IActionResult> Aceitar(
-        string token,
+    [HttpGet("estabelecimentos/{estabelecimentoId:int}/convites/{conviteId:int}/link")]
+    [RequerModuloAssinatura(TipoAssinatura.Estabelecimento, ModuloAssinatura.Profissionais, "estabelecimentoId")]
+    [RequerPermissaoNegocio(PermissaoNegocio.EquipeGerenciar, "estabelecimentoId")]
+    public async Task<IActionResult> ObterLink(
+        int estabelecimentoId,
+        int conviteId,
         CancellationToken cancellationToken)
     {
-        var convite = await _conviteNegocioService.AceitarAsync(token, cancellationToken);
+        var convite = await _conviteNegocioService.ObterLinkAsync(
+            estabelecimentoId,
+            conviteId,
+            cancellationToken);
 
-        return Ok(ApiSuccessResponse<ConviteNegocioResponseDto>.From(
-            "Convite aceito com sucesso.",
-            convite));
-    }
-
-    [HttpPost("convites/{token}/rejeitar")]
-    public async Task<IActionResult> Rejeitar(
-        string token,
-        CancellationToken cancellationToken)
-    {
-        var convite = await _conviteNegocioService.RejeitarAsync(token, cancellationToken);
-
-        return Ok(ApiSuccessResponse<ConviteNegocioResponseDto>.From(
-            "Convite rejeitado com sucesso.",
+        return Ok(ApiSuccessResponse<ConviteNegocioCriadoResponseDto>.From(
+            "Link de convite recuperado com sucesso.",
             convite));
     }
 

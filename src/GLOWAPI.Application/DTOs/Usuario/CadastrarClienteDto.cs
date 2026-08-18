@@ -28,4 +28,8 @@ public class CadastrarClienteDto
     public string? AvatarContentType { get; set; }
 
     public string? CaptchaToken { get; set; }
+
+    /// <summary>Sexo do usuário (Masculino/Feminino).</summary>
+    [RegularExpression("^(Masculino|Feminino)$", ErrorMessage = "Sexo invalido")]
+    public string? Sexo { get; set; }
 }

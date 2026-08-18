@@ -4,6 +4,7 @@ public record PromocaoLancamentoStatusDto(
     bool Disponivel,
     int VagasRestantes,
     int DiasTrial,
-    int[] DiasVencimentoPermitidos,
+    decimal PercentualDescontoMensalidade,
     int DiasAntecedenciaAlertaFatura,
-    int DiasAntecedenciaGeracaoCobranca);
+    int DiasAntecedenciaGeracaoCobranca,
+    int DiasToleranciaInadimplencia);

@@ -10,6 +10,7 @@ public class Usuario
     public string Telefone { get; set; } = string.Empty;
     public string Senha { get; set; } = string.Empty;
     public UserRole Role { get; set; }
+    public Sexo? Sexo { get; set; }
     public int Tentativas { get; set; }
     public DateTime? BloqueadoAte { get; set; }
     public bool Ativo { get; set; } = true;
@@ -17,11 +18,19 @@ public class Usuario
     public string? ConfirmacaoTokenHash { get; set; }
     public string? ConfirmacaoCodigoHash { get; set; }
     public DateTime? ConfirmacaoExpiraEm { get; set; }
+    public string? RecuperacaoTokenHash { get; set; }
+    public string? RecuperacaoCodigoHash { get; set; }
+    public DateTime? RecuperacaoExpiraEm { get; set; }
     public DateTime? WhatsAppConfirmadoEm { get; set; }
     public string? WhatsAppConfirmacaoTokenHash { get; set; }
     public string? WhatsAppConfirmacaoCodigoHash { get; set; }
     public DateTime? WhatsAppConfirmacaoExpiraEm { get; set; }
     public bool WhatsAppOptIn { get; set; }
+    /// <summary>Código pessoal para autenticação no link público de agendamento (único).</summary>
+    public string? CodigoAgendamento { get; set; }
+    public ExclusaoStatus ExclusaoStatus { get; set; } = ExclusaoStatus.Nenhuma;
+    public DateTime? ExclusaoSolicitadaEm { get; set; }
+    public DateTime? ExclusaoEfetivarEm { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
@@ -77,8 +86,24 @@ public class Usuario
         WhatsAppConfirmacaoExpiraEm = null;
     }
 
+    public void LimparRecuperacaoSenha()
+    {
+        RecuperacaoTokenHash = null;
+        RecuperacaoCodigoHash = null;
+        RecuperacaoExpiraEm = null;
+    }
+
     public bool PodeReceberAlertasWhatsApp() =>
         WhatsAppConfirmadoEm.HasValue
         && WhatsAppOptIn
         && !string.IsNullOrWhiteSpace(Telefone);
+
+    public bool ExclusaoPendenteDentroDoPrazo(DateTime utcNow) =>
+        ExclusaoStatus == ExclusaoStatus.Pendente
+        && ExclusaoEfetivarEm.HasValue
+        && ExclusaoEfetivarEm.Value > utcNow;
+
+    public bool ExclusaoPendenteVencida(DateTime utcNow) =>
+        ExclusaoStatus == ExclusaoStatus.Pendente
+        && (!ExclusaoEfetivarEm.HasValue || ExclusaoEfetivarEm.Value <= utcNow);
 }

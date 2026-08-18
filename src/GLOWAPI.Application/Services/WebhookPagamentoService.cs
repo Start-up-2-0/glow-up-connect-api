@@ -2,9 +2,11 @@ using System.Text.Json;
 using GLOWAPI.Application.DTOs.Pagamentos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Models.Caixa;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Pagamentos;
+using Microsoft.Extensions.Logging;
 
 namespace GLOWAPI.Application.Services;
 
@@ -17,6 +19,11 @@ public class WebhookPagamentoService : IWebhookPagamentoService
     private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
     private readonly IAssinaturaHistoricoService _assinaturaHistoricoService;
     private readonly IAssinaturaNotificacaoService _assinaturaNotificacaoService;
+    private readonly IAssinaturaEncerramentoService _assinaturaEncerramentoService;
+    private readonly IUsuarioRepository _usuarioRepository;
+    private readonly IMovimentacaoCaixaService _movimentacaoCaixaService;
+    private readonly IAgendamentoRepository _agendamentoRepository;
+    private readonly ILogger<WebhookPagamentoService> _logger;
 
     public WebhookPagamentoService(
         IWebhookPagamentoRepository webhookPagamentoRepository,
@@ -25,7 +32,12 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         IGatewayPagamentoResolver gatewayPagamentoResolver,
         ICobrancaAssinaturaService cobrancaAssinaturaService,
         IAssinaturaHistoricoService assinaturaHistoricoService,
-        IAssinaturaNotificacaoService assinaturaNotificacaoService)
+        IAssinaturaNotificacaoService assinaturaNotificacaoService,
+        IAssinaturaEncerramentoService assinaturaEncerramentoService,
+        IUsuarioRepository usuarioRepository,
+        IMovimentacaoCaixaService movimentacaoCaixaService,
+        IAgendamentoRepository agendamentoRepository,
+        ILogger<WebhookPagamentoService> logger)
     {
         _webhookPagamentoRepository = webhookPagamentoRepository;
         _pagamentoRepository = pagamentoRepository;
@@ -34,6 +46,11 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         _cobrancaAssinaturaService = cobrancaAssinaturaService;
         _assinaturaHistoricoService = assinaturaHistoricoService;
         _assinaturaNotificacaoService = assinaturaNotificacaoService;
+        _assinaturaEncerramentoService = assinaturaEncerramentoService;
+        _usuarioRepository = usuarioRepository;
+        _movimentacaoCaixaService = movimentacaoCaixaService;
+        _agendamentoRepository = agendamentoRepository;
+        _logger = logger;
     }
 
     public async Task<WebhookPagamentoResponseDto> RegistrarAsync(
@@ -50,6 +67,12 @@ public class WebhookPagamentoService : IWebhookPagamentoService
 
         if (webhookExistente is not null)
         {
+            _logger.LogInformation(
+                "Webhook de pagamento duplicado ignorado. Gateway={Gateway} EventId={EventId} EventType={EventType} Processado={Processado}",
+                webhookExistente.Gateway,
+                webhookExistente.EventId,
+                webhookExistente.EventType,
+                webhookExistente.Processado);
             return WebhookPagamentoResponseDto.From(webhookExistente, duplicado: true);
         }
 
@@ -65,6 +88,26 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         await _webhookPagamentoRepository.AdicionarAsync(webhook, cancellationToken);
         await ProcessarAsync(webhook, cancellationToken);
         await _webhookPagamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        if (webhook.Processado)
+        {
+            _logger.LogInformation(
+                "Webhook de pagamento processado. Gateway={Gateway} EventId={EventId} EventType={EventType} WebhookId={WebhookId}",
+                webhook.Gateway,
+                webhook.EventId,
+                webhook.EventType,
+                webhook.Id);
+        }
+        else
+        {
+            _logger.LogWarning(
+                "Webhook de pagamento nao processado. Gateway={Gateway} EventId={EventId} EventType={EventType} WebhookId={WebhookId} Erro={Erro}",
+                webhook.Gateway,
+                webhook.EventId,
+                webhook.EventType,
+                webhook.Id,
+                webhook.ErroProcessamento ?? "(sem erro)");
+        }
 
         return WebhookPagamentoResponseDto.From(webhook, duplicado: false);
     }
@@ -132,6 +175,12 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return;
         }
 
+        if (EventoOrdemComercial(webhook.EventType))
+        {
+            await ProcessarOrdemComercialAsync(webhook, cancellationToken);
+            return;
+        }
+
         if (EventoPagamentoParaConsultaNoGateway(webhook.EventType))
         {
             await ProcessarPagamentoConsultandoGatewayAsync(webhook, cancellationToken);
@@ -158,6 +207,30 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return;
         }
 
+        if (pagamento.AgendamentoId.HasValue)
+        {
+            var agendamento = await _agendamentoRepository.ObterPorIdAsync(
+                pagamento.AgendamentoId.Value,
+                cancellationToken);
+
+            if (agendamento is not null && agendamento.EstabelecimentoId.HasValue)
+            {
+                await _movimentacaoCaixaService.RegistrarLancamentoAsync(
+                    agendamento.EstabelecimentoId.Value,
+                    new RegistrarLancamentoCaixaComando(
+                        LancamentoCaixaTipo.EntradaAgendamento,
+                        pagamento.Valor,
+                        $"Pagamento online agendamento #{pagamento.AgendamentoId}",
+                        AgendamentoId: pagamento.AgendamentoId,
+                        PagamentoId: pagamento.Id),
+                    cancellationToken);
+            }
+
+            webhook.Processado = true;
+            webhook.ProcessadoEm = DateTime.UtcNow;
+            return;
+        }
+
         await _cobrancaAssinaturaService.ProcessarPagamentoAprovadoAsync(
             pagamento,
             webhook.Payload,
@@ -165,6 +238,68 @@ public class WebhookPagamentoService : IWebhookPagamentoService
 
         webhook.Processado = true;
         webhook.ProcessadoEm = DateTime.UtcNow;
+    }
+
+    private async Task ProcessarOrdemComercialAsync(
+        WebhookPagamento webhook,
+        CancellationToken cancellationToken)
+    {
+        var ordemId = ExtrairGatewayPaymentId(webhook.Payload);
+        if (string.IsNullOrWhiteSpace(ordemId))
+        {
+            webhook.ErroProcessamento = "Payload nao contem id da merchant_order.";
+            _logger.LogWarning(
+                "Webhook merchant_order sem id. EventId={EventId}",
+                webhook.EventId);
+            return;
+        }
+
+        var gateway = _gatewayPagamentoResolver.Resolver(webhook.Gateway);
+        var pagamentoIds = await gateway.ListarPagamentosDaOrdemAsync(ordemId, cancellationToken);
+        _logger.LogInformation(
+            "Webhook merchant_order consultado. EventId={EventId} OrdemId={OrdemId} PagamentosNaOrdem={PagamentosNaOrdem}",
+            webhook.EventId,
+            ordemId,
+            pagamentoIds.Count);
+        if (pagamentoIds.Count == 0)
+        {
+            webhook.ErroProcessamento = "Merchant order nao retornou pagamentos.";
+            return;
+        }
+
+        string? ultimoErro = null;
+        foreach (var pagamentoId in pagamentoIds)
+        {
+            var webhookPagamento = new WebhookPagamento
+            {
+                Gateway = webhook.Gateway,
+                EventId = $"{webhook.EventId}:{pagamentoId}",
+                EventType = "payment.updated",
+                Payload = JsonSerializer.Serialize(new { data = new { id = pagamentoId } })
+            };
+
+            await ProcessarPagamentoConsultandoGatewayAsync(webhookPagamento, cancellationToken);
+            if (webhookPagamento.Processado)
+            {
+                webhook.Processado = true;
+                webhook.ProcessadoEm = DateTime.UtcNow;
+                _logger.LogInformation(
+                    "Webhook merchant_order ativou pagamento. EventId={EventId} OrdemId={OrdemId} PagamentoId={PagamentoId}",
+                    webhook.EventId,
+                    ordemId,
+                    pagamentoId);
+                return;
+            }
+
+            ultimoErro = webhookPagamento.ErroProcessamento;
+        }
+
+        webhook.ErroProcessamento = ultimoErro ?? "Nenhum pagamento da merchant order foi processado.";
+        _logger.LogWarning(
+            "Webhook merchant_order nao ativou pagamento. EventId={EventId} OrdemId={OrdemId} Erro={Erro}",
+            webhook.EventId,
+            ordemId,
+            webhook.ErroProcessamento);
     }
 
     private async Task ProcessarPagamentoConsultandoGatewayAsync(
@@ -180,6 +315,13 @@ public class WebhookPagamentoService : IWebhookPagamentoService
 
         var gateway = _gatewayPagamentoResolver.Resolver(webhook.Gateway);
         var consulta = await gateway.ConsultarPagamentoAsync(gatewayPaymentId, cancellationToken);
+        _logger.LogInformation(
+            "Webhook consultou pagamento no gateway. EventId={EventId} GatewayPaymentId={GatewayPaymentId} Sucesso={Sucesso} Status={Status} ReferenciaExternaPresente={ReferenciaExternaPresente}",
+            webhook.EventId,
+            gatewayPaymentId,
+            consulta.Sucesso,
+            consulta.Status,
+            !string.IsNullOrWhiteSpace(consulta.ReferenciaExterna));
         if (!consulta.Sucesso)
         {
             webhook.ErroProcessamento = consulta.MensagemErro ?? "Nao foi possivel consultar pagamento no gateway.";
@@ -191,6 +333,11 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         {
             webhook.Processado = true;
             webhook.ProcessadoEm = DateTime.UtcNow;
+            _logger.LogInformation(
+                "Webhook pagamento com status nao mapeado marcado processado. EventId={EventId} GatewayPaymentId={GatewayPaymentId} Status={Status}",
+                webhook.EventId,
+                gatewayPaymentId,
+                consulta.Status);
             return;
         }
 
@@ -227,43 +374,32 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return;
         }
 
-        if (assinatura.Status == novoStatus)
+        if (assinatura.Status == novoStatus
+            || assinatura.Status is AssinaturaStatus.Cancelada or AssinaturaStatus.Expirada)
         {
             webhook.Processado = true;
             webhook.ProcessadoEm ??= DateTime.UtcNow;
             return;
         }
 
-        var statusAnterior = assinatura.Status;
-        assinatura.Status = novoStatus;
-        assinatura.RenovacaoAutomatica = false;
-        assinatura.PlanoAlteracaoPendenteId = null;
-        assinatura.PlanoAlteracaoPendente = null;
-        assinatura.UpdatedAt = DateTime.UtcNow;
+        var evento = novoStatus == AssinaturaStatus.Cancelada
+            ? "AssinaturaCanceladaPorWebhook"
+            : "AssinaturaSuspensaPorWebhook";
 
         if (registrarCanceladoEm)
         {
             assinatura.CanceladoEm ??= DateTime.UtcNow;
         }
 
-        _assinaturaRepository.Atualizar(assinatura);
-        await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+        await _assinaturaEncerramentoService.EncerrarAsync(
             assinatura,
-            novoStatus == AssinaturaStatus.Cancelada ? "AssinaturaCanceladaPorWebhook" : "AssinaturaSuspensaPorWebhook",
-            statusAnterior,
-            assinatura.Status,
-            observacao: "Status alterado por webhook do gateway.",
-            payloadJson: webhook.Payload,
+            novoStatus,
+            evento,
+            "Status alterado por webhook do gateway.",
             cancellationToken: cancellationToken);
-        await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
-            assinatura,
-            novoStatus == AssinaturaStatus.Cancelada ? "RecorrenciaCanceladaPorWebhook" : "RecorrenciaSuspensaPorWebhook",
-            novoStatus.ToString(),
-            cicloInicio: assinatura.Inicio,
-            cicloFim: assinatura.Fim,
-            observacao: "Recorrencia alterada por webhook do gateway.",
-            payloadJson: webhook.Payload,
-            cancellationToken: cancellationToken);
+
+        await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
 
         if (novoStatus == AssinaturaStatus.Cancelada)
         {
@@ -409,6 +545,10 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         || eventType.Equals("payment.created", StringComparison.OrdinalIgnoreCase)
         || eventType.Equals("payment.updated", StringComparison.OrdinalIgnoreCase)
         || eventType.Equals("payment.updated_webhook", StringComparison.OrdinalIgnoreCase);
+
+    private static bool EventoOrdemComercial(string eventType) =>
+        eventType.Equals("merchant_order", StringComparison.OrdinalIgnoreCase)
+        || eventType.Contains("merchant_order", StringComparison.OrdinalIgnoreCase);
 
     private static string? ConverterStatusGatewayParaEvento(string status) =>
         status.ToLowerInvariant() switch

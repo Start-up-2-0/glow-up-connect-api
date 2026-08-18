@@ -105,4 +105,10 @@ public interface IAgendamentoNegocioService
         int propostaId,
         CancellationToken cancellationToken = default);
 
+    Task<int> CancelarAgendamentosFuturosDoProfissionalAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        string motivo,
+        bool autorizarAgendaCancelar,
+        CancellationToken cancellationToken = default);
 }

@@ -1,6 +1,7 @@
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Domain.Entities;
+using GLOWAPI.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace GLOWAPI.Infrastructure.Repositories;
@@ -48,6 +49,16 @@ public class UsuarioRepository : Repository<Usuario>, IUsuarioRepository
         return DbSet.FirstOrDefaultAsync(usuario => usuario.ConfirmacaoCodigoHash == codigoHash, cancellationToken);
     }
 
+    public Task<Usuario?> ObterPorRecuperacaoTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default)
+    {
+        return DbSet.FirstOrDefaultAsync(usuario => usuario.RecuperacaoTokenHash == tokenHash, cancellationToken);
+    }
+
+    public Task<Usuario?> ObterPorRecuperacaoCodigoHashAsync(string codigoHash, CancellationToken cancellationToken = default)
+    {
+        return DbSet.FirstOrDefaultAsync(usuario => usuario.RecuperacaoCodigoHash == codigoHash, cancellationToken);
+    }
+
     public Task<Usuario?> ObterPorWhatsAppConfirmacaoTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default)
     {
         return DbSet.FirstOrDefaultAsync(usuario => usuario.WhatsAppConfirmacaoTokenHash == tokenHash, cancellationToken);
@@ -56,5 +67,26 @@ public class UsuarioRepository : Repository<Usuario>, IUsuarioRepository
     public Task<Usuario?> ObterPorWhatsAppConfirmacaoCodigoHashAsync(string codigoHash, CancellationToken cancellationToken = default)
     {
         return DbSet.FirstOrDefaultAsync(usuario => usuario.WhatsAppConfirmacaoCodigoHash == codigoHash, cancellationToken);
+    }
+
+    public Task<Usuario?> ObterPorCodigoAgendamentoAsync(string codigoAgendamento, CancellationToken cancellationToken = default)
+    {
+        return DbSet.FirstOrDefaultAsync(usuario => usuario.CodigoAgendamento == codigoAgendamento, cancellationToken);
+    }
+
+    public Task<bool> ExisteCodigoAgendamentoAsync(string codigoAgendamento, CancellationToken cancellationToken = default)
+    {
+        return DbSet.AnyAsync(usuario => usuario.CodigoAgendamento == codigoAgendamento, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Usuario>> ListarExclusoesPendentesVencidasAsync(
+        DateTime utcNow,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .Where(usuario =>
+                usuario.ExclusaoStatus == ExclusaoStatus.Pendente
+                && (usuario.ExclusaoEfetivarEm == null || usuario.ExclusaoEfetivarEm <= utcNow))
+            .ToListAsync(cancellationToken);
     }
 }

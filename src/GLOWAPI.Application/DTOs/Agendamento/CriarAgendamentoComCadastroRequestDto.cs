@@ -4,7 +4,7 @@ namespace GLOWAPI.Application.DTOs.Agendamento;
 
 public class CriarAgendamentoComCadastroRequestDto
 {
-    public Guid ProfissionalPublicGuid { get; set; }
+    public Guid? ProfissionalPublicGuid { get; set; }
     public int[] ServicoIds { get; set; } = [];
     public DateOnly Data { get; set; }
     public TimeOnly HorarioInicio { get; set; }

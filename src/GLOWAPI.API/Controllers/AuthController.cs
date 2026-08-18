@@ -17,7 +17,9 @@ public class AuthController : ControllerBase
     private readonly IAuthService _authService;
     private readonly IConfirmacaoEmailService _confirmacaoEmailService;
     private readonly IConfirmacaoWhatsAppService _confirmacaoWhatsAppService;
+    private readonly IRecuperacaoSenhaService _recuperacaoSenhaService;
     private readonly ICaptchaValidator _captchaValidator;
+    private readonly IExclusaoContaService _exclusaoContaService;
     private readonly AuthOptions _authOptions;
     private readonly IWebHostEnvironment _environment;
 
@@ -25,14 +27,18 @@ public class AuthController : ControllerBase
         IAuthService authService,
         IConfirmacaoEmailService confirmacaoEmailService,
         IConfirmacaoWhatsAppService confirmacaoWhatsAppService,
+        IRecuperacaoSenhaService recuperacaoSenhaService,
         ICaptchaValidator captchaValidator,
+        IExclusaoContaService exclusaoContaService,
         IOptions<AuthOptions> authOptions,
         IWebHostEnvironment environment)
     {
         _authService = authService;
         _confirmacaoEmailService = confirmacaoEmailService;
         _confirmacaoWhatsAppService = confirmacaoWhatsAppService;
+        _recuperacaoSenhaService = recuperacaoSenhaService;
         _captchaValidator = captchaValidator;
+        _exclusaoContaService = exclusaoContaService;
         _authOptions = authOptions.Value;
         _environment = environment;
     }
@@ -44,6 +50,11 @@ public class AuthController : ControllerBase
         await CaptchaGuard.GarantirValidoAsync(_captchaValidator, request.CaptchaToken, HttpContext, cancellationToken);
 
         var result = await _authService.LoginAsync(request, BuildSessionContext(), cancellationToken);
+        AuthAccessCookieHelper.SetAccessCookie(
+            Response,
+            result.Token,
+            result.ExpiresAt,
+            _environment);
         AuthRefreshCookieHelper.SetRefreshCookie(
             Response,
             result.RefreshToken,
@@ -51,6 +62,7 @@ public class AuthController : ControllerBase
             _environment);
 
         var dto = LoginResponseDto.From(result);
+        dto.Token = string.Empty;
         dto.RefreshToken = string.Empty;
         return Ok(ApiSuccessResponse<LoginResponseDto>.From(
             "Login realizado com sucesso",
@@ -60,14 +72,17 @@ public class AuthController : ControllerBase
     [HttpPost("logout")]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
-        var token = ObterTokenDoHeader();
+        var token = AuthAccessCookieHelper.ObterAccessToken(Request, _authOptions);
         if (string.IsNullOrWhiteSpace(token))
         {
+            AuthAccessCookieHelper.ClearAccessCookie(Response, _environment);
+            AuthRefreshCookieHelper.ClearRefreshCookie(Response, _environment);
             return Unauthorized(ApiErrorResponse.From("Não autorizado.", "UNAUTHORIZED"));
         }
 
         await _authService.LogoutAsync(token, cancellationToken);
-        AuthRefreshCookieHelper.ClearRefreshCookie(Response);
+        AuthAccessCookieHelper.ClearAccessCookie(Response, _environment);
+        AuthRefreshCookieHelper.ClearRefreshCookie(Response, _environment);
         return Ok(ApiSuccessResponse.From("Logout realizado com sucesso"));
     }
 
@@ -86,6 +101,11 @@ public class AuthController : ControllerBase
             BuildSessionContext(),
             cancellationToken);
 
+        AuthAccessCookieHelper.SetAccessCookie(
+            Response,
+            result.Token,
+            result.ExpiresAt,
+            _environment);
         AuthRefreshCookieHelper.SetRefreshCookie(
             Response,
             result.RefreshToken,
@@ -93,6 +113,7 @@ public class AuthController : ControllerBase
             _environment);
 
         var dto = RefreshTokenResponseDto.From(result);
+        dto.Token = string.Empty;
         dto.RefreshToken = string.Empty;
         return Ok(ApiSuccessResponse<RefreshTokenResponseDto>.From(
             "Token renovado com sucesso",
@@ -155,27 +176,70 @@ public class AuthController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpPost("reativar-conta")]
+    public async Task<IActionResult> ReativarConta(
+        [FromBody] ReativarContaRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        await CaptchaGuard.GarantirValidoAsync(_captchaValidator, request.CaptchaToken, HttpContext, cancellationToken);
+
+        var result = await _exclusaoContaService.ReativarAsync(
+            request.Email,
+            request.Senha,
+            BuildSessionContext(),
+            cancellationToken);
+
+        AuthAccessCookieHelper.SetAccessCookie(
+            Response,
+            result.Token,
+            result.ExpiresAt,
+            _environment);
+        AuthRefreshCookieHelper.SetRefreshCookie(
+            Response,
+            result.RefreshToken,
+            result.RefreshExpiresAt,
+            _environment);
+
+        var dto = LoginResponseDto.From(result);
+        dto.Token = string.Empty;
+        dto.RefreshToken = string.Empty;
+        return Ok(ApiSuccessResponse<LoginResponseDto>.From(
+            "Conta reativada com sucesso.",
+            dto));
+    }
+
+    [AllowAnonymous]
     [HttpPost("forgot-password")]
-    public IActionResult ForgotPassword() =>
-        StatusCode(StatusCodes.Status501NotImplemented,
-            ApiErrorResponse.From("Recuperação de senha ainda não implementada.", "NOT_IMPLEMENTED"));
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        await _recuperacaoSenhaService.SolicitarAsync(request.Email, cancellationToken);
+        return Ok(ApiSuccessResponse.From(
+            "Se o e-mail estiver cadastrado, enviaremos instrucoes para redefinir a senha."));
+    }
 
     [AllowAnonymous]
     [HttpPost("reset-password")]
-    public IActionResult ResetPassword() =>
-        StatusCode(StatusCodes.Status501NotImplemented,
-            ApiErrorResponse.From("Redefinição de senha ainda não implementada.", "NOT_IMPLEMENTED"));
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ResetPasswordRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var temToken = !string.IsNullOrWhiteSpace(request.Token);
+        var temCodigo = !string.IsNullOrWhiteSpace(request.Codigo);
+
+        if (temToken == temCodigo)
+        {
+            return BadRequest(ApiErrorResponse.From(
+                "Informe exatamente token ou codigo.",
+                "RESET_SENHA_INVALIDO"));
+        }
+
+        await _recuperacaoSenhaService.RedefinirAsync(request, cancellationToken);
+        return Ok(ApiSuccessResponse.From(
+            "Senha redefinida com sucesso. Voce ja pode fazer login."));
+    }
 
     private AuthSessionContext BuildSessionContext() =>
         new(HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString());
-
-    private string? ObterTokenDoHeader()
-    {
-        if (Request.Headers.TryGetValue(_authOptions.TokenHeaderName, out var values))
-        {
-            return values.FirstOrDefault();
-        }
-
-        return null;
-    }
 }

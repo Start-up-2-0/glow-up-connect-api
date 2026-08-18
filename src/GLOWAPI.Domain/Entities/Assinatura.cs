@@ -9,12 +9,16 @@ public class Assinatura
     public int? PlanoAlteracaoPendenteId { get; set; }
     public int? EstabelecimentoId { get; set; }
     public int? CampanhaPromocionalId { get; set; }
+    public decimal? PercentualDescontoPermanente { get; set; }
     public int DiaVencimento { get; set; }
+    public DateTime DataReferenciaCiclo { get; set; }
     public DateTime? ProximaDataVencimento { get; set; }
     public DateTime? ProximaDataGeracaoCobranca { get; set; }
     public DateTime? ProximaDataAlerta { get; set; }
     public DateTime? UltimoAlertaFaturaEm { get; set; }
     public AssinaturaStatus Status { get; set; } = AssinaturaStatus.PendentePagamento;
+    public AssinaturaStatus? StatusAntesExclusao { get; set; }
+    public TipoAssinatura TipoAssinatura { get; set; } = TipoAssinatura.Estabelecimento;
     public DateTime Inicio { get; set; }
     public DateTime? Fim { get; set; }
     public bool RenovacaoAutomatica { get; set; } = true;

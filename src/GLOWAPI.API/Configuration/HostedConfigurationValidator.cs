@@ -97,6 +97,19 @@ public static class HostedConfigurationValidator
             faltando.Add("GLOW_PROXY_SECRET");
         }
 
+        var requestProofSecret = configuration["REQUEST_PROOF_SECRET"]
+            ?? configuration[$"{RequestProofOptions.SectionName}:Secret"];
+        var requestProofConfigured = configuration.GetValue<bool?>($"{RequestProofOptions.SectionName}:Enabled");
+        var requestProofEnabled = requestProofConfigured
+            ?? (isHosted && !string.IsNullOrWhiteSpace(requestProofSecret));
+        if (requestProofEnabled)
+        {
+            if (string.IsNullOrWhiteSpace(requestProofSecret) || requestProofSecret.Length < 32)
+            {
+                faltando.Add("REQUEST_PROOF_SECRET (minimo 32 caracteres)");
+            }
+        }
+
         var captchaEnabled = configuration.GetValue($"{CaptchaOptions.SectionName}:Enabled", true);
         if (captchaEnabled && string.IsNullOrWhiteSpace(configuration[$"{CaptchaOptions.SectionName}:SecretKey"]))
         {

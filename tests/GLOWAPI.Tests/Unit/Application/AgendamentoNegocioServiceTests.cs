@@ -18,6 +18,7 @@ public class AgendamentoNegocioServiceTests
     private readonly Mock<IProfissionalRepository> _profissionalRepository = new();
     private readonly Mock<IProfissionalEstabelecimentoRepository> _profissionalEstabelecimentoRepository = new();
     private readonly Mock<IAgendamentoRepository> _agendamentoRepository = new();
+    private readonly Mock<IAgendamentoItemRepository> _agendamentoItemRepository = new();
     private readonly Mock<IAgendamentoHistoricoRepository> _agendamentoHistoricoRepository = new();
     private readonly Mock<IAgendamentoValidador> _agendamentoValidador = new();
     private readonly Mock<IAgendamentoNotificacaoService> _agendamentoNotificacaoService = new();
@@ -26,7 +27,9 @@ public class AgendamentoNegocioServiceTests
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
     private readonly Mock<IUsuarioService> _usuarioService = new();
+    private readonly Mock<IAuthSessionService> _authSessionService = new();
     private readonly Mock<IAgendamentoPropostaRemarcacaoRepository> _propostaRemarcacaoRepository = new();
+    private readonly Mock<IAvaliacaoAtendimentoRepository> _avaliacaoAtendimentoRepository = new();
 
     [Fact]
     public async Task ConfirmarAsync_DeveAlterarStatusParaConfirmado()
@@ -73,6 +76,7 @@ public class AgendamentoNegocioServiceTests
                 null,
                 10,
                 It.IsAny<DateTime?>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(preparacao);
 
@@ -99,6 +103,7 @@ public class AgendamentoNegocioServiceTests
                 null,
                 10,
                 It.IsAny<DateTime?>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -140,6 +145,7 @@ public class AgendamentoNegocioServiceTests
                 null,
                 It.IsAny<int?>(),
                 It.IsAny<DateTime?>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(CriarPreparacao(estabelecimento, profissional));
 
@@ -186,6 +192,7 @@ public class AgendamentoNegocioServiceTests
             _profissionalRepository.Object,
             _profissionalEstabelecimentoRepository.Object,
             _agendamentoRepository.Object,
+            _agendamentoItemRepository.Object,
             _agendamentoHistoricoRepository.Object,
             _agendamentoValidador.Object,
             _agendamentoNotificacaoService.Object,
@@ -194,7 +201,10 @@ public class AgendamentoNegocioServiceTests
             _auditoriaNegocioService.Object,
             _currentUserContext.Object,
             _usuarioService.Object,
+            _authSessionService.Object,
             _propostaRemarcacaoRepository.Object,
+            _avaliacaoAtendimentoRepository.Object,
+            new Base64ImageThumbnailer(Options.Create(new AvatarOptions())),
             Options.Create(new AuthOptions { FrontendBaseUrl = "http://localhost:5173" }));
 
     private static Agendamento CriarAgendamentoPendente()

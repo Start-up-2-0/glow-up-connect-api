@@ -11,6 +11,8 @@ public class LoginResponseDto
     public DateTime RefreshExpiresAt { get; set; }
     public UsuarioAuthDto Usuario { get; set; } = new();
     public bool RequerConfirmacaoEmail { get; set; }
+    /// <summary>True quando a sessão é exclusiva do link público (TTL curto, sem refresh).</summary>
+    public bool SessaoAgendamentoPublico { get; set; }
 
     public static LoginResponseDto From(AuthLoginResult result) => new()
     {
@@ -19,7 +21,8 @@ public class LoginResponseDto
         ExpiresAt = result.ExpiresAt,
         RefreshExpiresAt = result.RefreshExpiresAt,
         Usuario = UsuarioAuthDto.From(result.Usuario),
-        RequerConfirmacaoEmail = result.RequerConfirmacaoEmail
+        RequerConfirmacaoEmail = result.RequerConfirmacaoEmail,
+        SessaoAgendamentoPublico = result.SessaoAgendamentoPublico
     };
 }
 

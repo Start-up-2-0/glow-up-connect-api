@@ -10,11 +10,17 @@ public class Estabelecimento
     public string Telefone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public bool Ativo { get; set; } = true;
+    public bool VisivelPublicamente { get; set; } = true;
     public DateTime? WhatsAppConfirmadoEm { get; set; }
     public string? WhatsAppConfirmacaoTokenHash { get; set; }
     public string? WhatsAppConfirmacaoCodigoHash { get; set; }
     public DateTime? WhatsAppConfirmacaoExpiraEm { get; set; }
     public bool WhatsAppOptIn { get; set; }
+    public decimal? NotaMedia { get; set; }
+    public int TotalAvaliacoes { get; set; }
+    /// <summary>Categoria do estabelecimento (catálogo extensível).</summary>
+    public int? CategoriaEstabelecimentoId { get; set; }
+    public CategoriaEstabelecimento? CategoriaEstabelecimento { get; set; }
     public DateTime CreateAd { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
@@ -27,6 +33,7 @@ public class Estabelecimento
     public ICollection<Assinatura> Assinaturas { get; set; } = new List<Assinatura>();
     public Endereco? Endereco { get; set; }
     public Caixa? Caixa { get; set; }
+    public ICollection<Meta> Metas { get; set; } = new List<Meta>();
 
     public bool PendenteConfirmacaoWhatsApp() =>
         !string.IsNullOrEmpty(WhatsAppConfirmacaoTokenHash) || !string.IsNullOrEmpty(WhatsAppConfirmacaoCodigoHash);

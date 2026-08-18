@@ -1,17 +1,13 @@
 using GLOWAPI.Application.DTOs.Convites;
+using GLOWAPI.Application.DTOs.Usuario;
 
 namespace GLOWAPI.Application.Interfaces.Services;
 
 public interface IConviteNegocioService
 {
-    Task<ConviteOuVinculoResponseDto> CriarConviteProfissionalAsync(
+    Task<ConviteNegocioCriadoResponseDto> CriarLinkAsync(
         int estabelecimentoId,
-        CriarConviteProfissionalRequestDto request,
-        CancellationToken cancellationToken = default);
-
-    Task<ConviteOuVinculoResponseDto> CriarConviteUsuarioEquipeAsync(
-        int estabelecimentoId,
-        CriarConviteUsuarioEquipeRequestDto request,
+        CriarConviteLinkRequestDto request,
         CancellationToken cancellationToken = default);
 
     Task<ConviteNegocioPreviewResponseDto> ObterPreviewAsync(
@@ -23,12 +19,18 @@ public interface IConviteNegocioService
         ConviteNegocioFiltroDto filtro,
         CancellationToken cancellationToken = default);
 
+    Task<ConviteNegocioCriadoResponseDto> ObterLinkAsync(
+        int estabelecimentoId,
+        int conviteId,
+        CancellationToken cancellationToken = default);
+
     Task<ConviteNegocioResponseDto> AceitarAsync(
         string token,
         CancellationToken cancellationToken = default);
 
-    Task<ConviteNegocioResponseDto> RejeitarAsync(
+    Task<ConviteNegocioResponseDto> AceitarComCadastroAsync(
         string token,
+        AceitarConviteComCadastroRequestDto request,
         CancellationToken cancellationToken = default);
 
     Task<ConviteNegocioResponseDto> CancelarAsync(

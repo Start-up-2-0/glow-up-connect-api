@@ -13,4 +13,8 @@ public interface IAssinaturaRepository : IRepository<Assinatura>
     Task<int> ContarPorCodigoCampanhaAsync(string codigoCampanha, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Assinatura>> ListarParaAlertaFaturaAsync(DateTime dataReferenciaUtc, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Assinatura>> ListarParaGeracaoCobrancaAsync(DateTime dataReferenciaUtc, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Assinatura>> ListarCancelamentosAgendadosParaEncerrarAsync(DateTime dataReferenciaUtc, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Assinatura>> ListarPendentesComOnboardingJsonAsync(CancellationToken cancellationToken = default);
+    Task<bool> UsuarioJaTeveAssinaturaAsync(int usuarioId, CancellationToken cancellationToken = default);
+    Task<bool> UsuarioPossuiAssinaturaComAcessoAsync(int usuarioId, int? ignorarAssinaturaId = null, CancellationToken cancellationToken = default);
 }

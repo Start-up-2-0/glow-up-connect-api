@@ -65,7 +65,9 @@ public class UsuarioService : IUsuarioService
             Senha = senhaHash,
             Role = UserRole.Cliente,
             Ativo = false,
-            AvatarBase64 = avatarBase64
+            AvatarBase64 = avatarBase64,
+            Sexo = dto.Sexo is null ? null : Enum.Parse<Sexo>(dto.Sexo),
+            CodigoAgendamento = await GerarCodigoAgendamentoUnicoAsync(cancellationToken)
         };
 
         await _usuarioRepository.AdicionarAsync(usuario, cancellationToken);
@@ -89,7 +91,20 @@ public class UsuarioService : IUsuarioService
     public async Task<Usuario> ObterPerfilAtualAsync(CancellationToken cancellationToken = default)
     {
         var userId = ObterUserIdAutenticado();
-        return await ObterUsuarioAtivoAsync(userId, cancellationToken);
+        var usuario = await ObterUsuarioAtivoAsync(userId, cancellationToken);
+        await GarantirCodigoAgendamentoAsync(usuario, cancellationToken);
+        return usuario;
+    }
+
+    public async Task<string> RegenerarCodigoAgendamentoAtualAsync(CancellationToken cancellationToken = default)
+    {
+        var userId = ObterUserIdAutenticado();
+        var usuario = await ObterUsuarioAtivoAsync(userId, cancellationToken);
+        usuario.CodigoAgendamento = await GerarCodigoAgendamentoUnicoAsync(cancellationToken);
+        usuario.UpdatedAt = DateTime.UtcNow;
+        _usuarioRepository.Atualizar(usuario);
+        await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
+        return usuario.CodigoAgendamento;
     }
 
     public async Task AtualizarPerfilAtualAsync(
@@ -102,6 +117,10 @@ public class UsuarioService : IUsuarioService
 
         usuario.Nome = dto.Nome;
         usuario.Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone);
+        if (dto.Sexo is not null)
+        {
+            usuario.Sexo = Enum.Parse<Sexo>(dto.Sexo);
+        }
         usuario.UpdatedAt = DateTime.UtcNow;
 
         WhatsAppConfirmacaoEntidade.ResetarAoAlterarTelefone(
@@ -211,5 +230,32 @@ public class UsuarioService : IUsuarioService
         }
 
         return usuario;
+    }
+
+    private async Task GarantirCodigoAgendamentoAsync(Usuario usuario, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(usuario.CodigoAgendamento))
+        {
+            return;
+        }
+
+        usuario.CodigoAgendamento = await GerarCodigoAgendamentoUnicoAsync(cancellationToken);
+        usuario.UpdatedAt = DateTime.UtcNow;
+        _usuarioRepository.Atualizar(usuario);
+        await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
+    }
+
+    private async Task<string> GerarCodigoAgendamentoUnicoAsync(CancellationToken cancellationToken)
+    {
+        for (var tentativa = 0; tentativa < 20; tentativa++)
+        {
+            var codigo = CodigoAgendamentoHelper.Gerar();
+            if (!await _usuarioRepository.ExisteCodigoAgendamentoAsync(codigo, cancellationToken))
+            {
+                return codigo;
+            }
+        }
+
+        throw new InvalidOperationException("Não foi possível gerar um código de agendamento único.");
     }
 }

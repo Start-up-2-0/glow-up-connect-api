@@ -1,3 +1,4 @@
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Assinaturas;
@@ -63,6 +64,7 @@ public class CobrancaAssinaturaServiceTests
         {
             Id = 10,
             EstabelecimentoId = 1,
+            DataReferenciaCiclo = new DateTime(2026, 7, 15, 0, 0, 0, DateTimeKind.Utc),
             DiaVencimento = 15,
             Gateway = GatewayPagamento.MercadoPago,
             GatewaySubscriptionId = "sub-test-1",
@@ -112,6 +114,7 @@ public class CobrancaAssinaturaServiceTests
         var assinatura = new Assinatura
         {
             Id = 10,
+            DataReferenciaCiclo = new DateTime(2026, 7, 15, 0, 0, 0, DateTimeKind.Utc),
             DiaVencimento = 15,
             Gateway = GatewayPagamento.MercadoPago,
             GatewaySubscriptionId = "sub-test-1",
@@ -174,7 +177,175 @@ public class CobrancaAssinaturaServiceTests
         Assert.Equal(PagamentoStatus.Atrasado, pagamento.Status);
     }
 
-    private CobrancaAssinaturaService CreateService(bool usarCheckoutPro = true) =>
+    [Fact]
+    public async Task GerarCobrancaInicialAsync_DevePreencherExpiraEmNoHorarioBrasil()
+    {
+        CriarCobrancaGatewayRequest? enviado = null;
+        _gateway
+            .Setup(g => g.CriarCobrancaAsync(It.IsAny<CriarCobrancaGatewayRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<CriarCobrancaGatewayRequest, CancellationToken>((request, _) => enviado = request)
+            .ReturnsAsync(new CriarCobrancaGatewayResponse(
+                Sucesso: true,
+                GatewayPaymentId: "pref-exp",
+                CheckoutUrl: "https://checkout.test",
+                QrCode: string.Empty,
+                RequestPayload: "{}",
+                ResponsePayload: "{}",
+                MetodoPagamento: "checkout_pro"));
+
+        var assinatura = new Assinatura
+        {
+            DataReferenciaCiclo = DateTime.UtcNow,
+            Gateway = GatewayPagamento.MercadoPago,
+            TipoAssinatura = TipoAssinatura.Estabelecimento
+        };
+        var plano = new Plano { Id = 1, Nome = "Premium", Preco = 99.90m, Periodo = PlanoPeriodo.Mensal, Ativo = true };
+
+        var service = CreateService();
+        var resultado = await service.GerarCobrancaInicialAsync(assinatura, plano, null);
+        var agoraBrasil = BrasilDateTimeHelper.Agora();
+
+        Assert.NotNull(resultado.Pagamento.ExpiraEm);
+        Assert.True(resultado.Pagamento.ExpiraEm >= agoraBrasil.AddMinutes(4));
+        Assert.True(resultado.Pagamento.ExpiraEm <= agoraBrasil.AddMinutes(6));
+        Assert.NotNull(enviado?.ExpiraEm);
+        Assert.Equal(resultado.Pagamento.ExpiraEm, enviado!.ExpiraEm);
+    }
+
+    [Fact]
+    public async Task GerarCobrancaInicialAsync_EmSandbox_DeveUsarExpiracaoMinimaDeTrintaMinutos()
+    {
+        CriarCobrancaGatewayRequest? enviado = null;
+        _gateway
+            .Setup(g => g.CriarCobrancaAsync(It.IsAny<CriarCobrancaGatewayRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<CriarCobrancaGatewayRequest, CancellationToken>((request, _) => enviado = request)
+            .ReturnsAsync(new CriarCobrancaGatewayResponse(
+                Sucesso: true,
+                GatewayPaymentId: "pref-sandbox-exp",
+                CheckoutUrl: "https://sandbox.mercadopago.com.br/checkout",
+                QrCode: string.Empty,
+                RequestPayload: "{}",
+                ResponsePayload: "{}",
+                MetodoPagamento: "checkout_pro"));
+
+        var assinatura = new Assinatura
+        {
+            DataReferenciaCiclo = DateTime.UtcNow,
+            Gateway = GatewayPagamento.MercadoPago,
+            TipoAssinatura = TipoAssinatura.Estabelecimento
+        };
+        var plano = new Plano { Id = 1, Nome = "Premium", Preco = 99.90m, Periodo = PlanoPeriodo.Mensal, Ativo = true };
+
+        var service = CreateService(usarSandbox: true);
+        var resultado = await service.GerarCobrancaInicialAsync(assinatura, plano, null);
+        var agoraBrasil = BrasilDateTimeHelper.Agora();
+
+        Assert.NotNull(resultado.Pagamento.ExpiraEm);
+        Assert.True(resultado.Pagamento.ExpiraEm >= agoraBrasil.AddMinutes(29));
+        Assert.True(resultado.Pagamento.ExpiraEm <= agoraBrasil.AddMinutes(31));
+        Assert.Equal(resultado.Pagamento.ExpiraEm, enviado!.ExpiraEm);
+    }
+
+    [Fact]
+    public async Task ObterOuRenovarCheckoutInicialAsync_DeveReutilizarLinkValido()
+    {
+        var assinatura = new Assinatura
+        {
+            Id = 10,
+            DataReferenciaCiclo = DateTime.UtcNow,
+            Gateway = GatewayPagamento.MercadoPago,
+            Plano = new Plano { Id = 1, Nome = "Premium", Preco = 99.90m }
+        };
+        var pendente = new Pagamento
+        {
+            Id = 5,
+            AssinaturaId = 10,
+            Status = PagamentoStatus.Pendente,
+            TipoCobranca = TipoCobrancaAssinatura.Inicial,
+            MetodoPagamento = "checkout_pro",
+            GatewayPaymentId = "pref-ainda-valida",
+            ExpiraEm = BrasilDateTimeHelper.Agora().AddMinutes(3)
+        };
+
+        _pagamentoRepository
+            .Setup(r => r.ObterUltimoPendenteInicialPorAssinaturaAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pendente);
+
+        var service = CreateService();
+        var resultado = await service.ObterOuRenovarCheckoutInicialAsync(
+            assinatura,
+            assinatura.Plano!,
+            null);
+
+        Assert.False(resultado.Novo);
+        Assert.Equal(pendente, resultado.Pagamento);
+        Assert.Contains("pref-ainda-valida", resultado.CheckoutUrl);
+        _gateway.Verify(
+            g => g.CriarCobrancaAsync(It.IsAny<CriarCobrancaGatewayRequest>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ObterOuRenovarCheckoutInicialAsync_DeveGerarNovoLink_QuandoExpirado()
+    {
+        var assinatura = new Assinatura
+        {
+            Id = 10,
+            DataReferenciaCiclo = DateTime.UtcNow,
+            Gateway = GatewayPagamento.MercadoPago,
+            TipoAssinatura = TipoAssinatura.Estabelecimento
+        };
+        var plano = new Plano { Id = 1, Nome = "Premium", Preco = 99.90m, Periodo = PlanoPeriodo.Mensal };
+        var expirado = new Pagamento
+        {
+            Id = 5,
+            AssinaturaId = 10,
+            Status = PagamentoStatus.Pendente,
+            TipoCobranca = TipoCobrancaAssinatura.Inicial,
+            ExpiraEm = BrasilDateTimeHelper.Agora().AddMinutes(-1)
+        };
+
+        _pagamentoRepository
+            .Setup(r => r.ObterUltimoPendenteInicialPorAssinaturaAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expirado);
+
+        var service = CreateService();
+        var resultado = await service.ObterOuRenovarCheckoutInicialAsync(assinatura, plano, null);
+
+        Assert.True(resultado.Novo);
+        Assert.Equal(PagamentoStatus.Expirado, expirado.Status);
+        Assert.Equal("pay-rec-1", resultado.Pagamento.GatewayPaymentId);
+        _gateway.Verify(
+            g => g.CriarCobrancaAsync(It.IsAny<CriarCobrancaGatewayRequest>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessarPagamentoAprovadoAsync_DeveAtivar_QuandoExpiraEmJaPassou()
+    {
+        var assinatura = new Assinatura
+        {
+            Id = 10,
+            Status = AssinaturaStatus.PendentePagamento,
+            Plano = new Plano { Id = 1, Periodo = PlanoPeriodo.Mensal }
+        };
+        var pagamento = new Pagamento
+        {
+            Id = 7,
+            Status = PagamentoStatus.Pendente,
+            Assinatura = assinatura,
+            AssinaturaId = 10,
+            ExpiraEm = BrasilDateTimeHelper.Agora().AddMinutes(-10)
+        };
+
+        var service = CreateService();
+        await service.ProcessarPagamentoAprovadoAsync(pagamento, "{}");
+
+        Assert.Equal(PagamentoStatus.Pago, pagamento.Status);
+        Assert.Equal(AssinaturaStatus.Ativa, assinatura.Status);
+    }
+
+    private CobrancaAssinaturaService CreateService(bool usarCheckoutPro = true, bool usarSandbox = false) =>
         new(
             _pagamentoRepository.Object,
             _assinaturaRepository.Object,
@@ -186,5 +357,9 @@ public class CobrancaAssinaturaServiceTests
             new CicloCobrancaAssinaturaService(Options.Create(new AssinaturaCobrancaOptions())),
             _currentUser.Object,
             new Mock<IAssinaturaOnboardingFinalizacaoService>().Object,
-            Options.Create(new MercadoPagoOptions { UsarCheckoutPro = usarCheckoutPro }));
+            new Mock<IAssinaturaVisibilidadeService>().Object,
+            new Mock<IAssinaturaEncerramentoService>().Object,
+            new Mock<IUsuarioRepository>().Object,
+            Options.Create(new MercadoPagoOptions { UsarCheckoutPro = usarCheckoutPro, UsarSandbox = usarSandbox }),
+            Options.Create(new AssinaturaCobrancaOptions()));
 }

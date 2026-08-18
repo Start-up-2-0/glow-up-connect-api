@@ -138,7 +138,43 @@ public class GlowTokenAuthenticationMiddlewareTests
         _currentUserContext.Verify(c => c.Set(1, "test@email.com", UserRole.Cliente, 10), Times.Once);
     }
 
-    private static DefaultHttpContext CriarHttpContext(bool comAllowAnonymous, string? token = null)
+    [Fact]
+    public async Task InvokeAsync_TokenValidoViaCookie_DevePopularCurrentUserContext()
+    {
+        var auth = new AuthenticatedSessionResult(
+            new SessaoAutenticacaoInfo(10, 1, "127.0.0.1", "agent"),
+            new UsuarioAuthInfo(1, "Teste", "test@email.com", UserRole.Cliente));
+
+        _authSessionService
+            .Setup(s => s.ObterSessaoAtivaPorAccessTokenAsync("valid-cookie", It.IsAny<AuthSessionContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(auth);
+        _authSessionService
+            .Setup(s => s.ObterSessaoPorIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GLOWAPI.Domain.Entities.SessaoAutenticacao
+            {
+                Id = 10,
+                LoginEm = DateTime.UtcNow,
+                UltimaRenovacaoEm = DateTime.UtcNow
+            });
+
+        var called = false;
+        var middleware = CreateMiddleware(_ =>
+        {
+            called = true;
+            return Task.CompletedTask;
+        });
+        var context = CriarHttpContext(comAllowAnonymous: false, cookieToken: "valid-cookie");
+
+        await middleware.InvokeAsync(context, _authSessionService.Object, _currentUserContext.Object, _auditLogger.Object);
+
+        Assert.True(called);
+        _currentUserContext.Verify(c => c.Set(1, "test@email.com", UserRole.Cliente, 10), Times.Once);
+    }
+
+    private static DefaultHttpContext CriarHttpContext(
+        bool comAllowAnonymous,
+        string? token = null,
+        string? cookieToken = null)
     {
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
@@ -146,6 +182,11 @@ public class GlowTokenAuthenticationMiddlewareTests
         if (!string.IsNullOrWhiteSpace(token))
         {
             context.Request.Headers["x-glow-token"] = token;
+        }
+
+        if (!string.IsNullOrWhiteSpace(cookieToken))
+        {
+            context.Request.Headers.Cookie = $"guc_access={cookieToken}";
         }
 
         context.Connection.RemoteIpAddress = System.Net.IPAddress.Loopback;

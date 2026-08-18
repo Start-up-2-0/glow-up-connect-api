@@ -11,6 +11,7 @@ using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
 using GLOWAPI.Domain.Exceptions.Auth;
+using GLOWAPI.Domain.Exceptions.Usuario;
 using Microsoft.Extensions.Options;
 
 namespace GLOWAPI.Application.Services;
@@ -36,6 +37,8 @@ public class AssinaturaService : IAssinaturaService
     private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
     private readonly IAvatarBase64Decoder _avatarBase64Decoder;
     private readonly IUsuarioRepository _usuarioRepository;
+    private readonly IAssinaturaVisibilidadeService _assinaturaVisibilidadeService;
+    private readonly IAssinaturaEncerramentoService _assinaturaEncerramentoService;
     private readonly MercadoPagoOptions _mercadoPagoOptions;
 
     public AssinaturaService(
@@ -58,6 +61,8 @@ public class AssinaturaService : IAssinaturaService
         ICobrancaAssinaturaService cobrancaAssinaturaService,
         IAvatarBase64Decoder avatarBase64Decoder,
         IUsuarioRepository usuarioRepository,
+        IAssinaturaVisibilidadeService assinaturaVisibilidadeService,
+        IAssinaturaEncerramentoService assinaturaEncerramentoService,
         IOptions<MercadoPagoOptions> mercadoPagoOptions)
     {
         _assinaturaRepository = assinaturaRepository;
@@ -79,6 +84,8 @@ public class AssinaturaService : IAssinaturaService
         _cobrancaAssinaturaService = cobrancaAssinaturaService;
         _avatarBase64Decoder = avatarBase64Decoder;
         _usuarioRepository = usuarioRepository;
+        _assinaturaVisibilidadeService = assinaturaVisibilidadeService;
+        _assinaturaEncerramentoService = assinaturaEncerramentoService;
         _mercadoPagoOptions = mercadoPagoOptions.Value;
     }
 
@@ -94,10 +101,25 @@ public class AssinaturaService : IAssinaturaService
         }
 
         ValidarTitular(request);
-        _cicloCobrancaService.ValidarDiaVencimento(request.DiaVencimento);
 
-        var elegivelTrial = await ElegivelPromocaoTrialAsync(request, cancellationToken);
+        var elegivelTrial = await ElegivelPromocaoTrialAsync(request, userId, cancellationToken);
         var onboardingPendente = DeveAdiarOnboarding(request, elegivelTrial);
+
+        var pendenteExistente = await ResolverAssinaturaPendenteReutilizavelAsync(
+            request,
+            userId,
+            onboardingPendente,
+            cancellationToken);
+        if (pendenteExistente is not null)
+        {
+            return await ReutilizarAssinaturaPendenteAsync(
+                pendenteExistente,
+                plano,
+                request,
+                onboardingPendente,
+                cancellationToken);
+        }
+
         Assinatura assinatura;
         if (onboardingPendente)
         {
@@ -113,7 +135,7 @@ public class AssinaturaService : IAssinaturaService
             };
         }
 
-        assinatura.DiaVencimento = request.DiaVencimento;
+        InicializarReferenciaCiclo(assinatura);
 
         var diasTrialIniciado = await TentarIniciarComTrialAsync(assinatura, plano, request, cancellationToken);
         if (diasTrialIniciado.HasValue)
@@ -145,7 +167,10 @@ public class AssinaturaService : IAssinaturaService
             return await MontarRespostaInicioAsync(assinatura, cancellationToken, diasTrial: diasTrial);
         }
 
-        var ciclo = _cicloCobrancaService.CalcularPrimeiroCiclo(request.DiaVencimento, DateTime.UtcNow);
+        var ciclo = _cicloCobrancaService.CalcularPrimeiroCiclo(
+            assinatura.DataReferenciaCiclo,
+            DateTime.UtcNow,
+            plano.Periodo);
         _cicloCobrancaService.AplicarCicloNaAssinatura(assinatura, ciclo);
         assinatura.Fim = ciclo.Vencimento;
 
@@ -203,11 +228,6 @@ public class AssinaturaService : IAssinaturaService
             _currentUser.Email,
             cancellationToken);
 
-        if (!onboardingPendente)
-        {
-            await PromoverRoleOnboardingAsync(userId, request.TipoAssinatura, cancellationToken);
-        }
-
         return await MontarRespostaInicioAsync(
             assinatura,
             cancellationToken,
@@ -245,7 +265,7 @@ public class AssinaturaService : IAssinaturaService
 
         await ValidarDowngradeMultiLojaAsync(assinatura, novoPlano, cancellationToken);
 
-        if (TrocaExigeCobranca(assinatura.Plano, novoPlano))
+        if (TrocaExigeCobranca(assinatura.Plano, novoPlano, assinatura.TipoAssinatura))
         {
             assinatura.PlanoAlteracaoPendenteId = novoPlano.Id;
             assinatura.PlanoAlteracaoPendente = novoPlano;
@@ -319,34 +339,59 @@ public class AssinaturaService : IAssinaturaService
 
         await ValidarPermissaoGerenciarAssinaturaAsync(assinatura, userId, cancellationToken);
 
-        if (assinatura.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Trial))
+        if (assinatura.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Trial or AssinaturaStatus.Inadimplente))
         {
-            throw new CancelamentoAssinaturaInvalidoException("Somente assinatura ativa ou em trial pode ser cancelada pelo usuario.");
+            throw new CancelamentoAssinaturaInvalidoException("Somente assinatura ativa, em trial ou inadimplente pode ser cancelada pelo usuario.");
+        }
+
+        var fimPeriodo = assinatura.ProximaDataVencimento
+            ?? assinatura.Fim
+            ?? DateTime.UtcNow;
+
+        if (fimPeriodo.Date <= DateTime.UtcNow.Date)
+        {
+            await _assinaturaEncerramentoService.EncerrarAsync(
+                assinatura,
+                AssinaturaStatus.Cancelada,
+                "AssinaturaCanceladaPeloUsuario",
+                "Cancelamento solicitado pelo usuario.",
+                cancellationToken: cancellationToken);
+
+            await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+            await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
+
+            await _assinaturaNotificacaoService.AssinaturaCanceladaAsync(
+                assinatura,
+                _currentUser.Email,
+                cancellationToken);
+
+            return AssinaturaResponseDto.From(assinatura);
         }
 
         var statusAnterior = assinatura.Status;
-        assinatura.Status = AssinaturaStatus.Cancelada;
+        assinatura.Status = AssinaturaStatus.CancelamentoAgendado;
         assinatura.CanceladoEm = DateTime.UtcNow;
         assinatura.RenovacaoAutomatica = false;
         assinatura.PlanoAlteracaoPendenteId = null;
         assinatura.PlanoAlteracaoPendente = null;
+        assinatura.Fim = fimPeriodo;
         assinatura.UpdatedAt = DateTime.UtcNow;
 
         _assinaturaRepository.Atualizar(assinatura);
         await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
             assinatura,
-            "AssinaturaCanceladaPeloUsuario",
+            "AssinaturaCancelamentoAgendado",
             statusAnterior,
             assinatura.Status,
-            observacao: "Cancelamento solicitado pelo usuario.",
+            observacao: "Cancelamento agendado para o fim do periodo contratado.",
             cancellationToken: cancellationToken);
         await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
             assinatura,
-            "RecorrenciaCancelada",
-            "Cancelada",
+            "RecorrenciaCancelamentoAgendado",
+            "CancelamentoAgendado",
             cicloInicio: assinatura.Inicio,
             cicloFim: assinatura.Fim,
-            observacao: "Renovacao automatica desativada por cancelamento.",
+            observacao: "Renovacao automatica desativada; acesso mantido ate o fim do periodo.",
             cancellationToken: cancellationToken);
         await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
 
@@ -406,7 +451,7 @@ public class AssinaturaService : IAssinaturaService
             throw new AssinaturaNaoEncontradaException();
         }
 
-        await ValidarPermissaoGerenciarAssinaturaAsync(assinatura, userId, cancellationToken);
+        await ValidarPermissaoOwnerAssinaturaAsync(assinatura, userId, cancellationToken);
 
         if (assinatura.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Trial))
         {
@@ -414,7 +459,8 @@ public class AssinaturaService : IAssinaturaService
                 "Somente assinatura ativa ou em trial pode receber novas unidades.");
         }
 
-        if (!PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano))
+        if (assinatura.TipoAssinatura == TipoAssinatura.ProfissionalAutonomo
+            || !PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano, assinatura.TipoAssinatura))
         {
             throw new TrocaPlanoAssinaturaInvalidaException(
                 "O plano atual nao permite multiplas unidades.");
@@ -429,7 +475,14 @@ public class AssinaturaService : IAssinaturaService
             throw new LimiteEstabelecimentosExcedidoException();
         }
 
-        var estabelecimento = CriarEstabelecimento(request.Estabelecimento);
+        var estabelecimentoDto = request.Estabelecimento;
+        estabelecimentoDto.CategoriaEstabelecimentoId = await ResolverCategoriaIdAsync(
+            estabelecimentoDto.CategoriaEstabelecimentoId,
+            TipoAssinatura.Estabelecimento,
+            mensagem => new EstabelecimentoAssinaturaInvalidoException(mensagem),
+            cancellationToken);
+
+        var estabelecimento = CriarEstabelecimento(estabelecimentoDto);
         await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
         await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
 
@@ -461,7 +514,7 @@ public class AssinaturaService : IAssinaturaService
         CancellationToken cancellationToken)
     {
         if (!assinatura.EstabelecimentoId.HasValue
-            || !PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano))
+            || !PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano, assinatura.TipoAssinatura))
         {
             return;
         }
@@ -489,8 +542,8 @@ public class AssinaturaService : IAssinaturaService
         Plano novoPlano,
         CancellationToken cancellationToken)
     {
-        if (!PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano)
-            || PlanoComercialCatalogo.PermiteMultiLoja(novoPlano))
+        if (!PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano, assinatura.TipoAssinatura)
+            || PlanoComercialCatalogo.PermiteMultiLoja(novoPlano, assinatura.TipoAssinatura))
         {
             return;
         }
@@ -502,6 +555,135 @@ public class AssinaturaService : IAssinaturaService
         {
             throw new DowngradeComMultiplasLojasException();
         }
+    }
+
+    private async Task<Assinatura?> ResolverAssinaturaPendenteReutilizavelAsync(
+        IniciarAssinaturaRequestDto request,
+        int userId,
+        bool onboardingPendente,
+        CancellationToken cancellationToken)
+    {
+        if (onboardingPendente)
+        {
+            var pendentes = await _assinaturaRepository.ListarPendentesComOnboardingJsonAsync(cancellationToken)
+                ?? Array.Empty<Assinatura>();
+            foreach (var candidata in pendentes)
+            {
+                AssinaturaOnboardingPendentePayload? payload;
+                try
+                {
+                    payload = JsonSerializer.Deserialize<AssinaturaOnboardingPendentePayload>(
+                        candidata.OnboardingPendenteJson!,
+                        JsonOptions);
+                }
+                catch (JsonException)
+                {
+                    continue;
+                }
+
+                if (payload?.UsuarioId == userId)
+                {
+                    return candidata;
+                }
+            }
+
+            return null;
+        }
+
+        if (!request.EstabelecimentoId.HasValue)
+        {
+            return null;
+        }
+
+        var atual = await _assinaturaRepository.ObterAtualPorEstabelecimentoAsync(
+            request.EstabelecimentoId.Value,
+            cancellationToken);
+        return atual?.Status == AssinaturaStatus.PendentePagamento ? atual : null;
+    }
+
+    private async Task<AssinaturaResponseDto> ReutilizarAssinaturaPendenteAsync(
+        Assinatura assinatura,
+        Plano plano,
+        IniciarAssinaturaRequestDto request,
+        bool onboardingPendente,
+        CancellationToken cancellationToken)
+    {
+        if (onboardingPendente)
+        {
+            AtualizarOnboardingPendente(assinatura, request, ObterUserIdAutenticado());
+        }
+
+        if (assinatura.PlanoId != plano.Id)
+        {
+            assinatura.PlanoId = plano.Id;
+            assinatura.Plano = plano;
+            assinatura.UpdatedAt = DateTime.UtcNow;
+            _assinaturaRepository.Atualizar(assinatura);
+        }
+
+        var cobranca = await _cobrancaAssinaturaService.ObterOuRenovarCheckoutInicialAsync(
+            assinatura,
+            plano,
+            request.Pagamento,
+            cancellationToken);
+
+        if (cobranca.Novo)
+        {
+            await _assinaturaHistoricoService.RegistrarPagamentoAsync(
+                cobranca.Pagamento,
+                "PagamentoInicialCriado",
+                null,
+                cobranca.Pagamento.Status,
+                "Cobranca inicial renovada no gateway.",
+                cobranca.Pagamento.GatewayPaymentId,
+                cancellationToken);
+
+            await _pagamentoRepository.AdicionarAsync(cobranca.Pagamento, cancellationToken);
+            if (!cobranca.Pagamento.AssinaturaId.HasValue)
+            {
+                cobranca.Pagamento.AssinaturaId = assinatura.Id;
+            }
+
+            await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+        }
+
+        return await MontarRespostaInicioAsync(
+            assinatura,
+            cancellationToken,
+            PagamentoAssinaturaResponseDto.From(
+                cobranca.Pagamento,
+                cobranca.CheckoutUrl,
+                cobranca.QrCode));
+    }
+
+    private void AtualizarOnboardingPendente(
+        Assinatura assinatura,
+        IniciarAssinaturaRequestDto request,
+        int userId)
+    {
+        if (request.Estabelecimento is not null)
+        {
+            request.Estabelecimento.Logo = OperacaoPerfilValidation.ValidarLogoBase64(
+                request.Estabelecimento.Logo,
+                "Logo do estabelecimento",
+                _avatarBase64Decoder,
+                mensagem => new EstabelecimentoAssinaturaInvalidoException(mensagem));
+        }
+
+        if (request.ProfissionalAutonomo is not null)
+        {
+            request.ProfissionalAutonomo.Logo = ValidarLogoProfissionalAutonomo(request.ProfissionalAutonomo);
+        }
+
+        var payload = new AssinaturaOnboardingPendentePayload(
+            userId,
+            request.TipoAssinatura,
+            request.Estabelecimento,
+            request.ProfissionalAutonomo);
+
+        assinatura.OnboardingPendenteJson = JsonSerializer.Serialize(payload, JsonOptions);
+        assinatura.UpdatedAt = DateTime.UtcNow;
+        _assinaturaRepository.Atualizar(assinatura);
     }
 
     private bool DeveAdiarOnboarding(IniciarAssinaturaRequestDto request, bool elegivelTrial) =>
@@ -527,13 +709,27 @@ public class AssinaturaService : IAssinaturaService
             }
         }
 
+        if (request.Estabelecimento is not null)
+        {
+            request.Estabelecimento.Logo = OperacaoPerfilValidation.ValidarLogoBase64(
+                request.Estabelecimento.Logo,
+                "Logo do estabelecimento",
+                _avatarBase64Decoder,
+                mensagem => new EstabelecimentoAssinaturaInvalidoException(mensagem));
+        }
+
+        if (request.ProfissionalAutonomo is not null)
+        {
+            request.ProfissionalAutonomo.Logo = ValidarLogoProfissionalAutonomo(request.ProfissionalAutonomo);
+        }
+
         var payload = new AssinaturaOnboardingPendentePayload(
             userId,
             request.TipoAssinatura,
             request.Estabelecimento,
             request.ProfissionalAutonomo);
 
-        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
+        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway, request.TipoAssinatura);
         assinatura.OnboardingPendenteJson = JsonSerializer.Serialize(payload, JsonOptions);
         return assinatura;
     }
@@ -568,7 +764,7 @@ public class AssinaturaService : IAssinaturaService
             throw new AssinaturaDuplicadaException();
         }
 
-        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
+        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway, request.TipoAssinatura);
         assinatura.EstabelecimentoId = estabelecimentoId;
 
         return assinatura;
@@ -591,7 +787,13 @@ public class AssinaturaService : IAssinaturaService
             throw new EstabelecimentoOnboardingDuplicadoException();
         }
 
-        var estabelecimento = CriarEstabelecimento(request.Estabelecimento!);
+        request.Estabelecimento!.CategoriaEstabelecimentoId = await ResolverCategoriaIdAsync(
+            request.Estabelecimento.CategoriaEstabelecimentoId,
+            TipoAssinatura.Estabelecimento,
+            mensagem => new EstabelecimentoAssinaturaInvalidoException(mensagem),
+            cancellationToken);
+
+        var estabelecimento = CriarEstabelecimento(request.Estabelecimento);
         await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
         await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
 
@@ -603,7 +805,7 @@ public class AssinaturaService : IAssinaturaService
             Ativo = true
         }, cancellationToken);
 
-        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
+        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway, request.TipoAssinatura);
         assinatura.Estabelecimento = estabelecimento;
 
         return assinatura;
@@ -642,7 +844,9 @@ public class AssinaturaService : IAssinaturaService
         }
         else
         {
-            estabelecimento = CriarEstabelecimentoParaProfissionalAutonomo(profissional);
+            estabelecimento = await CriarEstabelecimentoParaProfissionalAutonomoAsync(
+                profissional,
+                cancellationToken);
             await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
             await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
             await CriarVinculosTenantProfissionalAutonomoAsync(
@@ -657,7 +861,7 @@ public class AssinaturaService : IAssinaturaService
             throw new AssinaturaDuplicadaException();
         }
 
-        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
+        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway, request.TipoAssinatura);
         assinatura.Estabelecimento = estabelecimento;
         if (estabelecimento.Id > 0)
         {
@@ -672,6 +876,11 @@ public class AssinaturaService : IAssinaturaService
         int userId,
         CancellationToken cancellationToken)
     {
+        await ValidarTelefoneContaProfissionalAutonomoAsync(
+            request.ProfissionalAutonomo!,
+            userId,
+            cancellationToken);
+
         var profissional = await _profissionalRepository.ObterPorUsuarioIdAsync(userId, cancellationToken);
         if (profissional is null)
         {
@@ -698,13 +907,18 @@ public class AssinaturaService : IAssinaturaService
                 throw new AssinaturaDuplicadaException();
             }
 
-            AtualizarEstabelecimentoAutonomo(estabelecimento, request.ProfissionalAutonomo!);
+            await AtualizarEstabelecimentoAutonomoAsync(
+                estabelecimento,
+                request.ProfissionalAutonomo!,
+                cancellationToken);
             await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
             _estabelecimentoRepository.Atualizar(estabelecimento);
         }
         else
         {
-            estabelecimento = CriarEstabelecimentoParaProfissionalAutonomo(request.ProfissionalAutonomo!);
+            estabelecimento = await CriarEstabelecimentoParaProfissionalAutonomoAsync(
+                request.ProfissionalAutonomo!,
+                cancellationToken);
             await TentarGeocodificarEstabelecimentoAsync(estabelecimento, cancellationToken);
             await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
             await CriarVinculosTenantProfissionalAutonomoAsync(
@@ -714,7 +928,7 @@ public class AssinaturaService : IAssinaturaService
                 cancellationToken);
         }
 
-        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway);
+        var assinatura = CriarAssinaturaBase(request.PlanoId, request.Gateway, request.TipoAssinatura);
         assinatura.Estabelecimento = estabelecimento;
 
         return assinatura;
@@ -772,6 +986,11 @@ public class AssinaturaService : IAssinaturaService
             throw new EstabelecimentoAssinaturaInvalidoException("Descricao do estabelecimento deve ter no maximo 500 caracteres.");
         }
 
+        if (dto.CategoriaEstabelecimentoId is null)
+        {
+            throw new EstabelecimentoAssinaturaInvalidoException("Categoria do estabelecimento e obrigatoria.");
+        }
+
         return new Estabelecimento
         {
             Nome = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Nome, "Nome do estabelecimento", 150, CriarExcecao),
@@ -784,15 +1003,23 @@ public class AssinaturaService : IAssinaturaService
             Telefone = TelefoneHelper.NormalizarParaArmazenamento(
                 OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Telefone, "Telefone do estabelecimento", 20, CriarExcecao)),
             Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Email, "Email do estabelecimento", 255, CriarExcecao),
+            CategoriaEstabelecimentoId = dto.CategoriaEstabelecimentoId,
             Ativo = true,
-            Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao)
+            Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao),
+            Caixa = new Caixa()
         };
     }
 
-    private Estabelecimento CriarEstabelecimentoParaProfissionalAutonomo(
-        CriarProfissionalAutonomoAssinaturaDto dto)
+    private async Task<Estabelecimento> CriarEstabelecimentoParaProfissionalAutonomoAsync(
+        CriarProfissionalAutonomoAssinaturaDto dto,
+        CancellationToken cancellationToken)
     {
         var logo = ValidarLogoProfissionalAutonomo(dto);
+        dto.CategoriaEstabelecimentoId = await ResolverCategoriaIdAsync(
+            dto.CategoriaEstabelecimentoId,
+            TipoAssinatura.ProfissionalAutonomo,
+            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem),
+            cancellationToken);
 
         return new Estabelecimento
         {
@@ -801,6 +1028,7 @@ public class AssinaturaService : IAssinaturaService
             Logo = logo,
             Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone),
             Email = dto.Email.Trim(),
+            CategoriaEstabelecimentoId = dto.CategoriaEstabelecimentoId,
             Ativo = true,
             Endereco = OperacaoPerfilValidation.CriarEndereco(
                 dto.Endereco,
@@ -809,8 +1037,16 @@ public class AssinaturaService : IAssinaturaService
         };
     }
 
-    private static Estabelecimento CriarEstabelecimentoParaProfissionalAutonomo(Profissional profissional)
+    private async Task<Estabelecimento> CriarEstabelecimentoParaProfissionalAutonomoAsync(
+        Profissional profissional,
+        CancellationToken cancellationToken)
     {
+        var categoriaId = await ResolverCategoriaIdAsync(
+            null,
+            TipoAssinatura.ProfissionalAutonomo,
+            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem),
+            cancellationToken);
+
         return new Estabelecimento
         {
             Nome = profissional.NomePublico.Trim(),
@@ -818,22 +1054,30 @@ public class AssinaturaService : IAssinaturaService
             Logo = profissional.Logo.Trim(),
             Telefone = TelefoneHelper.NormalizarParaArmazenamento(profissional.Telefone),
             Email = profissional.Email.Trim(),
+            CategoriaEstabelecimentoId = categoriaId,
             Ativo = true,
             Caixa = new Caixa()
         };
     }
 
-    private void AtualizarEstabelecimentoAutonomo(
+    private async Task AtualizarEstabelecimentoAutonomoAsync(
         Estabelecimento estabelecimento,
-        CriarProfissionalAutonomoAssinaturaDto dto)
+        CriarProfissionalAutonomoAssinaturaDto dto,
+        CancellationToken cancellationToken)
     {
         var logo = ValidarLogoProfissionalAutonomo(dto);
+        dto.CategoriaEstabelecimentoId = await ResolverCategoriaIdAsync(
+            dto.CategoriaEstabelecimentoId,
+            TipoAssinatura.ProfissionalAutonomo,
+            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem),
+            cancellationToken);
 
         estabelecimento.Nome = dto.NomePublico.Trim();
         estabelecimento.Descricao = dto.Biografia.Trim();
         estabelecimento.Logo = logo;
         estabelecimento.Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone);
         estabelecimento.Email = dto.Email.Trim();
+        estabelecimento.CategoriaEstabelecimentoId = dto.CategoriaEstabelecimentoId;
         estabelecimento.Ativo = true;
         estabelecimento.UpdatedAt = DateTime.UtcNow;
 
@@ -890,6 +1134,40 @@ public class AssinaturaService : IAssinaturaService
         }
     }
 
+    /// <summary>
+    /// Garante que o telefone do perfil autonomo coincide com o da conta e esta confirmado via WhatsApp.
+    /// Fonte de verdade: <see cref="Usuario.Telefone"/> + <see cref="Usuario.WhatsAppConfirmadoEm"/>.
+    /// </summary>
+    private async Task ValidarTelefoneContaProfissionalAutonomoAsync(
+        CriarProfissionalAutonomoAssinaturaDto dto,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var usuario = await _usuarioRepository.ObterPorIdAsync(userId, cancellationToken);
+        if (usuario is null)
+        {
+            throw new UsuarioNaoEncontradoException();
+        }
+
+        var telefonePayload = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone);
+        var telefoneConta = TelefoneHelper.NormalizarParaArmazenamento(usuario.Telefone);
+
+        if (string.IsNullOrEmpty(telefonePayload))
+        {
+            throw new ProfissionalAutonomoAssinaturaInvalidoException("Telefone do profissional e obrigatorio.");
+        }
+
+        if (!TelefoneHelper.SaoEquivalentes(telefonePayload, telefoneConta))
+        {
+            throw new TelefoneAssinaturaDivergenteException();
+        }
+
+        if (!usuario.WhatsAppConfirmadoEm.HasValue)
+        {
+            throw new TelefoneAssinaturaNaoConfirmadoException();
+        }
+    }
+
     private string ValidarLogoProfissionalAutonomo(CriarProfissionalAutonomoAssinaturaDto dto)
     {
         ValidarProfissionalAutonomo(dto);
@@ -931,20 +1209,59 @@ public class AssinaturaService : IAssinaturaService
             mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
     }
 
-    private static Assinatura CriarAssinaturaBase(int planoId, GatewayPagamento gateway) =>
-        new()
+    private async Task<int> ResolverCategoriaIdAsync(
+        int? informado,
+        TipoAssinatura tipoAssinatura,
+        Func<string, Exception> criarExcecao,
+        CancellationToken cancellationToken)
+    {
+        var categorias = await _estabelecimentoRepository.ListarCategoriasAsync(cancellationToken);
+        return CategoriaEstabelecimentoCatalogo.ResolverId(
+            informado,
+            tipoAssinatura,
+            categorias,
+            criarExcecao);
+    }
+
+    private static Assinatura CriarAssinaturaBase(
+        int planoId,
+        GatewayPagamento gateway,
+        TipoAssinatura tipoAssinatura)
+    {
+        var agora = DateTime.UtcNow;
+        return new()
         {
             PlanoId = planoId,
             Status = AssinaturaStatus.PendentePagamento,
-            Inicio = DateTime.UtcNow,
+            TipoAssinatura = tipoAssinatura,
+            Inicio = agora,
+            DataReferenciaCiclo = agora.Date,
+            DiaVencimento = agora.Day,
             Gateway = gateway,
             RenovacaoAutomatica = true
         };
+    }
+
+    private static void InicializarReferenciaCiclo(Assinatura assinatura)
+    {
+        if (assinatura.DataReferenciaCiclo == default)
+        {
+            var referencia = assinatura.Inicio == default ? DateTime.UtcNow : assinatura.Inicio;
+            assinatura.DataReferenciaCiclo = referencia.Date;
+            assinatura.DiaVencimento = referencia.Day;
+        }
+    }
 
     private async Task<bool> ElegivelPromocaoTrialAsync(
         IniciarAssinaturaRequestDto request,
+        int userId,
         CancellationToken cancellationToken)
     {
+        if (await _assinaturaRepository.UsuarioJaTeveAssinaturaAsync(userId, cancellationToken))
+        {
+            return false;
+        }
+
         var promoStatus = await _promocaoLancamentoService.ObterStatusAsync(cancellationToken);
         if (!promoStatus.Disponivel)
         {
@@ -989,7 +1306,7 @@ public class AssinaturaService : IAssinaturaService
         IniciarAssinaturaRequestDto request,
         CancellationToken cancellationToken)
     {
-        if (!await ElegivelPromocaoTrialAsync(request, cancellationToken))
+        if (!await ElegivelPromocaoTrialAsync(request, ObterUserIdAutenticado(), cancellationToken))
         {
             return null;
         }
@@ -1005,7 +1322,7 @@ public class AssinaturaService : IAssinaturaService
 
         var inicio = DateTime.UtcNow;
         var fimTrial = _cicloCobrancaService.CalcularFimTrial(inicio, campanha.DiasTrial);
-        var ciclo = _cicloCobrancaService.CalcularPrimeiroCiclo(request.DiaVencimento, fimTrial);
+        var ciclo = _cicloCobrancaService.CalcularCicloPorVencimento(fimTrial);
 
         var gateway = _gatewayPagamentoResolver.Resolver(assinatura.Gateway);
         var referenciaInterna = $"trial-{Guid.NewGuid():N}";
@@ -1013,13 +1330,17 @@ public class AssinaturaService : IAssinaturaService
         var trialSemRecorrenciaNoGateway = _mercadoPagoOptions.UsarCheckoutPro
             || _mercadoPagoOptions.PermitirTrialSemRecorrenciaNoGateway;
 
+        var valorMensalidade = AssinaturaValorCobranca.CalcularMensalidade(
+            PlanoComercialCatalogo.ResolverPreco(plano, assinatura.TipoAssinatura),
+            campanha.PercentualDescontoMensalidade);
+
         if (!trialSemRecorrenciaNoGateway)
         {
             response = await gateway.CriarAssinaturaRecorrenteAsync(new CriarAssinaturaRecorrenteGatewayRequest(
                 Gateway: assinatura.Gateway,
                 ReferenciaInterna: referenciaInterna,
                 Descricao: $"Assinatura {plano.Nome} - trial {campanha.DiasTrial} dias",
-                Valor: plano.Preco,
+                Valor: valorMensalidade,
                 Moeda: "BRL",
                 PagadorNome: _currentUser.Email ?? "Usuario Glow",
                 PagadorEmail: _currentUser.Email ?? string.Empty,
@@ -1030,7 +1351,7 @@ public class AssinaturaService : IAssinaturaService
                 {
                     ["planoId"] = plano.Id.ToString(),
                     ["campanha"] = campanha.Codigo,
-                    ["diaVencimento"] = request.DiaVencimento.ToString()
+                    ["dataReferenciaCiclo"] = assinatura.DataReferenciaCiclo.ToString("O")
                 }),
                 cancellationToken);
 
@@ -1048,6 +1369,7 @@ public class AssinaturaService : IAssinaturaService
 
         assinatura.Status = AssinaturaStatus.Trial;
         assinatura.CampanhaPromocionalId = campanha.Id;
+        assinatura.PercentualDescontoPermanente = campanha.PercentualDescontoMensalidade;
         assinatura.Inicio = inicio;
         assinatura.Fim = ciclo.Vencimento;
         assinatura.GatewaySubscriptionId = trialSemRecorrenciaNoGateway
@@ -1097,7 +1419,7 @@ public class AssinaturaService : IAssinaturaService
             return true;
         }
 
-        if (!TokenMercadoPagoSandboxAtivo())
+        if (!_mercadoPagoOptions.SandboxAtivo())
         {
             return false;
         }
@@ -1110,10 +1432,6 @@ public class AssinaturaService : IAssinaturaService
 
         return response.FailureInfo?.RequestUri?.Contains("preapproval", StringComparison.OrdinalIgnoreCase) == true;
     }
-
-    private bool TokenMercadoPagoSandboxAtivo() =>
-        !string.IsNullOrWhiteSpace(_mercadoPagoOptions.AccessToken)
-        && _mercadoPagoOptions.AccessToken.TrimStart().StartsWith("TEST-", StringComparison.OrdinalIgnoreCase);
 
     private static bool PagamentoCompativelComTrial(PagamentoTransparenteMercadoPagoDto? pagamento) =>
         pagamento is not null
@@ -1161,7 +1479,7 @@ public class AssinaturaService : IAssinaturaService
                 userId,
                 cancellationToken);
 
-            if (vinculo is null)
+            if (vinculo is null || vinculo.RoleNoEstabelecimento != EstablishmentUserRole.Owner)
             {
                 throw new UsuarioSemPermissaoAssinaturaException();
             }
@@ -1170,6 +1488,30 @@ public class AssinaturaService : IAssinaturaService
         }
 
         throw new AssinaturaTitularInvalidoException();
+    }
+
+    /// <summary>
+    /// Adicionar unidade é exclusivo do proprietário (Owner) da assinatura titular.
+    /// </summary>
+    private async Task ValidarPermissaoOwnerAssinaturaAsync(
+        Assinatura assinatura,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        if (!assinatura.EstabelecimentoId.HasValue)
+        {
+            throw new AssinaturaTitularInvalidoException();
+        }
+
+        var vinculo = await _estabelecimentoUsuarioRepository.ObterAtivoAsync(
+            assinatura.EstabelecimentoId.Value,
+            userId,
+            cancellationToken);
+
+        if (vinculo is null || vinculo.RoleNoEstabelecimento != EstablishmentUserRole.Owner)
+        {
+            throw new UsuarioSemPermissaoAssinaturaException();
+        }
     }
 
     private static void ValidarAssinaturaPermiteTroca(Assinatura assinatura)
@@ -1185,14 +1527,19 @@ public class AssinaturaService : IAssinaturaService
         }
     }
 
-    private static bool TrocaExigeCobranca(Plano? planoAtual, Plano novoPlano)
+    private static bool TrocaExigeCobranca(
+        Plano? planoAtual,
+        Plano novoPlano,
+        TipoAssinatura tipoAssinatura)
     {
         if (planoAtual is null)
         {
             return true;
         }
 
-        return planoAtual.Preco != novoPlano.Preco || planoAtual.Periodo != novoPlano.Periodo;
+        var precoAtual = PlanoComercialCatalogo.ResolverPreco(planoAtual, tipoAssinatura);
+        var precoNovo = PlanoComercialCatalogo.ResolverPreco(novoPlano, tipoAssinatura);
+        return precoAtual != precoNovo || planoAtual.Periodo != novoPlano.Periodo;
     }
 
     private async Task TentarGeocodificarEstabelecimentoAsync(

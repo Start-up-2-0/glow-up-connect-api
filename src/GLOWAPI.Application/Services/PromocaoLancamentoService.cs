@@ -9,6 +9,8 @@ namespace GLOWAPI.Application.Services;
 public class PromocaoLancamentoService : IPromocaoLancamentoService
 {
     public const string CodigoCampanhaLancamento = "lancamento-100";
+    public const int DiasTrialPadrao = 14;
+    public const decimal PercentualDescontoMensalidadePadrao = 50m;
 
     private readonly ICampanhaPromocionalRepository _campanhaPromocionalRepository;
     private readonly IAssinaturaRepository _assinaturaRepository;
@@ -36,7 +38,8 @@ public class PromocaoLancamentoService : IPromocaoLancamentoService
                 CodigoCampanhaLancamento,
                 cancellationToken);
 
-        var disponivel = campanha is not null
+        var disponivel = !_options.DesativarPromocaoLancamento
+            && campanha is not null
             && campanha.Ativa
             && assinaturasUtilizadas < campanha.Limite;
         var vagasRestantes = campanha is null
@@ -46,10 +49,11 @@ public class PromocaoLancamentoService : IPromocaoLancamentoService
         return new PromocaoLancamentoStatusDto(
             disponivel,
             vagasRestantes,
-            campanha?.DiasTrial ?? 30,
-            _options.DiasVencimentoPermitidos,
+            campanha?.DiasTrial ?? DiasTrialPadrao,
+            campanha?.PercentualDescontoMensalidade ?? PercentualDescontoMensalidadePadrao,
             _options.DiasAntecedenciaAlertaFatura,
-            _options.DiasAntecedenciaGeracaoCobranca);
+            _options.DiasAntecedenciaGeracaoCobranca,
+            _options.DiasToleranciaInadimplencia);
     }
 
     public async Task<bool> EstabelecimentoJaUsouPromocaoAsync(
@@ -64,6 +68,11 @@ public class PromocaoLancamentoService : IPromocaoLancamentoService
         int estabelecimentoId,
         CancellationToken cancellationToken = default)
     {
+        if (_options.DesativarPromocaoLancamento)
+        {
+            return false;
+        }
+
         if (estabelecimentoId > 0
             && await EstabelecimentoJaUsouPromocaoAsync(estabelecimentoId, cancellationToken))
         {

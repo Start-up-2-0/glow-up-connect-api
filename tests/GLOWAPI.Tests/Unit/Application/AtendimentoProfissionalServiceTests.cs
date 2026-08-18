@@ -15,6 +15,7 @@ public class AtendimentoProfissionalServiceTests
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
     private readonly Mock<IProfissionalEscopoAcessoService> _profissionalEscopoAcessoService = new();
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
+    private readonly Mock<IAvaliacaoAtendimentoService> _avaliacaoAtendimentoService = new();
 
     public AtendimentoProfissionalServiceTests()
     {
@@ -201,7 +202,44 @@ public class AtendimentoProfissionalServiceTests
     }
 
     [Fact]
-    public async Task FinalizarAsync_DeveConcluirAgendamento_QuandoTodosItensConcluidos()
+    public async Task FinalizarAsync_DeveConcluirTodoAtendimento_IncluindoItensConfirmadosPendentes()
+    {
+        var item = CriarItem(AgendamentoItemStatus.EmAtendimento);
+        item.Agendamento!.Status = AgendamentoStatus.EmAtendimento;
+        var outro = new AgendamentoItem
+        {
+            Id = 101,
+            AgendamentoId = item.AgendamentoId,
+            ProfissionalId = 71,
+            Status = AgendamentoItemStatus.Confirmado
+        };
+        item.Agendamento.Itens.Add(outro);
+        _agendamentoItemRepository
+            .Setup(r => r.ObterPorIdComAgendamentoAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(item);
+        _avaliacaoAtendimentoService
+            .Setup(s => s.SolicitarAposConclusaoAsync(item.Agendamento, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService();
+
+        var response = await service.FinalizarAsync(20, 100);
+
+        Assert.Equal(AgendamentoItemStatus.Concluido, item.Status);
+        Assert.Equal(AgendamentoItemStatus.Concluido, outro.Status);
+        Assert.Equal(AgendamentoStatus.Concluido, item.Agendamento.Status);
+        Assert.Equal("Concluido", response.StatusItem);
+        Assert.Equal("Concluido", response.StatusAgendamento);
+        _agendamentoHistoricoRepository.Verify(
+            r => r.AdicionarAsync(It.IsAny<AgendamentoHistorico>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        _avaliacaoAtendimentoService.Verify(
+            s => s.SolicitarAposConclusaoAsync(item.Agendamento, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task FinalizarAsync_DeveConcluirAgendamento_IgnorandoItensCancelados()
     {
         var item = CriarItem(AgendamentoItemStatus.EmAtendimento);
         item.Agendamento!.Status = AgendamentoStatus.EmAtendimento;
@@ -210,11 +248,14 @@ public class AtendimentoProfissionalServiceTests
             Id = 101,
             AgendamentoId = item.AgendamentoId,
             ProfissionalId = 71,
-            Status = AgendamentoItemStatus.Concluido
+            Status = AgendamentoItemStatus.Cancelado
         });
         _agendamentoItemRepository
             .Setup(r => r.ObterPorIdComAgendamentoAsync(100, It.IsAny<CancellationToken>()))
             .ReturnsAsync(item);
+        _avaliacaoAtendimentoService
+            .Setup(s => s.SolicitarAposConclusaoAsync(item.Agendamento, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         var service = CreateService();
 
@@ -222,35 +263,25 @@ public class AtendimentoProfissionalServiceTests
 
         Assert.Equal(AgendamentoItemStatus.Concluido, item.Status);
         Assert.Equal(AgendamentoStatus.Concluido, item.Agendamento.Status);
-        Assert.Equal("Concluido", response.StatusItem);
         Assert.Equal("Concluido", response.StatusAgendamento);
-        _agendamentoHistoricoRepository.Verify(
-            r => r.AdicionarAsync(It.IsAny<AgendamentoHistorico>(), It.IsAny<CancellationToken>()),
+        _avaliacaoAtendimentoService.Verify(
+            s => s.SolicitarAposConclusaoAsync(item.Agendamento, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
     [Fact]
-    public async Task FinalizarAsync_DeveManterAgendamentoEmAtendimento_QuandoAindaHaItensNaoConcluidos()
+    public async Task FinalizarAsync_DeveLancarExcecao_QuandoNaoHaItemEmAtendimento()
     {
-        var item = CriarItem(AgendamentoItemStatus.EmAtendimento);
+        var item = CriarItem(AgendamentoItemStatus.Confirmado);
         item.Agendamento!.Status = AgendamentoStatus.EmAtendimento;
-        item.Agendamento.Itens.Add(new AgendamentoItem
-        {
-            Id = 101,
-            AgendamentoId = item.AgendamentoId,
-            ProfissionalId = 71,
-            Status = AgendamentoItemStatus.Confirmado
-        });
         _agendamentoItemRepository
             .Setup(r => r.ObterPorIdComAgendamentoAsync(100, It.IsAny<CancellationToken>()))
             .ReturnsAsync(item);
 
         var service = CreateService();
 
-        await service.FinalizarAsync(20, 100);
-
-        Assert.Equal(AgendamentoItemStatus.Concluido, item.Status);
-        Assert.Equal(AgendamentoStatus.EmAtendimento, item.Agendamento.Status);
+        await Assert.ThrowsAsync<AtendimentoStatusInvalidoException>(() =>
+            service.FinalizarAsync(20, 100));
     }
 
     [Fact]
@@ -332,5 +363,6 @@ public class AtendimentoProfissionalServiceTests
             _agendamentoHistoricoRepository.Object,
             _autorizacaoNegocioService.Object,
             _profissionalEscopoAcessoService.Object,
-            _currentUserContext.Object);
+            _currentUserContext.Object,
+            _avaliacaoAtendimentoService.Object);
 }

@@ -3,6 +3,7 @@ using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Models.Agenda;
 using GLOWAPI.Application.Models.Agendamento;
 using GLOWAPI.Domain.Entities;
+using GLOWAPI.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace GLOWAPI.Infrastructure.Repositories;
@@ -157,6 +158,36 @@ public class AgendamentoRepository : Repository<Agendamento>, IAgendamentoReposi
         return (itens, total);
     }
 
+    public async Task<(decimal TotalValor, int Quantidade)> SomarConcluidosClienteNoPeriodoAsync(
+        int usuarioClienteId,
+        DateTime inicio,
+        DateTime fim,
+        CancellationToken cancellationToken = default)
+    {
+        var query = DbSet
+            .AsNoTracking()
+            .Where(agendamento =>
+                agendamento.UsuarioClienteId == usuarioClienteId
+                && agendamento.Status == AgendamentoStatus.Concluido
+                && agendamento.Itens.Any(item => item.Inicio >= inicio && item.Inicio < fim));
+
+        var quantidade = await query.CountAsync(cancellationToken);
+        var totalValor = quantidade == 0
+            ? 0m
+            : await query.SumAsync(agendamento => agendamento.ValorTotal, cancellationToken);
+
+        return (totalValor, quantidade);
+    }
+
+    public Task<int> ContarPorUsuarioClienteAsync(
+        int usuarioClienteId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet.CountAsync(
+            agendamento => agendamento.UsuarioClienteId == usuarioClienteId,
+            cancellationToken);
+    }
+
     public Task<int> ContarPorEstabelecimentoNoPeriodoAsync(
         int estabelecimentoId,
         DateTime inicio,
@@ -167,6 +198,37 @@ public class AgendamentoRepository : Repository<Agendamento>, IAgendamentoReposi
             agendamento => agendamento.EstabelecimentoId == estabelecimentoId
                 && agendamento.Itens.Any(item => item.Inicio >= inicio && item.Inicio <= fim),
             cancellationToken);
+    }
+
+    public Task<int> ContarClientesDistintosPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet
+            .AsNoTracking()
+            .Where(agendamento =>
+                agendamento.EstabelecimentoId == estabelecimentoId
+                && agendamento.UsuarioClienteId != null)
+            .Select(agendamento => agendamento.UsuarioClienteId!.Value)
+            .Distinct()
+            .CountAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Agendamento>> ListarConcluidosPorProfissionalNoPeriodoAsync(
+        int profissionalId,
+        DateTime inicio,
+        DateTime fim,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Include(a => a.Itens)
+            .Where(a => a.Itens.Any(i =>
+                i.ProfissionalId == profissionalId
+                && i.Status == AgendamentoItemStatus.Concluido
+                && i.Inicio >= inicio
+                && i.Inicio < fim))
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<ClienteAgendamentoResumo>> ListarClientesResumoPorEstabelecimentoAsync(

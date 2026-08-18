@@ -11,7 +11,11 @@ public record ProfissionalEquipeResponseDto(
     string Email,
     string Telefone,
     bool PodeReceberAgendamento,
-    bool Ativo)
+    bool Ativo,
+    decimal? NotaMedia,
+    int TotalAvaliacoes,
+    /// <summary>Foto de apresentação do profissional (não é o avatar da conta).</summary>
+    string? Foto)
 {
     public static ProfissionalEquipeResponseDto From(
         ProfissionalEstabelecimento vinculo,
@@ -25,5 +29,9 @@ public record ProfissionalEquipeResponseDto(
             profissional.Email,
             profissional.Telefone,
             vinculo.PodeReceberAgendamento,
-            vinculo.Ativo);
+            vinculo.Ativo,
+            profissional.NotaMedia,
+            profissional.TotalAvaliacoes,
+            // Listagens usam projeção sem Logo; mutações que carregam entidade completa ainda enviam foto.
+            string.IsNullOrWhiteSpace(profissional.Logo) ? null : profissional.Logo);
 }

@@ -1,6 +1,8 @@
+using GLOWAPI.API.Attributes;
 using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Assinaturas;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GLOWAPI.API.Controllers;
@@ -98,6 +100,7 @@ public class AssinaturasController : ControllerBase
     }
 
     [HttpGet("atual")]
+    [RequerPermissaoNegocio(PermissaoNegocio.NegocioVisualizar, "estabelecimentoId")]
     public async Task<IActionResult> ObterAtual(
         [FromQuery] int estabelecimentoId,
         CancellationToken cancellationToken)

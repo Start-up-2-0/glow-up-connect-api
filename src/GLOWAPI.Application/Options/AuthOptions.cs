@@ -16,5 +16,7 @@ public class AuthOptions
     public int ConfirmacaoEmailHoras { get; set; } = 24;
     public int ConfirmacaoWhatsAppHoras { get; set; } = 24;
     public int ConfirmacaoCodigoDigitos { get; set; } = 6;
+    public int RecuperacaoSenhaMinutos { get; set; } = 30;
     public string FrontendBaseUrl { get; set; } = "http://localhost:3000";
+    public string LandingBaseUrl { get; set; } = "http://localhost:3000";
 }

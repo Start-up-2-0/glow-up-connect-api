@@ -4,6 +4,7 @@ using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Negocios;
+using GLOWAPI.Domain.Exceptions.Usuario;
 
 namespace GLOWAPI.Application.Services;
 
@@ -13,29 +14,44 @@ public class EquipeNegocioService : IEquipeNegocioService
     private readonly IProfissionalRepository _profissionalRepository;
     private readonly IEstabelecimentoUsuarioRepository _estabelecimentoUsuarioRepository;
     private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
+    private readonly IAgendamentoItemRepository _agendamentoItemRepository;
+    private readonly IAgendamentoNegocioService _agendamentoNegocioService;
     private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
     private readonly IModulosAssinaturaService _modulosAssinaturaService;
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
     private readonly IEquipeNotificacaoService _equipeNotificacaoService;
+    private readonly IAvatarBase64Decoder _avatarBase64Decoder;
+    private readonly IBase64ImageThumbnailer _thumbnailer;
+    private readonly IConviteNegocioRepository _conviteRepository;
 
     public EquipeNegocioService(
         IUsuarioRepository usuarioRepository,
         IProfissionalRepository profissionalRepository,
         IEstabelecimentoUsuarioRepository estabelecimentoUsuarioRepository,
         IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
+        IAgendamentoItemRepository agendamentoItemRepository,
+        IAgendamentoNegocioService agendamentoNegocioService,
         IAutorizacaoNegocioService autorizacaoNegocioService,
         IModulosAssinaturaService modulosAssinaturaService,
         IAuditoriaNegocioService auditoriaNegocioService,
-        IEquipeNotificacaoService equipeNotificacaoService)
+        IEquipeNotificacaoService equipeNotificacaoService,
+        IAvatarBase64Decoder avatarBase64Decoder,
+        IBase64ImageThumbnailer thumbnailer,
+        IConviteNegocioRepository conviteRepository)
     {
         _usuarioRepository = usuarioRepository;
         _profissionalRepository = profissionalRepository;
         _estabelecimentoUsuarioRepository = estabelecimentoUsuarioRepository;
         _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
+        _agendamentoItemRepository = agendamentoItemRepository;
+        _agendamentoNegocioService = agendamentoNegocioService;
         _autorizacaoNegocioService = autorizacaoNegocioService;
         _modulosAssinaturaService = modulosAssinaturaService;
         _auditoriaNegocioService = auditoriaNegocioService;
         _equipeNotificacaoService = equipeNotificacaoService;
+        _avatarBase64Decoder = avatarBase64Decoder;
+        _thumbnailer = thumbnailer;
+        _conviteRepository = conviteRepository;
     }
 
     public async Task<UsuarioEquipeResponseDto> CadastrarUsuarioAsync(
@@ -192,6 +208,56 @@ public class EquipeNegocioService : IEquipeNegocioService
         return ProfissionalEquipeResponseDto.From(vinculo, profissional);
     }
 
+    public async Task<ProfissionalEquipeResponseDto> AtualizarProfissionalAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        AtualizarProfissionalEquipeRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.ProfissionalGerenciar,
+            cancellationToken);
+
+        var vinculo = await _profissionalEstabelecimentoRepository.ObterPorProfissionalAsync(
+            profissionalId,
+            estabelecimentoId,
+            cancellationToken);
+
+        if (vinculo is null)
+        {
+            throw new ProfissionalNegocioNaoEncontradoException();
+        }
+
+        var profissional = await _profissionalRepository.ObterPorIdAsync(profissionalId, cancellationToken)
+            ?? throw new ProfissionalNegocioNaoEncontradoException();
+
+        if (!string.IsNullOrWhiteSpace(request.NomePublico))
+        {
+            profissional.NomePublico = NormalizarTexto(request.NomePublico, profissional.NomePublico);
+        }
+
+        if (request.Biografia is not null)
+        {
+            profissional.Biografia = request.Biografia.Trim();
+        }
+
+        if (request.RemoverFoto)
+        {
+            profissional.Logo = string.Empty;
+        }
+        else if (!string.IsNullOrWhiteSpace(request.Foto))
+        {
+            profissional.Logo = NormalizarFotoProfissional(request.Foto, request.FotoContentType);
+        }
+
+        profissional.UpdatedAt = DateTime.UtcNow;
+        _profissionalRepository.Atualizar(profissional);
+        await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        return ProfissionalEquipeResponseDto.From(vinculo, profissional);
+    }
+
     public async Task<UsuarioEquipeResponseDto> AtualizarRoleUsuarioAsync(
         int estabelecimentoId,
         int usuarioId,
@@ -328,6 +394,12 @@ public class EquipeNegocioService : IEquipeNegocioService
 
         if (!request.Ativo)
         {
+            await ValidarOuCancelarAgendamentosFuturosAsync(
+                estabelecimentoId,
+                profissionalId,
+                request.CancelarAgendamentosFuturos,
+                request.MotivoCancelamento,
+                cancellationToken);
             vinculo.DataSaida = DateTime.UtcNow;
         }
 
@@ -362,6 +434,120 @@ public class EquipeNegocioService : IEquipeNegocioService
             cancellationToken);
 
         return ProfissionalEquipeResponseDto.From(vinculo, profissional);
+    }
+
+    public async Task<IReadOnlyList<AgendamentoFuturoEquipeResponseDto>> ListarAgendamentosFuturosProfissionalAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.ProfissionalGerenciar,
+            cancellationToken);
+
+        await GarantirProfissionalNoEstabelecimentoAsync(
+            estabelecimentoId,
+            profissionalId,
+            cancellationToken);
+
+        return await _agendamentoItemRepository.ListarAgendamentosFuturosAtivosPorProfissionalAsync(
+            estabelecimentoId,
+            profissionalId,
+            cancellationToken);
+    }
+
+    public async Task<CancelarAgendamentosFuturosProfissionalEquipeResponseDto> CancelarAgendamentosFuturosProfissionalAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        CancelarAgendamentosFuturosProfissionalEquipeRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.ProfissionalGerenciar,
+            cancellationToken);
+
+        await GarantirProfissionalNoEstabelecimentoAsync(
+            estabelecimentoId,
+            profissionalId,
+            cancellationToken);
+
+        var quantidadeCancelada = await _agendamentoNegocioService.CancelarAgendamentosFuturosDoProfissionalAsync(
+            estabelecimentoId,
+            profissionalId,
+            request.Motivo,
+            autorizarAgendaCancelar: true,
+            cancellationToken);
+
+        return new CancelarAgendamentosFuturosProfissionalEquipeResponseDto
+        {
+            QuantidadeCancelada = quantidadeCancelada
+        };
+    }
+
+    private async Task ValidarOuCancelarAgendamentosFuturosAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        bool cancelarAgendamentosFuturos,
+        string? motivoCancelamento,
+        CancellationToken cancellationToken)
+    {
+        var agendamentosFuturos = await _agendamentoItemRepository.ListarAgendamentosFuturosAtivosPorProfissionalAsync(
+            estabelecimentoId,
+            profissionalId,
+            cancellationToken);
+
+        if (agendamentosFuturos.Count == 0)
+        {
+            return;
+        }
+
+        if (!cancelarAgendamentosFuturos)
+        {
+            throw new ProfissionalEquipeComAgendamentoFuturoException(
+                "Este profissional possui agendamentos futuros. Cancele ou reagende antes de remover.",
+                agendamentosFuturos.Select(MapearAgendamentoFuturoResumo).ToList());
+        }
+
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.AgendaCancelar,
+            cancellationToken);
+
+        await _agendamentoNegocioService.CancelarAgendamentosFuturosDoProfissionalAsync(
+            estabelecimentoId,
+            profissionalId,
+            motivoCancelamento ?? string.Empty,
+            autorizarAgendaCancelar: false,
+            cancellationToken);
+    }
+
+    private static AgendamentoFuturoEquipeResumo MapearAgendamentoFuturoResumo(
+        AgendamentoFuturoEquipeResponseDto agendamento) =>
+        new(
+            agendamento.AgendamentoId,
+            agendamento.AgendamentoItemId,
+            agendamento.ClienteNome,
+            agendamento.ServicoNome,
+            agendamento.Inicio,
+            agendamento.Fim,
+            agendamento.Status);
+
+    private async Task GarantirProfissionalNoEstabelecimentoAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        CancellationToken cancellationToken)
+    {
+        var vinculo = await _profissionalEstabelecimentoRepository.ObterPorProfissionalAsync(
+            profissionalId,
+            estabelecimentoId,
+            cancellationToken);
+
+        if (vinculo is null)
+        {
+            throw new ProfissionalNegocioNaoEncontradoException();
+        }
     }
 
     private async Task<Usuario?> ObterUsuarioAsync(
@@ -526,6 +712,11 @@ public class EquipeNegocioService : IEquipeNegocioService
         ConvidarProfissionalEquipeRequestDto request,
         CancellationToken cancellationToken)
     {
+        var fotoInformada = !string.IsNullOrWhiteSpace(request.ResolverFoto());
+        var fotoNormalizada = fotoInformada
+            ? NormalizarFotoProfissional(request.ResolverFoto(), request.FotoContentType)
+            : null;
+
         var profissional = await _profissionalRepository.ObterPorUsuarioIdAsync(usuario.Id, cancellationToken);
         if (profissional is not null)
         {
@@ -535,8 +726,26 @@ public class EquipeNegocioService : IEquipeNegocioService
             }
 
             profissional.TipoProfissional = ProfessionalType.VinculadoEstabelecimento;
+
+            if (!string.IsNullOrWhiteSpace(request.NomePublico))
+            {
+                profissional.NomePublico = NormalizarTexto(request.NomePublico, profissional.NomePublico);
+            }
+
+            if (request.Biografia is not null)
+            {
+                profissional.Biografia = request.Biografia.Trim();
+            }
+
+            // Atualiza a foto do profissional apenas quando enviada; nunca copia o avatar da conta.
+            if (fotoNormalizada is not null)
+            {
+                profissional.Logo = fotoNormalizada;
+            }
+
             profissional.UpdatedAt = DateTime.UtcNow;
             _profissionalRepository.Atualizar(profissional);
+            await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
 
             return profissional;
         }
@@ -546,7 +755,7 @@ public class EquipeNegocioService : IEquipeNegocioService
             UsuarioId = usuario.Id,
             NomePublico = NormalizarTexto(request.NomePublico, usuario.Nome),
             Biografia = request.Biografia?.Trim() ?? string.Empty,
-            Logo = request.Logo?.Trim() ?? usuario.AvatarBase64 ?? string.Empty,
+            Logo = fotoNormalizada ?? string.Empty,
             Telefone = usuario.Telefone,
             Email = usuario.Email,
             TipoProfissional = ProfessionalType.VinculadoEstabelecimento,
@@ -557,6 +766,29 @@ public class EquipeNegocioService : IEquipeNegocioService
         await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
 
         return profissional;
+    }
+
+    /// <summary>
+    /// Valida e normaliza a foto de apresentação do profissional.
+    /// Independente do avatar da conta (<see cref="Usuario.AvatarBase64"/>).
+    /// </summary>
+    private string NormalizarFotoProfissional(string? foto, string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(foto))
+        {
+            throw new AvatarInvalidoException("Foto do profissional e obrigatoria quando enviada.");
+        }
+
+        try
+        {
+            return _thumbnailer.ParaPersistencia(
+                _avatarBase64Decoder.ValidarENormalizar(foto.Trim(), contentType));
+        }
+        catch (AvatarInvalidoException ex)
+        {
+            throw new AvatarInvalidoException(
+                ex.Message.Replace("Avatar", "Foto do profissional", StringComparison.Ordinal));
+        }
     }
 
     private async Task GarantirAcessoProfissionalAsync(
@@ -631,9 +863,204 @@ public class EquipeNegocioService : IEquipeNegocioService
 
         return vinculos
             .Where(vinculo => vinculo.Profissional is not null)
-            .Select(vinculo => ProfissionalEquipeResponseDto.From(vinculo, vinculo.Profissional!))
+            .Select(vinculo =>
+            {
+                var profissional = vinculo.Profissional!;
+                var foto = string.IsNullOrWhiteSpace(profissional.Logo)
+                    ? null
+                    : _thumbnailer.ParaListagem(profissional.Logo, maxLadoPx: 96, qualidadeJpeg: 72);
+                return new ProfissionalEquipeResponseDto(
+                    vinculo.Id,
+                    vinculo.EstabelecimentoId,
+                    profissional.Id,
+                    profissional.UsuarioId,
+                    profissional.NomePublico,
+                    profissional.Email,
+                    profissional.Telefone,
+                    vinculo.PodeReceberAgendamento,
+                    vinculo.Ativo,
+                    profissional.NotaMedia,
+                    profissional.TotalAvaliacoes,
+                    foto);
+            })
             .ToList();
     }
+
+    public async Task<EquipeMembrosPaginadoResponseDto> ListarMembrosPaginadoAsync(
+        int estabelecimentoId,
+        EquipeMembrosFiltroDto filtro,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.EquipeGerenciar,
+            cancellationToken);
+
+        var pagina = Math.Max(1, filtro.Pagina);
+        var tamanhoPagina = Math.Clamp(filtro.TamanhoPagina <= 0 ? 6 : filtro.TamanhoPagina, 1, 50);
+
+        var usuarios = await _estabelecimentoUsuarioRepository.ListarAtivosPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+        var profissionais = await _profissionalEstabelecimentoRepository.ListarAtivosPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+        var convitesAtivos = await _conviteRepository.ListarPorEstabelecimentoAsync(
+            estabelecimentoId,
+            StatusConviteNegocio.Ativo,
+            cancellationToken);
+        var agoraUtc = DateTime.UtcNow;
+        var vagasEmConvites = convitesAtivos
+            .Where(c => c.ExpiraEm > agoraUtc)
+            .Sum(c => Math.Max(0, c.LimiteUsuarios - c.QuantidadeUtilizacoes));
+
+        var profissionalPorUsuarioId = profissionais
+            .Where(v => v.Profissional?.UsuarioId is int uid)
+            .ToDictionary(v => v.Profissional!.UsuarioId!.Value, v => v);
+
+        var usuarioIds = new HashSet<int>();
+        var membros = new List<MembroEquipeResponseDto>();
+
+        foreach (var vinculo in usuarios.Where(v => v.Usuario is not null))
+        {
+            var usuario = vinculo.Usuario!;
+            usuarioIds.Add(usuario.Id);
+            profissionalPorUsuarioId.TryGetValue(usuario.Id, out var vinculoProf);
+            var profissional = vinculoProf?.Profissional;
+
+            membros.Add(new MembroEquipeResponseDto(
+                Id: $"usuario-{vinculo.Id}",
+                Tipo: "usuario",
+                Nome: usuario.Nome,
+                Cargo: RotuloCargo(vinculo.RoleNoEstabelecimento.ToString()),
+                Role: vinculo.RoleNoEstabelecimento.ToString(),
+                Email: string.IsNullOrWhiteSpace(usuario.Email) ? null : usuario.Email,
+                Telefone: string.IsNullOrWhiteSpace(usuario.Telefone) ? null : usuario.Telefone,
+                Ativo: vinculo.Ativo,
+                UsuarioId: usuario.Id,
+                ProfissionalId: profissional?.Id,
+                PodeReceberAgendamento: vinculoProf?.PodeReceberAgendamento,
+                Foto: string.IsNullOrWhiteSpace(profissional?.Logo)
+                    ? null
+                    : _thumbnailer.ParaListagem(profissional!.Logo, maxLadoPx: 96, qualidadeJpeg: 72),
+                ConviteEm: null));
+        }
+
+        foreach (var vinculo in profissionais.Where(v => v.Profissional is not null))
+        {
+            var profissional = vinculo.Profissional!;
+            if (profissional.UsuarioId is int uid && usuarioIds.Contains(uid))
+            {
+                continue;
+            }
+
+            membros.Add(new MembroEquipeResponseDto(
+                Id: $"profissional-{vinculo.Id}",
+                Tipo: "profissional",
+                Nome: profissional.NomePublico,
+                Cargo: RotuloCargo(nameof(EstablishmentUserRole.Profissional)),
+                Role: nameof(EstablishmentUserRole.Profissional),
+                Email: string.IsNullOrWhiteSpace(profissional.Email) ? null : profissional.Email,
+                Telefone: string.IsNullOrWhiteSpace(profissional.Telefone) ? null : profissional.Telefone,
+                Ativo: vinculo.Ativo,
+                UsuarioId: profissional.UsuarioId,
+                ProfissionalId: profissional.Id,
+                PodeReceberAgendamento: vinculo.PodeReceberAgendamento,
+                Foto: string.IsNullOrWhiteSpace(profissional.Logo)
+                    ? null
+                    : _thumbnailer.ParaListagem(profissional.Logo, maxLadoPx: 96, qualidadeJpeg: 72),
+                ConviteEm: null));
+        }
+
+        var resumo = new EquipeMembrosResumoDto(
+            TotalMembros: membros.Count(m => m.Tipo != "convite" && m.Ativo),
+            Administradores: membros.Count(m =>
+                m.Ativo && (m.Role is nameof(EstablishmentUserRole.Owner) or nameof(EstablishmentUserRole.Admin))),
+            Profissionais: membros.Count(m =>
+                m.Ativo && m.Role == nameof(EstablishmentUserRole.Profissional)),
+            Recepcionistas: membros.Count(m =>
+                m.Ativo && m.Role == nameof(EstablishmentUserRole.Receptionist)),
+            Convidados: vagasEmConvites);
+
+        var filtrados = FiltrarMembros(membros, filtro)
+            .OrderBy(m => OrdemCargo(m.Role))
+            .ThenBy(m => m.Nome, StringComparer.Create(new System.Globalization.CultureInfo("pt-BR"), ignoreCase: true))
+            .ToList();
+
+        var total = filtrados.Count;
+        var itens = filtrados
+            .Skip((pagina - 1) * tamanhoPagina)
+            .Take(tamanhoPagina)
+            .ToList();
+
+        return new EquipeMembrosPaginadoResponseDto(total, pagina, tamanhoPagina, itens, resumo);
+    }
+
+    private static IEnumerable<MembroEquipeResponseDto> FiltrarMembros(
+        IEnumerable<MembroEquipeResponseDto> membros,
+        EquipeMembrosFiltroDto filtro)
+    {
+        var cargo = filtro.Cargo?.Trim();
+        var status = filtro.Status?.Trim().ToLowerInvariant();
+        var busca = filtro.Busca?.Trim().ToLowerInvariant();
+
+        foreach (var membro in membros)
+        {
+            if (!string.IsNullOrWhiteSpace(cargo) &&
+                !string.Equals(membro.Role, cargo, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                var statusMembro = membro.Tipo == "convite"
+                    ? "pendente"
+                    : membro.Ativo ? "ativo" : "inativo";
+                if (!string.Equals(statusMembro, status, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(busca))
+            {
+                var hay = string.Join(
+                    ' ',
+                    membro.Nome,
+                    membro.Cargo,
+                    membro.Email ?? string.Empty).ToLowerInvariant();
+                if (!hay.Contains(busca, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+            }
+
+            yield return membro;
+        }
+    }
+
+    private static int OrdemCargo(string role) => role switch
+    {
+        nameof(EstablishmentUserRole.Owner) => 0,
+        nameof(EstablishmentUserRole.Admin) => 1,
+        nameof(EstablishmentUserRole.Manager) => 2,
+        nameof(EstablishmentUserRole.Receptionist) => 3,
+        nameof(EstablishmentUserRole.Profissional) => 4,
+        "Convidado" => 5,
+        _ => 99
+    };
+
+    private static string RotuloCargo(string role) => role switch
+    {
+        nameof(EstablishmentUserRole.Owner) => "Dono",
+        nameof(EstablishmentUserRole.Admin) => "Administrador",
+        nameof(EstablishmentUserRole.Manager) => "Gerente",
+        nameof(EstablishmentUserRole.Receptionist) => "Recepcionista",
+        nameof(EstablishmentUserRole.Profissional) => "Profissional",
+        "Convidado" => "Convidado",
+        _ => role
+    };
 
     public async Task<ProfissionalVitrineResponseDto> CadastrarProfissionalVitrineAsync(
         int estabelecimentoId,

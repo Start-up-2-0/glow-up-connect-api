@@ -1,7 +1,6 @@
-using GLOWAPI.Application.DTOs.Convites;
 using GLOWAPI.Application.DTOs.Assinaturas;
-using GLOWAPI.Application.DTOs.Equipe;
-using GLOWAPI.Application.DTOs.Mensageria;
+using GLOWAPI.Application.DTOs.Convites;
+using GLOWAPI.Application.DTOs.Usuario;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Autorizacao;
@@ -17,6 +16,8 @@ namespace GLOWAPI.Tests.Unit.Application;
 
 public class ConviteNegocioServiceTests
 {
+    private const string TokenUuid = "11111111-1111-1111-1111-111111111111";
+
     private readonly Mock<IConviteNegocioRepository> _conviteRepository = new();
     private readonly Mock<IUsuarioRepository> _usuarioRepository = new();
     private readonly Mock<IProfissionalRepository> _profissionalRepository = new();
@@ -24,10 +25,12 @@ public class ConviteNegocioServiceTests
     private readonly Mock<IProfissionalEstabelecimentoRepository> _profissionalEstabelecimentoRepository = new();
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
     private readonly Mock<IModulosAssinaturaService> _modulosAssinaturaService = new();
-    private readonly Mock<IMensagemNotificacaoService> _mensagemNotificacaoService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
+    private readonly Mock<IUsuarioService> _usuarioService = new();
     private readonly Mock<IGlowTokenService> _tokenService = new();
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
+    private readonly Mock<IAvatarBase64Decoder> _avatarBase64Decoder = new();
+    private readonly Mock<IBase64ImageThumbnailer> _thumbnailer = new();
 
     public ConviteNegocioServiceTests()
     {
@@ -40,10 +43,13 @@ public class ConviteNegocioServiceTests
                 10,
                 EstablishmentUserRole.Owner,
                 false,
-                new HashSet<PermissaoNegocio> { PermissaoNegocio.ProfissionalConvidar, PermissaoNegocio.ProfissionalGerenciar }));
-        _tokenService.Setup(s => s.GerarRefreshToken()).Returns("token-plano");
-        _tokenService.Setup(s => s.HashToken("token-plano")).Returns("hash-token");
-        _tokenService.Setup(s => s.HashToken("token")).Returns("hash-token");
+                new HashSet<PermissaoNegocio>
+                {
+                    PermissaoNegocio.EquipeGerenciar,
+                    PermissaoNegocio.ProfissionalConvidar,
+                    PermissaoNegocio.ProfissionalGerenciar
+                }));
+        _tokenService.Setup(s => s.HashToken(It.IsAny<string>())).Returns("hash-token");
         _modulosAssinaturaService
             .Setup(s => s.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(ModulosAssinaturaResponseDto.Liberado(
@@ -57,19 +63,28 @@ public class ConviteNegocioServiceTests
                 },
                 20,
                 [ModuloAssinatura.Profissionais]));
-        _usuarioRepository
-            .Setup(r => r.ObterPorEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Usuario?)null);
-        _usuarioRepository
+        _conviteRepository
             .Setup(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
+        _conviteRepository
+            .Setup(r => r.TentarRegistrarUtilizacaoAsync(It.IsAny<int>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _conviteRepository
+            .Setup(r => r.UsuarioJaUtilizouAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ContarAtivosAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ContarAtivosPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
     }
 
     [Fact]
-    public async Task CriarConviteProfissionalAsync_DevePersistirConviteEEnfileirarEmail()
+    public async Task CriarLinkAsync_DeveCriarConviteAtivoComPadraoUmDiaELinkNaLanding()
     {
         ConviteNegocio? conviteCriado = null;
-        RegistrarMensagemNotificacaoDto? mensagem = null;
+        string? tokenHasheado = null;
         _conviteRepository
             .Setup(r => r.AdicionarAsync(It.IsAny<ConviteNegocio>(), It.IsAny<CancellationToken>()))
             .Callback<ConviteNegocio, CancellationToken>((convite, _) =>
@@ -78,33 +93,39 @@ public class ConviteNegocioServiceTests
                 conviteCriado = convite;
             })
             .Returns(Task.CompletedTask);
-        _mensagemNotificacaoService
-            .Setup(s => s.RegistrarAsync(It.IsAny<RegistrarMensagemNotificacaoDto>(), It.IsAny<CancellationToken>()))
-            .Callback<RegistrarMensagemNotificacaoDto, CancellationToken>((dto, _) => mensagem = dto);
+        _tokenService
+            .Setup(s => s.HashToken(It.IsAny<string>()))
+            .Callback<string>(token => tokenHasheado = token)
+            .Returns("hash-token");
+        _tokenService
+            .Setup(s => s.ProtegerToken(It.IsAny<string>()))
+            .Returns<string>(token => $"protected:{token}");
 
         var service = CreateService();
+        var antes = DateTime.UtcNow;
 
-        var response = await service.CriarConviteProfissionalAsync(20, new CriarConviteProfissionalRequestDto
+        var response = await service.CriarLinkAsync(20, new CriarConviteLinkRequestDto
         {
-            Email = " PROFISSIONAL@EMAIL.COM ",
-            NomePublico = "Maria Beauty",
-            PodeReceberAgendamento = true
+            Role = EstablishmentUserRole.Receptionist,
+            LimiteUsuarios = 2
         });
 
         Assert.NotNull(conviteCriado);
-        Assert.Equal("profissional@email.com", conviteCriado!.Email);
-        Assert.Equal(TipoConviteNegocio.Profissional, conviteCriado.TipoConvite);
-        Assert.Equal(StatusConviteNegocio.Pendente, conviteCriado.Status);
-        Assert.Equal("hash-token", conviteCriado.TokenHash);
-        Assert.Equal(10, conviteCriado.CriadoPorUsuarioId);
-        Assert.Equal("Convite", response.TipoResultado);
-        Assert.Equal(30, response.Convite!.Id);
-        Assert.NotNull(mensagem);
-        Assert.Equal("profissional@email.com", mensagem!.Destinatario);
-        Assert.Contains("token-plano", mensagem.Conteudo);
+        Assert.Equal(string.Empty, conviteCriado!.Email);
+        Assert.Equal(StatusConviteNegocio.Ativo, conviteCriado.Status);
+        Assert.Equal(2, conviteCriado.LimiteUsuarios);
+        Assert.Equal(0, conviteCriado.QuantidadeUtilizacoes);
+        Assert.Equal(EstablishmentUserRole.Receptionist, conviteCriado.RoleSugerida);
+        Assert.True(conviteCriado.ExpiraEm >= antes.AddDays(1).AddMinutes(-1));
+        Assert.True(conviteCriado.ExpiraEm <= DateTime.UtcNow.AddDays(1).AddMinutes(1));
+        Assert.StartsWith("https://landing.test/convite/", response.LinkConvite);
+        var uuidNoLink = response.LinkConvite["https://landing.test/convite/".Length..];
+        Assert.True(Guid.TryParse(uuidNoLink, out _));
+        Assert.Equal(uuidNoLink, tokenHasheado);
+        Assert.Equal($"protected:{uuidNoLink}", conviteCriado!.TokenProtegido);
         _auditoriaNegocioService.Verify(s => s.RegistrarAsync(
             20,
-            TipoAcaoAuditoriaNegocio.ProfissionalConvidado,
+            TipoAcaoAuditoriaNegocio.ConviteLinkCriado,
             nameof(ConviteNegocio),
             30,
             It.IsAny<object>(),
@@ -112,428 +133,277 @@ public class ConviteNegocioServiceTests
     }
 
     [Fact]
-    public async Task CriarConviteProfissionalAsync_DeveBloquearConvitePendenteDuplicado()
+    public async Task CriarLinkAsync_DeveRespeitarDuracaoEmHoras()
     {
+        ConviteNegocio? conviteCriado = null;
         _conviteRepository
-            .Setup(r => r.ObterPendentePorDestinatarioAsync(
-                20,
-                "profissional@email.com",
-                TipoConviteNegocio.Profissional,
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ConviteNegocio
-            {
-                EstabelecimentoId = 20,
-                Email = "profissional@email.com",
-                Status = StatusConviteNegocio.Pendente,
-                ExpiraEm = DateTime.UtcNow.AddDays(1)
-            });
-
-        var service = CreateService();
-
-        await Assert.ThrowsAsync<ConviteNegocioDuplicadoException>(() =>
-            service.CriarConviteProfissionalAsync(20, new CriarConviteProfissionalRequestDto
-            {
-                Email = "profissional@email.com"
-            }));
-    }
-
-    [Fact]
-    public async Task AceitarAsync_DeveCriarVinculosDoUsuarioEProfissional()
-    {
-        var usuario = CriarUsuario();
-        EstabelecimentoUsuario? vinculoUsuario = null;
-        ProfissionalEstabelecimento? vinculoProfissional = null;
-        _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(usuario);
-        _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CriarConvite());
-        _profissionalRepository.Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Profissional { Id = 70, UsuarioId = 10, Email = usuario.Email, Telefone = usuario.Telefone, NomePublico = usuario.Nome });
-        _estabelecimentoUsuarioRepository
-            .Setup(r => r.AdicionarAsync(It.IsAny<EstabelecimentoUsuario>(), It.IsAny<CancellationToken>()))
-            .Callback<EstabelecimentoUsuario, CancellationToken>((vinculo, _) => vinculoUsuario = vinculo)
-            .Returns(Task.CompletedTask);
-        _profissionalEstabelecimentoRepository
-            .Setup(r => r.AdicionarAsync(It.IsAny<ProfissionalEstabelecimento>(), It.IsAny<CancellationToken>()))
-            .Callback<ProfissionalEstabelecimento, CancellationToken>((vinculo, _) => vinculoProfissional = vinculo)
+            .Setup(r => r.AdicionarAsync(It.IsAny<ConviteNegocio>(), It.IsAny<CancellationToken>()))
+            .Callback<ConviteNegocio, CancellationToken>((convite, _) => conviteCriado = convite)
             .Returns(Task.CompletedTask);
 
         var service = CreateService();
+        var antes = DateTime.UtcNow;
 
-        var response = await service.AceitarAsync("token");
-
-        Assert.Equal("Aceito", response.Status);
-        Assert.NotNull(vinculoUsuario);
-        Assert.Equal(EstablishmentUserRole.Profissional, vinculoUsuario!.RoleNoEstabelecimento);
-        Assert.NotNull(vinculoProfissional);
-        Assert.Equal(70, vinculoProfissional!.ProfissionalId);
-        Assert.True(vinculoProfissional.PodeReceberAgendamento);
-        Assert.Equal(UserRole.Cliente, usuario.Role);
-        _usuarioRepository.Verify(r => r.Atualizar(usuario), Times.Never);
-    }
-
-    [Fact]
-    public async Task AceitarAsync_DeveResetarRoleAoReativarVinculoUsuarioInativo()
-    {
-        var usuario = CriarUsuario();
-        var vinculoUsuario = new EstabelecimentoUsuario
+        await service.CriarLinkAsync(20, new CriarConviteLinkRequestDto
         {
-            EstabelecimentoId = 20,
-            UsuarioId = 10,
-            RoleNoEstabelecimento = EstablishmentUserRole.Admin,
-            Ativo = false
-        };
+            Role = EstablishmentUserRole.Profissional,
+            LimiteUsuarios = 5,
+            DuracaoValor = 48,
+            DuracaoUnidade = UnidadeDuracaoConvite.Horas
+        });
 
-        _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(usuario);
-        _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CriarConvite());
-        _estabelecimentoUsuarioRepository
-            .Setup(r => r.ObterPorUsuarioAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(vinculoUsuario);
-        _profissionalRepository.Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Profissional { Id = 70, UsuarioId = 10, Email = usuario.Email, Telefone = usuario.Telefone, NomePublico = usuario.Nome });
-
-        var service = CreateService();
-
-        await service.AceitarAsync("token");
-
-        Assert.True(vinculoUsuario.Ativo);
-        Assert.Equal(EstablishmentUserRole.Profissional, vinculoUsuario.RoleNoEstabelecimento);
+        Assert.NotNull(conviteCriado);
+        Assert.True(conviteCriado!.ExpiraEm >= antes.AddHours(48).AddMinutes(-1));
+        Assert.True(conviteCriado.ExpiraEm <= DateTime.UtcNow.AddHours(48).AddMinutes(1));
+        Assert.Equal(TipoConviteNegocio.Profissional, conviteCriado.TipoConvite);
     }
 
     [Fact]
-    public async Task AceitarAsync_DeveReativarPerfilProfissionalInativo()
+    public async Task CriarLinkAsync_DeveRejeitarLimiteInvalido()
     {
-        var usuario = CriarUsuario();
-        var profissional = new Profissional
-        {
-            Id = 70,
-            UsuarioId = 10,
-            Email = usuario.Email,
-            Telefone = usuario.Telefone,
-            NomePublico = usuario.Nome,
-            Ativo = false,
-            TipoProfissional = ProfessionalType.Autonomo
-        };
-
-        _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(usuario);
-        _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CriarConvite());
-        _profissionalRepository.Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(profissional);
-
-        var service = CreateService();
-
-        await service.AceitarAsync("token");
-
-        Assert.True(profissional.Ativo);
-        Assert.Equal(ProfessionalType.VinculadoEstabelecimento, profissional.TipoProfissional);
-        Assert.NotNull(profissional.UpdatedAt);
-        _profissionalRepository.Verify(r => r.Atualizar(profissional), Times.Once);
-    }
-
-    [Fact]
-    public async Task AceitarAsync_DeveValidarLimiteAntesDeCriarVinculos()
-    {
-        _modulosAssinaturaService
-            .Setup(s => s.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(ModulosAssinaturaResponseDto.Liberado(
-                new Assinatura
-                {
-                    Id = 1,
-                    EstabelecimentoId = 20,
-                    PlanoId = 2,
-                    Status = AssinaturaStatus.Ativa,
-                    Plano = new Plano { Id = 2, Nome = "Basic" }
-                },
-                20,
-                [ModuloAssinatura.Profissionais]));
-        _estabelecimentoUsuarioRepository
-            .Setup(r => r.ContarAtivosAsync(20, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
-        _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(CriarUsuario());
-        _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CriarConvite());
-
-        var service = CreateService();
-
-        await Assert.ThrowsAsync<LimiteUsuariosNegocioExcedidoException>(() =>
-            service.AceitarAsync("token"));
-    }
-
-    [Fact]
-    public async Task AceitarAsync_DeveValidarLimiteProfissionaisAntesDeCriarVinculoProfissional()
-    {
-        var usuario = CriarUsuario();
-        _modulosAssinaturaService
-            .Setup(s => s.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(ModulosAssinaturaResponseDto.Liberado(
-                new Assinatura
-                {
-                    Id = 1,
-                    EstabelecimentoId = 20,
-                    PlanoId = 2,
-                    Status = AssinaturaStatus.Ativa,
-                    Plano = new Plano { Id = 2, Nome = "Limitado", LimiteProfissionais = 1 }
-                },
-                20,
-                [ModuloAssinatura.Profissionais]));
-        _estabelecimentoUsuarioRepository
-            .Setup(r => r.ObterPorUsuarioAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario
-            {
-                EstabelecimentoId = 20,
-                UsuarioId = 10,
-                RoleNoEstabelecimento = EstablishmentUserRole.Profissional,
-                Ativo = true
-            });
-        _profissionalEstabelecimentoRepository
-            .Setup(r => r.ContarAtivosPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
-        _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(usuario);
-        _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CriarConvite());
-        _profissionalRepository.Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Profissional { Id = 70, UsuarioId = 10, Email = usuario.Email, Telefone = usuario.Telefone, NomePublico = usuario.Nome });
-
-        var service = CreateService();
-
-        await Assert.ThrowsAsync<LimiteProfissionaisNegocioExcedidoException>(() =>
-            service.AceitarAsync("token"));
-    }
-
-    [Fact]
-    public async Task AceitarAsync_DeveBloquearDestinatarioDiferente()
-    {
-        _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Usuario { Id = 10, Nome = "Outra", Email = "outra@email.com", Ativo = true });
-        _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CriarConvite());
-
         var service = CreateService();
 
         await Assert.ThrowsAsync<ConviteNegocioInvalidoException>(() =>
-            service.AceitarAsync("token"));
-    }
-
-    [Fact]
-    public async Task CriarConviteUsuarioEquipeAsync_DevePersistirConviteComLink()
-    {
-        ConviteNegocio? conviteCriado = null;
-        _conviteRepository
-            .Setup(r => r.AdicionarAsync(It.IsAny<ConviteNegocio>(), It.IsAny<CancellationToken>()))
-            .Callback<ConviteNegocio, CancellationToken>((convite, _) =>
+            service.CriarLinkAsync(20, new CriarConviteLinkRequestDto
             {
-                convite.Id = 31;
-                conviteCriado = convite;
-            })
-            .Returns(Task.CompletedTask);
-        _autorizacaoNegocioService
-            .Setup(s => s.AutorizarAsync(20, PermissaoNegocio.EquipeGerenciar, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AutorizacaoNegocioResultado(
-                20,
-                10,
-                EstablishmentUserRole.Owner,
-                false,
-                new HashSet<PermissaoNegocio> { PermissaoNegocio.EquipeGerenciar }));
-
-        var service = CreateService();
-
-        var response = await service.CriarConviteUsuarioEquipeAsync(20, new CriarConviteUsuarioEquipeRequestDto
-        {
-            Email = "gerente@email.com",
-            Role = EstablishmentUserRole.Manager
-        });
-
-        Assert.NotNull(conviteCriado);
-        Assert.Equal(TipoConviteNegocio.UsuarioEquipe, conviteCriado!.TipoConvite);
-        Assert.Equal(EstablishmentUserRole.Manager, conviteCriado.RoleSugerida);
-        Assert.Equal("Convite", response.TipoResultado);
-        Assert.Equal(31, response.Convite!.Id);
-        Assert.Contains("https://app.test/convites/", response.Convite.LinkConvite);
-        Assert.Contains("token-plano", response.Convite.LinkConvite);
-    }
-
-    [Fact]
-    public async Task CriarConviteProfissionalAsync_DeveGerarConviteQuandoContaAtivaExiste()
-    {
-        ConviteNegocio? conviteCriado = null;
-        _usuarioRepository
-            .Setup(r => r.ObterPorEmailAsync("profissional@email.com", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CriarUsuario());
-        _conviteRepository
-            .Setup(r => r.AdicionarAsync(It.IsAny<ConviteNegocio>(), It.IsAny<CancellationToken>()))
-            .Callback<ConviteNegocio, CancellationToken>((convite, _) =>
-            {
-                convite.Id = 32;
-                conviteCriado = convite;
-            })
-            .Returns(Task.CompletedTask);
-
-        var service = CreateService();
-
-        var response = await service.CriarConviteProfissionalAsync(20, new CriarConviteProfissionalRequestDto
-        {
-            Email = "profissional@email.com"
-        });
-
-        Assert.NotNull(conviteCriado);
-        Assert.Equal("Convite", response.TipoResultado);
-        Assert.NotNull(response.Convite);
-        Assert.Contains("token-plano", response.Convite!.LinkConvite);
-        _conviteRepository.Verify(
-            r => r.AdicionarAsync(It.IsAny<ConviteNegocio>(), It.IsAny<CancellationToken>()),
-            Times.Once);
-    }
-
-    [Fact]
-    public async Task CriarConviteProfissionalAsync_DeveBloquearContaNaoConfirmada()
-    {
-        _usuarioRepository
-            .Setup(r => r.ObterPorEmailAsync("profissional@email.com", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Usuario
-            {
-                Id = 10,
-                Email = "profissional@email.com",
-                Ativo = false,
-                ConfirmacaoTokenHash = "hash"
-            });
-
-        var service = CreateService();
-
-        await Assert.ThrowsAsync<ConviteUsuarioNaoConfirmadoException>(() =>
-            service.CriarConviteProfissionalAsync(20, new CriarConviteProfissionalRequestDto
-            {
-                Email = "profissional@email.com"
+                Role = EstablishmentUserRole.Admin,
+                LimiteUsuarios = 3
             }));
     }
 
     [Fact]
-    public async Task CriarConviteUsuarioEquipeAsync_DeveBloquearConvitePendenteDuplicado()
+    public async Task ObterPreviewAsync_DeveFalharComMensagemUnificadaQuandoExpirado()
     {
-        _autorizacaoNegocioService
-            .Setup(s => s.AutorizarAsync(20, PermissaoNegocio.EquipeGerenciar, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AutorizacaoNegocioResultado(
-                20,
-                10,
-                EstablishmentUserRole.Owner,
-                false,
-                new HashSet<PermissaoNegocio> { PermissaoNegocio.EquipeGerenciar }));
-        _conviteRepository
-            .Setup(r => r.ObterPendentePorDestinatarioAsync(
-                20,
-                "gerente@email.com",
-                TipoConviteNegocio.UsuarioEquipe,
-                It.IsAny<CancellationToken>()))
+        _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ConviteNegocio
             {
+                Id = 1,
                 EstabelecimentoId = 20,
-                Email = "gerente@email.com",
-                Status = StatusConviteNegocio.Pendente,
-                ExpiraEm = DateTime.UtcNow.AddDays(1)
+                Status = StatusConviteNegocio.Ativo,
+                LimiteUsuarios = 2,
+                QuantidadeUtilizacoes = 0,
+                ExpiraEm = DateTime.UtcNow.AddMinutes(-1),
+                TokenHash = "hash-token",
+                Estabelecimento = new Estabelecimento { Id = 20, Nome = "Barbearia" }
             });
 
         var service = CreateService();
 
-        await Assert.ThrowsAsync<ConviteNegocioDuplicadoException>(() =>
-            service.CriarConviteUsuarioEquipeAsync(20, new CriarConviteUsuarioEquipeRequestDto
-            {
-                Email = "gerente@email.com",
-                Role = EstablishmentUserRole.Manager
-            }));
+        var ex = await Assert.ThrowsAsync<ConviteNegocioIndisponivelException>(() =>
+            service.ObterPreviewAsync(TokenUuid));
+
+        Assert.Equal(ConviteNegocioIndisponivelException.MensagemPadrao, ex.Message);
     }
 
     [Fact]
-    public async Task AceitarAsync_UsuarioEquipe_DeveVincularSemCriarProfissional()
+    public async Task ObterPreviewAsync_DeveFalharQuandoEsgotado()
     {
-        var usuario = new Usuario
-        {
-            Id = 10,
-            Nome = "Joao",
-            Email = "gerente@email.com",
-            Telefone = "11999999999",
-            Ativo = true,
-            Role = UserRole.Cliente
-        };
-        EstabelecimentoUsuario? vinculoUsuario = null;
+        _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ConviteNegocio
+            {
+                Id = 1,
+                EstabelecimentoId = 20,
+                Status = StatusConviteNegocio.Ativo,
+                LimiteUsuarios = 1,
+                QuantidadeUtilizacoes = 1,
+                ExpiraEm = DateTime.UtcNow.AddDays(1),
+                TokenHash = "hash-token"
+            });
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<ConviteNegocioIndisponivelException>(() =>
+            service.ObterPreviewAsync(TokenUuid));
+    }
+
+    [Fact]
+    public async Task ObterPreviewAsync_DeveRejeitarTokenQueNaoEUuid()
+    {
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<ConviteNegocioNaoEncontradoException>(() =>
+            service.ObterPreviewAsync("token-invalido"));
+    }
+
+    [Fact]
+    public async Task AceitarAsync_DeveVincularUsuarioERegistrarUtilizacao()
+    {
+        var usuario = CriarUsuario();
+        var convite = CriarConviteAtivo();
+        EstabelecimentoUsuario? vinculo = null;
+
         _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(usuario);
         _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ConviteNegocio
-            {
-                Id = 31,
-                EstabelecimentoId = 20,
-                Email = "gerente@email.com",
-                TipoConvite = TipoConviteNegocio.UsuarioEquipe,
-                RoleSugerida = EstablishmentUserRole.Manager,
-                Status = StatusConviteNegocio.Pendente,
-                TokenHash = "hash-token",
-                ExpiraEm = DateTime.UtcNow.AddDays(1)
-            });
+            .ReturnsAsync(convite);
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterPorUsuarioAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((EstabelecimentoUsuario?)null);
         _estabelecimentoUsuarioRepository
             .Setup(r => r.AdicionarAsync(It.IsAny<EstabelecimentoUsuario>(), It.IsAny<CancellationToken>()))
-            .Callback<EstabelecimentoUsuario, CancellationToken>((vinculo, _) => vinculoUsuario = vinculo)
+            .Callback<EstabelecimentoUsuario, CancellationToken>((v, _) => vinculo = v)
             .Returns(Task.CompletedTask);
 
         var service = CreateService();
+        var response = await service.AceitarAsync(TokenUuid);
 
-        var response = await service.AceitarAsync("token");
-
-        Assert.Equal("Aceito", response.Status);
-        Assert.NotNull(vinculoUsuario);
-        Assert.Equal(EstablishmentUserRole.Manager, vinculoUsuario!.RoleNoEstabelecimento);
-        Assert.Equal(UserRole.Cliente, usuario.Role);
-        _usuarioRepository.Verify(r => r.Atualizar(usuario), Times.Never);
-        _profissionalRepository.Verify(
-            r => r.AdicionarAsync(It.IsAny<Profissional>(), It.IsAny<CancellationToken>()),
-            Times.Never);
-        _profissionalEstabelecimentoRepository.Verify(
-            r => r.AdicionarAsync(It.IsAny<ProfissionalEstabelecimento>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        Assert.NotNull(vinculo);
+        Assert.Equal(EstablishmentUserRole.Receptionist, vinculo!.RoleNoEstabelecimento);
+        Assert.Equal(1, response.QuantidadeUtilizacoes);
+        _conviteRepository.Verify(r => r.AdicionarUtilizacaoAsync(
+            It.Is<ConviteNegocioUtilizacao>(u => u.UsuarioId == 10 && u.ConviteNegocioId == 40),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _conviteRepository.Verify(r => r.TentarRegistrarUtilizacaoAsync(
+            40, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task ObterPreviewAsync_DeveRetornarDadosMinimosDoConvite()
+    public async Task AceitarAsync_DeveBloquearReusoDoMesmoUsuario()
     {
+        var usuario = CriarUsuario();
+        _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(usuario);
         _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ConviteNegocio
-            {
-                Id = 30,
-                EstabelecimentoId = 20,
-                Email = "gerente@email.com",
-                TipoConvite = TipoConviteNegocio.UsuarioEquipe,
-                RoleSugerida = EstablishmentUserRole.Manager,
-                Status = StatusConviteNegocio.Pendente,
-                TokenHash = "hash-token",
-                ExpiraEm = DateTime.UtcNow.AddDays(1),
-                Estabelecimento = new Estabelecimento { Id = 20, Nome = "Salao Glow" }
-            });
+            .ReturnsAsync(CriarConviteAtivo());
+        _conviteRepository.Setup(r => r.UsuarioJaUtilizouAsync(40, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         var service = CreateService();
 
-        var preview = await service.ObterPreviewAsync("token");
-
-        Assert.Equal(20, preview.EstabelecimentoId);
-        Assert.Equal("Salao Glow", preview.NomeEstabelecimento);
-        Assert.Equal("gerente@email.com", preview.Email);
-        Assert.Equal("UsuarioEquipe", preview.TipoConvite);
-        Assert.Equal("Manager", preview.RoleSugerida);
+        await Assert.ThrowsAsync<ConviteNegocioInvalidoException>(() => service.AceitarAsync(TokenUuid));
+        _conviteRepository.Verify(r => r.TentarRegistrarUtilizacaoAsync(
+            It.IsAny<int>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task RejeitarAsync_DeveMarcarConviteComoRejeitado()
+    public async Task AceitarAsync_DeveMarcarEsgotadoAoAtingirLimite()
     {
-        var convite = CriarConvite();
-        _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(CriarUsuario());
+        var usuario = CriarUsuario();
+        var convite = CriarConviteAtivo();
+        convite.LimiteUsuarios = 1;
+        convite.QuantidadeUtilizacoes = 0;
+
+        _usuarioRepository.Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(usuario);
         _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(convite);
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterPorUsuarioAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((EstabelecimentoUsuario?)null);
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<EstabelecimentoUsuario>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService();
+        var response = await service.AceitarAsync(TokenUuid);
+
+        Assert.Equal(StatusConviteNegocio.Esgotado.ToString(), response.Status);
+        Assert.Equal(1, response.QuantidadeUtilizacoes);
+    }
+
+    [Fact]
+    public async Task AceitarComCadastroAsync_DeveCriarUsuarioEAceitar()
+    {
+        var novoUsuario = CriarUsuario();
+        novoUsuario.Id = 99;
+        var convite = CriarConviteAtivo();
+
+        _usuarioService
+            .Setup(s => s.CadastrarClienteAsync(It.IsAny<CadastrarClienteDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(novoUsuario);
+        _conviteRepository.Setup(r => r.ObterPorTokenHashAsync("hash-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(convite);
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterPorUsuarioAsync(20, 99, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((EstabelecimentoUsuario?)null);
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<EstabelecimentoUsuario>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService();
+        var response = await service.AceitarComCadastroAsync(TokenUuid, new AceitarConviteComCadastroRequestDto
+        {
+            Cadastro = new CadastrarClienteDto
+            {
+                Nome = "Novo",
+                Email = "novo@email.com",
+                Telefone = "11999999999",
+                Senha = "Senha@123"
+            }
+        });
+
+        Assert.Equal(1, response.QuantidadeUtilizacoes);
+        _usuarioService.Verify(s => s.CadastrarClienteAsync(
+            It.IsAny<CadastrarClienteDto>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ObterLinkAsync_DeveRetornarLinkParaConviteAtivo()
+    {
+        var token = Guid.NewGuid().ToString("D");
+        var convite = CriarConviteAtivo();
+        convite.TokenProtegido = "protected-token";
+
+        _conviteRepository.Setup(r => r.ObterPorIdAsync(40, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(convite);
+        _tokenService.Setup(s => s.DesprotegerToken("protected-token")).Returns(token);
+
+        var service = CreateService();
+        var response = await service.ObterLinkAsync(20, 40);
+
+        Assert.StartsWith("https://landing.test/convite/", response.LinkConvite);
+        Assert.EndsWith(token, response.LinkConvite);
+        Assert.Equal(StatusConviteNegocio.Ativo.ToString(), response.Status);
+    }
+
+    [Fact]
+    public async Task ObterLinkAsync_DeveFalharQuandoConviteNaoEstiverAtivo()
+    {
+        var convite = CriarConviteAtivo();
+        convite.Status = StatusConviteNegocio.Cancelado;
+        convite.TokenProtegido = "protected-token";
+
+        _conviteRepository.Setup(r => r.ObterPorIdAsync(40, It.IsAny<CancellationToken>()))
             .ReturnsAsync(convite);
 
         var service = CreateService();
 
-        var response = await service.RejeitarAsync("token");
+        await Assert.ThrowsAsync<ConviteNegocioIndisponivelException>(() =>
+            service.ObterLinkAsync(20, 40));
+    }
 
-        Assert.Equal(StatusConviteNegocio.Rejeitado, convite.Status);
-        Assert.Equal("Rejeitado", response.Status);
-        Assert.Equal(10, convite.AceitoPorUsuarioId);
-        Assert.NotNull(convite.RespondidoEm);
+    [Fact]
+    public async Task ObterLinkAsync_DeveFalharQuandoTokenNaoForRecuperavel()
+    {
+        var convite = CriarConviteAtivo();
+        convite.TokenProtegido = null;
+
+        _conviteRepository.Setup(r => r.ObterPorIdAsync(40, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(convite);
+
+        var service = CreateService();
+
+        var ex = await Assert.ThrowsAsync<ConviteNegocioInvalidoException>(() =>
+            service.ObterLinkAsync(20, 40));
+
+        Assert.Contains("link recuperável", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CancelarAsync_DeveCancelarConviteAtivo()
+    {
+        var convite = CriarConviteAtivo();
+        _conviteRepository.Setup(r => r.ObterPorIdAsync(40, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(convite);
+
+        var service = CreateService();
+        var response = await service.CancelarAsync(20, 40);
+
+        Assert.Equal(StatusConviteNegocio.Cancelado.ToString(), response.Status);
+        _auditoriaNegocioService.Verify(s => s.RegistrarAsync(
+            20,
+            TipoAcaoAuditoriaNegocio.ConviteLinkCancelado,
+            nameof(ConviteNegocio),
+            40,
+            It.IsAny<object>(),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private ConviteNegocioService CreateService() =>
@@ -545,35 +415,40 @@ public class ConviteNegocioServiceTests
             _profissionalEstabelecimentoRepository.Object,
             _autorizacaoNegocioService.Object,
             _modulosAssinaturaService.Object,
-            _mensagemNotificacaoService.Object,
             _auditoriaNegocioService.Object,
+            _usuarioService.Object,
             _tokenService.Object,
             _currentUserContext.Object,
-            Options.Create(new AuthOptions { FrontendBaseUrl = "https://app.test" }));
+            _avatarBase64Decoder.Object,
+            _thumbnailer.Object,
+            Options.Create(new AuthOptions
+            {
+                FrontendBaseUrl = "https://app.test",
+                LandingBaseUrl = "https://landing.test"
+            }));
 
     private static Usuario CriarUsuario() =>
         new()
         {
             Id = 10,
-            Nome = "Maria",
-            Email = "profissional@email.com",
-            Telefone = "11999999999",
-            Ativo = true,
-            Role = UserRole.Cliente
+            Nome = "Joao",
+            Email = "joao@email.com",
+            Telefone = "11988887777",
+            Ativo = true
         };
 
-    private static ConviteNegocio CriarConvite() =>
+    private static ConviteNegocio CriarConviteAtivo() =>
         new()
         {
-            Id = 30,
+            Id = 40,
             EstabelecimentoId = 20,
-            Email = "profissional@email.com",
-            TipoConvite = TipoConviteNegocio.Profissional,
-            RoleSugerida = EstablishmentUserRole.Profissional,
-            Status = StatusConviteNegocio.Pendente,
+            TipoConvite = TipoConviteNegocio.UsuarioEquipe,
+            RoleSugerida = EstablishmentUserRole.Receptionist,
+            Status = StatusConviteNegocio.Ativo,
             TokenHash = "hash-token",
+            LimiteUsuarios = 2,
+            QuantidadeUtilizacoes = 0,
             ExpiraEm = DateTime.UtcNow.AddDays(1),
-            CriadoPorUsuarioId = 1,
-            PodeReceberAgendamento = true
+            Estabelecimento = new Estabelecimento { Id = 20, Nome = "Barbearia Glow" }
         };
 }

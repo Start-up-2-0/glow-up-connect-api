@@ -1,8 +1,11 @@
+using GLOWAPI.API.Helpers;
 using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Agendamento;
+using GLOWAPI.Application.DTOs.Auth;
 using GLOWAPI.Application.DTOs.Horarios;
 using GLOWAPI.Application.DTOs.Servicos;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Models.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,15 +19,21 @@ public class AgendamentoPublicoController : ControllerBase
     private readonly IDisponibilidadeAgendaService _disponibilidadeAgendaService;
     private readonly IServicoNegocioService _servicoNegocioService;
     private readonly IAgendamentoNegocioService _agendamentoNegocioService;
+    private readonly IAuthService _authService;
+    private readonly IWebHostEnvironment _environment;
 
     public AgendamentoPublicoController(
         IDisponibilidadeAgendaService disponibilidadeAgendaService,
         IServicoNegocioService servicoNegocioService,
-        IAgendamentoNegocioService agendamentoNegocioService)
+        IAgendamentoNegocioService agendamentoNegocioService,
+        IAuthService authService,
+        IWebHostEnvironment environment)
     {
         _disponibilidadeAgendaService = disponibilidadeAgendaService;
         _servicoNegocioService = servicoNegocioService;
         _agendamentoNegocioService = agendamentoNegocioService;
+        _authService = authService;
+        _environment = environment;
     }
 
     [HttpGet("loja/{publicGuid:guid}/profissional/{profissionalPublicGuid:guid}")]
@@ -207,5 +216,35 @@ public class AgendamentoPublicoController : ControllerBase
             ApiSuccessResponse<AgendamentoCriadoResponseDto>.From(
                 "Agendamento publico do profissional criado com sucesso.",
                 agendamento));
+    }
+
+    /// <summary>
+    /// Autentica o cliente pelo código pessoal de agendamento (sessão curta, ~15 min).
+    /// </summary>
+    [HttpPost("auth/codigo")]
+    public async Task<IActionResult> AutenticarPorCodigo(
+        [FromBody] AutenticarCodigoAgendamentoRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _authService.AutenticarPorCodigoAgendamentoAsync(
+            request,
+            new AuthSessionContext(
+                HttpContext.Connection.RemoteIpAddress?.ToString(),
+                HttpContext.Request.Headers.UserAgent.ToString()),
+            cancellationToken);
+
+        AuthAccessCookieHelper.SetAccessCookie(
+            Response,
+            result.Token,
+            result.ExpiresAt,
+            _environment);
+
+        var dto = LoginResponseDto.From(result);
+        dto.Token = string.Empty;
+        dto.RefreshToken = string.Empty;
+
+        return Ok(ApiSuccessResponse<LoginResponseDto>.From(
+            "Autenticado para agendamento público. A sessão expira em poucos minutos ou ao confirmar o agendamento.",
+            dto));
     }
 }

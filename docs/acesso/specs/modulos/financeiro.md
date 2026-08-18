@@ -7,45 +7,78 @@
 
 ## Objetivo
 
-Fluxo financeiro completo do negocio: relatorios, metricas, historico financeiro e operacoes de gestao alem da visualizacao de caixa.
+Fluxo financeiro operacional do negocio em torno de **Entradas**, **Saídas** e **Comissões**: dashboard enxuto, listas unificadas, recebimento presencial na agenda, relatorios e ferramentas avancadas (conciliacao, painel da rede).
 
-## Funcionalidades comerciais (catalogo)
+## Modelo unificado (UI)
 
-- Fluxo financeiro
-- Relatorios financeiros
-- Dashboard avancado
-- Metricas do estabelecimento
-- Historico financeiro
+`MovimentoFinanceiro` agrega lancamentos de caixa e contas a pagar/receber:
 
-## Enforcement
+- `id`: `lancamento:{id}` ou `conta:{id}`
+- `direcao`: `entrada` | `saida`
+- `status`: `recebido` | `pago` | `pendente` | `vencido` | `estornado` | `cancelado`
+- `origem`: `atendimento` | `manual` | `conta` | `pagamento_online` | `comissao`
 
-- **Catalogo:** incluido no Premium; aparece em `modulos[]`.
-- **HTTP:** **sem** `[RequerModuloAssinatura(Financeiro)]` hoje — endpoints dedicados ainda nao expostos.
-- Caixa (subconjunto) ja protegido pelo modulo `Caixa`.
+## Funcionalidades implementadas
 
-## Endpoints planejados
+- Motor de movimentacao de caixa (`MovimentacaoCaixaService`) com recalculo de saldos
+- **Sessao de caixa automatica** quando `ExigirSessaoCaixaAberta` e nao ha sessao aberta (invisivel na UI)
+- Endpoints agregadores de entradas/saidas (`MovimentosFinanceirosService`)
+- Dashboard com 6 KPIs (`GET /financeiro/dashboard`)
+- Recebimento presencial de agendamentos (`POST /agendamentos/{id}/receber`) — permanece na Agenda
+- CRUD de regras de comissao + calculo automatico no recebimento
+- Extrato do profissional (`GET /financeiro/comissoes/minhas`)
+- Relatorios analiticos e export CSV/Excel/PDF
+- Contas a pagar/receber (legado) com baixa vinculada ao caixa
+- Conciliacao por importacao de linhas de extrato
+- Painel da rede com faturamento por unidade
+- Pagamento via webhook gera lancamento de caixa (`EntradaAgendamento`)
 
-| Area | Status |
-|------|--------|
-| GET `/caixa` | Implementado (modulo Caixa) |
-| Relatorios financeiros | Planejado |
-| Dashboard avancado | Planejado |
-| Gestao de lancamentos (POST) | Planejado |
+## Endpoints principais (novos agregadores)
 
-## Permissoes previstas
+| Metodo | Rota | Permissao |
+|--------|------|-----------|
+| GET | `/financeiro/dashboard` | `CaixaVisualizar` |
+| GET | `/financeiro/entradas` | `CaixaVisualizar` |
+| POST | `/financeiro/entradas` | `CaixaGerenciar` |
+| PATCH | `/financeiro/entradas/{id}/receber` | `CaixaGerenciar` |
+| GET | `/financeiro/saidas` | `CaixaVisualizar` |
+| POST | `/financeiro/saidas` | `CaixaGerenciar` |
+| PATCH | `/financeiro/saidas/{id}/pagar` | `CaixaGerenciar` |
 
-- `CaixaVisualizar` — leitura
-- `CaixaGerenciar` — Owner; operacoes de escrita
+## Endpoints legados (compatibilidade)
 
-## Limites
+| Metodo | Rota | Permissao |
+|--------|------|-----------|
+| GET | `/caixa`, `/caixa/lancamentos` | `CaixaVisualizar` |
+| POST | `/caixa/lancamentos`, `/caixa/lancamentos/{id}/estornar` | `CaixaGerenciar` |
+| POST | `/agendamentos/{id}/receber` | `CaixaGerenciar` |
+| GET/POST/PUT/PATCH | `/financeiro/comissoes*` | visualizar / gerenciar |
+| GET | `/financeiro/relatorios*`, `/financeiro/fluxo-caixa` | `CaixaVisualizar` |
+| GET/POST/PATCH | `/financeiro/contas-receber*`, `/financeiro/contas-pagar*` | visualizar / gerenciar |
+| GET/POST | `/financeiro/conciliacao*` | visualizar / gerenciar |
 
-Nenhum.
+## Permissoes
 
-## Status
+- `CaixaVisualizar` — leitura de caixa e relatorios
+- `CaixaGerenciar` — Owner/Admin; escritas financeiras
+- `ComissaoVisualizarPropria` — profissional; extrato proprio
 
-**Planejado** — modulo no catalogo e API de planos; enforcement HTTP dedicado **pendente**.
+## App (menu)
+
+- Visao geral (`/financeiro`)
+- Entradas (`/financeiro/entradas`)
+- Saidas (`/financeiro/saidas`)
+- Comissoes (`/financeiro/comissoes`)
+- Relatorios (`/financeiro/relatorios`) — inclui Conciliacao e Painel da rede em secao Avancado
+
+Redirects legados: `/financeiro/caixa` e `/financeiro/movimentacoes` → entradas; `/financeiro/contas` → entradas/saidas pendentes; `/financeiro/conciliacao` e `/financeiro/rede` → relatorios.
 
 ## Codigo de referencia
 
-- `PlanoComercialCatalogo.ModulosPremium`
-- `docs/acesso/planos/plano-premium.md`
+- `MovimentosFinanceirosService`, `MovimentacaoCaixaService`, `FinanceiroNegocioService`
+- `EstabelecimentosController` (rotas `/financeiro/entradas`, `/financeiro/saidas`, `/financeiro/dashboard`)
+- App: `financeiroService.ts`, `financeiro.types.ts`, views em `src/views/modulos/financeiro/`
+
+## Status
+
+**Implementado** — reforma Entradas/Saidas/Comissoes com API agregadora e UI simplificada.

@@ -2,10 +2,12 @@ using GLOWAPI.Application.DTOs.Assinaturas;
 using GLOWAPI.Application.DTOs.Equipe;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Options;
 using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Negocios;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace GLOWAPI.Tests.Unit.Application;
@@ -16,10 +18,14 @@ public class EquipeNegocioServiceTests
     private readonly Mock<IProfissionalRepository> _profissionalRepository = new();
     private readonly Mock<IEstabelecimentoUsuarioRepository> _estabelecimentoUsuarioRepository = new();
     private readonly Mock<IProfissionalEstabelecimentoRepository> _profissionalEstabelecimentoRepository = new();
+    private readonly Mock<IAgendamentoItemRepository> _agendamentoItemRepository = new();
+    private readonly Mock<IAgendamentoNegocioService> _agendamentoNegocioService = new();
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
     private readonly Mock<IModulosAssinaturaService> _modulosAssinaturaService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
     private readonly Mock<IEquipeNotificacaoService> _equipeNotificacaoService = new();
+    private readonly Mock<IAvatarBase64Decoder> _avatarBase64Decoder = new();
+    private readonly Mock<IConviteNegocioRepository> _conviteNegocioRepository = new();
 
     public EquipeNegocioServiceTests()
     {
@@ -82,6 +88,16 @@ public class EquipeNegocioServiceTests
         _profissionalEstabelecimentoRepository
             .Setup(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
+        _agendamentoItemRepository
+            .Setup(r => r.ListarAgendamentosFuturosAtivosPorProfissionalAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<AgendamentoFuturoEquipeResponseDto>());
+
+        _avatarBase64Decoder
+            .Setup(d => d.ValidarENormalizar(It.IsAny<string>(), It.IsAny<string?>()))
+            .Returns((string valor, string? _) => valor.Trim());
     }
 
     [Fact]
@@ -935,6 +951,141 @@ public class EquipeNegocioServiceTests
     }
 
     [Fact]
+    public async Task AtualizarStatusProfissionalAsync_DeveLancarExcecao_QuandoPossuiAgendamentosFuturos()
+    {
+        var profissional = new Profissional
+        {
+            Id = 70,
+            UsuarioId = 30,
+            NomePublico = "Maria Beauty",
+            Email = "maria@email.com",
+            Telefone = "11999999999",
+            Ativo = true
+        };
+        var vinculo = new ProfissionalEstabelecimento
+        {
+            Id = 90,
+            EstabelecimentoId = 20,
+            ProfissionalId = 70,
+            PodeReceberAgendamento = true,
+            Ativo = true
+        };
+
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ObterPorProfissionalAsync(70, 20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(vinculo);
+        _profissionalRepository
+            .Setup(r => r.ObterPorIdAsync(70, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profissional);
+        _agendamentoItemRepository
+            .Setup(r => r.ListarAgendamentosFuturosAtivosPorProfissionalAsync(20, 70, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+            [
+                new AgendamentoFuturoEquipeResponseDto
+                {
+                    AgendamentoId = 100,
+                    AgendamentoItemId = 200,
+                    ClienteNome = "Cliente Teste",
+                    ServicoNome = "Corte",
+                    Inicio = DateTime.UtcNow.AddDays(1),
+                    Fim = DateTime.UtcNow.AddDays(1).AddHours(1),
+                    Status = "Confirmado"
+                }
+            ]);
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<ProfissionalEquipeComAgendamentoFuturoException>(() =>
+            service.AtualizarStatusProfissionalAsync(
+                20,
+                70,
+                new AtualizarStatusProfissionalEquipeRequestDto { Ativo = false }));
+    }
+
+    [Fact]
+    public async Task AtualizarStatusProfissionalAsync_DeveCancelarAgendamentosFuturos_QuandoSolicitado()
+    {
+        var profissional = new Profissional
+        {
+            Id = 70,
+            UsuarioId = 30,
+            NomePublico = "Maria Beauty",
+            Email = "maria@email.com",
+            Telefone = "11999999999",
+            Ativo = true
+        };
+        var vinculo = new ProfissionalEstabelecimento
+        {
+            Id = 90,
+            EstabelecimentoId = 20,
+            ProfissionalId = 70,
+            PodeReceberAgendamento = true,
+            Ativo = true
+        };
+
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ObterPorProfissionalAsync(70, 20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(vinculo);
+        _profissionalRepository
+            .Setup(r => r.ObterPorIdAsync(70, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(profissional);
+        _agendamentoItemRepository
+            .Setup(r => r.ListarAgendamentosFuturosAtivosPorProfissionalAsync(20, 70, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+            [
+                new AgendamentoFuturoEquipeResponseDto
+                {
+                    AgendamentoId = 100,
+                    AgendamentoItemId = 200,
+                    ClienteNome = "Cliente Teste",
+                    ServicoNome = "Corte",
+                    Inicio = DateTime.UtcNow.AddDays(1),
+                    Fim = DateTime.UtcNow.AddDays(1).AddHours(1),
+                    Status = "Confirmado"
+                }
+            ]);
+        _autorizacaoNegocioService
+            .Setup(s => s.AutorizarAsync(
+                20,
+                PermissaoNegocio.AgendaCancelar,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GLOWAPI.Application.Models.Autorizacao.AutorizacaoNegocioResultado(
+                20,
+                10,
+                EstablishmentUserRole.Owner,
+                false,
+                new HashSet<PermissaoNegocio> { PermissaoNegocio.AgendaCancelar }));
+        _agendamentoNegocioService
+            .Setup(s => s.CancelarAgendamentosFuturosDoProfissionalAsync(
+                20,
+                70,
+                "Profissional removido da equipe",
+                false,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        var service = CreateService();
+
+        var response = await service.AtualizarStatusProfissionalAsync(
+            20,
+            70,
+            new AtualizarStatusProfissionalEquipeRequestDto
+            {
+                Ativo = false,
+                CancelarAgendamentosFuturos = true,
+                MotivoCancelamento = "Profissional removido da equipe"
+            });
+
+        Assert.False(response.Ativo);
+        _agendamentoNegocioService.Verify(s => s.CancelarAgendamentosFuturosDoProfissionalAsync(
+            20,
+            70,
+            "Profissional removido da equipe",
+            false,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task AtualizarStatusProfissionalAsync_DeveLancarExcecao_QuandoProfissionalNaoPertenceAoNegocio()
     {
         _profissionalEstabelecimentoRepository
@@ -956,10 +1107,15 @@ public class EquipeNegocioServiceTests
             _profissionalRepository.Object,
             _estabelecimentoUsuarioRepository.Object,
             _profissionalEstabelecimentoRepository.Object,
+            _agendamentoItemRepository.Object,
+            _agendamentoNegocioService.Object,
             _autorizacaoNegocioService.Object,
             _modulosAssinaturaService.Object,
             _auditoriaNegocioService.Object,
-            _equipeNotificacaoService.Object);
+            _equipeNotificacaoService.Object,
+            _avatarBase64Decoder.Object,
+            new Base64ImageThumbnailer(Options.Create(new AvatarOptions())),
+            _conviteNegocioRepository.Object);
 
     private static ModulosAssinaturaResponseDto CriarModulosPlus() =>
         ModulosAssinaturaResponseDto.Liberado(

@@ -7,4 +7,13 @@ public interface IComissaoProfissionalRepository : IRepository<ComissaoProfissio
     Task<IReadOnlyList<ComissaoProfissional>> ListarAtivasPorVinculosAsync(
         IReadOnlyList<int> profissionalEstabelecimentoIds,
         CancellationToken cancellationToken = default);
+
+    Task<ComissaoProfissional?> ObterAtivaPorVinculoAsync(
+        int profissionalEstabelecimentoId,
+        DateTime referenciaUtc,
+        CancellationToken cancellationToken = default);
+
+    Task<ComissaoProfissional?> ObterPorIdComTrackingAsync(
+        int comissaoId,
+        CancellationToken cancellationToken = default);
 }

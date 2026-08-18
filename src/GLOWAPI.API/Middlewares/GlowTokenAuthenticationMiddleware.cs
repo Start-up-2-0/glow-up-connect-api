@@ -1,4 +1,6 @@
+using GLOWAPI.API.Helpers;
 using GLOWAPI.API.Models;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Auth;
 using GLOWAPI.Application.Options;
@@ -32,15 +34,14 @@ public class GlowTokenAuthenticationMiddleware
             return;
         }
 
-        if (!context.Request.Headers.TryGetValue(_authOptions.TokenHeaderName, out var tokenValues) ||
-            string.IsNullOrWhiteSpace(tokenValues.FirstOrDefault()))
+        var token = AuthAccessCookieHelper.ObterAccessToken(context.Request, _authOptions);
+        if (string.IsNullOrWhiteSpace(token))
         {
             await WriteErrorAsync(context, StatusCodes.Status401Unauthorized, "Não autorizado.", UnauthorizedException.ErrorCode);
             await auditLogger.AccessDeniedAsync("token_ausente", context.Connection.RemoteIpAddress?.ToString(), context.Request.Headers.UserAgent.ToString());
             return;
         }
 
-        var token = tokenValues.ToString();
         var sessionContext = new AuthSessionContext(
             context.Connection.RemoteIpAddress?.ToString(),
             context.Request.Headers.UserAgent.ToString());
@@ -56,7 +57,9 @@ public class GlowTokenAuthenticationMiddleware
                 auth.Sessao.Id);
 
             var sessao = await authSessionService.ObterSessaoPorIdAsync(auth.Sessao.Id, context.RequestAborted);
-            if (sessao is not null && DeveRenovarSessao(sessao.UltimaRenovacaoEm ?? sessao.LoginEm))
+            if (sessao is not null
+                && !CodigoAgendamentoHelper.EhEscopoAgendamentoPublico(sessao.MetadataJson)
+                && DeveRenovarSessao(sessao.UltimaRenovacaoEm ?? sessao.LoginEm))
             {
                 await authSessionService.RenovarExpiracaoAsync(sessao, context.RequestAborted);
             }
@@ -65,11 +68,15 @@ public class GlowTokenAuthenticationMiddleware
         }
         catch (AuthenticationException ex)
         {
-            var statusCode = ex is UserBlockedException or InactiveUserException
+            var statusCode = ex is UserBlockedException or InactiveUserException or ContaEmExclusaoException
                 ? StatusCodes.Status403Forbidden
                 : StatusCodes.Status401Unauthorized;
 
-            await WriteErrorAsync(context, statusCode, ex.Message, ex.Code);
+            object? details = ex is ContaEmExclusaoException contaEmExclusao
+                ? new { reativarAte = contaEmExclusao.ReativarAte }
+                : null;
+
+            await WriteErrorAsync(context, statusCode, ex.Message, ex.Code, details);
             await auditLogger.AccessDeniedAsync(ex.Code, sessionContext.Ip, sessionContext.UserAgent);
         }
     }
@@ -80,7 +87,7 @@ public class GlowTokenAuthenticationMiddleware
         return limite <= DateTime.UtcNow;
     }
 
-    private static async Task WriteErrorAsync(HttpContext context, int statusCode, string message, string code)
+    private static async Task WriteErrorAsync(HttpContext context, int statusCode, string message, string code, object? details = null)
     {
         if (context.Response.HasStarted)
         {
@@ -89,6 +96,6 @@ public class GlowTokenAuthenticationMiddleware
 
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/json";
-        await context.Response.WriteAsJsonAsync(ApiErrorResponse.From(message, code));
+        await context.Response.WriteAsJsonAsync(ApiErrorResponse.From(message, code, details));
     }
 }

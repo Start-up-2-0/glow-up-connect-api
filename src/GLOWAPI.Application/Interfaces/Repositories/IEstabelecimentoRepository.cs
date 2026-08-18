@@ -1,10 +1,12 @@
 using GLOWAPI.Application.Models.Geolocalizacao;
 using GLOWAPI.Domain.Entities;
+using GLOWAPI.Domain.Enums;
 
 namespace GLOWAPI.Application.Interfaces.Repositories;
 
 public interface IEstabelecimentoRepository : IRepository<Estabelecimento>
 {
+    Task<IReadOnlyList<CategoriaEstabelecimento>> ListarCategoriasAsync(CancellationToken cancellationToken = default);
     Task<Estabelecimento?> ObterPorPublicGuidAsync(Guid publicGuid, CancellationToken cancellationToken = default);
     Task<Estabelecimento?> ObterPorIdComEnderecoAsync(int id, CancellationToken cancellationToken = default);
     Task<Estabelecimento?> ObterPorWhatsAppConfirmacaoTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default);
@@ -19,5 +21,10 @@ public interface IEstabelecimentoRepository : IRepository<Estabelecimento>
         double raioKm,
         int pagina,
         int tamanhoPagina,
+        int? categoriaId,
+        CancellationToken cancellationToken = default);
+
+    Task<TipoAssinatura> ObterTipoAssinaturaPublicoAsync(
+        int estabelecimentoId,
         CancellationToken cancellationToken = default);
 }

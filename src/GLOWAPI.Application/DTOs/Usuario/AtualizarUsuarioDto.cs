@@ -11,4 +11,7 @@ public class AtualizarUsuarioDto
     [Phone(ErrorMessage = "Telefone inválido")]
     [StringLength(20, ErrorMessage = "Telefone deve ter no máximo 20 caracteres")]
     public string Telefone { get; set; } = string.Empty;
+
+    [RegularExpression("^(Masculino|Feminino)$", ErrorMessage = "Sexo inválido")]
+    public string? Sexo { get; set; }
 }

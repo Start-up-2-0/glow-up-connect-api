@@ -20,6 +20,7 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
     private readonly IUsuarioRepository _usuarioRepository;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAvatarBase64Decoder _avatarBase64Decoder;
+    private readonly IBase64ImageThumbnailer _thumbnailer;
 
     public EstabelecimentoPerfilService(
         IEstabelecimentoRepository estabelecimentoRepository,
@@ -28,7 +29,8 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
         IConfirmacaoWhatsAppEstabelecimentoService confirmacaoWhatsAppEstabelecimentoService,
         IUsuarioRepository usuarioRepository,
         ICurrentUserContext currentUser,
-        IAvatarBase64Decoder avatarBase64Decoder)
+        IAvatarBase64Decoder avatarBase64Decoder,
+        IBase64ImageThumbnailer thumbnailer)
     {
         _estabelecimentoRepository = estabelecimentoRepository;
         _autorizacaoNegocioService = autorizacaoNegocioService;
@@ -37,6 +39,7 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
         _usuarioRepository = usuarioRepository;
         _currentUser = currentUser;
         _avatarBase64Decoder = avatarBase64Decoder;
+        _thumbnailer = thumbnailer;
     }
 
 
@@ -82,6 +85,7 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
             logoInformado,
             "Logo do estabelecimento",
             _avatarBase64Decoder,
+            _thumbnailer,
             CriarExcecao);
 
         estabelecimento.Telefone = TelefoneHelper.NormalizarParaArmazenamento(
@@ -125,7 +129,18 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
             await _enderecoGeocodificacaoService.TentarGeocodificarAsync(estabelecimento.Endereco, cancellationToken);
         }
 
-
+        if (request.CategoriaEstabelecimentoId is not null)
+        {
+            var tipoAssinatura = await _estabelecimentoRepository.ObterTipoAssinaturaPublicoAsync(
+                estabelecimento.Id,
+                cancellationToken);
+            var categorias = await _estabelecimentoRepository.ListarCategoriasAsync(cancellationToken);
+            estabelecimento.CategoriaEstabelecimentoId = CategoriaEstabelecimentoCatalogo.ResolverId(
+                request.CategoriaEstabelecimentoId,
+                tipoAssinatura,
+                categorias,
+                CriarExcecao);
+        }
 
         _estabelecimentoRepository.Atualizar(estabelecimento);
 

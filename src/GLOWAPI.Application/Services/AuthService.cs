@@ -1,8 +1,10 @@
 using GLOWAPI.Application.DTOs.Auth;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Auth;
 using GLOWAPI.Application.Options;
+using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Auth;
 using Microsoft.Extensions.Options;
 
@@ -57,6 +59,18 @@ public class AuthService : IAuthService
 
         var requerConfirmacaoEmail = !usuario.Ativo && usuario.PendenteConfirmacaoEmail();
 
+        if (usuario.ExclusaoPendenteDentroDoPrazo(DateTime.UtcNow))
+        {
+            await _auditLogger.LoginFailedAsync(email, "conta_em_exclusao", context.Ip, context.UserAgent, usuario.Id, cancellationToken);
+            throw new ContaEmExclusaoException(usuario.ExclusaoEfetivarEm);
+        }
+
+        if (usuario.ExclusaoStatus == ExclusaoStatus.Pendente)
+        {
+            await _auditLogger.LoginFailedAsync(email, "usuario_inativo", context.Ip, context.UserAgent, usuario.Id, cancellationToken);
+            throw new InactiveUserException();
+        }
+
         if (!usuario.Ativo && !requerConfirmacaoEmail)
         {
             await _auditLogger.LoginFailedAsync(email, "usuario_inativo", context.Ip, context.UserAgent, usuario.Id, cancellationToken);
@@ -104,6 +118,80 @@ public class AuthService : IAuthService
             tokens.RefreshTokenExpiresAt,
             new UsuarioAuthInfo(usuario.Id, usuario.Nome, usuario.Email, usuario.Role, usuario.AvatarBase64),
             requerConfirmacaoEmail);
+    }
+
+    public async Task<AuthLoginResult> AutenticarPorCodigoAgendamentoAsync(
+        AutenticarCodigoAgendamentoRequestDto dto,
+        AuthSessionContext context,
+        CancellationToken cancellationToken = default)
+    {
+        var ip = string.IsNullOrWhiteSpace(context.Ip) ? "unknown" : context.Ip;
+        if (!await _loginFailureRateLimit.PodeTentarAsync(ip, cancellationToken))
+        {
+            throw new LoginIpRateLimitException();
+        }
+
+        var codigo = CodigoAgendamentoHelper.Normalizar(dto.Codigo);
+        if (string.IsNullOrWhiteSpace(codigo))
+        {
+            await _loginFailureRateLimit.RegistrarFalhaAsync(ip, cancellationToken);
+            throw new InvalidCredentialsException();
+        }
+
+        var usuario = await _usuarioRepository.ObterPorCodigoAgendamentoAsync(codigo, cancellationToken);
+        if (usuario is null)
+        {
+            await _auditLogger.LoginFailedAsync(codigo, "codigo_agendamento_inexistente", context.Ip, context.UserAgent, cancellationToken: cancellationToken);
+            await _loginFailureRateLimit.RegistrarFalhaAsync(ip, cancellationToken);
+            throw new InvalidCredentialsException();
+        }
+
+        if (usuario.ExclusaoPendenteDentroDoPrazo(DateTime.UtcNow))
+        {
+            await _auditLogger.LoginFailedAsync(usuario.Email, "conta_em_exclusao", context.Ip, context.UserAgent, usuario.Id, cancellationToken);
+            throw new ContaEmExclusaoException(usuario.ExclusaoEfetivarEm);
+        }
+
+        if (usuario.ExclusaoStatus == ExclusaoStatus.Pendente)
+        {
+            await _auditLogger.LoginFailedAsync(usuario.Email, "usuario_inativo", context.Ip, context.UserAgent, usuario.Id, cancellationToken);
+            throw new InactiveUserException();
+        }
+
+        if (!usuario.Ativo)
+        {
+            if (usuario.PendenteConfirmacaoEmail())
+            {
+                await _auditLogger.LoginFailedAsync(usuario.Email, "email_nao_confirmado", context.Ip, context.UserAgent, usuario.Id, cancellationToken);
+                throw new EmailNaoConfirmadoException();
+            }
+
+            await _auditLogger.LoginFailedAsync(usuario.Email, "usuario_inativo", context.Ip, context.UserAgent, usuario.Id, cancellationToken);
+            throw new InactiveUserException();
+        }
+
+        if (usuario.EstaBloqueado(_authOptions.MaxLoginAttempts))
+        {
+            await _auditLogger.UserBlockedAsync(usuario.Id, usuario.Email, context.Ip, context.UserAgent, cancellationToken);
+            throw new UserBlockedException();
+        }
+
+        usuario.ResetarTentativas();
+        _usuarioRepository.Atualizar(usuario);
+        await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        var tokens = await _authSessionService.CriarSessaoAgendamentoPublicoAsync(usuario, context, cancellationToken);
+
+        await _auditLogger.LoginSucceededAsync(usuario.Id, usuario.Email, context.Ip, context.UserAgent, cancellationToken);
+
+        return new AuthLoginResult(
+            tokens.AccessToken,
+            string.Empty,
+            tokens.AccessTokenExpiresAt,
+            tokens.RefreshTokenExpiresAt,
+            new UsuarioAuthInfo(usuario.Id, usuario.Nome, usuario.Email, usuario.Role, usuario.AvatarBase64),
+            RequerConfirmacaoEmail: false,
+            SessaoAgendamentoPublico: true);
     }
 
     public async Task LogoutAsync(string accessToken, CancellationToken cancellationToken = default)

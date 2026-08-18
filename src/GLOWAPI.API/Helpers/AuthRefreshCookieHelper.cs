@@ -20,12 +20,14 @@ public static class AuthRefreshCookieHelper
         });
     }
 
-    public static void ClearRefreshCookie(HttpResponse response)
+    public static void ClearRefreshCookie(HttpResponse response, IHostEnvironment? environment = null)
     {
         response.Cookies.Delete(CookieName, new CookieOptions
         {
             Path = "/api/auth",
-            Secure = true,
+            Secure = environment is null
+                || environment.IsProduction()
+                || environment.IsStaging(),
             SameSite = SameSiteMode.Strict
         });
     }

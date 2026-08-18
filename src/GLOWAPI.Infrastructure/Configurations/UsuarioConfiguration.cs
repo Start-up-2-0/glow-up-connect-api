@@ -38,6 +38,13 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
             .IsRequired()
             .HasMaxLength(50);
 
+        builder.Property(usuario => usuario.Sexo)
+            .HasConversion(
+                sexo => sexo != null ? sexo.Value.ToString() : null,
+                sexo => string.IsNullOrEmpty(sexo) ? (Sexo?)null : Enum.Parse<Sexo>(sexo))
+            .HasMaxLength(20)
+            .IsRequired(false);
+
         builder.Property(usuario => usuario.Tentativas)
             .HasDefaultValue(0);
 
@@ -61,6 +68,18 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
 
         builder.Property(usuario => usuario.ConfirmacaoExpiraEm);
 
+        builder.Property(usuario => usuario.RecuperacaoTokenHash)
+            .HasMaxLength(128);
+
+        builder.HasIndex(usuario => usuario.RecuperacaoTokenHash);
+
+        builder.Property(usuario => usuario.RecuperacaoCodigoHash)
+            .HasMaxLength(128);
+
+        builder.HasIndex(usuario => usuario.RecuperacaoCodigoHash);
+
+        builder.Property(usuario => usuario.RecuperacaoExpiraEm);
+
         builder.Property(usuario => usuario.WhatsAppConfirmadoEm);
 
         builder.Property(usuario => usuario.WhatsAppConfirmacaoTokenHash)
@@ -77,6 +96,26 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
 
         builder.Property(usuario => usuario.WhatsAppOptIn)
             .HasDefaultValue(false);
+
+        builder.Property(usuario => usuario.ExclusaoStatus)
+            .HasConversion(
+                status => status.ToString(),
+                status => Enum.Parse<ExclusaoStatus>(status))
+            .IsRequired()
+            .HasMaxLength(20)
+            .HasDefaultValue(ExclusaoStatus.Nenhuma);
+
+        builder.Property(usuario => usuario.ExclusaoSolicitadaEm);
+        builder.Property(usuario => usuario.ExclusaoEfetivarEm);
+
+        builder.HasIndex(usuario => new { usuario.ExclusaoStatus, usuario.ExclusaoEfetivarEm });
+
+        builder.Property(usuario => usuario.CodigoAgendamento)
+            .HasMaxLength(32);
+
+        builder.HasIndex(usuario => usuario.CodigoAgendamento)
+            .IsUnique()
+            .HasFilter("CodigoAgendamento IS NOT NULL");
 
         builder.Property(usuario => usuario.CreatedAt)
             .IsRequired();

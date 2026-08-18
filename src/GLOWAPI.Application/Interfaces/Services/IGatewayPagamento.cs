@@ -15,6 +15,10 @@ public interface IGatewayPagamento
         string gatewayPaymentId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<string>> ListarPagamentosDaOrdemAsync(
+        string ordemId,
+        CancellationToken cancellationToken = default);
+
     Task<CriarAssinaturaRecorrenteGatewayResponse> CriarAssinaturaRecorrenteAsync(
         CriarAssinaturaRecorrenteGatewayRequest request,
         CancellationToken cancellationToken = default);

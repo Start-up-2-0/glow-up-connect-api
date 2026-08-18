@@ -12,6 +12,7 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<Usuario> Usuarios { get; set; }
     public DbSet<Estabelecimento> Estabelecimentos { get; set; }
+    public DbSet<CategoriaEstabelecimento> CategoriasEstabelecimento { get; set; }
     public DbSet<EstabelecimentoUsuario> EstabelecimentoUsuarios { get; set; }
     public DbSet<Profissional> Profissionais { get; set; }
     public DbSet<ProfissionalEstabelecimento> ProfissionalEstabelecimentos { get; set; }
@@ -24,6 +25,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<AgendamentoItem> AgendamentoItens { get; set; }
     public DbSet<AgendamentoHistorico> AgendamentosHistorico { get; set; }
     public DbSet<AgendamentoPropostaRemarcacao> AgendamentosPropostasRemarcacao { get; set; }
+    public DbSet<AvaliacaoAtendimento> AvaliacoesAtendimento { get; set; }
+    public DbSet<AvaliacaoConvite> AvaliacoesConvites { get; set; }
+    public DbSet<AvaliacaoHistorico> AvaliacoesHistorico { get; set; }
     public DbSet<Caixa> Caixas { get; set; }
     public DbSet<Plano> Planos { get; set; }
     public DbSet<CampanhaPromocional> CampanhasPromocionais { get; set; }
@@ -37,12 +41,18 @@ public class ApplicationDbContext : DbContext
     public DbSet<WebhookPagamento> WebhookPagamentos { get; set; }
     public DbSet<ComissaoProfissional> ComissoesProfissional { get; set; }
     public DbSet<MetaProfissional> MetasProfissional { get; set; }
+    public DbSet<Meta> Metas { get; set; }
+    public DbSet<SessaoCaixa> SessoesCaixa { get; set; }
+    public DbSet<ContaReceber> ContasReceber { get; set; }
+    public DbSet<ContaPagar> ContasPagar { get; set; }
+    public DbSet<ConciliacaoItem> ConciliacaoItens { get; set; }
     public DbSet<SessaoAutenticacao> SessoesAutenticacao { get; set; }
     public DbSet<LogAutenticacao> LogsAutenticacao { get; set; }
     public DbSet<MensagemNotificacao> MensagensNotificacao { get; set; }
     public DbSet<MensagemNotificacaoLog> MensagensNotificacaoLogs { get; set; }
     public DbSet<AuditoriaNegocio> AuditoriasNegocio { get; set; }
     public DbSet<ConviteNegocio> ConvitesNegocio { get; set; }
+    public DbSet<ConviteNegocioUtilizacao> ConvitesNegocioUtilizacoes { get; set; }
     public DbSet<IpRateLimitBlock> IpRateLimitBlocks { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

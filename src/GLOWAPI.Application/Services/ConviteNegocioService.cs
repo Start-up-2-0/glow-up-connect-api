@@ -1,25 +1,28 @@
 using GLOWAPI.Application.DTOs.Convites;
-using GLOWAPI.Application.DTOs.Mensageria;
+using GLOWAPI.Application.DTOs.Usuario;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
-using GLOWAPI.Application.Mensageria;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Auth;
 using GLOWAPI.Domain.Exceptions.Negocios;
+using GLOWAPI.Domain.Exceptions.Usuario;
 using Microsoft.Extensions.Options;
 
 namespace GLOWAPI.Application.Services;
 
 public class ConviteNegocioService : IConviteNegocioService
 {
-    private static readonly HashSet<EstablishmentUserRole> RolesConviteEquipe =
+    private static readonly HashSet<EstablishmentUserRole> RolesPermitidas =
     [
         EstablishmentUserRole.Admin,
         EstablishmentUserRole.Manager,
-        EstablishmentUserRole.Receptionist
+        EstablishmentUserRole.Receptionist,
+        EstablishmentUserRole.Profissional
     ];
+
+    private static readonly HashSet<int> LimitesPermitidos = [1, 2, 5, 10];
 
     private readonly IConviteNegocioRepository _conviteRepository;
     private readonly IUsuarioRepository _usuarioRepository;
@@ -28,11 +31,18 @@ public class ConviteNegocioService : IConviteNegocioService
     private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
     private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
     private readonly IModulosAssinaturaService _modulosAssinaturaService;
-    private readonly IMensagemNotificacaoService _mensagemNotificacaoService;
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
+    private readonly IUsuarioService _usuarioService;
     private readonly IGlowTokenService _tokenService;
     private readonly ICurrentUserContext _currentUserContext;
+    private readonly IAvatarBase64Decoder _avatarBase64Decoder;
+    private readonly IBase64ImageThumbnailer _thumbnailer;
     private readonly AuthOptions _authOptions;
+
+    private sealed record AceitarConviteProfissionalExtras(
+        string? NomePublico,
+        string? Foto,
+        string? FotoContentType);
 
     public ConviteNegocioService(
         IConviteNegocioRepository conviteRepository,
@@ -42,10 +52,12 @@ public class ConviteNegocioService : IConviteNegocioService
         IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
         IAutorizacaoNegocioService autorizacaoNegocioService,
         IModulosAssinaturaService modulosAssinaturaService,
-        IMensagemNotificacaoService mensagemNotificacaoService,
         IAuditoriaNegocioService auditoriaNegocioService,
+        IUsuarioService usuarioService,
         IGlowTokenService tokenService,
         ICurrentUserContext currentUserContext,
+        IAvatarBase64Decoder avatarBase64Decoder,
+        IBase64ImageThumbnailer thumbnailer,
         IOptions<AuthOptions> authOptions)
     {
         _conviteRepository = conviteRepository;
@@ -55,66 +67,18 @@ public class ConviteNegocioService : IConviteNegocioService
         _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
         _autorizacaoNegocioService = autorizacaoNegocioService;
         _modulosAssinaturaService = modulosAssinaturaService;
-        _mensagemNotificacaoService = mensagemNotificacaoService;
         _auditoriaNegocioService = auditoriaNegocioService;
+        _usuarioService = usuarioService;
         _tokenService = tokenService;
         _currentUserContext = currentUserContext;
+        _avatarBase64Decoder = avatarBase64Decoder;
+        _thumbnailer = thumbnailer;
         _authOptions = authOptions.Value;
     }
 
-    public async Task<ConviteOuVinculoResponseDto> CriarConviteProfissionalAsync(
+    public async Task<ConviteNegocioCriadoResponseDto> CriarLinkAsync(
         int estabelecimentoId,
-        CriarConviteProfissionalRequestDto request,
-        CancellationToken cancellationToken = default)
-    {
-        await _autorizacaoNegocioService.AutorizarAsync(
-            estabelecimentoId,
-            PermissaoNegocio.ProfissionalConvidar,
-            cancellationToken);
-
-        var email = NormalizarEmail(request.Email);
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            throw new ConviteNegocioInvalidoException("E-mail do convite e obrigatorio.");
-        }
-
-        await ValidarUsuarioExistenteParaConviteAsync(email, cancellationToken);
-
-        await ValidarConvitePendenteDuplicadoAsync(
-            estabelecimentoId,
-            email,
-            TipoConviteNegocio.Profissional,
-            cancellationToken);
-
-        var token = _tokenService.GerarRefreshToken();
-        var convite = new ConviteNegocio
-        {
-            EstabelecimentoId = estabelecimentoId,
-            Email = email,
-            Telefone = request.Telefone?.Trim() ?? string.Empty,
-            NomePublico = request.NomePublico?.Trim() ?? string.Empty,
-            TipoConvite = TipoConviteNegocio.Profissional,
-            RoleSugerida = EstablishmentUserRole.Profissional,
-            PodeReceberAgendamento = request.PodeReceberAgendamento,
-            Status = StatusConviteNegocio.Pendente,
-            TokenHash = _tokenService.HashToken(token),
-            ExpiraEm = DateTime.UtcNow.AddDays(7),
-            CriadoPorUsuarioId = ObterUsuarioAutenticado()
-        };
-
-        var conviteCriado = await PersistirConviteAsync(
-            convite,
-            token,
-            TipoAcaoAuditoriaNegocio.ProfissionalConvidado,
-            "Voce recebeu um convite para atuar como profissional.",
-            cancellationToken);
-
-        return ConviteOuVinculoResponseDto.FromConvite(conviteCriado);
-    }
-
-    public async Task<ConviteOuVinculoResponseDto> CriarConviteUsuarioEquipeAsync(
-        int estabelecimentoId,
-        CriarConviteUsuarioEquipeRequestDto request,
+        CriarConviteLinkRequestDto request,
         CancellationToken cancellationToken = default)
     {
         await _autorizacaoNegocioService.AutorizarAsync(
@@ -122,47 +86,59 @@ public class ConviteNegocioService : IConviteNegocioService
             PermissaoNegocio.EquipeGerenciar,
             cancellationToken);
 
-        if (!RolesConviteEquipe.Contains(request.Role))
+        if (!RolesPermitidas.Contains(request.Role))
+        {
+            throw new ConviteNegocioInvalidoException("Role invalida para o convite.");
+        }
+
+        if (request.Role == EstablishmentUserRole.Profissional)
+        {
+            await _autorizacaoNegocioService.AutorizarAsync(
+                estabelecimentoId,
+                PermissaoNegocio.ProfissionalConvidar,
+                cancellationToken);
+        }
+
+        if (!LimitesPermitidos.Contains(request.LimiteUsuarios))
         {
             throw new ConviteNegocioInvalidoException(
-                "Role invalida para convite de usuario da equipe.");
+                "Quantidade maxima de usuarios deve ser 1, 2, 5 ou 10.");
         }
 
-        var email = NormalizarEmail(request.Email);
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            throw new ConviteNegocioInvalidoException("E-mail do convite e obrigatorio.");
-        }
+        var expiraEm = CalcularExpiracao(request.DuracaoValor, request.DuracaoUnidade);
+        // UUID público no link; no banco persiste apenas o hash (mesmo padrão dos demais tokens).
+        var token = Guid.NewGuid().ToString("D");
+        var tipoConvite = request.Role == EstablishmentUserRole.Profissional
+            ? TipoConviteNegocio.Profissional
+            : TipoConviteNegocio.UsuarioEquipe;
 
-        await ValidarUsuarioExistenteParaConviteAsync(email, cancellationToken);
-
-        await ValidarConvitePendenteDuplicadoAsync(
-            estabelecimentoId,
-            email,
-            TipoConviteNegocio.UsuarioEquipe,
-            cancellationToken);
-
-        var token = _tokenService.GerarRefreshToken();
         var convite = new ConviteNegocio
         {
             EstabelecimentoId = estabelecimentoId,
-            Email = email,
-            TipoConvite = TipoConviteNegocio.UsuarioEquipe,
+            Email = string.Empty,
+            TipoConvite = tipoConvite,
             RoleSugerida = request.Role,
-            Status = StatusConviteNegocio.Pendente,
+            PodeReceberAgendamento = request.Role == EstablishmentUserRole.Profissional
+                && request.PodeReceberAgendamento,
+            Status = StatusConviteNegocio.Ativo,
             TokenHash = _tokenService.HashToken(token),
-            ExpiraEm = DateTime.UtcNow.AddDays(7),
+            TokenProtegido = _tokenService.ProtegerToken(token),
+            LimiteUsuarios = request.LimiteUsuarios,
+            QuantidadeUtilizacoes = 0,
+            ExpiraEm = expiraEm,
             CriadoPorUsuarioId = ObterUsuarioAutenticado()
         };
 
-        var conviteCriado = await PersistirConviteAsync(
+        await _conviteRepository.AdicionarAsync(convite, cancellationToken);
+        await _conviteRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        var link = MontarLinkConvite(token);
+        await AuditarAsync(
             convite,
-            token,
-            TipoAcaoAuditoriaNegocio.UsuarioEquipeConvidado,
-            $"Voce recebeu um convite para integrar a equipe como {request.Role}.",
+            TipoAcaoAuditoriaNegocio.ConviteLinkCriado,
             cancellationToken);
 
-        return ConviteOuVinculoResponseDto.FromConvite(conviteCriado);
+        return ConviteNegocioCriadoResponseDto.From(convite, link);
     }
 
     public async Task<ConviteNegocioPreviewResponseDto> ObterPreviewAsync(
@@ -188,9 +164,44 @@ public class ConviteNegocioService : IConviteNegocioService
             filtro.Status,
             cancellationToken);
 
-        return convites
-            .Select(ConviteNegocioResponseDto.From)
-            .ToList();
+        return convites.Select(ConviteNegocioResponseDto.From).ToList();
+    }
+
+    public async Task<ConviteNegocioCriadoResponseDto> ObterLinkAsync(
+        int estabelecimentoId,
+        int conviteId,
+        CancellationToken cancellationToken = default)
+    {
+        await _autorizacaoNegocioService.AutorizarAsync(
+            estabelecimentoId,
+            PermissaoNegocio.EquipeGerenciar,
+            cancellationToken);
+
+        var convite = await _conviteRepository.ObterPorIdAsync(conviteId, cancellationToken);
+        if (convite is null || convite.EstabelecimentoId != estabelecimentoId)
+        {
+            throw new ConviteNegocioNaoEncontradoException();
+        }
+
+        if (convite.Status != StatusConviteNegocio.Ativo)
+        {
+            throw new ConviteNegocioIndisponivelException();
+        }
+
+        if (string.IsNullOrWhiteSpace(convite.TokenProtegido))
+        {
+            throw new ConviteNegocioInvalidoException(
+                "Este convite não possui link recuperável. Gere um novo link.");
+        }
+
+        var token = _tokenService.DesprotegerToken(convite.TokenProtegido);
+        if (string.IsNullOrWhiteSpace(token) || !Guid.TryParse(token, out var tokenGuid))
+        {
+            throw new ConviteNegocioInvalidoException(
+                "Não foi possível recuperar o link deste convite. Gere um novo link.");
+        }
+
+        return ConviteNegocioCriadoResponseDto.From(convite, MontarLinkConvite(tokenGuid.ToString("D")));
     }
 
     public async Task<ConviteNegocioResponseDto> AceitarAsync(
@@ -198,48 +209,30 @@ public class ConviteNegocioService : IConviteNegocioService
         CancellationToken cancellationToken = default)
     {
         var usuario = await ObterUsuarioAtualAsync(cancellationToken);
-        var convite = await ObterConviteValidoAsync(token, cancellationToken);
-        ValidarDestinatario(convite, usuario);
-
-        convite.Status = StatusConviteNegocio.Aceito;
-        convite.AceitoPorUsuarioId = usuario.Id;
-        convite.RespondidoEm = DateTime.UtcNow;
-        convite.UpdatedAt = DateTime.UtcNow;
-
-        if (convite.TipoConvite == TipoConviteNegocio.UsuarioEquipe)
-        {
-            await GarantirVinculosUsuarioEquipeAsync(convite, usuario, cancellationToken);
-            await AuditarAsync(convite, TipoAcaoAuditoriaNegocio.UsuarioEquipeConvidado, cancellationToken);
-        }
-        else
-        {
-            await GarantirVinculosProfissionalAsync(convite, usuario, cancellationToken);
-            await AuditarAsync(convite, TipoAcaoAuditoriaNegocio.ProfissionalConvidado, cancellationToken);
-        }
-
-        _conviteRepository.Atualizar(convite);
-        await _conviteRepository.SalvarAlteracoesAsync(cancellationToken);
-
-        return ConviteNegocioResponseDto.From(convite);
+        return await AceitarParaUsuarioAsync(token, usuario, null, cancellationToken);
     }
 
-    public async Task<ConviteNegocioResponseDto> RejeitarAsync(
+    public async Task<ConviteNegocioResponseDto> AceitarComCadastroAsync(
         string token,
+        AceitarConviteComCadastroRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        var usuario = await ObterUsuarioAtualAsync(cancellationToken);
-        var convite = await ObterConviteValidoAsync(token, cancellationToken);
-        ValidarDestinatario(convite, usuario);
+        // Valida o convite antes de criar a conta (não consome vaga no preview).
+        await ObterConviteValidoAsync(token, cancellationToken);
 
-        convite.Status = StatusConviteNegocio.Rejeitado;
-        convite.AceitoPorUsuarioId = usuario.Id;
-        convite.RespondidoEm = DateTime.UtcNow;
-        convite.UpdatedAt = DateTime.UtcNow;
+        var usuario = await _usuarioService.CadastrarClienteAsync(request.Cadastro, cancellationToken);
 
-        _conviteRepository.Atualizar(convite);
-        await _conviteRepository.SalvarAlteracoesAsync(cancellationToken);
+        AceitarConviteProfissionalExtras? extras = null;
+        if (!string.IsNullOrWhiteSpace(request.NomePublico)
+            || !string.IsNullOrWhiteSpace(request.Foto))
+        {
+            extras = new AceitarConviteProfissionalExtras(
+                request.NomePublico,
+                request.Foto,
+                request.FotoContentType);
+        }
 
-        return ConviteNegocioResponseDto.From(convite);
+        return await AceitarParaUsuarioAsync(token, usuario, extras, cancellationToken);
     }
 
     public async Task<ConviteNegocioResponseDto> CancelarAsync(
@@ -258,9 +251,9 @@ public class ConviteNegocioService : IConviteNegocioService
             throw new ConviteNegocioNaoEncontradoException();
         }
 
-        if (convite.Status != StatusConviteNegocio.Pendente)
+        if (convite.Status != StatusConviteNegocio.Ativo)
         {
-            throw new ConviteNegocioInvalidoException("Somente convites pendentes podem ser cancelados.");
+            throw new ConviteNegocioInvalidoException("Somente convites ativos podem ser cancelados.");
         }
 
         convite.Status = StatusConviteNegocio.Cancelado;
@@ -268,64 +261,119 @@ public class ConviteNegocioService : IConviteNegocioService
 
         _conviteRepository.Atualizar(convite);
         await _conviteRepository.SalvarAlteracoesAsync(cancellationToken);
+        await AuditarAsync(convite, TipoAcaoAuditoriaNegocio.ConviteLinkCancelado, cancellationToken);
 
         return ConviteNegocioResponseDto.From(convite);
     }
 
-    private async Task<ConviteNegocioCriadoResponseDto> PersistirConviteAsync(
-        ConviteNegocio convite,
+    private async Task<ConviteNegocioResponseDto> AceitarParaUsuarioAsync(
         string token,
-        TipoAcaoAuditoriaNegocio tipoAuditoria,
-        string mensagemEmail,
+        Usuario usuario,
+        AceitarConviteProfissionalExtras? profissionalExtras,
         CancellationToken cancellationToken)
     {
-        await _conviteRepository.AdicionarAsync(convite, cancellationToken);
-        await _conviteRepository.SalvarAlteracoesAsync(cancellationToken);
+        var convite = await ObterConviteValidoAsync(token, cancellationToken);
 
-        var link = MontarLinkConvite(token);
-        await EnfileirarConviteAsync(convite, link, mensagemEmail, cancellationToken);
-        await AuditarAsync(convite, tipoAuditoria, cancellationToken);
+        if (await _conviteRepository.UsuarioJaUtilizouAsync(convite.Id, usuario.Id, cancellationToken))
+        {
+            throw new ConviteNegocioInvalidoException("Voce ja utilizou este convite.");
+        }
 
-        return ConviteNegocioCriadoResponseDto.From(convite, link);
-    }
-
-    private async Task ValidarConvitePendenteDuplicadoAsync(
-        int estabelecimentoId,
-        string email,
-        TipoConviteNegocio tipoConvite,
-        CancellationToken cancellationToken)
-    {
-        var existente = await _conviteRepository.ObterPendentePorDestinatarioAsync(
-            estabelecimentoId,
-            email,
-            tipoConvite,
+        var vinculoExistente = await _estabelecimentoUsuarioRepository.ObterPorUsuarioAsync(
+            convite.EstabelecimentoId,
+            usuario.Id,
             cancellationToken);
 
-        if (existente is not null && existente.ExpiraEm > DateTime.UtcNow)
+        if (vinculoExistente is { Ativo: true })
         {
-            throw new ConviteNegocioDuplicadoException();
+            throw new UsuarioEquipeNegocioDuplicadoException();
         }
+
+        var agora = DateTime.UtcNow;
+        var reservou = await _conviteRepository.TentarRegistrarUtilizacaoAsync(
+            convite.Id,
+            agora,
+            cancellationToken);
+
+        if (!reservou)
+        {
+            throw new ConviteNegocioIndisponivelException();
+        }
+
+        convite.QuantidadeUtilizacoes += 1;
+        if (convite.QuantidadeUtilizacoes >= convite.LimiteUsuarios)
+        {
+            convite.Status = StatusConviteNegocio.Esgotado;
+        }
+        convite.UpdatedAt = agora;
+
+        try
+        {
+            if (convite.TipoConvite == TipoConviteNegocio.UsuarioEquipe)
+            {
+                await GarantirVinculosUsuarioEquipeAsync(convite, usuario, cancellationToken);
+            }
+            else
+            {
+                await GarantirVinculosProfissionalAsync(convite, usuario, profissionalExtras, cancellationToken);
+            }
+
+            await _conviteRepository.AdicionarUtilizacaoAsync(
+                new ConviteNegocioUtilizacao
+                {
+                    ConviteNegocioId = convite.Id,
+                    UsuarioId = usuario.Id,
+                    UtilizadoEm = agora
+                },
+                cancellationToken);
+
+            await _conviteRepository.SalvarAlteracoesAsync(cancellationToken);
+        }
+        catch
+        {
+            await _conviteRepository.CompensarUtilizacaoAsync(convite.Id, agora, cancellationToken);
+            throw;
+        }
+
+        await AuditarAsync(convite, TipoAcaoAuditoriaNegocio.ConviteLinkAceito, cancellationToken);
+
+        if (convite.TipoConvite == TipoConviteNegocio.UsuarioEquipe)
+        {
+            await AuditarAsync(convite, TipoAcaoAuditoriaNegocio.UsuarioEquipeConvidado, cancellationToken);
+        }
+        else
+        {
+            await AuditarAsync(convite, TipoAcaoAuditoriaNegocio.ProfissionalConvidado, cancellationToken);
+        }
+
+        return ConviteNegocioResponseDto.From(convite);
     }
 
     private async Task<ConviteNegocio> ObterConviteValidoAsync(
         string token,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(token))
+        if (string.IsNullOrWhiteSpace(token)
+            || !Guid.TryParse(token.Trim(), out var tokenGuid))
         {
             throw new ConviteNegocioNaoEncontradoException();
         }
 
-        var hash = _tokenService.HashToken(token.Trim());
+        var hash = _tokenService.HashToken(tokenGuid.ToString("D"));
         var convite = await _conviteRepository.ObterPorTokenHashAsync(hash, cancellationToken);
         if (convite is null)
         {
             throw new ConviteNegocioNaoEncontradoException();
         }
 
-        if (convite.Status != StatusConviteNegocio.Pendente)
+        if (convite.Status is StatusConviteNegocio.Cancelado or StatusConviteNegocio.Esgotado)
         {
-            throw new ConviteNegocioInvalidoException("Convite ja foi respondido ou cancelado.");
+            throw new ConviteNegocioIndisponivelException();
+        }
+
+        if (convite.Status != StatusConviteNegocio.Ativo)
+        {
+            throw new ConviteNegocioIndisponivelException();
         }
 
         if (convite.ExpiraEm <= DateTime.UtcNow)
@@ -334,7 +382,16 @@ public class ConviteNegocioService : IConviteNegocioService
             convite.UpdatedAt = DateTime.UtcNow;
             _conviteRepository.Atualizar(convite);
             await _conviteRepository.SalvarAlteracoesAsync(cancellationToken);
-            throw new ConviteNegocioInvalidoException("Convite expirado.");
+            throw new ConviteNegocioIndisponivelException();
+        }
+
+        if (convite.QuantidadeUtilizacoes >= convite.LimiteUsuarios)
+        {
+            convite.Status = StatusConviteNegocio.Esgotado;
+            convite.UpdatedAt = DateTime.UtcNow;
+            _conviteRepository.Atualizar(convite);
+            await _conviteRepository.SalvarAlteracoesAsync(cancellationToken);
+            throw new ConviteNegocioIndisponivelException();
         }
 
         return convite;
@@ -377,6 +434,7 @@ public class ConviteNegocioService : IConviteNegocioService
     private async Task GarantirVinculosProfissionalAsync(
         ConviteNegocio convite,
         Usuario usuario,
+        AceitarConviteProfissionalExtras? profissionalExtras,
         CancellationToken cancellationToken)
     {
         var vinculoUsuario = await _estabelecimentoUsuarioRepository.ObterPorUsuarioAsync(
@@ -410,6 +468,11 @@ public class ConviteNegocioService : IConviteNegocioService
 
         var profissional = await _profissionalRepository.ObterPorUsuarioIdAsync(usuario.Id, cancellationToken);
         var limiteProfissionalValidado = false;
+        var nomePublico = ResolverNomePublicoProfissional(convite, usuario, profissionalExtras);
+        var fotoProfissional = NormalizarFotoProfissionalOpcional(
+            profissionalExtras?.Foto,
+            profissionalExtras?.FotoContentType);
+
         if (profissional is null)
         {
             await ValidarLimiteProfissionaisAsync(convite.EstabelecimentoId, cancellationToken);
@@ -418,20 +481,31 @@ public class ConviteNegocioService : IConviteNegocioService
             profissional = new Profissional
             {
                 UsuarioId = usuario.Id,
-                NomePublico = string.IsNullOrWhiteSpace(convite.NomePublico) ? usuario.Nome : convite.NomePublico,
+                NomePublico = nomePublico,
                 Email = usuario.Email,
                 Telefone = usuario.Telefone,
                 TipoProfissional = ProfessionalType.VinculadoEstabelecimento,
+                Logo = fotoProfissional ?? string.Empty,
                 Ativo = true
             };
 
             await _profissionalRepository.AdicionarAsync(profissional, cancellationToken);
             await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
         }
-        else if (!profissional.Ativo)
+        else
         {
-            profissional.Ativo = true;
-            profissional.TipoProfissional = ProfessionalType.VinculadoEstabelecimento;
+            if (!profissional.Ativo)
+            {
+                profissional.Ativo = true;
+                profissional.TipoProfissional = ProfessionalType.VinculadoEstabelecimento;
+            }
+
+            profissional.NomePublico = nomePublico;
+            if (fotoProfissional is not null)
+            {
+                profissional.Logo = fotoProfissional;
+            }
+
             profissional.UpdatedAt = DateTime.UtcNow;
             _profissionalRepository.Atualizar(profissional);
         }
@@ -518,34 +592,30 @@ public class ConviteNegocioService : IConviteNegocioService
         }
     }
 
-    private string MontarLinkConvite(string token) =>
-        $"{_authOptions.FrontendBaseUrl.TrimEnd('/')}/convites/{Uri.EscapeDataString(token)}";
-
-    private async Task EnfileirarConviteAsync(
-        ConviteNegocio convite,
-        string link,
-        string mensagem,
-        CancellationToken cancellationToken)
+    private static DateTime CalcularExpiracao(int? valor, UnidadeDuracaoConvite? unidade)
     {
-        await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
+        if (!valor.HasValue || valor.Value <= 0 || !unidade.HasValue)
         {
-            Canal = CanalMensagemNotificacao.Email,
-            Destinatario = convite.Email,
-            Assunto = "Convite para integrar a equipe",
-            Conteudo = TransacionalEmailTemplate.Criar(
-                "Convite para integrar a equipe",
-                "Voce recebeu um convite para integrar a equipe no Glow Up Connect.",
-                [mensagem],
-                botao: new EmailTemplateBotao
-                {
-                    Texto = "Aceitar convite",
-                    Url = link,
-                    Estilo = EmailTemplateBotaoEstilo.Link
-                },
-                linkFallback: link),
-            EstabelecimentoId = convite.EstabelecimentoId,
-            Prioridade = 2
-        }, cancellationToken);
+            return DateTime.UtcNow.AddDays(1);
+        }
+
+        return unidade.Value switch
+        {
+            UnidadeDuracaoConvite.Minutos => DateTime.UtcNow.AddMinutes(valor.Value),
+            UnidadeDuracaoConvite.Horas => DateTime.UtcNow.AddHours(valor.Value),
+            UnidadeDuracaoConvite.Dias => DateTime.UtcNow.AddDays(valor.Value),
+            _ => DateTime.UtcNow.AddDays(1)
+        };
+    }
+
+    private string MontarLinkConvite(string token)
+    {
+        var baseUrl = string.IsNullOrWhiteSpace(_authOptions.LandingBaseUrl)
+            ? _authOptions.FrontendBaseUrl
+            : _authOptions.LandingBaseUrl;
+
+        // UUID não precisa de escape, mas mantém consistência com demais rotas.
+        return $"{baseUrl.TrimEnd('/')}/convite/{token}";
     }
 
     private Task AuditarAsync(
@@ -560,11 +630,55 @@ public class ConviteNegocioService : IConviteNegocioService
             convite.Id,
             new
             {
-                convite.Email,
-                convite.TipoConvite,
-                convite.Status
+                convite.RoleSugerida,
+                convite.LimiteUsuarios,
+                convite.QuantidadeUtilizacoes,
+                convite.Status,
+                convite.ExpiraEm
             },
             cancellationToken);
+    }
+
+    private static string ResolverNomePublicoProfissional(
+        ConviteNegocio convite,
+        Usuario usuario,
+        AceitarConviteProfissionalExtras? profissionalExtras)
+    {
+        if (!string.IsNullOrWhiteSpace(profissionalExtras?.NomePublico))
+        {
+            return profissionalExtras.NomePublico.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(convite.NomePublico))
+        {
+            return convite.NomePublico;
+        }
+
+        return usuario.Nome;
+    }
+
+    private string? NormalizarFotoProfissionalOpcional(string? foto, string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(foto))
+        {
+            return null;
+        }
+
+        return NormalizarFotoProfissional(foto, contentType);
+    }
+
+    private string NormalizarFotoProfissional(string foto, string? contentType)
+    {
+        try
+        {
+            return _thumbnailer.ParaPersistencia(
+                _avatarBase64Decoder.ValidarENormalizar(foto.Trim(), contentType));
+        }
+        catch (AvatarInvalidoException ex)
+        {
+            throw new AvatarInvalidoException(
+                ex.Message.Replace("Avatar", "Foto do profissional", StringComparison.Ordinal));
+        }
     }
 
     private async Task<Usuario> ObterUsuarioAtualAsync(CancellationToken cancellationToken)
@@ -583,36 +697,4 @@ public class ConviteNegocioService : IConviteNegocioService
 
         return _currentUserContext.UserId.Value;
     }
-
-    private static void ValidarDestinatario(ConviteNegocio convite, Usuario usuario)
-    {
-        if (!string.Equals(convite.Email, usuario.Email, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new ConviteNegocioInvalidoException("Convite pertence a outro destinatario.");
-        }
-    }
-
-    private async Task ValidarUsuarioExistenteParaConviteAsync(
-        string email,
-        CancellationToken cancellationToken)
-    {
-        var usuario = await _usuarioRepository.ObterPorEmailAsync(email, cancellationToken);
-        if (usuario is null)
-        {
-            return;
-        }
-
-        ValidarUsuarioConfirmadoParaConvite(usuario);
-    }
-
-    private static void ValidarUsuarioConfirmadoParaConvite(Usuario usuario)
-    {
-        if (!usuario.Ativo || usuario.PendenteConfirmacaoEmail())
-        {
-            throw new ConviteUsuarioNaoConfirmadoException();
-        }
-    }
-
-    private static string NormalizarEmail(string email) =>
-        email.Trim().ToLowerInvariant();
 }

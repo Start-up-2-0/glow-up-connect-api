@@ -27,4 +27,26 @@ public class ComissaoProfissionalRepository : Repository<ComissaoProfissional>, 
             .OrderBy(comissao => comissao.ProfissionalEstabelecimentoId)
             .ToListAsync(cancellationToken);
     }
+
+    public Task<ComissaoProfissional?> ObterAtivaPorVinculoAsync(
+        int profissionalEstabelecimentoId,
+        DateTime referenciaUtc,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet.AsNoTracking().FirstOrDefaultAsync(
+            comissao => comissao.ProfissionalEstabelecimentoId == profissionalEstabelecimentoId
+                && comissao.Ativo
+                && comissao.InicioVigencia <= referenciaUtc
+                && (comissao.FimVigencia == null || comissao.FimVigencia >= referenciaUtc),
+            cancellationToken);
+    }
+
+    public Task<ComissaoProfissional?> ObterPorIdComTrackingAsync(
+        int comissaoId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet.FirstOrDefaultAsync(
+            comissao => comissao.Id == comissaoId,
+            cancellationToken);
+    }
 }

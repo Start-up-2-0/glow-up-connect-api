@@ -86,8 +86,8 @@ A API **não usa JWT**. O fluxo de autenticação é baseado em token assinado c
 | POST | `/api/auth/reenviar-confirmacao` | Reenvia link e codigo |
 | POST | `/api/auth/login` |
 | POST | `/api/auth/refresh` |
-| POST | `/api/auth/forgot-password` *(501)* |
-| POST | `/api/auth/reset-password` *(501)* |
+| POST | `/api/auth/forgot-password` | Envia link e codigo (mensagem generica) |
+| POST | `/api/auth/reset-password` | Redefine senha com `token` (link) ou `codigo` (6 digitos) |
 
 Demais rotas exigem token válido.
 

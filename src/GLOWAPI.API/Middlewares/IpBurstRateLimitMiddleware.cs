@@ -80,10 +80,10 @@ public class IpBurstRateLimitMiddleware
             }
         }
 
-        if (context.Request.Headers.TryGetValue(_authOptions.TokenHeaderName, out var tokenHeader)
-            && !string.IsNullOrWhiteSpace(tokenHeader.ToString()))
+        var accessToken = AuthAccessCookieHelper.ObterAccessToken(context.Request, _authOptions);
+        if (!string.IsNullOrWhiteSpace(accessToken))
         {
-            var metadata = glowTokenService.ValidarMetadata(tokenHeader.ToString());
+            var metadata = glowTokenService.ValidarMetadata(accessToken);
             if (metadata is not null && !glowTokenService.EstaExpirado(metadata, DateTime.UtcNow))
             {
                 return true;

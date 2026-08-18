@@ -1,4 +1,5 @@
 using GLOWAPI.Application.DTOs.Estabelecimentos;
+using GLOWAPI.Application.DTOs.Avaliacao;
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
@@ -21,9 +22,24 @@ public record AgendamentoClienteResponseDto(
     string Origem,
     DateTime CreateAd,
     DateTime? CanceladoEm,
-    IReadOnlyList<AgendamentoClienteItemResponseDto> Itens)
+    IReadOnlyList<AgendamentoClienteItemResponseDto> Itens,
+    string AvaliacaoStatus = "Indisponivel",
+    AvaliacaoResumoClienteDto? AvaliacaoResumo = null)
 {
-    public static AgendamentoClienteResponseDto From(AgendamentoEntity agendamento)
+    public static AgendamentoClienteResponseDto From(AgendamentoEntity agendamento) =>
+        From(agendamento, "Indisponivel", null, incluirLogo: true);
+
+    public static AgendamentoClienteResponseDto From(
+        AgendamentoEntity agendamento,
+        string avaliacaoStatus,
+        AvaliacaoResumoClienteDto? avaliacaoResumo) =>
+        From(agendamento, avaliacaoStatus, avaliacaoResumo, incluirLogo: true);
+
+    public static AgendamentoClienteResponseDto From(
+        AgendamentoEntity agendamento,
+        string avaliacaoStatus,
+        AvaliacaoResumoClienteDto? avaliacaoResumo,
+        bool incluirLogo)
     {
         var itens = agendamento.Itens.OrderBy(item => item.Inicio).ToList();
         var estabelecimento = agendamento.Estabelecimento;
@@ -44,13 +60,16 @@ public record AgendamentoClienteResponseDto(
             AgendamentoHorarioHelper.ObterFim(agendamento),
             estabelecimento?.PublicGuid ?? Guid.Empty,
             estabelecimento?.Nome ?? string.Empty,
-            estabelecimento?.Logo ?? string.Empty,
+            // Listagens omitem logo (base64) para evitar payloads de vários MB.
+            incluirLogo ? estabelecimento?.Logo ?? string.Empty : string.Empty,
             endereco,
             agendamento.Observacao,
             agendamento.Origem.ToString(),
             agendamento.CreateAd,
             agendamento.CanceladoEm,
-            itens.Select(AgendamentoClienteItemResponseDto.From).ToList());
+            itens.Select(AgendamentoClienteItemResponseDto.From).ToList(),
+            avaliacaoStatus,
+            avaliacaoResumo);
     }
 }
 

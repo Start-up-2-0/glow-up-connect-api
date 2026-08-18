@@ -13,6 +13,12 @@ public interface ICobrancaAssinaturaService
         PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
         CancellationToken cancellationToken = default);
 
+    Task<(Pagamento Pagamento, string? CheckoutUrl, string? QrCode, bool Novo)> ObterOuRenovarCheckoutInicialAsync(
+        Assinatura assinatura,
+        Plano plano,
+        PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
+        CancellationToken cancellationToken = default);
+
     Task<Pagamento> GerarCobrancaRecorrenteAsync(
         Assinatura assinatura,
         CancellationToken cancellationToken = default);
@@ -36,6 +42,8 @@ public interface ICobrancaAssinaturaService
         CancellationToken cancellationToken = default);
 
     Task<int> MarcarAtrasadasAsync(CancellationToken cancellationToken = default);
+
+    Task<int> EncerrarInadimplentesAsync(CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CobrancaAssinaturaResponseDto>> ListarPorAssinaturaAsync(
         int assinaturaId,

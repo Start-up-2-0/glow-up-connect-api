@@ -14,6 +14,14 @@ internal static partial class OperacaoPerfilValidation
         string logo,
         string nomeCampo,
         IAvatarBase64Decoder decoder,
+        Func<string, Exception> criarExcecao) =>
+        ValidarLogoBase64(logo, nomeCampo, decoder, thumbnailer: null, criarExcecao);
+
+    public static string ValidarLogoBase64(
+        string logo,
+        string nomeCampo,
+        IAvatarBase64Decoder decoder,
+        IBase64ImageThumbnailer? thumbnailer,
         Func<string, Exception> criarExcecao)
     {
         if (string.IsNullOrWhiteSpace(logo))
@@ -23,7 +31,8 @@ internal static partial class OperacaoPerfilValidation
 
         try
         {
-            return decoder.ValidarENormalizar(logo.Trim(), null);
+            var normalizado = decoder.ValidarENormalizar(logo.Trim(), null);
+            return thumbnailer is null ? normalizado : thumbnailer.ParaPersistencia(normalizado);
         }
         catch (AvatarInvalidoException ex)
         {

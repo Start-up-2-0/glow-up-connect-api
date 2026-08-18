@@ -115,6 +115,126 @@ public class AcessoNegocioControllerTests : IClassFixture<GlowApiWebApplicationF
     }
 
     [Fact]
+    public async Task Admin_PatchRoleUsuario_DeveAlterarCargo()
+    {
+        var seed = await SeedAcessoAsync();
+        var client = _factory.CreateClient();
+        await AutenticarAsync(client, seed.AdminEmail, seed.Senha);
+
+        int recepcionistaUsuarioId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            recepcionistaUsuarioId = db.Usuarios
+                .Single(usuario => usuario.Email == seed.RecepcionistaEmail)
+                .Id;
+        }
+
+        var response = await PatchAsJsonAsync(
+            client,
+            $"/api/estabelecimentos/{seed.EstabelecimentoId}/equipe/usuarios/{recepcionistaUsuarioId}/role",
+            new { role = EstablishmentUserRole.Manager });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        var data = body.GetProperty("data");
+        Assert.Equal("Manager", data.GetProperty("role").GetString());
+        Assert.Equal(recepcionistaUsuarioId, data.GetProperty("usuarioId").GetInt32());
+    }
+
+    [Fact]
+    public async Task Admin_PatchStatusUsuario_DeveInativarEReativar()
+    {
+        var seed = await SeedAcessoAsync();
+        var client = _factory.CreateClient();
+        await AutenticarAsync(client, seed.AdminEmail, seed.Senha);
+
+        int recepcionistaUsuarioId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            recepcionistaUsuarioId = db.Usuarios
+                .Single(usuario => usuario.Email == seed.RecepcionistaEmail)
+                .Id;
+        }
+
+        var responseInativar = await PatchAsJsonAsync(
+            client,
+            $"/api/estabelecimentos/{seed.EstabelecimentoId}/equipe/usuarios/{recepcionistaUsuarioId}/status",
+            new { ativo = false });
+
+        Assert.Equal(HttpStatusCode.OK, responseInativar.StatusCode);
+
+        var inativarBody = await responseInativar.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        Assert.False(inativarBody.GetProperty("data").GetProperty("ativo").GetBoolean());
+
+        var responseReativar = await PatchAsJsonAsync(
+            client,
+            $"/api/estabelecimentos/{seed.EstabelecimentoId}/equipe/usuarios/{recepcionistaUsuarioId}/status",
+            new { ativo = true });
+
+        Assert.Equal(HttpStatusCode.OK, responseReativar.StatusCode);
+
+        var reativarBody = await responseReativar.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        Assert.True(reativarBody.GetProperty("data").GetProperty("ativo").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Admin_PatchStatusProfissional_DeveAtualizarAtivoEAgendamento()
+    {
+        var seed = await SeedAcessoAsync();
+        var client = _factory.CreateClient();
+        await AutenticarAsync(client, seed.AdminEmail, seed.Senha);
+
+        int profissionalId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            profissionalId = db.Profissionais
+                .Single(profissional => profissional.Email == seed.ProfissionalEmail)
+                .Id;
+        }
+
+        var response = await PatchAsJsonAsync(
+            client,
+            $"/api/estabelecimentos/{seed.EstabelecimentoId}/equipe/profissionais/{profissionalId}/status",
+            new { ativo = false, podeReceberAgendamento = false });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        var data = body.GetProperty("data");
+        Assert.False(data.GetProperty("ativo").GetBoolean());
+        Assert.False(data.GetProperty("podeReceberAgendamento").GetBoolean());
+        Assert.Equal(profissionalId, data.GetProperty("profissionalId").GetInt32());
+    }
+
+    [Fact]
+    public async Task Recepcionista_PatchRoleUsuario_DeveRetornar403()
+    {
+        var seed = await SeedAcessoAsync();
+        var client = _factory.CreateClient();
+        await AutenticarAsync(client, seed.RecepcionistaEmail, seed.Senha);
+
+        int recepcionistaUsuarioId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            recepcionistaUsuarioId = db.Usuarios
+                .Single(usuario => usuario.Email == seed.RecepcionistaEmail)
+                .Id;
+        }
+
+        var response = await PatchAsJsonAsync(
+            client,
+            $"/api/estabelecimentos/{seed.EstabelecimentoId}/equipe/usuarios/{recepcionistaUsuarioId}/role",
+            new { role = EstablishmentUserRole.Manager });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Recepcionista_DeveVisualizarAgendaGeralESerBloqueadaNoCaixa()
     {
         var seed = await SeedAcessoAsync();
@@ -242,7 +362,7 @@ public class AcessoNegocioControllerTests : IClassFixture<GlowApiWebApplicationF
         {
             EstabelecimentoId = estabelecimento.Id,
             PlanoId = plano.Id,
-            DiaVencimento = 10,
+            DataReferenciaCiclo = DateTime.UtcNow.Date,
             Status = AssinaturaStatus.Ativa,
             Inicio = DateTime.UtcNow.AddDays(-1),
             Fim = DateTime.UtcNow.AddMonths(1)
@@ -299,11 +419,17 @@ public class AcessoNegocioControllerTests : IClassFixture<GlowApiWebApplicationF
     {
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { email, senha });
         loginResponse.EnsureSuccessStatusCode();
-
-        var loginBody = await loginResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-        var token = loginBody.GetProperty("data").GetProperty("token").GetString();
-        client.DefaultRequestHeaders.Add("x-glow-token", token);
+        // Sessão autenticada via cookie HttpOnly guc_access (HandleCookies no client).
     }
+
+    private static Task<HttpResponseMessage> PatchAsJsonAsync(
+        HttpClient client,
+        string requestUri,
+        object payload) =>
+        client.SendAsync(new HttpRequestMessage(HttpMethod.Patch, requestUri)
+        {
+            Content = JsonContent.Create(payload),
+        });
 
     private record SeedAcesso(
         int EstabelecimentoId,

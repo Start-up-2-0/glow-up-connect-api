@@ -1,3 +1,4 @@
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Domain.Entities;
 
 namespace GLOWAPI.Application.DTOs.Assinaturas;
@@ -9,14 +10,14 @@ public record PagamentoAssinaturaResponseDto(
     string GatewayPaymentId,
     decimal Valor,
     string Moeda,
-    string CheckoutUrl,
-    string QrCode,
-    DateTime? ExpiraEm)
+    string? CheckoutUrl,
+    string? QrCode,
+    DateTimeOffset? ExpiraEm)
 {
     public static PagamentoAssinaturaResponseDto From(
         Pagamento pagamento,
-        string checkoutUrl,
-        string qrCode) =>
+        string? checkoutUrl,
+        string? qrCode) =>
         new(
             pagamento.Id,
             pagamento.Status.ToString(),
@@ -26,5 +27,7 @@ public record PagamentoAssinaturaResponseDto(
             pagamento.Moeda,
             checkoutUrl,
             qrCode,
-            pagamento.ExpiraEm);
+            pagamento.ExpiraEm.HasValue
+                ? BrasilDateTimeHelper.ParaOffset(pagamento.ExpiraEm.Value)
+                : null);
 }

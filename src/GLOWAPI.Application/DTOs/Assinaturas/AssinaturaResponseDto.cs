@@ -14,12 +14,14 @@ public record AssinaturaResponseDto(
     DateTime Inicio,
     DateTime? Fim,
     PagamentoAssinaturaResponseDto? PagamentoInicial = null,
-    int? DiaVencimento = null,
+    DateTime? DataReferenciaCiclo = null,
     DateTime? ProximaDataVencimento = null,
     DateTime? ProximaDataGeracaoCobranca = null,
     DateTime? ProximaDataAlerta = null,
+    DateTime? CanceladoEm = null,
     bool EmTrial = false,
     int? DiasTrial = null,
+    decimal? PercentualDescontoPermanente = null,
     bool RequerConfirmacaoEmail = false)
 {
     public static AssinaturaResponseDto From(
@@ -38,11 +40,13 @@ public record AssinaturaResponseDto(
             assinatura.Inicio,
             assinatura.Fim,
             pagamentoInicial,
-            assinatura.DiaVencimento,
+            assinatura.DataReferenciaCiclo,
             assinatura.ProximaDataVencimento,
             assinatura.ProximaDataGeracaoCobranca,
             assinatura.ProximaDataAlerta,
+            assinatura.CanceladoEm,
             assinatura.Status == AssinaturaStatus.Trial,
             diasTrial,
+            assinatura.PercentualDescontoPermanente,
             requerConfirmacaoEmail);
 }

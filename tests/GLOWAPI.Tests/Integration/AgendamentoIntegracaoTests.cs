@@ -338,10 +338,7 @@ public class AgendamentoIntegracaoTests : IClassFixture<GlowApiWebApplicationFac
     {
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { email, senha });
         loginResponse.EnsureSuccessStatusCode();
-
-        var loginBody = await loginResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-        var token = loginBody.GetProperty("data").GetProperty("token").GetString();
-        client.DefaultRequestHeaders.Add("x-glow-token", token);
+        // Sessão autenticada via cookie HttpOnly guc_access (HandleCookies no client).
     }
 
     private record SeedAgendamento(

@@ -1,47 +1,55 @@
 using GLOWAPI.Application.Options;
 using GLOWAPI.Application.Services;
-using GLOWAPI.Domain.Exceptions.Assinatura;
-using Microsoft.Extensions.Options;
+using GLOWAPI.Domain.Enums;
 
 namespace GLOWAPI.Tests.Unit.Application;
 
 public class CicloCobrancaAssinaturaServiceTests
 {
     private readonly CicloCobrancaAssinaturaService _service = new(
-        Options.Create(new AssinaturaCobrancaOptions()));
+        Microsoft.Extensions.Options.Options.Create(new AssinaturaCobrancaOptions()));
 
     [Fact]
-    public void CalcularPrimeiroCiclo_DeveUsarDia15AposTrial()
+    public void CalcularPrimeiroCiclo_DeveUsarAniversarioDaCriacao()
     {
-        var referencia = new DateTime(2026, 7, 6, 12, 0, 0, DateTimeKind.Utc);
-        var ciclo = _service.CalcularPrimeiroCiclo(15, referencia);
+        var dataReferencia = new DateTime(2026, 1, 15, 0, 0, 0, DateTimeKind.Utc);
+        var referencia = new DateTime(2026, 1, 15, 12, 0, 0, DateTimeKind.Utc);
+        var ciclo = _service.CalcularPrimeiroCiclo(dataReferencia, referencia, PlanoPeriodo.Mensal);
 
-        Assert.Equal(new DateTime(2026, 7, 15, 0, 0, 0, DateTimeKind.Utc), ciclo.Vencimento);
-        Assert.Equal(new DateTime(2026, 7, 13, 0, 0, 0, DateTimeKind.Utc), ciclo.Geracao);
-        Assert.Equal(new DateTime(2026, 7, 12, 0, 0, 0, DateTimeKind.Utc), ciclo.Alerta);
+        Assert.Equal(new DateTime(2026, 2, 15, 0, 0, 0, DateTimeKind.Utc), ciclo.Vencimento);
+        Assert.Equal(new DateTime(2026, 2, 8, 0, 0, 0, DateTimeKind.Utc), ciclo.Geracao);
+        Assert.Equal(new DateTime(2026, 2, 8, 0, 0, 0, DateTimeKind.Utc), ciclo.Alerta);
     }
 
     [Fact]
-    public void CalcularPrimeiroCiclo_DeveAvancarMes_QuandoDiaJaPassou()
+    public void CalcularPrimeiroCiclo_DeveConsiderarReferenciaAposTrial()
     {
-        var referencia = new DateTime(2026, 6, 18, 0, 0, 0, DateTimeKind.Utc);
-        var ciclo = _service.CalcularPrimeiroCiclo(5, referencia);
+        var dataReferencia = new DateTime(2026, 1, 15, 0, 0, 0, DateTimeKind.Utc);
+        var fimTrial = new DateTime(2026, 2, 14, 0, 0, 0, DateTimeKind.Utc);
+        var ciclo = _service.CalcularPrimeiroCiclo(dataReferencia, fimTrial, PlanoPeriodo.Mensal);
 
-        Assert.Equal(new DateTime(2026, 7, 5, 0, 0, 0, DateTimeKind.Utc), ciclo.Vencimento);
+        Assert.Equal(new DateTime(2026, 2, 15, 0, 0, 0, DateTimeKind.Utc), ciclo.Vencimento);
     }
 
     [Fact]
-    public void ValidarDiaVencimento_DeveLancarExcecao_ParaDiaInvalido()
+    public void CalcularCicloPorVencimento_DeveUsarFimDoTrialComoPrimeiraCobranca()
     {
-        Assert.Throws<DiaVencimentoAssinaturaInvalidoException>(() => _service.ValidarDiaVencimento(7));
+        var inicio = new DateTime(2026, 8, 14, 12, 0, 0, DateTimeKind.Utc);
+        var fimTrial = _service.CalcularFimTrial(inicio, 14);
+        var ciclo = _service.CalcularCicloPorVencimento(fimTrial);
+
+        Assert.Equal(new DateTime(2026, 8, 28, 0, 0, 0, DateTimeKind.Utc), fimTrial);
+        Assert.Equal(fimTrial, ciclo.Vencimento);
+        Assert.Equal(new DateTime(2026, 8, 21, 0, 0, 0, DateTimeKind.Utc), ciclo.Geracao);
     }
 
     [Fact]
-    public void CalcularProximoCiclo_DeveAvancarParaProximoMes()
+    public void CalcularProximoCiclo_DeveAvancarUmMes()
     {
-        var vencimentoAtual = new DateTime(2026, 7, 15, 0, 0, 0, DateTimeKind.Utc);
-        var proximo = _service.CalcularProximoCiclo(15, vencimentoAtual);
+        var vencimentoAtual = new DateTime(2026, 2, 15, 0, 0, 0, DateTimeKind.Utc);
+        var proximo = _service.CalcularProximoCiclo(vencimentoAtual, PlanoPeriodo.Mensal);
 
-        Assert.Equal(new DateTime(2026, 8, 15, 0, 0, 0, DateTimeKind.Utc), proximo.Vencimento);
+        Assert.Equal(new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc), proximo.Vencimento);
+        Assert.Equal(new DateTime(2026, 3, 8, 0, 0, 0, DateTimeKind.Utc), proximo.Geracao);
     }
 }

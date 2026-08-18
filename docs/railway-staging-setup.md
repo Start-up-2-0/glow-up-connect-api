@@ -37,13 +37,17 @@ Guia para configurar homologacao no **mesmo projeto Railway** da producao, com i
 | `RESEND_APITOKEN` | API key em [resend.com/api-keys](https://resend.com/api-keys) |
 | `Mensageria__Email__From` | Ex.: `Glow Up Connect <noreply@dominio-verificado.com>` |
 | `Mensageria__Email__Habilitado` | `true` |
+| `AssinaturaCobranca__DesativarPromocaoLancamento` | `true` (desliga trial de 14 dias para testar cobranca imediata; omitir ou `false` para manter a promocao) |
 | `MercadoPago__UsarCheckoutPro` | `true` |
-| `MercadoPago__AccessToken` | Token `TEST-...` (sandbox) ou producao |
+| `MercadoPago__UsarSandbox` | `true` |
+| `MercadoPago__AccessToken` | Access token da aba **Credenciais de teste** no painel MP (pode ser `TEST-...` ou `APP_USR-...`) |
 | `MercadoPago__PayerEmailOverride` | (opcional sandbox) ex.: `test_user_123` |
 | `MercadoPago__WebhookSecret` | Secret do painel Mercado Pago (webhooks) |
 | `Cors__AllowedOrigins__0` | URL do frontend staging |
 | `Swagger__AccessKey` | Chave para acessar `/swagger` (header `X-Swagger-Key`) |
 | `GLOW_PROXY_SECRET` | Secret compartilhado com o servico do app (header `X-Glow-Proxy-Secret`) |
+| `REQUEST_PROOF_SECRET` | Secret para request proof de uso unico (min. 32 caracteres) |
+| `RequestProof__Enabled` | `true` (padrao em staging quando o secret existe) |
 | `Captcha__Enabled` | `true` |
 | `Captcha__SecretKey` | Secret reCAPTCHA v2 (server-side; par da Site key) |
 | `MTLS_SERVER_CERT` / `MTLS_SERVER_KEY` / `MTLS_CA_CERT` | (fase mTLS) PEMs multiline — ver `scripts/tls/generate-mtls-certs.sh` |
@@ -135,7 +139,8 @@ O Caddy faz proxy `/api/*` → API e injeta `X-Glow-Proxy-Secret`. Webhooks exte
 1. Deploy BFF + `GLOW_PROXY_SECRET` + `VITE_API_BASE_URL=/api`
 2. Ativar CAPTCHA (`Captcha__*` + `VITE_CAPTCHA_SITE_KEY`)
 3. Gerar PKI (`scripts/tls/generate-mtls-certs.sh`), configurar `MTLS_*` e `MTLS_REQUIRED=true` nos dois servicos
-4. Limpar bloqueios antigos em `IpRateLimitBlocks` se necessario
+4. Configurar `REQUEST_PROOF_SECRET` na API e redeploy do App (interceptor de proofs)
+5. Limpar bloqueios antigos em `IpRateLimitBlocks` se necessario
 
 ## 9. Dominio publico
 

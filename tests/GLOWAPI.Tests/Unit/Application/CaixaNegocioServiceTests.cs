@@ -36,7 +36,7 @@ public class CaixaNegocioServiceTests
     public async Task ObterResumoAsync_DeveAutorizarERetornarSaldos()
     {
         _caixaRepository
-            .Setup(r => r.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterOuProvisionarPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Caixa
             {
                 Id = 30,
@@ -84,21 +84,30 @@ public class CaixaNegocioServiceTests
             service.ObterResumoAsync(20));
 
         _caixaRepository.Verify(
-            r => r.ObterPorEstabelecimentoAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            r => r.ObterOuProvisionarPorEstabelecimentoAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
     [Fact]
-    public async Task ObterResumoAsync_DeveLancarExcecao_QuandoCaixaNaoExistir()
+    public async Task ObterResumoAsync_DeveProvisionarCaixa_QuandoNaoExistir()
     {
         _caixaRepository
-            .Setup(r => r.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Caixa?)null);
+            .Setup(r => r.ObterOuProvisionarPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Caixa
+            {
+                Id = 30,
+                EstabelecimentoId = 20,
+                SaldoTotal = 0,
+                SaldoDisponivel = 0,
+                SaldoRetido = 0
+            });
 
         var service = CreateService();
 
-        await Assert.ThrowsAsync<CaixaNegocioNaoEncontradoException>(() =>
-            service.ObterResumoAsync(20));
+        var response = await service.ObterResumoAsync(20);
+
+        Assert.Equal(30, response.Id);
+        Assert.Equal(0, response.SaldoTotal);
     }
 
     [Fact]
@@ -109,12 +118,13 @@ public class CaixaNegocioServiceTests
         LancamentoCaixaFiltro? filtroCapturado = null;
 
         _caixaRepository
-            .Setup(r => r.ObterPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterOuProvisionarPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Caixa { Id = 30, EstabelecimentoId = 20 });
         _lancamentoCaixaRepository
-            .Setup(r => r.ListarPorCaixaAsync(It.IsAny<LancamentoCaixaFiltro>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.ListarPorCaixaPaginadoAsync(It.IsAny<LancamentoCaixaFiltro>(), It.IsAny<CancellationToken>()))
             .Callback<LancamentoCaixaFiltro, CancellationToken>((filtro, _) => filtroCapturado = filtro)
-            .ReturnsAsync([
+            .ReturnsAsync((
+            [
                 new LancamentoCaixa
                 {
                     Id = 40,
@@ -127,7 +137,8 @@ public class CaixaNegocioServiceTests
                     Descricao = "Pagamento aprovado",
                     CreateAd = inicio.AddDays(1)
                 }
-            ]);
+            ],
+            1));
 
         var service = CreateService();
 
@@ -141,9 +152,10 @@ public class CaixaNegocioServiceTests
         Assert.Equal(30, filtroCapturado!.CaixaId);
         Assert.Equal(inicio, filtroCapturado.Inicio);
         Assert.Equal(fim, filtroCapturado.Fim);
-        Assert.Single(response);
-        Assert.Equal("EntradaAgendamento", response[0].Tipo);
-        Assert.Equal(150, response[0].Valor);
+        Assert.Equal(1, response.Total);
+        Assert.Single(response.Itens);
+        Assert.Equal("EntradaAgendamento", response.Itens[0].Tipo);
+        Assert.Equal(150, response.Itens[0].Valor);
         _auditoriaNegocioService.Verify(s => s.RegistrarAsync(
             20,
             TipoAcaoAuditoriaNegocio.CaixaLancamentosConsultados,
@@ -153,10 +165,13 @@ public class CaixaNegocioServiceTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    private readonly Mock<IMovimentacaoCaixaService> _movimentacaoCaixaService = new();
+
     private CaixaNegocioService CreateService() =>
         new(
             _caixaRepository.Object,
             _lancamentoCaixaRepository.Object,
+            _movimentacaoCaixaService.Object,
             _autorizacaoNegocioService.Object,
             _auditoriaNegocioService.Object);
 }

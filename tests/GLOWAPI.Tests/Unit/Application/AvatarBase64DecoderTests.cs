@@ -22,6 +22,24 @@ public class AvatarBase64DecoderTests
     }
 
     [Fact]
+    public void ValidarENormalizar_DeveLancarExcecao_QuandoExcedeMaxSizeBytes()
+    {
+        var decoder = new AvatarBase64Decoder(Options.Create(new AvatarOptions { MaxSizeBytes = 10 }));
+
+        var ex = Assert.Throws<AvatarInvalidoException>(() =>
+            decoder.ValidarENormalizar(PngDataUri, null));
+
+        Assert.Contains("bytes decodificados", ex.Message);
+    }
+
+    [Fact]
+    public void ValidarENormalizar_DeveRespeitarLimitePadraoDe512Kb()
+    {
+        var options = Options.Create(new AvatarOptions());
+        Assert.Equal(524_288, options.Value.MaxSizeBytes);
+    }
+
+    [Fact]
     public void ValidarENormalizar_DeveLancarExcecao_QuandoBase64Invalido()
     {
         Assert.Throws<AvatarInvalidoException>(() =>

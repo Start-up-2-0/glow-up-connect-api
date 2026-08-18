@@ -255,6 +255,9 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Property<DateTime>("CreateAd")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime>("DataReferenciaCiclo")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<int>("DiaVencimento")
                         .HasColumnType("int");
 
@@ -283,7 +286,11 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("OnboardingPendenteJson")
-                        .HasColumnType("text");
+                        .HasColumnType("longtext");
+
+                    b.Property<decimal?>("PercentualDescontoPermanente")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<int?>("PlanoAlteracaoPendenteId")
                         .HasColumnType("int");
@@ -309,6 +316,17 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
+
+                    b.Property<string>("StatusAntesExclusao")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("TipoAssinatura")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasDefaultValue("Estabelecimento");
 
                     b.Property<DateTime?>("UltimoAlertaFaturaEm")
                         .HasColumnType("datetime(6)");
@@ -516,6 +534,132 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.ToTable("AuditoriasNegocio", (string)null);
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.AvaliacaoAtendimento", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<int>("AgendamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("AvaliadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ComentarioEstabelecimento")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("ComentarioProfissional")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<int>("EstabelecimentoId")
+                        .HasColumnType("int");
+
+                    b.Property<byte>("NotaEstabelecimento")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<byte>("NotaProfissional")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<int>("Origem")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProfissionalId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UsuarioClienteId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgendamentoId")
+                        .IsUnique();
+
+                    b.HasIndex("UsuarioClienteId");
+
+                    b.HasIndex("EstabelecimentoId", "AvaliadoEm");
+
+                    b.HasIndex("ProfissionalId", "AvaliadoEm");
+
+                    b.ToTable("AvaliacoesAtendimento", (string)null);
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.AvaliacaoConvite", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<int>("AgendamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("ExpiraEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("TokenPublico")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UtilizadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgendamentoId")
+                        .IsUnique();
+
+                    b.HasIndex("TokenPublico")
+                        .IsUnique();
+
+                    b.ToTable("AvaliacoesConvites", (string)null);
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.AvaliacaoHistorico", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("AlteradoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("AlteradoPorUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AvaliacaoAtendimentoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ComentarioEstabelecimentoAnterior")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("ComentarioProfissionalAnterior")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<byte>("NotaEstabelecimentoAnterior")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<byte>("NotaProfissionalAnterior")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlteradoPorUsuarioId");
+
+                    b.HasIndex("AvaliacaoAtendimentoId");
+
+                    b.ToTable("AvaliacoesHistorico", (string)null);
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Caixa", b =>
                 {
                     b.Property<int>("Id")
@@ -527,6 +671,11 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.Property<int?>("EstabelecimentoId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("ExigirSessaoCaixaAberta")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
 
                     b.Property<decimal>("SaldoDisponivel")
                         .HasPrecision(12, 2)
@@ -576,6 +725,12 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Property<int>("Limite")
                         .HasColumnType("int");
 
+                    b.Property<decimal>("PercentualDescontoMensalidade")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)")
+                        .HasDefaultValue(50m);
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -590,6 +745,41 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("CampanhasPromocionais", (string)null);
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.CategoriaEstabelecimento", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Ativo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime>("CreateAd")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<string>("TipoAssinatura")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nome")
+                        .IsUnique();
+
+                    b.ToTable("CategoriasEstabelecimento", (string)null);
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.ComissaoProfissional", b =>
@@ -638,6 +828,164 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.ToTable("ComissoesProfissional", (string)null);
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.ConciliacaoItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Conciliado")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("CreateAd")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("DataExtrato")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DescricaoExtrato")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int>("EstabelecimentoId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("LancamentoCaixaId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReferenciaExtrato")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("ValorExtrato")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EstabelecimentoId");
+
+                    b.HasIndex("LancamentoCaixaId");
+
+                    b.ToTable("ConciliacaoItens", (string)null);
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.ContaPagar", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Categoria")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("CreateAd")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int>("EstabelecimentoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Fornecedor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int?>("LancamentoCaixaId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Recorrente")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateTime>("Vencimento")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EstabelecimentoId");
+
+                    b.HasIndex("LancamentoCaixaId");
+
+                    b.ToTable("ContasPagar", (string)null);
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.ContaReceber", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<int?>("AgendamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreateAd")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int>("EstabelecimentoId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("LancamentoCaixaId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PagamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateTime>("Vencimento")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgendamentoId");
+
+                    b.HasIndex("EstabelecimentoId");
+
+                    b.HasIndex("LancamentoCaixaId");
+
+                    b.HasIndex("PagamentoId");
+
+                    b.ToTable("ContasReceber", (string)null);
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.ConviteNegocio", b =>
                 {
                     b.Property<int>("Id")
@@ -664,6 +1012,9 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Property<DateTime>("ExpiraEm")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int>("LimiteUsuarios")
+                        .HasColumnType("int");
+
                     b.Property<string>("NomePublico")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -671,6 +1022,9 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.Property<bool>("PodeReceberAgendamento")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("QuantidadeUtilizacoes")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("RespondidoEm")
                         .HasColumnType("datetime(6)");
@@ -700,6 +1054,10 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("varchar(128)");
 
+                    b.Property<string>("TokenProtegido")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -712,9 +1070,34 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.HasIndex("TokenHash")
                         .IsUnique();
 
-                    b.HasIndex("EstabelecimentoId", "Email", "TipoConvite", "Status");
+                    b.HasIndex("EstabelecimentoId", "Status");
 
                     b.ToTable("ConvitesNegocio", (string)null);
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.ConviteNegocioUtilizacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<int>("ConviteNegocioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UtilizadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.HasIndex("ConviteNegocioId", "UsuarioId")
+                        .IsUnique();
+
+                    b.ToTable("ConvitesNegocioUtilizacoes", (string)null);
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Endereco", b =>
@@ -799,6 +1182,9 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
 
+                    b.Property<int?>("CategoriaEstabelecimentoId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CreateAd")
                         .HasColumnType("datetime(6)");
 
@@ -821,6 +1207,9 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
 
+                    b.Property<decimal?>("NotaMedia")
+                        .HasColumnType("decimal(65,30)");
+
                     b.Property<Guid>("PublicGuid")
                         .HasColumnType("char(36)");
 
@@ -829,8 +1218,16 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
+                    b.Property<int>("TotalAvaliacoes")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("VisivelPublicamente")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("WhatsAppConfirmacaoCodigoHash")
                         .HasMaxLength(128)
@@ -852,6 +1249,8 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasDefaultValue(false);
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CategoriaEstabelecimentoId");
 
                     b.HasIndex("PublicGuid")
                         .IsUnique();
@@ -1027,6 +1426,13 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Property<int>("CaixaId")
                         .HasColumnType("int");
 
+                    b.Property<string>("ConciliacaoStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("Pendente");
+
                     b.Property<DateTime>("CreateAd")
                         .HasColumnType("datetime(6)");
 
@@ -1035,10 +1441,16 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
 
+                    b.Property<int?>("LancamentoOriginalId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("PagamentoId")
                         .HasColumnType("int");
 
                     b.Property<int?>("ProfissionalId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SessaoCaixaId")
                         .HasColumnType("int");
 
                     b.Property<string>("Tipo")
@@ -1056,9 +1468,13 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.HasIndex("CaixaId");
 
+                    b.HasIndex("LancamentoOriginalId");
+
                     b.HasIndex("PagamentoId");
 
                     b.HasIndex("ProfissionalId");
+
+                    b.HasIndex("SessaoCaixaId");
 
                     b.ToTable("LancamentosCaixa", (string)null);
                 });
@@ -1247,6 +1663,53 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.HasIndex("MensagemNotificacaoId");
 
                     b.ToTable("MensagensNotificacaoLogs", (string)null);
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.Meta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Ativa")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime>("CreateAd")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("EstabelecimentoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<decimal>("PercentualComissao")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("TipoMeta")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("ValorMeta")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Ativa");
+
+                    b.HasIndex("EstabelecimentoId");
+
+                    b.ToTable("Metas", (string)null);
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.MetaProfissional", b =>
@@ -1553,6 +2016,9 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
 
+                    b.Property<decimal?>("NotaMedia")
+                        .HasColumnType("decimal(65,30)");
+
                     b.Property<Guid>("PublicGuid")
                         .HasColumnType("char(36)");
 
@@ -1565,6 +2031,9 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
+
+                    b.Property<int>("TotalAvaliacoes")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -1779,6 +2248,56 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.ToTable("SessoesAutenticacao", (string)null);
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.SessaoCaixa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("AbertoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CaixaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreateAd")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal?>("Diferenca")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateTime?>("FechadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal?>("SaldoInformadoFechamento")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<decimal>("SaldoInicial")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.HasIndex("CaixaId", "Status");
+
+                    b.ToTable("SessoesCaixa", (string)null);
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Usuario", b =>
                 {
                     b.Property<int>("Id")
@@ -1795,6 +2314,10 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.Property<DateTime?>("BloqueadoAte")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CodigoAgendamento")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
 
                     b.Property<string>("ConfirmacaoCodigoHash")
                         .HasMaxLength(128)
@@ -1815,10 +2338,34 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
+                    b.Property<DateTime?>("ExclusaoEfetivarEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ExclusaoSolicitadaEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ExclusaoStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("Nenhuma");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
+
+                    b.Property<string>("RecuperacaoCodigoHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime?>("RecuperacaoExpiraEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("RecuperacaoTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -1829,6 +2376,10 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Sexo")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.Property<string>("Telefone")
                         .IsRequired()
@@ -1864,12 +2415,22 @@ namespace GLOWAPI.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CodigoAgendamento")
+                        .IsUnique()
+                        .HasFilter("CodigoAgendamento IS NOT NULL");
+
                     b.HasIndex("ConfirmacaoCodigoHash");
 
                     b.HasIndex("ConfirmacaoTokenHash");
 
                     b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("ExclusaoStatus", "ExclusaoEfetivarEm");
+
+                    b.HasIndex("RecuperacaoCodigoHash");
+
+                    b.HasIndex("RecuperacaoTokenHash");
 
                     b.HasIndex("WhatsAppConfirmacaoCodigoHash");
 
@@ -2119,6 +2680,69 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.AvaliacaoAtendimento", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Agendamento", "Agendamento")
+                        .WithMany()
+                        .HasForeignKey("AgendamentoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
+                        .WithMany()
+                        .HasForeignKey("EstabelecimentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Profissional", "Profissional")
+                        .WithMany()
+                        .HasForeignKey("ProfissionalId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Usuario", "UsuarioCliente")
+                        .WithMany()
+                        .HasForeignKey("UsuarioClienteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Agendamento");
+
+                    b.Navigation("Estabelecimento");
+
+                    b.Navigation("Profissional");
+
+                    b.Navigation("UsuarioCliente");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.AvaliacaoConvite", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Agendamento", "Agendamento")
+                        .WithMany()
+                        .HasForeignKey("AgendamentoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agendamento");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.AvaliacaoHistorico", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Usuario", "AlteradoPorUsuario")
+                        .WithMany()
+                        .HasForeignKey("AlteradoPorUsuarioId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("GLOWAPI.Domain.Entities.AvaliacaoAtendimento", "AvaliacaoAtendimento")
+                        .WithMany()
+                        .HasForeignKey("AvaliacaoAtendimentoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AlteradoPorUsuario");
+
+                    b.Navigation("AvaliacaoAtendimento");
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Caixa", b =>
                 {
                     b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
@@ -2138,6 +2762,70 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("ProfissionalEstabelecimento");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.ConciliacaoItem", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
+                        .WithMany()
+                        .HasForeignKey("EstabelecimentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.LancamentoCaixa", "LancamentoCaixa")
+                        .WithMany()
+                        .HasForeignKey("LancamentoCaixaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Estabelecimento");
+
+                    b.Navigation("LancamentoCaixa");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.ContaPagar", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
+                        .WithMany()
+                        .HasForeignKey("EstabelecimentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.LancamentoCaixa", "LancamentoCaixa")
+                        .WithMany()
+                        .HasForeignKey("LancamentoCaixaId");
+
+                    b.Navigation("Estabelecimento");
+
+                    b.Navigation("LancamentoCaixa");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.ContaReceber", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Agendamento", "Agendamento")
+                        .WithMany()
+                        .HasForeignKey("AgendamentoId");
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
+                        .WithMany()
+                        .HasForeignKey("EstabelecimentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.LancamentoCaixa", "LancamentoCaixa")
+                        .WithMany()
+                        .HasForeignKey("LancamentoCaixaId");
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Pagamento", "Pagamento")
+                        .WithMany()
+                        .HasForeignKey("PagamentoId");
+
+                    b.Navigation("Agendamento");
+
+                    b.Navigation("Estabelecimento");
+
+                    b.Navigation("LancamentoCaixa");
+
+                    b.Navigation("Pagamento");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.ConviteNegocio", b =>
@@ -2164,6 +2852,27 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Navigation("CriadoPorUsuario");
 
                     b.Navigation("Estabelecimento");
+
+                    b.Navigation("Utilizacoes");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.ConviteNegocioUtilizacao", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.ConviteNegocio", "ConviteNegocio")
+                        .WithMany("Utilizacoes")
+                        .HasForeignKey("ConviteNegocioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ConviteNegocio");
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Endereco", b =>
@@ -2174,6 +2883,16 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Estabelecimento");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.Estabelecimento", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.CategoriaEstabelecimento", "CategoriaEstabelecimento")
+                        .WithMany()
+                        .HasForeignKey("CategoriaEstabelecimentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CategoriaEstabelecimento");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.EstabelecimentoUsuario", b =>
@@ -2237,6 +2956,11 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("GLOWAPI.Domain.Entities.LancamentoCaixa", "LancamentoOriginal")
+                        .WithMany()
+                        .HasForeignKey("LancamentoOriginalId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("GLOWAPI.Domain.Entities.Pagamento", "Pagamento")
                         .WithMany("LancamentosCaixa")
                         .HasForeignKey("PagamentoId")
@@ -2247,13 +2971,22 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasForeignKey("ProfissionalId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("GLOWAPI.Domain.Entities.SessaoCaixa", "SessaoCaixa")
+                        .WithMany("Lancamentos")
+                        .HasForeignKey("SessaoCaixaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Agendamento");
 
                     b.Navigation("Caixa");
 
+                    b.Navigation("LancamentoOriginal");
+
                     b.Navigation("Pagamento");
 
                     b.Navigation("Profissional");
+
+                    b.Navigation("SessaoCaixa");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.MensagemNotificacao", b =>
@@ -2275,6 +3008,17 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("MensagemNotificacao");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.Meta", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Estabelecimento", "Estabelecimento")
+                        .WithMany("Metas")
+                        .HasForeignKey("EstabelecimentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Estabelecimento");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.MetaProfissional", b =>
@@ -2392,6 +3136,25 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.SessaoCaixa", b =>
+                {
+                    b.HasOne("GLOWAPI.Domain.Entities.Caixa", "Caixa")
+                        .WithMany("Sessoes")
+                        .HasForeignKey("CaixaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GLOWAPI.Domain.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Caixa");
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Agendamento", b =>
                 {
                     b.Navigation("Historico");
@@ -2415,6 +3178,8 @@ namespace GLOWAPI.Infrastructure.Migrations
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Caixa", b =>
                 {
                     b.Navigation("Lancamentos");
+
+                    b.Navigation("Sessoes");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.CampanhaPromocional", b =>
@@ -2435,6 +3200,8 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Navigation("HorariosFuncionamento");
 
                     b.Navigation("HorariosProfissionais");
+
+                    b.Navigation("Metas");
 
                     b.Navigation("Profissionais");
 
@@ -2489,6 +3256,11 @@ namespace GLOWAPI.Infrastructure.Migrations
                     b.Navigation("AgendamentoItens");
 
                     b.Navigation("Profissionais");
+                });
+
+            modelBuilder.Entity("GLOWAPI.Domain.Entities.SessaoCaixa", b =>
+                {
+                    b.Navigation("Lancamentos");
                 });
 
             modelBuilder.Entity("GLOWAPI.Domain.Entities.Usuario", b =>

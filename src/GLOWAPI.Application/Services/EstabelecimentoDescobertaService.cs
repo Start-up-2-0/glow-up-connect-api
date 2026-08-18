@@ -2,6 +2,7 @@ using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.DTOs.Estabelecimentos;
 using GLOWAPI.Application.Helpers;
+using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Negocios;
 
 namespace GLOWAPI.Application.Services;
@@ -14,14 +15,20 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
     private const int TamanhoPaginaMaximo = 50;
 
     private readonly IEstabelecimentoRepository _estabelecimentoRepository;
+    private readonly IHorarioFuncionamentoEstabelecimentoRepository _horarioFuncionamentoRepository;
     private readonly IGeocodificadorService _geocodificadorService;
+    private readonly IBase64ImageThumbnailer _thumbnailer;
 
     public EstabelecimentoDescobertaService(
         IEstabelecimentoRepository estabelecimentoRepository,
-        IGeocodificadorService geocodificadorService)
+        IHorarioFuncionamentoEstabelecimentoRepository horarioFuncionamentoRepository,
+        IGeocodificadorService geocodificadorService,
+        IBase64ImageThumbnailer thumbnailer)
     {
         _estabelecimentoRepository = estabelecimentoRepository;
+        _horarioFuncionamentoRepository = horarioFuncionamentoRepository;
         _geocodificadorService = geocodificadorService;
+        _thumbnailer = thumbnailer;
     }
 
     public async Task<EstabelecimentosProximosPaginadoResponseDto> ListarProximosAsync(
@@ -30,6 +37,7 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
         double? raioKm,
         int pagina,
         int tamanhoPagina,
+        int? categoriaId,
         CancellationToken cancellationToken = default)
     {
         ValidarCoordenadas(latitude, longitude);
@@ -70,6 +78,7 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             raio,
             pagina,
             tamanhoPagina,
+            categoriaId,
             cancellationToken);
 
         return new EstabelecimentosProximosPaginadoResponseDto(
@@ -80,6 +89,20 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             itens.Select(Mapear).ToList());
     }
 
+    public async Task<IReadOnlyList<EstabelecimentoCategoriaDto>> ListarCategoriasAsync(
+        TipoAssinatura? tipoAssinatura = null,
+        CancellationToken cancellationToken = default)
+    {
+        var categorias = await _estabelecimentoRepository.ListarCategoriasAsync(cancellationToken);
+        return categorias
+            .Where(categoria => tipoAssinatura is null || categoria.TipoAssinatura == tipoAssinatura)
+            .Select(categoria => new EstabelecimentoCategoriaDto(
+                categoria.Id,
+                categoria.Nome,
+                categoria.TipoAssinatura.ToString()))
+            .ToList();
+    }
+
     public async Task<EstabelecimentoPublicoResponseDto> ObterPorPublicGuidAsync(
         Guid publicGuid,
         decimal? latitude,
@@ -87,7 +110,7 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
         CancellationToken cancellationToken = default)
     {
         var estabelecimento = await _estabelecimentoRepository.ObterPorPublicGuidAsync(publicGuid, cancellationToken);
-        if (estabelecimento is null || !estabelecimento.Ativo)
+        if (estabelecimento is null || !estabelecimento.Ativo || !estabelecimento.VisivelPublicamente)
         {
             throw new NegocioNaoEncontradoException();
         }
@@ -115,13 +138,32 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             endereco = new EnderecoResumoDto(end.Logradouro, end.Bairro, end.Cidade, end.Estado);
         }
 
+        var horarios = await _horarioFuncionamentoRepository.ListarPorEstabelecimentoAsync(
+            estabelecimento.Id,
+            ativo: true,
+            cancellationToken: cancellationToken);
+        var (abertoAgora, horarioAbertura, horarioFechamento) =
+            HorarioFuncionamentoPublicoHelper.ResolverParaHoje(horarios);
+
+        var tipoAssinatura = await _estabelecimentoRepository.ObterTipoAssinaturaPublicoAsync(
+            estabelecimento.Id,
+            cancellationToken);
+
         return new EstabelecimentoPublicoResponseDto(
             estabelecimento.PublicGuid,
             estabelecimento.Nome,
             estabelecimento.Logo,
             TruncarDescricao(estabelecimento.Descricao),
             endereco,
-            distanciaKm);
+            distanciaKm,
+            estabelecimento.NotaMedia,
+            estabelecimento.TotalAvaliacoes,
+            abertoAgora,
+            horarioAbertura,
+            horarioFechamento,
+            estabelecimento.CategoriaEstabelecimentoId,
+            estabelecimento.CategoriaEstabelecimento?.Nome,
+            tipoAssinatura.ToString());
     }
 
     private static void ValidarCoordenadas(decimal latitude, decimal longitude)
@@ -137,25 +179,36 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
         }
     }
 
-    private static EstabelecimentoProximoResponseDto Mapear(Models.Geolocalizacao.EstabelecimentoProximoConsulta consulta)
+    private EstabelecimentoProximoResponseDto Mapear(Models.Geolocalizacao.EstabelecimentoProximoConsulta consulta)
     {
-        var estabelecimento = consulta.Estabelecimento;
-        var endereco = estabelecimento.Endereco!;
-
         return new EstabelecimentoProximoResponseDto(
-            estabelecimento.PublicGuid,
-            estabelecimento.Nome,
-            estabelecimento.Logo,
-            TruncarDescricao(estabelecimento.Descricao),
+            consulta.PublicGuid,
+            consulta.Nome,
+            _thumbnailer.ParaListagem(consulta.Logo, maxLadoPx: 96, qualidadeJpeg: 72),
+            TruncarDescricao(consulta.Descricao),
             Math.Round(consulta.DistanciaKm, 2),
             consulta.DestaqueMarketplace,
             new EnderecoResumoDto(
-                endereco.Logradouro,
-                endereco.Bairro,
-                endereco.Cidade,
-                endereco.Estado));
+                consulta.Logradouro,
+                consulta.Bairro,
+                consulta.Cidade,
+                consulta.Estado),
+            consulta.NotaMedia,
+            consulta.TotalAvaliacoes,
+            consulta.CategoriaEstabelecimentoId,
+            consulta.CategoriaNome,
+            (double)consulta.Latitude,
+            (double)consulta.Longitude,
+            consulta.TipoAssinatura.ToString());
     }
 
-    private static string TruncarDescricao(string descricao) =>
-        descricao.Length <= 160 ? descricao : descricao[..157] + "...";
+    private static string TruncarDescricao(string? descricao)
+    {
+        if (string.IsNullOrEmpty(descricao))
+        {
+            return string.Empty;
+        }
+
+        return descricao.Length <= 160 ? descricao : descricao[..157] + "...";
+    }
 }

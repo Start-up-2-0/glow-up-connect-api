@@ -9,10 +9,17 @@ namespace GLOWAPI.Application.Services;
 public partial class AvatarBase64Decoder : IAvatarBase64Decoder
 {
     private readonly AvatarOptions _options;
+    private readonly IBase64ImageThumbnailer _thumbnailer;
 
     public AvatarBase64Decoder(IOptions<AvatarOptions> options)
+        : this(options, new Base64ImageThumbnailer(options))
+    {
+    }
+
+    public AvatarBase64Decoder(IOptions<AvatarOptions> options, IBase64ImageThumbnailer thumbnailer)
     {
         _options = options.Value;
+        _thumbnailer = thumbnailer;
     }
 
     public string ValidarENormalizar(string avatarBase64, string? avatarContentType)
@@ -62,7 +69,7 @@ public partial class AvatarBase64Decoder : IAvatarBase64Decoder
             throw new AvatarInvalidoException("Conteudo do avatar nao corresponde ao tipo informado.");
         }
 
-        return $"data:{contentType};base64,{payload}";
+        return _thumbnailer.ParaPersistencia($"data:{contentType};base64,{payload}");
     }
 
     private static bool ValidarAssinatura(byte[] bytes, string contentType)

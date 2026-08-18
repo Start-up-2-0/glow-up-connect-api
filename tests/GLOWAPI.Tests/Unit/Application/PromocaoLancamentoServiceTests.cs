@@ -22,7 +22,8 @@ public class PromocaoLancamentoServiceTests
                 Codigo = PromocaoLancamentoService.CodigoCampanhaLancamento,
                 Limite = 100,
                 Utilizados = 0,
-                DiasTrial = 30,
+                DiasTrial = PromocaoLancamentoService.DiasTrialPadrao,
+                PercentualDescontoMensalidade = 50,
                 Ativa = true
             });
         _assinaturaRepository
@@ -34,7 +35,8 @@ public class PromocaoLancamentoServiceTests
 
         Assert.True(status.Disponivel);
         Assert.Equal(98, status.VagasRestantes);
-        Assert.Equal(30, status.DiasTrial);
+        Assert.Equal(PromocaoLancamentoService.DiasTrialPadrao, status.DiasTrial);
+        Assert.Equal(50, status.PercentualDescontoMensalidade);
     }
 
     [Fact]
@@ -47,7 +49,8 @@ public class PromocaoLancamentoServiceTests
                 Codigo = PromocaoLancamentoService.CodigoCampanhaLancamento,
                 Limite = 100,
                 Utilizados = 40,
-                DiasTrial = 30,
+                DiasTrial = PromocaoLancamentoService.DiasTrialPadrao,
+                PercentualDescontoMensalidade = 50,
                 Ativa = true
             });
         _assinaturaRepository
@@ -73,7 +76,8 @@ public class PromocaoLancamentoServiceTests
 
         Assert.False(status.Disponivel);
         Assert.Equal(0, status.VagasRestantes);
-        Assert.Equal(30, status.DiasTrial);
+        Assert.Equal(PromocaoLancamentoService.DiasTrialPadrao, status.DiasTrial);
+        Assert.Equal(50, status.PercentualDescontoMensalidade);
     }
 
     [Fact]
@@ -116,9 +120,52 @@ public class PromocaoLancamentoServiceTests
             Times.Never);
     }
 
-    private PromocaoLancamentoService CreateService() =>
+    [Fact]
+    public async Task ObterStatusAsync_DeveRetornarIndisponivel_QuandoPromocaoEstiverDesativadaPorFlag()
+    {
+        _campanhaRepository
+            .Setup(r => r.ObterAtivaPorCodigoAsync(PromocaoLancamentoService.CodigoCampanhaLancamento, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CampanhaPromocional
+            {
+                Codigo = PromocaoLancamentoService.CodigoCampanhaLancamento,
+                Limite = 100,
+                Utilizados = 0,
+                DiasTrial = PromocaoLancamentoService.DiasTrialPadrao,
+                PercentualDescontoMensalidade = 50,
+                Ativa = true
+            });
+        _assinaturaRepository
+            .Setup(r => r.ContarPorCodigoCampanhaAsync(PromocaoLancamentoService.CodigoCampanhaLancamento, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(2);
+
+        var service = CreateService(desativarPromocaoLancamento: true);
+        var status = await service.ObterStatusAsync();
+
+        Assert.False(status.Disponivel);
+        Assert.Equal(98, status.VagasRestantes);
+    }
+
+    [Fact]
+    public async Task TentarReservarVagaAsync_DeveRetornarFalse_QuandoPromocaoEstiverDesativadaPorFlag()
+    {
+        var service = CreateService(desativarPromocaoLancamento: true);
+        var reservou = await service.TentarReservarVagaAsync(0);
+
+        Assert.False(reservou);
+        _campanhaRepository.Verify(
+            r => r.ObterAtivaPorCodigoAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _campanhaRepository.Verify(
+            r => r.TentarReservarVagaAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    private PromocaoLancamentoService CreateService(bool desativarPromocaoLancamento = false) =>
         new(
             _campanhaRepository.Object,
             _assinaturaRepository.Object,
-            Options.Create(new AssinaturaCobrancaOptions()));
+            Options.Create(new AssinaturaCobrancaOptions
+            {
+                DesativarPromocaoLancamento = desativarPromocaoLancamento
+            }));
 }

@@ -20,7 +20,8 @@ Nao exige `x-glow-token`. Nao passa por `PermissionMiddleware`.
 | POST | `/api/auth/login` | Login |
 | POST | `/api/auth/refresh` | Renovar token |
 | POST | `/api/auth/confirmar-email` | Confirmar e-mail |
-| POST | `/api/auth/reenviar-confirmacao` | Reenviar confirmacao |
+| POST | `/api/auth/forgot-password` | Solicitar recuperacao de senha |
+| POST | `/api/auth/reset-password` | Redefinir senha (token ou codigo) |
 | POST | `/api/auth/confirmar-whatsapp` | Confirmar WhatsApp (fallback) |
 | POST | `/api/auth/reenviar-confirmacao-whatsapp` | Reenviar confirmacao WhatsApp |
 

@@ -10,6 +10,14 @@ public interface IAuthSessionService
         AuthSessionContext context,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Sessão curta (sem refresh útil) exclusiva para o fluxo de agendamento público.
+    /// </summary>
+    Task<IssuedTokenPair> CriarSessaoAgendamentoPublicoAsync(
+        Usuario usuario,
+        AuthSessionContext context,
+        CancellationToken cancellationToken = default);
+
     Task<AuthenticatedSessionResult> ObterSessaoAtivaPorAccessTokenAsync(
         string accessToken,
         AuthSessionContext context,
@@ -24,6 +32,8 @@ public interface IAuthSessionService
         CancellationToken cancellationToken = default);
 
     Task RevogarSessaoAsync(SessaoAutenticacao sessao, CancellationToken cancellationToken = default);
+
+    Task RevogarTodasSessoesDoUsuarioAsync(int usuarioId, CancellationToken cancellationToken = default);
 
     Task<IssuedTokenPair> RotacionarSessaoAsync(
         SessaoAutenticacao sessaoAtual,

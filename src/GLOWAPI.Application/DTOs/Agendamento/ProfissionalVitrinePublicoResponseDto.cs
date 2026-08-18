@@ -6,4 +6,6 @@ public class ProfissionalVitrinePublicoResponseDto
     public string NomePublico { get; set; } = string.Empty;
     public string Biografia { get; set; } = string.Empty;
     public string Logo { get; set; } = string.Empty;
+    public decimal? NotaMedia { get; set; }
+    public int TotalAvaliacoes { get; set; }
 }

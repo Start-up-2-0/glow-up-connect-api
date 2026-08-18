@@ -39,8 +39,8 @@ Substitua `{BASE_URL}` pela URL da API (local, staging ou producao).
 | Login | POST | `/api/auth/login` | Nao | Implementado |
 | Refresh | POST | `/api/auth/refresh` | Nao | Implementado |
 | Logout | POST | `/api/auth/logout` | Sim | Implementado |
-| Esqueci a senha | POST | `/api/auth/forgot-password` | Nao | **501** |
-| Redefinir senha | POST | `/api/auth/reset-password` | Nao | **501** |
+| Esqueci a senha | POST | `/api/auth/forgot-password` | Nao | Implementado |
+| Redefinir senha | POST | `/api/auth/reset-password` | Nao | Implementado |
 | Estabelecimentos proximos | GET | `/api/publico/estabelecimentos/proximos` | Nao | Implementado |
 | Detalhe da loja | GET | `/api/publico/estabelecimentos/{publicGuid}` | Nao | Implementado |
 | Criar agendamento logado | POST | `/api/agendamentos` | Sim | Implementado |
@@ -87,8 +87,8 @@ sequenceDiagram
 | Aguardando confirmacao | `/aguardando-confirmacao` | [confirmacao-conta.md](./confirmacao-conta.md) |
 | Confirmar e-mail (link) | `/confirmar-email?token=...` | [confirmacao-conta.md](./confirmacao-conta.md) |
 | Login | `/login` | [login.md](./login.md) |
-| Esqueci senha | `/esqueci-senha` | [recuperacao-senha.md](./recuperacao-senha.md) |
-| Redefinir senha *(futuro)* | `/resetar-senha?token=...` | [recuperacao-senha.md](./recuperacao-senha.md) |
+| Esqueci senha | `/auth/esqueci-senha` | [recuperacao-senha.md](./recuperacao-senha.md) |
+| Redefinir senha | `/resetar-senha?token=...` | [recuperacao-senha.md](./recuperacao-senha.md) |
 | Explorar lojas | `/explorar` | [descoberta-estabelecimentos.md](./descoberta-estabelecimentos.md) |
 | Detalhe da loja | `/loja/{publicGuid}` | [area-cliente-agendamento.md](./area-cliente-agendamento.md) |
 | Meus agendamentos | `/meus-agendamentos` | [area-cliente-agendamento.md](./area-cliente-agendamento.md) |

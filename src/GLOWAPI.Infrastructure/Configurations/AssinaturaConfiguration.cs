@@ -18,6 +18,17 @@ public class AssinaturaConfiguration : IEntityTypeConfiguration<Assinatura>
             .IsRequired()
             .HasMaxLength(50);
 
+        builder.Property(assinatura => assinatura.StatusAntesExclusao)
+            .HasConversion(
+                status => status.HasValue ? status.Value.ToString() : null,
+                status => string.IsNullOrEmpty(status) ? null : Enum.Parse<AssinaturaStatus>(status))
+            .HasMaxLength(50);
+
+        builder.Property(assinatura => assinatura.TipoAssinatura)
+            .HasConversion(tipo => tipo.ToString(), tipo => Enum.Parse<TipoAssinatura>(tipo))
+            .IsRequired()
+            .HasMaxLength(50);
+
         builder.Property(assinatura => assinatura.Gateway)
             .HasConversion(gateway => gateway.ToString(), gateway => Enum.Parse<GatewayPagamento>(gateway))
             .IsRequired()
@@ -38,6 +49,12 @@ public class AssinaturaConfiguration : IEntityTypeConfiguration<Assinatura>
         builder.Property(assinatura => assinatura.DiaVencimento)
             .IsRequired();
 
+        builder.Property(assinatura => assinatura.DataReferenciaCiclo)
+            .IsRequired();
+
+        builder.Property(assinatura => assinatura.PercentualDescontoPermanente)
+            .HasPrecision(5, 2);
+
         builder.Property(assinatura => assinatura.ProximaDataVencimento);
         builder.Property(assinatura => assinatura.ProximaDataGeracaoCobranca);
         builder.Property(assinatura => assinatura.ProximaDataAlerta);
@@ -46,7 +63,7 @@ public class AssinaturaConfiguration : IEntityTypeConfiguration<Assinatura>
         builder.Property(assinatura => assinatura.CanceladoEm);
 
         builder.Property(assinatura => assinatura.OnboardingPendenteJson)
-            .HasColumnType("text");
+            .HasColumnType("longtext");
 
         builder.Property(assinatura => assinatura.CreateAd)
             .IsRequired();

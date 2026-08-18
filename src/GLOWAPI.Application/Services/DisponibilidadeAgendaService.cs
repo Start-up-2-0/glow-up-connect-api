@@ -100,7 +100,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             estabelecimento.Id,
             request,
             exigirFuncionamentoEstabelecimento: true,
-            permitirSomenteExibicao: false,
+            permitirSomenteExibicao: !request.ProfissionalId.HasValue,
             cancellationToken);
     }
 
@@ -170,23 +170,27 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
         }
 
         var profissionais = await ResolverProfissionaisAsync(
+            estabelecimentoId,
             request.ProfissionalId,
             servicos,
             cancellationToken);
 
-        if (profissionais.Count == 0)
+        if (request.ProfissionalId.HasValue && profissionais.Count == 0)
         {
             return new DisponibilidadeAgendaResponseDto
             {
                 ServicoId = servicos[0].Id,
                 ServicoIds = servicoIds,
                 DuracaoMinutos = servicos.Sum(servico => servico.DuracaoMinutos),
-                MensagemIndisponibilidade = "Servico indisponivel por falta de profissional executor.",
+                MensagemIndisponibilidade =
+                    "Profissional selecionado nao executa um ou mais servicos informados.",
                 Slots = []
             };
         }
 
-        var vinculosPorProfissional = await CarregarVinculosAtivosAsync(servicos, profissionais, cancellationToken);
+        var vinculosPorProfissional = profissionais.Count > 0
+            ? await CarregarVinculosAtivosAsync(servicos, profissionais, cancellationToken)
+            : new Dictionary<int, Dictionary<int, ProfissionalServico>>();
         var duracaoResposta = request.ProfissionalId.HasValue
             && vinculosPorProfissional.TryGetValue(request.ProfissionalId.Value, out var vinculosProfissional)
             ? ObterDuracaoTotal(servicos, vinculosProfissional)
@@ -234,10 +238,13 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
                     ativo: true,
                     cancellationToken);
 
-                var janelas = ResolverJanelasAtendimento(
+                var janelas = await ResolverJanelasAtendimentoAsync(
                     exigirFuncionamentoEstabelecimento,
                     funcionamentos,
-                    horariosProfissional);
+                    horariosProfissional,
+                    estabelecimentoId,
+                    profissionalId,
+                    cancellationToken);
 
                 if (janelas.Count == 0)
                 {
@@ -277,6 +284,19 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
                 }
             }
 
+            if (!request.ProfissionalId.HasValue
+                && slotsDoDia.Count == 0
+                && exigirFuncionamentoEstabelecimento
+                && funcionamentos.Count > 0)
+            {
+                AdicionarSlotsEstabelecimento(
+                    data,
+                    funcionamentos,
+                    servicos.Sum(servico => servico.DuracaoMinutos),
+                    ocupacao,
+                    slotsDoDia);
+            }
+
             if (slotsDoDia.Count > 0)
             {
                 datasAtendimento.Add(data);
@@ -289,6 +309,9 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             ServicoId = servicos[0].Id,
             ServicoIds = servicoIds,
             DuracaoMinutos = duracaoResposta,
+            MensagemIndisponibilidade = slots.Count == 0
+                ? "Nenhum horario de funcionamento disponivel para os servicos selecionados."
+                : null,
             DatasAtendimento = datasAtendimento,
             Slots = slots
                 .OrderBy(slot => slot.Inicio)
@@ -298,6 +321,7 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
     }
 
     private async Task<IReadOnlyList<int>> ResolverProfissionaisAsync(
+        int estabelecimentoId,
         int? profissionalId,
         IReadOnlyList<Servico> servicos,
         CancellationToken cancellationToken)
@@ -315,9 +339,24 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             return [profissionalId.Value];
         }
 
-        var candidatos = await _profissionalServicoRepository.ListarProfissionaisAtivosPorServicoAsync(
-            servicos[0].Id,
-            cancellationToken);
+        IReadOnlyList<int>? candidatos = null;
+
+        foreach (var servico in servicos)
+        {
+            var candidatosServico = await ListarCandidatosSemPreferenciaPorServicoAsync(
+                estabelecimentoId,
+                servico,
+                cancellationToken);
+
+            candidatos = candidatos is null
+                ? candidatosServico
+                : candidatos.Intersect(candidatosServico).ToList();
+        }
+
+        if (candidatos is null || candidatos.Count == 0)
+        {
+            return [];
+        }
 
         var profissionaisValidos = new List<int>();
         foreach (var candidato in candidatos)
@@ -332,6 +371,93 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
         }
 
         return profissionaisValidos;
+    }
+
+    private async Task<IReadOnlyList<int>> ListarCandidatosSemPreferenciaPorServicoAsync(
+        int estabelecimentoId,
+        Servico servico,
+        CancellationToken cancellationToken)
+    {
+        var vinculosEstabelecimento = await _profissionalEstabelecimentoRepository
+            .ListarAtivosPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
+
+        if (vinculosEstabelecimento.Count == 0)
+        {
+            return [];
+        }
+
+        var idsEstabelecimento = vinculosEstabelecimento
+            .Select(vinculo => vinculo.ProfissionalId)
+            .ToHashSet();
+
+        var preferidos = vinculosEstabelecimento
+            .Where(vinculo => vinculo.PodeReceberAgendamento)
+            .Select(vinculo => vinculo.ProfissionalId)
+            .Distinct()
+            .ToList();
+
+        var pool = preferidos.Count > 0
+            ? preferidos
+            : idsEstabelecimento.ToList();
+
+        if (!ServicoExecucaoHelper.ServicoPossuiVinculosAtivos(servico))
+        {
+            return pool;
+        }
+
+        var executores = pool
+            .Where(profissionalId => ServicoExecucaoHelper.ProfissionalExecutaServico(servico, profissionalId))
+            .ToList();
+
+        if (executores.Count > 0)
+        {
+            return executores;
+        }
+
+        var vinculadosServico = await _profissionalServicoRepository
+            .ListarProfissionaisAtivosPorServicoAsync(servico.Id, cancellationToken);
+
+        return vinculadosServico
+            .Where(profissionalId => idsEstabelecimento.Contains(profissionalId))
+            .Where(profissionalId => ServicoExecucaoHelper.ProfissionalExecutaServico(servico, profissionalId))
+            .Distinct()
+            .ToList();
+    }
+
+    private static void AdicionarSlotsEstabelecimento(
+        DateOnly data,
+        IReadOnlyList<HorarioFuncionamentoEstabelecimento> funcionamentos,
+        int duracaoMinutos,
+        IReadOnlyList<AgendamentoItem> ocupacao,
+        List<SlotDisponivelResponseDto> slotsDoDia)
+    {
+        foreach (var funcionamento in funcionamentos)
+        {
+            foreach (var (inicioSlot, fimSlot) in GeradorSlotsDisponibilidade.Gerar(
+                         data,
+                         funcionamento.HoraInicio,
+                         funcionamento.HoraFim,
+                         duracaoMinutos,
+                         IntervaloEntreSlotsMinutos))
+            {
+                if (inicioSlot < DateTime.UtcNow)
+                {
+                    continue;
+                }
+
+                if (SlotOcupadoEstabelecimento(ocupacao, inicioSlot, fimSlot))
+                {
+                    continue;
+                }
+
+                slotsDoDia.Add(new SlotDisponivelResponseDto
+                {
+                    ProfissionalId = AgendaSemPreferenciaHelper.ProfissionalIdEstabelecimento,
+                    Inicio = inicioSlot,
+                    Fim = fimSlot
+                });
+            }
+        }
     }
 
     private async Task<Dictionary<int, Dictionary<int, ProfissionalServico>>> CarregarVinculosAtivosAsync(
@@ -407,10 +533,13 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
             || (permitirSomenteExibicao && vinculo.SomenteExibicao);
     }
 
-    private static List<(TimeOnly Inicio, TimeOnly Fim)> ResolverJanelasAtendimento(
+    private async Task<List<(TimeOnly Inicio, TimeOnly Fim)>> ResolverJanelasAtendimentoAsync(
         bool exigirFuncionamentoEstabelecimento,
         IReadOnlyList<HorarioFuncionamentoEstabelecimento> funcionamentos,
-        IReadOnlyList<HorarioAtendimentoProfissional> horariosProfissional)
+        IReadOnlyList<HorarioAtendimentoProfissional> horariosProfissional,
+        int estabelecimentoId,
+        int profissionalId,
+        CancellationToken cancellationToken)
     {
         if (!exigirFuncionamentoEstabelecimento)
         {
@@ -426,7 +555,20 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
 
         if (horariosProfissional.Count == 0)
         {
-            // Sem agenda do profissional neste dia da semana — não usar só o horário da loja.
+            var agendaProfissional = await _horarioAtendimentoProfissionalRepository.ListarPorEstabelecimentoAsync(
+                estabelecimentoId,
+                profissionalId,
+                diaSemana: null,
+                ativo: true,
+                cancellationToken);
+
+            if (agendaProfissional.Count == 0)
+            {
+                return funcionamentos
+                    .Select(funcionamento => (funcionamento.HoraInicio, funcionamento.HoraFim))
+                    .ToList();
+            }
+
             return [];
         }
 
@@ -461,6 +603,14 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
         }
 
         return janelas;
+    }
+
+    private static bool SlotOcupadoEstabelecimento(
+        IReadOnlyList<AgendamentoItem> ocupacao,
+        DateTime inicio,
+        DateTime fim)
+    {
+        return ocupacao.Any(item => item.Inicio < fim && item.Fim > inicio);
     }
 
     private static bool SlotOcupado(

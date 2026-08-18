@@ -61,6 +61,8 @@ public static class DependencyInjection
         services.AddScoped<IAgendamentoItemRepository, AgendamentoItemRepository>();
         services.AddScoped<IAgendamentoHistoricoRepository, AgendamentoHistoricoRepository>();
         services.AddScoped<IAgendamentoPropostaRemarcacaoRepository, AgendamentoPropostaRemarcacaoRepository>();
+        services.AddScoped<IAvaliacaoAtendimentoRepository, AvaliacaoAtendimentoRepository>();
+        services.AddScoped<IAvaliacaoConviteRepository, AvaliacaoConviteRepository>();
         services.AddScoped<ICaixaRepository, CaixaRepository>();
         services.AddScoped<IPlanoRepository, PlanoRepository>();
         services.AddScoped<IAssinaturaRepository, AssinaturaRepository>();
@@ -71,7 +73,12 @@ public static class DependencyInjection
         services.AddScoped<ILancamentoCaixaRepository, LancamentoCaixaRepository>();
         services.AddScoped<IWebhookPagamentoRepository, WebhookPagamentoRepository>();
         services.AddScoped<IComissaoProfissionalRepository, ComissaoProfissionalRepository>();
+        services.AddScoped<ISessaoCaixaRepository, SessaoCaixaRepository>();
+        services.AddScoped<IContaReceberRepository, ContaReceberRepository>();
+        services.AddScoped<IContaPagarRepository, ContaPagarRepository>();
+        services.AddScoped<IConciliacaoItemRepository, ConciliacaoItemRepository>();
         services.AddScoped<IMetaProfissionalRepository, MetaProfissionalRepository>();
+        services.AddScoped<IMetaRepository, MetaRepository>();
         services.AddScoped<ISessaoAutenticacaoRepository, SessaoAutenticacaoRepository>();
         services.AddScoped<ILogAutenticacaoRepository, LogAutenticacaoRepository>();
         services.AddScoped<IIpRateLimitBlockRepository, IpRateLimitBlockRepository>();
@@ -80,8 +87,12 @@ public static class DependencyInjection
         services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
         services.AddScoped<IIpBurstRateLimitService, IpBurstRateLimitService>();
         services.AddScoped<ILoginFailureRateLimitService, LoginFailureRateLimitService>();
+        services.AddSingleton<IRequestProofNonceStore, RequestProofNonceStoreV2>();
+        services.AddSingleton<IRequestProofService, RequestProofService>();
         services.AddMemoryCache();
         services.AddScoped<IMensagemNotificacaoRepository, MensagemNotificacaoRepository>();
+        services.AddScoped<ICompactacaoImagensRepository, CompactacaoImagensRepository>();
+        services.AddScoped<IRetencaoDadosRepository, RetencaoDadosRepository>();
 
         services.Configure<MercadoPagoOptions>(configuration.GetSection(MercadoPagoOptions.SectionName));
         services.Configure<GeocodificacaoOptions>(configuration.GetSection(GeocodificacaoOptions.SectionName));

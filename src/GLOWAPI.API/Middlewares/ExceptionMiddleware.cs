@@ -15,11 +15,13 @@ public class ExceptionMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionMiddleware> _logger;
+    private readonly IWebHostEnvironment _env;
 
-    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
+    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger, IWebHostEnvironment env)
     {
         _next = next;
         _logger = logger;
+        _env = env;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -34,11 +36,15 @@ public class ExceptionMiddleware
             {
                 InvalidCredentialsException or UnauthorizedException or TokenExpiredException or InvalidTokenException
                     => HttpStatusCode.Unauthorized,
-                UserBlockedException or InactiveUserException or EmailNaoConfirmadoException => HttpStatusCode.Forbidden,
+                UserBlockedException or InactiveUserException or EmailNaoConfirmadoException or ContaEmExclusaoException => HttpStatusCode.Forbidden,
                 _ => HttpStatusCode.Unauthorized
             };
 
-            await WriteErrorAsync(context, (int)statusCode, ex.Message, ex.Code);
+            var details = ex is ContaEmExclusaoException contaEmExclusao
+                ? new { reativarAte = contaEmExclusao.ReativarAte }
+                : null;
+
+            await WriteErrorAsync(context, (int)statusCode, ex.Message, ex.Code, details);
             _logger.LogWarning(ex, "Falha de autenticação: {Code}", ex.Code);
         }
         catch (DomainException ex)
@@ -57,9 +63,11 @@ public class ExceptionMiddleware
                     or ProfissionalServicoDuplicadoException
                     or HorarioAtendimentoConflitanteException
                     or ConviteNegocioDuplicadoException
+                    or AvaliacaoJaRealizadaException
                     => HttpStatusCode.Conflict,
                 GatewayPagamentoException => HttpStatusCode.BadGateway,
                 ConfirmacaoEmailInvalidaException
+                    or ResetSenhaInvalidoException
                     or ConfirmacaoWhatsAppInvalidaException
                     or CaptchaInvalidaException
                     or AvatarInvalidoException
@@ -77,6 +85,7 @@ public class ExceptionMiddleware
                     or HorarioAlteracaoImpactaAgendamentosFuturosException
                     or UltimoOwnerNegocioException
                     or ConviteNegocioInvalidoException
+                    or ConviteNegocioIndisponivelException
                     or ConviteUsuarioNaoConfirmadoException
                     or ProfissionalNegocioInvalidoException
                     or ProfissionalVitrineNegocioIndisponivelException
@@ -85,15 +94,24 @@ public class ExceptionMiddleware
                     or LimiteServicosNegocioExcedidoException
                     or ServicoNegocioInvalidoException
                     or ProfissionalServicoComAgendamentoFuturoException
+                    or ProfissionalEquipeComAgendamentoFuturoException
                     or AgendamentoDadosClienteInvalidosException
                     or AgendamentoStatusInvalidoException
                     or AgendamentoServicosInvalidosException
                     or AgendaPeriodoConsultaInvalidoException
                     or EnderecoOperacaoInvalidoException
-                    or LocalizacaoClienteInvalidaException => HttpStatusCode.BadRequest,
+                    or LocalizacaoClienteInvalidaException
+                    or AvaliacaoNaoElegivelException
+                    or AvaliacaoNotaInvalidaException
+                    or AvaliacaoConviteInvalidoException => HttpStatusCode.BadRequest,
                 WebhookWhatsAppNaoAutorizadoException => HttpStatusCode.Unauthorized,
                 LoginIpRateLimitException => HttpStatusCode.TooManyRequests,
                 HorarioIndisponivelException => HttpStatusCode.Conflict,
+                AgendamentoJaRecebidoException => HttpStatusCode.Conflict,
+                LancamentoCaixaInvalidoException
+                    or RecebimentoAgendamentoInvalidoException
+                    or ComissaoProfissionalInvalidaException
+                    or SessaoCaixaInvalidaException => HttpStatusCode.BadRequest,
                 UsuarioSemPermissaoAssinaturaException
                     or UsuarioSemPermissaoNegocioException
                     or UsuarioSemVinculoNegocioException
@@ -113,13 +131,15 @@ public class ExceptionMiddleware
                     or HorarioFuncionamentoNaoEncontradoException
                     or ProfissionalNegocioNaoEncontradoException
                     or ConviteNegocioNaoEncontradoException
-                    or AgendamentoNaoEncontradoException => HttpStatusCode.NotFound,
+                    or AgendamentoNaoEncontradoException
+                    or LancamentoCaixaNaoEncontradoException => HttpStatusCode.NotFound,
                 _ => HttpStatusCode.NotFound
             };
 
             var details = ex switch
             {
                 HorarioAlteracaoImpactaAgendamentosFuturosException impacto => impacto.AgendamentosImpactados,
+                ProfissionalEquipeComAgendamentoFuturoException profissionalEquipe => profissionalEquipe.AgendamentosFuturos,
                 GatewayPagamentoException gateway => gateway.Details,
                 _ => null
             };
@@ -130,28 +150,26 @@ public class ExceptionMiddleware
         catch (KeyNotFoundException ex)
         {
             _logger.LogWarning(ex, "Recurso não encontrado");
-            await WriteLegacyErrorAsync(context, 404, ex.Message);
+            var message = _env.IsDevelopment() ? ex.Message : "Recurso não encontrado.";
+            await WriteLegacyErrorAsync(context, 404, message);
         }
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning(ex, "Operação inválida");
-            await WriteLegacyErrorAsync(context, 400, ex.Message);
+            var message = _env.IsDevelopment() ? ex.Message : "Operação inválida.";
+            await WriteLegacyErrorAsync(context, 400, message);
         }
         catch (DbUpdateException ex)
         {
             _logger.LogError(ex, "Falha ao persistir no banco de dados");
-            var mensagemInterna = ex.InnerException?.Message ?? ex.Message;
-            var mensagem = mensagemInterna.Contains("OnboardingPendenteJson", StringComparison.OrdinalIgnoreCase)
-                || mensagemInterna.Contains("ReferenciaInterna", StringComparison.OrdinalIgnoreCase)
-                ? "Banco desatualizado. Execute a migration AddCheckoutProOnboardingPendente no ambiente staging."
-                : "Erro ao salvar dados da assinatura. Verifique os logs da API.";
-
+            var mensagem = "Erro ao salvar dados. Por favor, tente novamente mais tarde."; // Mensagem generalizada
             await WriteErrorAsync(context, 500, mensagem, "DATABASE_UPDATE_ERROR");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro interno do servidor");
-            await WriteLegacyErrorAsync(context, 500, "Erro interno do servidor");
+            _logger.LogError(ex, "Erro interno do servidor: {ErrorMessage}", ex.Message);
+            var message = _env.IsDevelopment() ? ex.Message : "Erro interno do servidor.";
+            await WriteLegacyErrorAsync(context, 500, message);
         }
     }
 

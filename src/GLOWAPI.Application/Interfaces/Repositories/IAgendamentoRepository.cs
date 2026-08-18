@@ -28,13 +28,33 @@ public interface IAgendamentoRepository : IRepository<Agendamento>
         AgendamentoClienteFiltro filtro,
         CancellationToken cancellationToken = default);
 
+    Task<(decimal TotalValor, int Quantidade)> SomarConcluidosClienteNoPeriodoAsync(
+        int usuarioClienteId,
+        DateTime inicio,
+        DateTime fim,
+        CancellationToken cancellationToken = default);
+
+    Task<int> ContarPorUsuarioClienteAsync(
+        int usuarioClienteId,
+        CancellationToken cancellationToken = default);
+
     Task<int> ContarPorEstabelecimentoNoPeriodoAsync(
         int estabelecimentoId,
         DateTime inicio,
         DateTime fim,
         CancellationToken cancellationToken = default);
 
+    Task<int> ContarClientesDistintosPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<ClienteAgendamentoResumo>> ListarClientesResumoPorEstabelecimentoAsync(
         int estabelecimentoId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<Agendamento>> ListarConcluidosPorProfissionalNoPeriodoAsync(
+        int profissionalId,
+        DateTime inicio,
+        DateTime fim,
         CancellationToken cancellationToken = default);
 }

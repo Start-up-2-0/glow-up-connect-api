@@ -8,17 +8,21 @@ namespace GLOWAPI.Application.Services;
 
 public class ModulosAssinaturaService : IModulosAssinaturaService
 {
-    private static readonly IReadOnlyList<ModuloAssinatura> ModulosEstabelecimento =
+    private static readonly IReadOnlyList<ModuloAssinatura> ModulosBaseTenant =
     [
         ModuloAssinatura.Estabelecimento,
         ModuloAssinatura.Assinatura
     ];
 
     private readonly IAssinaturaRepository _assinaturaRepository;
+    private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
 
-    public ModulosAssinaturaService(IAssinaturaRepository assinaturaRepository)
+    public ModulosAssinaturaService(
+        IAssinaturaRepository assinaturaRepository,
+        IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository)
     {
         _assinaturaRepository = assinaturaRepository;
+        _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
     }
 
     public async Task<ModulosAssinaturaResponseDto> ObterPorEstabelecimentoAsync(
@@ -29,7 +33,12 @@ public class ModulosAssinaturaService : IModulosAssinaturaService
             estabelecimentoId,
             cancellationToken);
 
-        return CriarResposta(assinatura, estabelecimentoId, ModulosEstabelecimento);
+        var profissionalAutonomoId = await ResolverProfissionalAutonomoIdAsync(
+            assinatura,
+            estabelecimentoId,
+            cancellationToken);
+
+        return CriarResposta(assinatura, estabelecimentoId, profissionalAutonomoId);
     }
 
     public async Task<bool> PossuiModuloPorEstabelecimentoAsync(
@@ -44,20 +53,49 @@ public class ModulosAssinaturaService : IModulosAssinaturaService
     private static ModulosAssinaturaResponseDto CriarResposta(
         Assinatura? assinatura,
         int estabelecimentoId,
-        IReadOnlyList<ModuloAssinatura> modulos)
+        int? profissionalAutonomoId)
     {
         if (assinatura is null
-            || assinatura.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Trial))
+            || assinatura.Status is not (
+                AssinaturaStatus.Ativa
+                or AssinaturaStatus.Trial
+                or AssinaturaStatus.Inadimplente
+                or AssinaturaStatus.CancelamentoAgendado))
         {
             return ModulosAssinaturaResponseDto.Bloqueado(assinatura, estabelecimentoId);
         }
 
-        var modulosDoPlano = PlanoComercialCatalogo.Obter(assinatura.Plano).Modulos;
-        var modulosLiberados = modulos
+        var tipo = assinatura.TipoAssinatura;
+        var modulosDoPlano = PlanoComercialCatalogo.Obter(assinatura.Plano, tipo).Modulos;
+        var modulosLiberados = ModulosBaseTenant
             .Concat(modulosDoPlano)
             .Distinct()
             .ToList();
 
-        return ModulosAssinaturaResponseDto.Liberado(assinatura, estabelecimentoId, modulosLiberados);
+        return ModulosAssinaturaResponseDto.Liberado(
+            assinatura,
+            estabelecimentoId,
+            modulosLiberados,
+            profissionalAutonomoId);
+    }
+
+    private async Task<int?> ResolverProfissionalAutonomoIdAsync(
+        Assinatura? assinatura,
+        int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        if (assinatura?.TipoAssinatura != TipoAssinatura.ProfissionalAutonomo)
+        {
+            return null;
+        }
+
+        var vinculos = await _profissionalEstabelecimentoRepository.ListarAtivosPorEstabelecimentoAsync(
+            estabelecimentoId,
+            cancellationToken);
+
+        return vinculos
+            .Select(v => v.Profissional)
+            .FirstOrDefault(p => p is { TipoProfissional: ProfessionalType.Autonomo, Ativo: true })
+            ?.Id;
     }
 }

@@ -207,5 +207,6 @@ public class EstabelecimentoPerfilServiceTests
             _confirmacaoWhatsAppEstabelecimentoService.Object,
             _usuarioRepository.Object,
             _currentUser.Object,
-            new AvatarBase64Decoder(Options.Create(new AvatarOptions())));
+            new AvatarBase64Decoder(Options.Create(new AvatarOptions())),
+            new Base64ImageThumbnailer(Options.Create(new AvatarOptions())));
 }

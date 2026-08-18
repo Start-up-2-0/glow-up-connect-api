@@ -73,6 +73,8 @@ public class ProxyOriginIntegrationTests
                 {
                     ["GLOW_PROXY_SECRET"] = ProxySecret,
                     ["ProxyOrigin:Enabled"] = proxyEnabled.ToString().ToLowerInvariant(),
+                    ["RequestProof:Enabled"] = "false",
+                    ["RequestProof:Secret"] = "glow-dev-request-proof-secret-min-32!!",
                     ["Captcha:Enabled"] = "false"
                 });
             });

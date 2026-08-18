@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GLOWAPI.Application.DTOs.Agendamento;
+using GLOWAPI.Application.DTOs.Avaliacao;
 using GLOWAPI.Application.DTOs.Estabelecimentos;
 using GLOWAPI.Application.DTOs.Horarios;
 using GLOWAPI.Application.Helpers;
@@ -31,6 +32,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
     private readonly IProfissionalRepository _profissionalRepository;
     private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
     private readonly IAgendamentoRepository _agendamentoRepository;
+    private readonly IAgendamentoItemRepository _agendamentoItemRepository;
     private readonly IAgendamentoHistoricoRepository _agendamentoHistoricoRepository;
     private readonly IAgendamentoValidador _agendamentoValidador;
     private readonly IAgendamentoNotificacaoService _agendamentoNotificacaoService;
@@ -39,7 +41,10 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUsuarioService _usuarioService;
+    private readonly IAuthSessionService _authSessionService;
     private readonly IAgendamentoPropostaRemarcacaoRepository _propostaRemarcacaoRepository;
+    private readonly IAvaliacaoAtendimentoRepository _avaliacaoAtendimentoRepository;
+    private readonly IBase64ImageThumbnailer _thumbnailer;
     private readonly AuthOptions _authOptions;
 
     public AgendamentoNegocioService(
@@ -47,6 +52,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         IProfissionalRepository profissionalRepository,
         IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
         IAgendamentoRepository agendamentoRepository,
+        IAgendamentoItemRepository agendamentoItemRepository,
         IAgendamentoHistoricoRepository agendamentoHistoricoRepository,
         IAgendamentoValidador agendamentoValidador,
         IAgendamentoNotificacaoService agendamentoNotificacaoService,
@@ -55,13 +61,17 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         IAuditoriaNegocioService auditoriaNegocioService,
         ICurrentUserContext currentUserContext,
         IUsuarioService usuarioService,
+        IAuthSessionService authSessionService,
         IAgendamentoPropostaRemarcacaoRepository propostaRemarcacaoRepository,
+        IAvaliacaoAtendimentoRepository avaliacaoAtendimentoRepository,
+        IBase64ImageThumbnailer thumbnailer,
         IOptions<AuthOptions> authOptions)
     {
         _estabelecimentoRepository = estabelecimentoRepository;
         _profissionalRepository = profissionalRepository;
         _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
         _agendamentoRepository = agendamentoRepository;
+        _agendamentoItemRepository = agendamentoItemRepository;
         _agendamentoHistoricoRepository = agendamentoHistoricoRepository;
         _agendamentoValidador = agendamentoValidador;
         _agendamentoNotificacaoService = agendamentoNotificacaoService;
@@ -70,7 +80,10 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         _auditoriaNegocioService = auditoriaNegocioService;
         _currentUserContext = currentUserContext;
         _usuarioService = usuarioService;
+        _authSessionService = authSessionService;
         _propostaRemarcacaoRepository = propostaRemarcacaoRepository;
+        _avaliacaoAtendimentoRepository = avaliacaoAtendimentoRepository;
+        _thumbnailer = thumbnailer;
         _authOptions = authOptions.Value;
     }
 
@@ -109,7 +122,8 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             Profissional = new ProfissionalPublicoResponseDto
             {
                 PublicGuid = profissional.PublicGuid,
-                NomePublico = profissional.NomePublico
+                NomePublico = profissional.NomePublico,
+                Foto = string.IsNullOrWhiteSpace(profissional.Logo) ? null : profissional.Logo
             },
             PodeReceberAgendamento = vinculo?.PodeReceberAgendamento == true
         };
@@ -156,7 +170,10 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             .Select(vinculo => new ProfissionalPublicoResponseDto
             {
                 PublicGuid = vinculo.Profissional!.PublicGuid,
-                NomePublico = vinculo.Profissional.NomePublico
+                NomePublico = vinculo.Profissional.NomePublico,
+                Foto = string.IsNullOrWhiteSpace(vinculo.Profissional.Logo)
+                    ? null
+                    : _thumbnailer.ParaListagem(vinculo.Profissional.Logo, maxLadoPx: 96, qualidadeJpeg: 72),
             })
             .ToList();
     }
@@ -177,7 +194,9 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
                 PublicGuid = vinculo.Profissional!.PublicGuid,
                 NomePublico = vinculo.Profissional.NomePublico,
                 Biografia = vinculo.Profissional.Biografia,
-                Logo = vinculo.Profissional.Logo
+                Logo = _thumbnailer.ParaListagem(vinculo.Profissional.Logo, maxLadoPx: 96, qualidadeJpeg: 72),
+                NotaMedia = vinculo.Profissional.NotaMedia,
+                TotalAvaliacoes = vinculo.Profissional.TotalAvaliacoes
             })
             .ToList();
     }
@@ -250,6 +269,8 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             userId,
             cancellationToken: cancellationToken);
 
+        await RevogarSessaoAgendamentoPublicoSeAplicavelAsync(cancellationToken);
+
         var agendamento = await _agendamentoRepository.ObterPorIdEUsuarioClienteAsync(
             criado.Id,
             userId,
@@ -273,7 +294,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             total,
             filtro.Pagina,
             filtro.TamanhoPagina,
-            agendamentos.Select(AgendamentoClienteResponseDto.From).ToList());
+            await MapearAgendamentosClienteAsync(agendamentos, cancellationToken));
     }
 
     public async Task<AgendamentoClienteResponseDto> ObterMeuAgendamentoAsync(
@@ -281,7 +302,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         CancellationToken cancellationToken = default)
     {
         var agendamento = await ObterMeuAgendamentoEntidadeAsync(agendamentoId, cancellationToken);
-        return AgendamentoClienteResponseDto.From(agendamento);
+        return await MapearAgendamentoClienteAsync(agendamento, cancellationToken);
     }
 
     public async Task<AgendamentoClienteResponseDto> CancelarMeuAgendamentoAsync(
@@ -402,6 +423,60 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             cancellationToken);
 
         return AgendamentoCriadoResponseDto.From(agendamento);
+    }
+
+    public async Task<int> CancelarAgendamentosFuturosDoProfissionalAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        string motivo,
+        bool autorizarAgendaCancelar,
+        CancellationToken cancellationToken = default)
+    {
+        if (autorizarAgendaCancelar)
+        {
+            await _autorizacaoNegocioService.AutorizarAsync(
+                estabelecimentoId,
+                PermissaoNegocio.AgendaCancelar,
+                cancellationToken);
+        }
+
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            throw new AgendamentoStatusInvalidoException("Motivo do cancelamento e obrigatorio.");
+        }
+
+        var itensFuturos = await _agendamentoItemRepository.ListarAgendamentosFuturosAtivosPorProfissionalAsync(
+            estabelecimentoId,
+            profissionalId,
+            cancellationToken);
+
+        var agendamentoIds = itensFuturos
+            .Select(item => item.AgendamentoId)
+            .Distinct()
+            .ToArray();
+
+        var quantidadeCancelada = 0;
+        foreach (var agendamentoId in agendamentoIds)
+        {
+            var agendamento = await _agendamentoRepository.ObterPorIdEEstabelecimentoComItensAsync(
+                agendamentoId,
+                estabelecimentoId,
+                cancellationToken);
+
+            if (agendamento is null || !StatusAtivos.Contains(agendamento.Status))
+            {
+                continue;
+            }
+
+            await ExecutarCancelamentoAsync(
+                agendamento,
+                motivo.Trim(),
+                registrarAuditoriaEstabelecimento: true,
+                cancellationToken);
+            quantidadeCancelada++;
+        }
+
+        return quantidadeCancelada;
     }
 
     public async Task<AgendamentoCriadoResponseDto> RemarcarAsync(
@@ -528,6 +603,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             usuarioClienteId,
             agendamentoIgnorarId: null,
             inicioSelecionado: request.InicioSelecionado,
+            ignorarVinculoExecutorServico: !publicGuidProfissional.HasValue,
             cancellationToken);
 
         await _agendamentoValidador.ValidarConflitoAsync(
@@ -634,7 +710,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         CancellationToken cancellationToken)
     {
         var estabelecimento = await _estabelecimentoRepository.ObterPorPublicGuidAsync(publicGuidLoja, cancellationToken);
-        if (estabelecimento is null || !estabelecimento.Ativo)
+        if (estabelecimento is null || !estabelecimento.Ativo || !estabelecimento.VisivelPublicamente)
         {
             throw new NegocioNaoEncontradoException();
         }
@@ -703,11 +779,21 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
 
         foreach (var slot in slotsCompativeis)
         {
+            if (AgendaSemPreferenciaHelper.SlotEstabelecimento(slot.ProfissionalId))
+            {
+                return await GarantirExecutorEstabelecimentoAsync(estabelecimento, cancellationToken);
+            }
+
             var vinculo = await _profissionalEstabelecimentoRepository.ObterPorProfissionalAsync(
                 slot.ProfissionalId,
                 estabelecimento.Id,
                 cancellationToken);
-            if (vinculo is null || !vinculo.Ativo || !vinculo.PodeReceberAgendamento)
+            if (vinculo is null || !vinculo.Ativo)
+            {
+                continue;
+            }
+
+            if (!vinculo.PodeReceberAgendamento && !vinculo.SomenteExibicao)
             {
                 continue;
             }
@@ -721,6 +807,52 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
 
         throw new HorarioIndisponivelException(
             "Horario indisponivel para os servicos selecionados.");
+    }
+
+    private async Task<Profissional> GarantirExecutorEstabelecimentoAsync(
+        Estabelecimento estabelecimento,
+        CancellationToken cancellationToken)
+    {
+        var vinculos = await _profissionalEstabelecimentoRepository.ListarAtivosPorEstabelecimentoAsync(
+            estabelecimento.Id,
+            cancellationToken);
+
+        var vinculoPreferido = vinculos.FirstOrDefault(vinculo => vinculo.PodeReceberAgendamento)
+            ?? vinculos.FirstOrDefault(vinculo => vinculo.SomenteExibicao)
+            ?? vinculos.FirstOrDefault();
+
+        if (vinculoPreferido is not null)
+        {
+            var profissionalExistente = await _profissionalRepository.ObterPorIdAsync(
+                vinculoPreferido.ProfissionalId,
+                cancellationToken);
+            if (profissionalExistente is not null && profissionalExistente.Ativo)
+            {
+                return profissionalExistente;
+            }
+        }
+
+        var executor = new Profissional
+        {
+            NomePublico = estabelecimento.Nome,
+            Biografia = string.Empty,
+            Logo = estabelecimento.Logo,
+            TipoProfissional = ProfessionalType.VinculadoEstabelecimento,
+            Ativo = true
+        };
+
+        await _profissionalRepository.AdicionarAsync(executor, cancellationToken);
+        await _profissionalEstabelecimentoRepository.AdicionarAsync(new ProfissionalEstabelecimento
+        {
+            EstabelecimentoId = estabelecimento.Id,
+            Profissional = executor,
+            Ativo = true,
+            PodeReceberAgendamento = true,
+            SomenteExibicao = false
+        }, cancellationToken);
+        await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        return executor;
     }
 
     private async Task<Profissional> ResolverProfissionalPorGuidAsync(
@@ -816,6 +948,25 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
         }
 
         return _currentUserContext.UserId.Value;
+    }
+
+    private async Task RevogarSessaoAgendamentoPublicoSeAplicavelAsync(CancellationToken cancellationToken)
+    {
+        if (!_currentUserContext.SessionId.HasValue)
+        {
+            return;
+        }
+
+        var sessao = await _authSessionService.ObterSessaoPorIdAsync(
+            _currentUserContext.SessionId.Value,
+            cancellationToken);
+
+        if (sessao is null || !CodigoAgendamentoHelper.EhEscopoAgendamentoPublico(sessao.MetadataJson))
+        {
+            return;
+        }
+
+        await _authSessionService.RevogarSessaoAsync(sessao, cancellationToken);
     }
 
     private async Task<Agendamento> ObterMeuAgendamentoEntidadeAsync(
@@ -965,6 +1116,7 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             agendamento.UsuarioClienteId,
             agendamentoIgnorarId: agendamento.Id,
             inicioSelecionado: request.InicioSelecionado,
+            ignorarVinculoExecutorServico: false,
             cancellationToken);
 
         var statusAnterior = agendamento.Status;
@@ -1237,5 +1389,63 @@ public class AgendamentoNegocioService : IAgendamentoNegocioService
             contexto.Profissional,
             aceita: false,
             cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<AgendamentoClienteResponseDto>> MapearAgendamentosClienteAsync(
+        IReadOnlyList<Agendamento> agendamentos,
+        CancellationToken cancellationToken)
+    {
+        var ids = agendamentos.Select(agendamento => agendamento.Id).ToList();
+        var avaliacoes = await _avaliacaoAtendimentoRepository.ObterPorAgendamentoIdsAsync(ids, cancellationToken);
+        var itens = new List<AgendamentoClienteResponseDto>(agendamentos.Count);
+
+        foreach (var agendamento in agendamentos)
+        {
+            avaliacoes.TryGetValue(agendamento.Id, out var avaliacao);
+            // Listagem: sem logo base64 (detalhe mantém logo via MapearAgendamentoClienteAsync).
+            itens.Add(MapearAgendamentoCliente(agendamento, avaliacao, incluirLogo: false));
+        }
+
+        return itens;
+    }
+
+    private async Task<AgendamentoClienteResponseDto> MapearAgendamentoClienteAsync(
+        Agendamento agendamento,
+        CancellationToken cancellationToken)
+    {
+        var avaliacoes = await _avaliacaoAtendimentoRepository.ObterPorAgendamentoIdsAsync(
+            [agendamento.Id],
+            cancellationToken);
+        avaliacoes.TryGetValue(agendamento.Id, out var avaliacao);
+        return MapearAgendamentoCliente(agendamento, avaliacao, incluirLogo: true);
+    }
+
+    private static AgendamentoClienteResponseDto MapearAgendamentoCliente(
+        Agendamento agendamento,
+        AvaliacaoAtendimento? avaliacao,
+        bool incluirLogo = true)
+    {
+        var (status, resumo) = ResolverAvaliacaoCliente(agendamento, avaliacao);
+        return AgendamentoClienteResponseDto.From(agendamento, status, resumo, incluirLogo);
+    }
+
+    private static (string Status, AvaliacaoResumoClienteDto? Resumo) ResolverAvaliacaoCliente(
+        Agendamento agendamento,
+        AvaliacaoAtendimento? avaliacao)
+    {
+        if (agendamento.Status != AgendamentoStatus.Concluido)
+        {
+            return ("Indisponivel", null);
+        }
+
+        if (avaliacao is null)
+        {
+            return ("Pendente", null);
+        }
+
+        return ("Realizada", new AvaliacaoResumoClienteDto(
+            avaliacao.NotaEstabelecimento,
+            avaliacao.NotaProfissional,
+            avaliacao.AvaliadoEm));
     }
 }

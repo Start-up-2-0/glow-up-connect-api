@@ -31,7 +31,6 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.Estabelecimento,
-            diaVencimento = 10,
             pagamento = PagamentoValido(),
             estabelecimento = new
             {
@@ -116,7 +115,6 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
         {
             planoId = seed.PlanoId,
             tipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
-            diaVencimento = 15,
             pagamento = PagamentoValido(),
             profissionalAutonomo = new
             {
@@ -243,10 +241,7 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
     {
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { email, senha });
         loginResponse.EnsureSuccessStatusCode();
-
-        var loginBody = await loginResponse.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-        var token = loginBody.GetProperty("data").GetProperty("token").GetString();
-        client.DefaultRequestHeaders.Add("x-glow-token", token);
+        // Sessão autenticada via cookie HttpOnly guc_access (HandleCookies no client).
     }
 
     private async Task<bool> PossuiModuloEstabelecimentoAsync(int estabelecimentoId, ModuloAssinatura modulo)

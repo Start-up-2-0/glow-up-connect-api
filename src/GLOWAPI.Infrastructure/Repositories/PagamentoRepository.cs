@@ -55,6 +55,17 @@ public class PagamentoRepository : Repository<Pagamento>, IPagamentoRepository
             .ThenByDescending(pagamento => pagamento.Id)
             .ToListAsync(cancellationToken);
 
+    public Task<Pagamento?> ObterUltimoPendenteInicialPorAssinaturaAsync(
+        int assinaturaId,
+        CancellationToken cancellationToken = default) =>
+        DbSet
+            .Where(pagamento =>
+                pagamento.AssinaturaId == assinaturaId
+                && pagamento.Status == PagamentoStatus.Pendente
+                && pagamento.TipoCobranca == TipoCobrancaAssinatura.Inicial)
+            .OrderByDescending(pagamento => pagamento.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public async Task<IReadOnlyList<Pagamento>> ListarPendentesVencidosAsync(
         DateTime dataReferenciaUtc,
         CancellationToken cancellationToken = default) =>
@@ -66,4 +77,27 @@ public class PagamentoRepository : Repository<Pagamento>, IPagamentoRepository
                 && pagamento.DataVencimento.HasValue
                 && pagamento.DataVencimento.Value.Date < dataReferenciaUtc.Date)
             .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Pagamento>> ListarAtrasadosAlemToleranciaAsync(
+        DateTime dataLimiteVencimento,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Include(pagamento => pagamento.Assinatura)
+                .ThenInclude(assinatura => assinatura!.Plano)
+            .Where(pagamento =>
+                pagamento.AssinaturaId != null
+                && pagamento.Status == PagamentoStatus.Atrasado
+                && pagamento.DataVencimento.HasValue
+                && pagamento.DataVencimento.Value.Date <= dataLimiteVencimento.Date)
+            .ToListAsync(cancellationToken);
+
+    public Task<Pagamento?> ObterPagoPorAgendamentoAsync(
+        int agendamentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet.AsNoTracking().FirstOrDefaultAsync(
+            pagamento => pagamento.AgendamentoId == agendamentoId
+                && pagamento.Status == PagamentoStatus.Pago,
+            cancellationToken);
+    }
 }

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using GLOWAPI.Application.DTOs.Assinaturas;
 using GLOWAPI.Application.DTOs.Pagamentos;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Pagamentos;
@@ -26,7 +27,11 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
     private readonly ICicloCobrancaAssinaturaService _cicloCobrancaService;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAssinaturaOnboardingFinalizacaoService _assinaturaOnboardingFinalizacaoService;
+    private readonly IAssinaturaVisibilidadeService _assinaturaVisibilidadeService;
+    private readonly IAssinaturaEncerramentoService _assinaturaEncerramentoService;
+    private readonly IUsuarioRepository _usuarioRepository;
     private readonly MercadoPagoOptions _mercadoPagoOptions;
+    private readonly AssinaturaCobrancaOptions _assinaturaCobrancaOptions;
 
     public CobrancaAssinaturaService(
         IPagamentoRepository pagamentoRepository,
@@ -39,7 +44,11 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         ICicloCobrancaAssinaturaService cicloCobrancaService,
         ICurrentUserContext currentUser,
         IAssinaturaOnboardingFinalizacaoService assinaturaOnboardingFinalizacaoService,
-        IOptions<MercadoPagoOptions> mercadoPagoOptions)
+        IAssinaturaVisibilidadeService assinaturaVisibilidadeService,
+        IAssinaturaEncerramentoService assinaturaEncerramentoService,
+        IUsuarioRepository usuarioRepository,
+        IOptions<MercadoPagoOptions> mercadoPagoOptions,
+        IOptions<AssinaturaCobrancaOptions> assinaturaCobrancaOptions)
     {
         _pagamentoRepository = pagamentoRepository;
         _assinaturaRepository = assinaturaRepository;
@@ -51,7 +60,11 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         _cicloCobrancaService = cicloCobrancaService;
         _currentUser = currentUser;
         _assinaturaOnboardingFinalizacaoService = assinaturaOnboardingFinalizacaoService;
+        _assinaturaVisibilidadeService = assinaturaVisibilidadeService;
+        _assinaturaEncerramentoService = assinaturaEncerramentoService;
+        _usuarioRepository = usuarioRepository;
         _mercadoPagoOptions = mercadoPagoOptions.Value;
+        _assinaturaCobrancaOptions = assinaturaCobrancaOptions.Value;
     }
 
     public async Task<(Pagamento Pagamento, string? CheckoutUrl, string? QrCode)> GerarCobrancaInicialAsync(
@@ -65,19 +78,23 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
                 assinatura.ProximaDataVencimento.Value,
                 assinatura.ProximaDataGeracaoCobranca ?? DateTime.UtcNow.Date,
                 assinatura.ProximaDataAlerta ?? DateTime.UtcNow.Date)
-            : _cicloCobrancaService.CalcularPrimeiroCiclo(assinatura.DiaVencimento, DateTime.UtcNow);
+            : _cicloCobrancaService.CalcularPrimeiroCiclo(
+                assinatura.DataReferenciaCiclo,
+                DateTime.UtcNow,
+                plano.Periodo);
 
         var resultado = await CriarCobrancaGatewayAsync(
             assinatura,
             plano,
-            plano.Preco,
+            ResolverValorMensalidade(assinatura, plano),
             TipoCobrancaAssinatura.Inicial,
             1,
             ciclo,
             $"assinatura-{Guid.NewGuid():N}",
             $"Assinatura {plano.Nome}",
             pagamentoTransparente,
-            cancellationToken);
+            cancellationToken,
+            comExpiracaoCheckout: true);
 
         await NotificarCobrancaPendenteComLinkAsync(
             assinatura,
@@ -86,6 +103,36 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             cancellationToken);
 
         return resultado;
+    }
+
+    public async Task<(Pagamento Pagamento, string? CheckoutUrl, string? QrCode, bool Novo)> ObterOuRenovarCheckoutInicialAsync(
+        Assinatura assinatura,
+        Plano plano,
+        PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
+        CancellationToken cancellationToken = default)
+    {
+        if (assinatura.Id > 0)
+        {
+            var pendente = await _pagamentoRepository.ObterUltimoPendenteInicialPorAssinaturaAsync(
+                assinatura.Id,
+                cancellationToken);
+
+            if (pendente is not null && CheckoutAindaValido(pendente))
+            {
+                return (pendente, ReconstruirCheckoutUrl(pendente), null, false);
+            }
+
+            if (pendente is not null)
+            {
+                pendente.Status = PagamentoStatus.Expirado;
+                pendente.UpdatedAt = DateTime.UtcNow;
+                _pagamentoRepository.Atualizar(pendente);
+                await _pagamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+            }
+        }
+
+        var gerado = await GerarCobrancaInicialAsync(assinatura, plano, pagamentoTransparente, cancellationToken);
+        return (gerado.Pagamento, gerado.CheckoutUrl, gerado.QrCode, true);
     }
 
     public async Task<Pagamento> GerarCobrancaRecorrenteAsync(
@@ -132,7 +179,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             var resultado = await CriarCobrancaGatewayAsync(
                 assinatura,
                 assinatura.Plano,
-                assinatura.Plano.Preco,
+                ResolverValorMensalidade(assinatura, assinatura.Plano),
                 TipoCobrancaAssinatura.Recorrente,
                 numeroCiclo,
                 ciclo,
@@ -147,7 +194,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         {
             pagamento = CriarPagamentoInterno(
                 assinatura,
-                assinatura.Plano.Preco,
+                ResolverValorMensalidade(assinatura, assinatura.Plano),
                 TipoCobrancaAssinatura.Recorrente,
                 numeroCiclo,
                 ciclo,
@@ -195,12 +242,15 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
                 assinatura.ProximaDataVencimento.Value,
                 assinatura.ProximaDataGeracaoCobranca ?? DateTime.UtcNow.Date,
                 assinatura.ProximaDataAlerta ?? DateTime.UtcNow.Date)
-            : _cicloCobrancaService.CalcularPrimeiroCiclo(assinatura.DiaVencimento, DateTime.UtcNow);
+            : _cicloCobrancaService.CalcularPrimeiroCiclo(
+                assinatura.DataReferenciaCiclo,
+                DateTime.UtcNow,
+                novoPlano.Periodo);
 
         var resultado = await CriarCobrancaGatewayAsync(
             assinatura,
             novoPlano,
-            novoPlano.Preco,
+            ResolverValorMensalidade(assinatura, novoPlano),
             TipoCobrancaAssinatura.TrocaPlano,
             1,
             ciclo,
@@ -208,7 +258,8 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             $"Troca de plano para {novoPlano.Nome}",
             pagamentoTransparente,
             cancellationToken,
-            gateway);
+            gateway,
+            comExpiracaoCheckout: true);
 
         await NotificarCobrancaPendenteComLinkAsync(
             assinatura,
@@ -262,10 +313,13 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             assinatura.PlanoAlteracaoPendente = null;
         }
 
-        if (assinatura.Status is AssinaturaStatus.PendentePagamento or AssinaturaStatus.Trial)
+        if (assinatura.Status is AssinaturaStatus.PendentePagamento or AssinaturaStatus.Trial or AssinaturaStatus.Inadimplente)
         {
             assinatura.Status = AssinaturaStatus.Ativa;
-            assinatura.Inicio = pagamento.PagoEm.Value;
+            if (statusAssinaturaAnterior != AssinaturaStatus.Inadimplente)
+            {
+                assinatura.Inicio = pagamento.PagoEm.Value;
+            }
         }
 
         var fimAnterior = assinatura.Fim;
@@ -276,9 +330,18 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         if (assinatura.ProximaDataVencimento.HasValue)
         {
             var proximoCiclo = _cicloCobrancaService.CalcularProximoCiclo(
-                assinatura.DiaVencimento,
-                assinatura.ProximaDataVencimento.Value);
+                assinatura.ProximaDataVencimento.Value,
+                assinatura.Plano?.Periodo ?? PlanoPeriodo.Mensal);
             _cicloCobrancaService.AplicarCicloNaAssinatura(assinatura, proximoCiclo);
+        }
+
+        if (statusAssinaturaAnterior == AssinaturaStatus.Inadimplente)
+        {
+            await _assinaturaVisibilidadeService.ReexibirLojasVinculadasAsync(assinatura, cancellationToken);
+        }
+        else if (statusAssinaturaAnterior is AssinaturaStatus.PendentePagamento or AssinaturaStatus.Trial)
+        {
+            await _assinaturaVisibilidadeService.ReexibirLojasVinculadasAsync(assinatura, cancellationToken);
         }
 
         _assinaturaRepository.Atualizar(assinatura);
@@ -385,6 +448,23 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
 
             if (pagamento.Assinatura is not null)
             {
+                var assinatura = pagamento.Assinatura;
+                if (assinatura.Status is AssinaturaStatus.Ativa or AssinaturaStatus.Trial)
+                {
+                    var statusAssinaturaAnterior = assinatura.Status;
+                    assinatura.Status = AssinaturaStatus.Inadimplente;
+                    assinatura.UpdatedAt = DateTime.UtcNow;
+                    _assinaturaRepository.Atualizar(assinatura);
+                    await _assinaturaHistoricoService.RegistrarAssinaturaAsync(
+                        assinatura,
+                        "AssinaturaInadimplente",
+                        statusAssinaturaAnterior,
+                        assinatura.Status,
+                        pagamento,
+                        "Assinatura em tolerancia de inadimplencia.",
+                        cancellationToken: cancellationToken);
+                }
+
                 await _assinaturaHistoricoService.RegistrarRecorrenciaAsync(
                     pagamento.Assinatura,
                     "CobrancaAtrasada",
@@ -405,6 +485,55 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         }
 
         return marcados;
+    }
+
+    public async Task<int> EncerrarInadimplentesAsync(CancellationToken cancellationToken = default)
+    {
+        var dataLimiteVencimento = DateTime.UtcNow.Date
+            .AddDays(-_assinaturaCobrancaOptions.DiasToleranciaInadimplencia);
+        var pagamentos = await _pagamentoRepository.ListarAtrasadosAlemToleranciaAsync(
+            dataLimiteVencimento,
+            cancellationToken);
+
+        var assinaturasProcessadas = new HashSet<int>();
+        var encerradas = 0;
+
+        foreach (var pagamento in pagamentos)
+        {
+            if (pagamento.Assinatura is null || pagamento.AssinaturaId is null)
+            {
+                continue;
+            }
+
+            if (!assinaturasProcessadas.Add(pagamento.AssinaturaId.Value))
+            {
+                continue;
+            }
+
+            var assinatura = pagamento.Assinatura;
+            if (assinatura.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Inadimplente or AssinaturaStatus.Trial or AssinaturaStatus.CancelamentoAgendado))
+            {
+                continue;
+            }
+
+            await _assinaturaEncerramentoService.EncerrarAsync(
+                assinatura,
+                AssinaturaStatus.Expirada,
+                "AssinaturaEncerradaInadimplencia",
+                "Assinatura encerrada automaticamente apos tolerancia de inadimplencia.",
+                pagamento,
+                cancellationToken);
+
+            encerradas++;
+        }
+
+        if (encerradas > 0)
+        {
+            await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+            await _usuarioRepository.SalvarAlteracoesAsync(cancellationToken);
+        }
+
+        return encerradas;
     }
 
     public async Task<IReadOnlyList<CobrancaAssinaturaResponseDto>> ListarPorAssinaturaAsync(
@@ -448,7 +577,8 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         string descricao,
         PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
         CancellationToken cancellationToken,
-        GatewayPagamento? gatewayOverride = null)
+        GatewayPagamento? gatewayOverride = null,
+        bool comExpiracaoCheckout = false)
     {
         var gatewayPagamento = gatewayOverride ?? assinatura.Gateway;
         var gateway = _gatewayPagamentoResolver.Resolver(gatewayPagamento);
@@ -462,6 +592,12 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             ? titular.Email
             : _currentUser.Email ?? string.Empty;
 
+        DateTime? expiraEm = null;
+        if (comExpiracaoCheckout)
+        {
+            expiraEm = CalcularExpiraEmCheckout();
+        }
+
         var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
             Gateway: gatewayPagamento,
             ReferenciaInterna: referenciaInterna,
@@ -470,6 +606,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             Moeda: "BRL",
             PagadorNome: pagadorNome,
             PagadorEmail: pagadorEmail,
+            ExpiraEm: expiraEm,
             Metadados: new Dictionary<string, string>
             {
                 ["assinaturaId"] = assinatura.Id > 0 ? assinatura.Id.ToString() : string.Empty,
@@ -503,7 +640,8 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             DataVencimento = ciclo.Vencimento,
             DataGeracao = ciclo.Geracao,
             CicloInicio = ciclo.Vencimento.AddMonths(-1),
-            CicloFim = ciclo.Vencimento
+            CicloFim = ciclo.Vencimento,
+            ExpiraEm = expiraEm
         };
 
         return (pagamento, response.CheckoutUrl, response.QrCode);
@@ -562,6 +700,11 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             titular,
             cancellationToken);
     }
+
+    private static decimal ResolverValorMensalidade(Assinatura assinatura, Plano plano) =>
+        AssinaturaValorCobranca.CalcularMensalidade(
+            PlanoComercialCatalogo.ResolverPreco(plano, assinatura.TipoAssinatura),
+            assinatura.PercentualDescontoPermanente);
 
     private static Pagamento CriarPagamentoInterno(
         Assinatura assinatura,
@@ -632,5 +775,43 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             PlanoPeriodo.Anual => baseCalculo.AddYears(1),
             _ => baseCalculo.AddMonths(1)
         };
+    }
+
+    private DateTime CalcularExpiraEmCheckout()
+    {
+        var minutos = _assinaturaCobrancaOptions.MinutosExpiracaoCheckout;
+        if (minutos <= 0)
+        {
+            minutos = 5;
+        }
+
+        if (_mercadoPagoOptions.SandboxAtivo())
+        {
+            minutos = Math.Max(minutos, 30);
+        }
+
+        return BrasilDateTimeHelper.Agora().AddMinutes(minutos);
+    }
+
+    private static bool CheckoutAindaValido(Pagamento pagamento) =>
+        pagamento.ExpiraEm.HasValue
+        && pagamento.ExpiraEm.Value > BrasilDateTimeHelper.Agora();
+
+    private string? ReconstruirCheckoutUrl(Pagamento pagamento)
+    {
+        if (string.IsNullOrWhiteSpace(pagamento.GatewayPaymentId))
+        {
+            return null;
+        }
+
+        if (!string.Equals(pagamento.MetodoPagamento, "checkout_pro", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var host = _mercadoPagoOptions.SandboxAtivo()
+            ? "https://sandbox.mercadopago.com.br"
+            : "https://www.mercadopago.com.br";
+        return $"{host}/checkout/v1/redirect?pref_id={Uri.EscapeDataString(pagamento.GatewayPaymentId)}";
     }
 }

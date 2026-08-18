@@ -1,6 +1,7 @@
 using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Planos;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,9 +20,12 @@ public class PlanosController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet]
-    public async Task<IActionResult> ListarAtivos(CancellationToken cancellationToken)
+    public async Task<IActionResult> ListarAtivos(
+        [FromQuery] TipoAssinatura? tipoAssinatura,
+        CancellationToken cancellationToken)
     {
-        var resultado = await _planoService.ListarAtivosAsync(cancellationToken);
+        var tipo = tipoAssinatura ?? TipoAssinatura.Estabelecimento;
+        var resultado = await _planoService.ListarAtivosAsync(tipo, cancellationToken);
         return Ok(ApiSuccessResponse<PlanosAtivosResponseDto>.From(
             "Planos disponiveis para contratacao.",
             resultado));

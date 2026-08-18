@@ -1,4 +1,5 @@
 using System.Text.Json;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Auth;
@@ -67,6 +68,51 @@ public class AuthSessionService : IAuthSessionService
             sessao.Id);
     }
 
+    public async Task<IssuedTokenPair> CriarSessaoAgendamentoPublicoAsync(
+        Usuario usuario,
+        AuthSessionContext context,
+        CancellationToken cancellationToken = default)
+    {
+        var agora = DateTime.UtcNow;
+        var accessExpiraEm = _tokenService.ObterExpiracaoAccessToken(agora);
+        // Refresh placeholder — não é enviado ao cliente; ExpiraEm = access (15 min).
+        var refreshToken = _tokenService.GerarRefreshToken();
+
+        var sessao = new SessaoAutenticacao
+        {
+            UsuarioId = usuario.Id,
+            RefreshTokenHash = _tokenService.HashToken(refreshToken),
+            LoginEm = agora,
+            AccessTokenExpiraEm = accessExpiraEm,
+            ExpiraEm = accessExpiraEm,
+            Ip = context.Ip,
+            UserAgent = context.UserAgent,
+            MetadataJson = JsonSerializer.Serialize(new
+            {
+                userId = usuario.Id,
+                email = usuario.Email,
+                issuedAt = agora,
+                scope = CodigoAgendamentoHelper.ScopeAgendamentoPublico
+            })
+        };
+
+        await _sessaoRepository.AdicionarAsync(sessao, cancellationToken);
+        await _sessaoRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        var accessToken = _tokenService.EmitirAccessToken(usuario, sessao.Id, agora);
+        sessao.AccessTokenHash = _tokenService.HashToken(accessToken);
+
+        _sessaoRepository.Atualizar(sessao);
+        await _sessaoRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        return new IssuedTokenPair(
+            accessToken,
+            string.Empty,
+            sessao.AccessTokenExpiraEm,
+            sessao.ExpiraEm,
+            sessao.Id);
+    }
+
     public async Task<AuthenticatedSessionResult> ObterSessaoAtivaPorAccessTokenAsync(
         string accessToken,
         AuthSessionContext context,
@@ -97,7 +143,13 @@ public class AuthSessionService : IAuthSessionService
         ValidarContextoSessao(sessao, context);
 
         var usuario = sessao.Usuario;
-        if (!usuario.PodeAutenticarOnboarding(_authOptions.MaxLoginAttempts))
+        if (usuario.ExclusaoPendenteDentroDoPrazo(DateTime.UtcNow))
+        {
+            throw new ContaEmExclusaoException(usuario.ExclusaoEfetivarEm);
+        }
+
+        if (usuario.ExclusaoStatus == Domain.Enums.ExclusaoStatus.Pendente
+            || !usuario.PodeAutenticarOnboarding(_authOptions.MaxLoginAttempts))
         {
             if (usuario.EstaBloqueado(_authOptions.MaxLoginAttempts))
             {
@@ -146,6 +198,24 @@ public class AuthSessionService : IAuthSessionService
     {
         sessao.Revogar(DateTime.UtcNow);
         _sessaoRepository.Atualizar(sessao);
+        await _sessaoRepository.SalvarAlteracoesAsync(cancellationToken);
+    }
+
+    public async Task RevogarTodasSessoesDoUsuarioAsync(int usuarioId, CancellationToken cancellationToken = default)
+    {
+        var sessoes = await _sessaoRepository.ListarAtivasPorUsuarioAsync(usuarioId, cancellationToken);
+        if (sessoes.Count == 0)
+        {
+            return;
+        }
+
+        var agora = DateTime.UtcNow;
+        foreach (var sessao in sessoes)
+        {
+            sessao.Revogar(agora);
+            _sessaoRepository.Atualizar(sessao);
+        }
+
         await _sessaoRepository.SalvarAlteracoesAsync(cancellationToken);
     }
 

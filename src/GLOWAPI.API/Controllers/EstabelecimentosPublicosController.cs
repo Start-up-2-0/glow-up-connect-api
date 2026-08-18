@@ -2,6 +2,7 @@ using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Agendamento;
 using GLOWAPI.Application.DTOs.Estabelecimentos;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -28,6 +29,7 @@ public class EstabelecimentosPublicosController : ControllerBase
         [FromQuery] decimal latitude,
         [FromQuery] decimal longitude,
         [FromQuery] double? raioKm,
+        [FromQuery] int? categoriaId,
         [FromQuery] int pagina = 1,
         [FromQuery] int tamanhoPagina = 20,
         CancellationToken cancellationToken = default)
@@ -38,11 +40,26 @@ public class EstabelecimentosPublicosController : ControllerBase
             raioKm,
             pagina,
             tamanhoPagina,
+            categoriaId,
             cancellationToken);
 
         return Ok(ApiSuccessResponse<EstabelecimentosProximosPaginadoResponseDto>.From(
             "Estabelecimentos proximos listados com sucesso.",
             resultado));
+    }
+
+    [HttpGet("categorias")]
+    public async Task<IActionResult> ListarCategorias(
+        [FromQuery] TipoAssinatura? tipoAssinatura,
+        CancellationToken cancellationToken)
+    {
+        var categorias = await _estabelecimentoDescobertaService.ListarCategoriasAsync(
+            tipoAssinatura,
+            cancellationToken);
+
+        return Ok(ApiSuccessResponse<IReadOnlyList<EstabelecimentoCategoriaDto>>.From(
+            "Categorias de estabelecimento listadas com sucesso.",
+            categorias));
     }
 
     [HttpGet("{publicGuid:guid}/profissionais-vitrine")]

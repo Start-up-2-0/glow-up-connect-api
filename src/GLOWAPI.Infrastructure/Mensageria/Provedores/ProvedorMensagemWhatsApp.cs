@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
-using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Models.Mensageria;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Entities;
@@ -30,14 +30,14 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
 
     public CanalMensagemNotificacao CanalSuportado => CanalMensagemNotificacao.WhatsApp;
 
+    // IMPLEMENTAÇÃO DA INTERFACE IProvedorMensagem
     public async Task<ResultadoEnvioMensagem> EnviarAsync(
         MensagemNotificacao mensagem,
         CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var sw = Stopwatch.StartNew();
+        var swInterface = Stopwatch.StartNew();
 
-        var requestPayload = JsonSerializer.Serialize(new
+        var requestPayloadStub = JsonSerializer.Serialize(new
         {
             mensagem.Destinatario,
             mensagem.Assunto,
@@ -54,26 +54,26 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
                 mensagem.Guid,
                 mensagem.Destinatario);
 
-            sw.Stop();
+            swInterface.Stop();
             return new ResultadoEnvioMensagem(
                 Sucesso: true,
-                RequestPayload: requestPayload,
+                RequestPayload: requestPayloadStub,
                 ResponsePayload: """{"status":"stub_ok"}""",
                 RespostaProvedor: "stub-whatsapp",
                 MensagemErro: null,
-                TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
+                TempoExecucaoMs: (int)swInterface.ElapsedMilliseconds);
         }
 
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
         {
-            sw.Stop();
+            swInterface.Stop();
             return new ResultadoEnvioMensagem(
                 Sucesso: false,
-                RequestPayload: requestPayload,
+                RequestPayload: requestPayloadStub,
                 ResponsePayload: null,
                 RespostaProvedor: null,
                 MensagemErro: "Mensageria:WhatsApp:ApiKey nao configurado.",
-                TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
+                TempoExecucaoMs: (int)swInterface.ElapsedMilliseconds);
         }
 
         try
@@ -82,50 +82,34 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
                 mensagem.Destinatario,
                 mensagem.PayloadJson);
 
-            if (candidatos.Count == 0)
-            {
-                sw.Stop();
-                _logger.LogWarning(
-                    "WhatsApp outbound ignorado: destinatario invalido para Evolution sendText. MensagemGuid={MensagemGuid}, Destinatario={Destinatario}",
-                    mensagem.Guid,
-                    mensagem.Destinatario);
+            // LOG TEMPORARIO: Payload que sera enviado para Evolution API
+            var logRequestBodyParaEvolution = EvolutionSendTextRequestBuilder.CriarBodyV1(
+                candidatos.FirstOrDefault() ?? mensagem.Destinatario,
+                mensagem.Conteudo);
+            _logger.LogInformation("WhatsApp (Provedor): Payload para Evolution API: {Payload}", logRequestBodyParaEvolution);
 
-                return new ResultadoEnvioMensagem(
-                    Sucesso: false,
-                    RequestPayload: requestPayload,
-                    ResponsePayload: null,
-                    RespostaProvedor: null,
-                    MensagemErro: "Destinatario WhatsApp invalido para Evolution sendText.",
-                    TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
-            }
-
-            var envio = new EvolutionWhatsAppTextoEnvio(
-                _httpClient,
-                Options.Create(_options),
-                _logger);
-
-            var (sucesso, responseBody, destinatarioUsado, formatoUsado) = await envio.EnviarAsync(
+            var (sucesso, responseBody, destinatarioUsado, formatoUsado, tempoExecucaoMs) = await EnviarTextoParaCandidatosInternoAsync( // <-- Chama o novo método interno
                 candidatos,
                 mensagem.Conteudo,
                 cancellationToken);
 
-            sw.Stop();
+            swInterface.Stop();
 
             if (!sucesso)
             {
                 _logger.LogWarning(
-                    "Evolution sendText falhou. MensagemGuid={MensagemGuid}, Destinatario={Destinatario}, Response={Response}",
+                    "Evolution sendText tentativa falhou. MensagemGuid={MensagemGuid}, Destinatario={Destinatario}, Response={Response}",
                     mensagem.Guid,
                     destinatarioUsado,
                     responseBody);
 
                 return new ResultadoEnvioMensagem(
                     Sucesso: false,
-                    RequestPayload: requestPayload,
+                    RequestPayload: logRequestBodyParaEvolution, // Re-utiliza o payload para log
                     ResponsePayload: responseBody,
                     RespostaProvedor: null,
                     MensagemErro: "Evolution API nao confirmou entrega do texto.",
-                    TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
+                    TempoExecucaoMs: tempoExecucaoMs);
             }
 
             _logger.LogInformation(
@@ -135,24 +119,103 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
 
             return new ResultadoEnvioMensagem(
                 Sucesso: true,
-                RequestPayload: requestPayload,
+                RequestPayload: logRequestBodyParaEvolution, // Re-utiliza o payload para log
                 ResponsePayload: responseBody,
                 RespostaProvedor: $"evolution-whatsapp-{formatoUsado}",
                 MensagemErro: null,
-                TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
+                TempoExecucaoMs: tempoExecucaoMs);
         }
         catch (Exception ex)
         {
-            sw.Stop();
+            swInterface.Stop();
             _logger.LogWarning(ex, "Falha ao enviar WhatsApp via Evolution API. MensagemGuid={MensagemGuid}", mensagem.Guid);
 
             return new ResultadoEnvioMensagem(
                 Sucesso: false,
-                RequestPayload: requestPayload,
+                RequestPayload: null,
                 ResponsePayload: ex.Message,
                 RespostaProvedor: null,
                 MensagemErro: ex.Message,
-                TempoExecucaoMs: (int)sw.ElapsedMilliseconds);
+                TempoExecucaoMs: (int)swInterface.ElapsedMilliseconds);
         }
+    }
+
+    // Método principal que faz a chamada HTTP real, agora interno
+    private async Task<(bool Sucesso, string? ResponseBody, string DestinatarioUsado, string FormatoUsado, int TempoExecucaoMs)> EnviarTextoParaCandidatosInternoAsync(
+        IReadOnlyList<string> candidatosDestino,
+        string conteudo,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var swInterno = Stopwatch.StartNew();
+
+        if (candidatosDestino.Count == 0 || string.IsNullOrWhiteSpace(conteudo))
+        {
+            swInterno.Stop();
+            return (false, null, string.Empty, "destino-invalido", (int)swInterno.ElapsedMilliseconds);
+        }
+
+        var ultimoBody = string.Empty;
+        HttpResponseMessage? ultimaResponse = null;
+        string ultimoDestino = candidatosDestino.FirstOrDefault() ?? string.Empty;
+        const string formato = "v1-textMessage";
+
+        // Conteudo e texto simples com marcacao WhatsApp (*negrito*, \n, emojis)
+        // Nao ha risco de injecao HTML em mensagem de texto WhatsApp
+
+        foreach (var candidato in candidatosDestino)
+        {
+            var url = $"{_options.ApiUrl.TrimEnd('/')}/message/sendText/{Uri.EscapeDataString(_options.InstanceName)}";
+            var requestBody = EvolutionSendTextRequestBuilder.CriarBodyV1(candidato, conteudo);
+
+            _logger.LogInformation(
+                "Evolution sendText request. Url={Url}, Destinatario={Destinatario}, Formato={Formato}, Body={Body}",
+                url,
+                candidato,
+                "v1-text",
+                requestBody);
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, url);
+            request.Headers.TryAddWithoutValidation("apiKey", _options.ApiKey);
+            request.Content = new StringContent(requestBody, System.Text.Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.SendAsync(request, cancellationToken);
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            ultimoBody = responseBody;
+            ultimaResponse = response;
+            ultimoDestino = candidato;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Evolution sendText tentativa falhou. StatusCode={StatusCode}, Destinatario={Destinatario}, Formato={Formato}, Response={Response}",
+                    (int)response.StatusCode,
+                    candidato,
+                    formato,
+                    responseBody);
+                continue;
+            }
+
+            swInterno.Stop();
+            _logger.LogInformation(
+                "Evolution sendText ok. Destinatario={Destinatario}, Formato={Formato}, Response={Response}",
+                candidato,
+                formato,
+                responseBody);
+
+            return (true, responseBody, candidato, formato, (int)swInterno.ElapsedMilliseconds);
+        }
+
+        swInterno.Stop();
+        var status = ultimaResponse is null ? 0 : (int)ultimaResponse.StatusCode;
+        _logger.LogWarning(
+            "Evolution sendText esgotou tentativas. UltimoStatus={StatusCode}, Destinatario={Destinatario}, Formato={Formato}, Response={Response}",
+            status,
+            ultimoDestino,
+            formato,
+            ultimoBody);
+
+        return (false, ultimoBody, ultimoDestino, formato, (int)swInterno.ElapsedMilliseconds);
     }
 }

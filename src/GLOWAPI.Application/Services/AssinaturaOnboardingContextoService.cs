@@ -168,7 +168,7 @@ public class AssinaturaOnboardingContextoService : IAssinaturaOnboardingContexto
                 cancellationToken);
 
             if (assinatura?.Status is not (AssinaturaStatus.Ativa or AssinaturaStatus.Trial)
-                || !PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano))
+                || !PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano, assinatura.TipoAssinatura))
             {
                 continue;
             }

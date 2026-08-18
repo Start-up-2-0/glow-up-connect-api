@@ -2,6 +2,7 @@ using GLOWAPI.Application.DTOs.Assinaturas;
 using GLOWAPI.Application.DTOs.Pagamentos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Models.Assinaturas;
 using GLOWAPI.Application.Models.Pagamentos;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Application.Services;
@@ -11,6 +12,7 @@ using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
 using GLOWAPI.Tests.Helpers;
 using Moq;
+using System.Text.Json;
 
 namespace GLOWAPI.Tests.Unit.Application;
 
@@ -39,10 +41,29 @@ public class AssinaturaServiceTests
     {
         _usuarioRepository
             .Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(UsuarioBuilder.Criar(id: 10));
+            .ReturnsAsync(UsuarioBuilder.Criar(id: 10, whatsAppConfirmadoEm: DateTime.UtcNow));
+        _estabelecimentoRepository
+            .Setup(r => r.ListarCategoriasAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<CategoriaEstabelecimento>
+            {
+                new()
+                {
+                    Id = 1,
+                    Nome = "Barbearia ou salão de beleza",
+                    TipoAssinatura = TipoAssinatura.Estabelecimento,
+                    Ativo = true
+                },
+                new()
+                {
+                    Id = 2,
+                    Nome = "Barbeiro ou cabeleireiro(a)",
+                    TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+                    Ativo = true
+                }
+            });
         _promocaoLancamentoService
             .Setup(s => s.ObterStatusAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PromocaoLancamentoStatusDto(false, 0, 30, [5, 10, 15, 20], 3, 2));
+            .ReturnsAsync(new PromocaoLancamentoStatusDto(false, 0, 14, 50, 7, 7, 10));
         _promocaoLancamentoService
             .Setup(s => s.TentarReservarVagaAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
@@ -117,6 +138,9 @@ public class AssinaturaServiceTests
             .Setup(r => r.AdicionarAsync(It.IsAny<Pagamento>(), It.IsAny<CancellationToken>()))
             .Callback<Pagamento, CancellationToken>((pagamento, _) => pagamento.Id = 90)
             .Returns(Task.CompletedTask);
+        _assinaturaRepository
+            .Setup(r => r.ListarPendentesComOnboardingJsonAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<Assinatura>());
     }
 
     [Fact]
@@ -132,7 +156,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         _assinaturaRepository
             .Setup(r => r.ExisteAtivaOuPendentePorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
@@ -242,6 +266,7 @@ public class AssinaturaServiceTests
         Assert.Equal("SP", estabelecimentoCriado.Endereco.Estado);
         Assert.Equal("Rua Glow", estabelecimentoCriado.Endereco.Logradouro);
         Assert.True(estabelecimentoCriado.Ativo);
+        Assert.Equal(1, estabelecimentoCriado.CategoriaEstabelecimentoId);
         Assert.NotEqual(Guid.Empty, estabelecimentoCriado.PublicGuid);
 
         Assert.NotNull(vinculoCriado);
@@ -337,7 +362,7 @@ public class AssinaturaServiceTests
                 NomePublico = " Maria Glow ",
                 Biografia = " Especialista em beleza ",
                 Logo = LogoBase64TestHelper.PngDataUri,
-                Telefone = "11988888888",
+                Telefone = "11999999999",
                 Email = "maria@email.com",
                 Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Campinas", logradouro: "Sala 12", numero: "12", bairro: "Centro")
             }
@@ -353,7 +378,7 @@ public class AssinaturaServiceTests
         Assert.Equal("Maria Glow", profissionalCriado.NomePublico);
         Assert.Equal("Especialista em beleza", profissionalCriado.Biografia);
         Assert.StartsWith("data:image/png;base64,", profissionalCriado!.Logo);
-        Assert.Equal("5511988888888", profissionalCriado.Telefone);
+        Assert.Equal("5511999999999", profissionalCriado.Telefone);
         Assert.Equal("maria@email.com", profissionalCriado.Email);
         Assert.Equal(ProfessionalType.Autonomo, profissionalCriado.TipoProfissional);
         Assert.True(profissionalCriado.Ativo);
@@ -362,6 +387,7 @@ public class AssinaturaServiceTests
         Assert.NotNull(estabelecimentoCriado);
         Assert.Equal("Maria Glow", estabelecimentoCriado!.Nome);
         Assert.Equal("Especialista em beleza", estabelecimentoCriado.Descricao);
+        Assert.Equal(2, estabelecimentoCriado.CategoriaEstabelecimentoId);
         Assert.NotNull(estabelecimentoCriado.Endereco);
         Assert.Equal("Campinas", estabelecimentoCriado.Endereco!.Cidade);
         Assert.Equal("SP", estabelecimentoCriado.Endereco.Estado);
@@ -430,7 +456,7 @@ public class AssinaturaServiceTests
                 NomePublico = "Novo nome",
                 Biografia = "Nova bio",
                 Logo = LogoBase64TestHelper.PngDataUri,
-                Telefone = "11977777777",
+                Telefone = "11999999999",
                 Email = "novo@email.com",
                 Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Santos", logradouro: "Av Praia")
             }
@@ -441,7 +467,7 @@ public class AssinaturaServiceTests
         Assert.Equal("Novo nome", profissional.NomePublico);
         Assert.Equal("Nova bio", profissional.Biografia);
         Assert.StartsWith("data:image/png;base64,", profissional.Logo);
-        Assert.Equal("5511977777777", profissional.Telefone);
+        Assert.Equal("5511999999999", profissional.Telefone);
         Assert.Equal("novo@email.com", profissional.Email);
         Assert.True(profissional.Ativo);
         Assert.NotNull(profissional.UpdatedAt);
@@ -451,6 +477,79 @@ public class AssinaturaServiceTests
         Assert.Equal("Av Praia", estabelecimentoCriado.Endereco.Logradouro);
 
         _profissionalRepository.Verify(r => r.Atualizar(profissional), Times.Once);
+    }
+
+    [Fact]
+    public async Task IniciarAsync_DeveLancarTelefoneNaoConfirmado_QuandoTelefoneIgualMasWhatsAppPendente()
+    {
+        _usuarioRepository
+            .Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(UsuarioBuilder.Criar(id: 10, telefone: "11999999999", whatsAppConfirmadoEm: null));
+
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Plano { Id = 1, Ativo = true });
+
+        _profissionalRepository
+            .Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Profissional?)null);
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<TelefoneAssinaturaNaoConfirmadoException>(() =>
+            service.IniciarAsync(new IniciarAssinaturaRequestDto
+            {
+                PlanoId = 1,
+                TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+                Pagamento = PagamentoValido(),
+                ProfissionalAutonomo = new CriarProfissionalAutonomoAssinaturaDto
+                {
+                    NomePublico = "Maria Glow",
+                    Biografia = "Bio",
+                    Logo = LogoBase64TestHelper.PngDataUri,
+                    Telefone = "11999999999",
+                    Email = "maria@email.com",
+                    Endereco = EnderecoOperacaoDtoBuilder.Criar()
+                }
+            }));
+    }
+
+    [Fact]
+    public async Task IniciarAsync_DeveLancarTelefoneDivergente_QuandoTelefoneDiferenteDaConta()
+    {
+        _usuarioRepository
+            .Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(UsuarioBuilder.Criar(
+                id: 10,
+                telefone: "11999999999",
+                whatsAppConfirmadoEm: DateTime.UtcNow));
+
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Plano { Id = 1, Ativo = true });
+
+        _profissionalRepository
+            .Setup(r => r.ObterPorUsuarioIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Profissional?)null);
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<TelefoneAssinaturaDivergenteException>(() =>
+            service.IniciarAsync(new IniciarAssinaturaRequestDto
+            {
+                PlanoId = 1,
+                TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+                Pagamento = PagamentoValido(),
+                ProfissionalAutonomo = new CriarProfissionalAutonomoAssinaturaDto
+                {
+                    NomePublico = "Maria Glow",
+                    Biografia = "Bio",
+                    Logo = LogoBase64TestHelper.PngDataUri,
+                    Telefone = "11988888888",
+                    Email = "maria@email.com",
+                    Endereco = EnderecoOperacaoDtoBuilder.Criar()
+                }
+            }));
     }
 
     [Fact]
@@ -497,7 +596,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         _assinaturaRepository
             .Setup(r => r.ExisteAtivaOuPendentePorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
@@ -546,7 +645,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         _assinaturaRepository
             .Setup(r => r.ExisteAtivaOuPendentePorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
@@ -630,7 +729,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         _assinaturaRepository
             .Setup(r => r.ExisteAtivaOuPendentePorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
@@ -709,7 +808,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         _planoRepository
             .Setup(r => r.ObterPorIdAsync(2, It.IsAny<CancellationToken>()))
@@ -786,7 +885,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         _planoRepository
             .Setup(r => r.ObterPorIdAsync(2, It.IsAny<CancellationToken>()))
@@ -826,7 +925,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         var service = CreateService();
 
@@ -853,7 +952,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         _planoRepository
             .Setup(r => r.ObterPorIdAsync(2, It.IsAny<CancellationToken>()))
@@ -878,6 +977,7 @@ public class AssinaturaServiceTests
             Status = AssinaturaStatus.Ativa,
             RenovacaoAutomatica = true,
             PlanoAlteracaoPendenteId = 2,
+            ProximaDataVencimento = DateTime.UtcNow.AddDays(20),
             Plano = new Plano { Id = 1 }
         };
 
@@ -887,15 +987,15 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         var service = CreateService();
 
         var response = await service.CancelarAsync(30);
 
         Assert.Equal(30, response.Id);
-        Assert.Equal("Cancelada", response.Status);
-        Assert.Equal(AssinaturaStatus.Cancelada, assinatura.Status);
+        Assert.Equal("CancelamentoAgendado", response.Status);
+        Assert.Equal(AssinaturaStatus.CancelamentoAgendado, assinatura.Status);
         Assert.NotNull(assinatura.CanceladoEm);
         Assert.False(assinatura.RenovacaoAutomatica);
         Assert.Null(assinatura.PlanoAlteracaoPendenteId);
@@ -924,7 +1024,7 @@ public class AssinaturaServiceTests
 
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, Ativo = true });
+            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10, RoleNoEstabelecimento = EstablishmentUserRole.Owner, Ativo = true });
 
         var service = CreateService();
 
@@ -956,6 +1056,35 @@ public class AssinaturaServiceTests
     }
 
     [Fact]
+    public async Task CancelarAsync_DeveLancarExcecao_QuandoUsuarioNaoEOwner()
+    {
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdComPlanoAsync(30, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Assinatura
+            {
+                Id = 30,
+                EstabelecimentoId = 20,
+                Status = AssinaturaStatus.Ativa,
+                Plano = new Plano { Id = 1 }
+            });
+
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario
+            {
+                EstabelecimentoId = 20,
+                UsuarioId = 10,
+                RoleNoEstabelecimento = EstablishmentUserRole.Admin,
+                Ativo = true
+            });
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<UsuarioSemPermissaoAssinaturaException>(() =>
+            service.CancelarAsync(30));
+    }
+
+    [Fact]
     public async Task AdicionarEstabelecimentoAsync_DeveVincularFilial_QuandoPremiumComVagas()
     {
         var assinatura = new Assinatura
@@ -978,7 +1107,12 @@ public class AssinaturaServiceTests
             .ReturnsAsync(assinatura);
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10 });
+            .ReturnsAsync(new EstabelecimentoUsuario
+            {
+                EstabelecimentoId = 20,
+                UsuarioId = 10,
+                RoleNoEstabelecimento = EstablishmentUserRole.Owner,
+            });
         _assinaturaEstabelecimentoRepository
             .Setup(r => r.ContarPorAssinaturaAsync(50, It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
@@ -1009,12 +1143,62 @@ public class AssinaturaServiceTests
                     Logo = "data:image/png;base64,iVBORw0KGgo=",
                     Telefone = "11999999999",
                     Email = "filial@teste.com",
+                    CategoriaEstabelecimentoId = 1,
                     Endereco = EnderecoOperacaoDtoBuilder.Criar()
                 }
             });
 
         Assert.Equal(99, response.EstabelecimentoId);
         Assert.Equal(50, response.AssinaturaId);
+    }
+
+    [Fact]
+    public async Task AdicionarEstabelecimentoAsync_DeveLancarExcecao_QuandoUsuarioNaoEhOwner()
+    {
+        var assinatura = new Assinatura
+        {
+            Id = 50,
+            EstabelecimentoId = 20,
+            Status = AssinaturaStatus.Ativa,
+            PlanoId = 3,
+            Plano = new Plano
+            {
+                Id = 3,
+                Nome = "Premium",
+                LimiteEstabelecimentos = 5,
+                Ativo = true
+            }
+        };
+
+        _assinaturaRepository
+            .Setup(r => r.ObterPorIdComPlanoAsync(50, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(assinatura);
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario
+            {
+                EstabelecimentoId = 20,
+                UsuarioId = 10,
+                RoleNoEstabelecimento = EstablishmentUserRole.Admin,
+            });
+
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<UsuarioSemPermissaoAssinaturaException>(() =>
+            service.AdicionarEstabelecimentoAsync(
+                50,
+                new AdicionarEstabelecimentoAssinaturaRequestDto
+                {
+                    Estabelecimento = new CriarEstabelecimentoAssinaturaDto
+                    {
+                        Nome = "Filial",
+                        Descricao = "Desc",
+                        Logo = "data:image/png;base64,iVBORw0KGgo=",
+                        Telefone = "11999999999",
+                        Email = "filial@teste.com",
+                        Endereco = EnderecoOperacaoDtoBuilder.Criar()
+                    }
+                }));
     }
 
     [Fact]
@@ -1040,7 +1224,12 @@ public class AssinaturaServiceTests
             .ReturnsAsync(assinatura);
         _estabelecimentoUsuarioRepository
             .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EstabelecimentoUsuario { EstabelecimentoId = 20, UsuarioId = 10 });
+            .ReturnsAsync(new EstabelecimentoUsuario
+            {
+                EstabelecimentoId = 20,
+                UsuarioId = 10,
+                RoleNoEstabelecimento = EstablishmentUserRole.Owner,
+            });
         _assinaturaEstabelecimentoRepository
             .Setup(r => r.ContarPorAssinaturaAsync(50, It.IsAny<CancellationToken>()))
             .ReturnsAsync(5);
@@ -1064,7 +1253,135 @@ public class AssinaturaServiceTests
                 }));
     }
 
-    private AssinaturaService CreateService() =>
+    [Fact]
+    public async Task IniciarAsync_NaoDevePromoverRole_QuandoAguardandoPagamento()
+    {
+        var usuario = UsuarioBuilder.Criar(id: 10, whatsAppConfirmadoEm: DateTime.UtcNow);
+        _usuarioRepository
+            .Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usuario);
+
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Plano { Id = 1, Ativo = true });
+
+        _estabelecimentoRepository
+            .Setup(r => r.ObterPorIdAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Estabelecimento { Id = 20, Ativo = true });
+
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario
+            {
+                EstabelecimentoId = 20,
+                UsuarioId = 10,
+                RoleNoEstabelecimento = EstablishmentUserRole.Owner,
+                Ativo = true
+            });
+
+        _assinaturaRepository
+            .Setup(r => r.ExisteAtivaOuPendentePorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _assinaturaRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Assinatura>(), It.IsAny<CancellationToken>()))
+            .Callback<Assinatura, CancellationToken>((assinatura, _) => assinatura.Id = 30)
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService();
+        await service.IniciarAsync(new IniciarAssinaturaRequestDto
+        {
+            PlanoId = 1,
+            TipoAssinatura = TipoAssinatura.Estabelecimento,
+            EstabelecimentoId = 20,
+            Pagamento = PagamentoValido()
+        });
+
+        Assert.Equal(UserRole.Cliente, usuario.Role);
+        _usuarioRepository.Verify(r => r.Atualizar(It.IsAny<Usuario>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task IniciarAsync_DeveReutilizarAssinaturaPendente_QuandoCheckoutProExpirado()
+    {
+        var plano = new Plano { Id = 1, Ativo = true, Nome = "Essencial" };
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(plano);
+
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ListarAtivosPorUsuarioAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<EstabelecimentoUsuario>());
+
+        var estabelecimentoDto = new CriarEstabelecimentoAssinaturaDto
+        {
+            Nome = "Studio Glow",
+            Descricao = "Salao",
+            Logo = LogoBase64TestHelper.PngDataUri,
+            Telefone = "11999999999",
+            Email = "studio@email.com",
+            Endereco = EnderecoOperacaoDtoBuilder.Criar()
+        };
+
+        var pendente = new Assinatura
+        {
+            Id = 40,
+            PlanoId = 1,
+            Plano = plano,
+            Status = AssinaturaStatus.PendentePagamento,
+            Gateway = GatewayPagamento.MercadoPago,
+            OnboardingPendenteJson = JsonSerializer.Serialize(
+                new AssinaturaOnboardingPendentePayload(
+                    10,
+                    TipoAssinatura.Estabelecimento,
+                    estabelecimentoDto,
+                    null),
+                new JsonSerializerOptions(JsonSerializerDefaults.Web))
+        };
+
+        _assinaturaRepository
+            .Setup(r => r.ListarPendentesComOnboardingJsonAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Assinatura> { pendente });
+
+        var pagamentoRenovado = new Pagamento
+        {
+            Id = 91,
+            Gateway = GatewayPagamento.MercadoPago,
+            GatewayPaymentId = "pref_nova",
+            Status = PagamentoStatus.Pendente,
+            Valor = 29.99m,
+            Moeda = "BRL",
+            ExpiraEm = DateTime.Now.AddMinutes(5)
+        };
+
+        _cobrancaAssinaturaService
+            .Setup(s => s.ObterOuRenovarCheckoutInicialAsync(
+                pendente,
+                plano,
+                It.IsAny<PagamentoTransparenteMercadoPagoDto?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((pagamentoRenovado, "https://checkout.test/nova", null, true));
+
+        var service = CreateService(usarCheckoutPro: true);
+        var response = await service.IniciarAsync(new IniciarAssinaturaRequestDto
+        {
+            PlanoId = 1,
+            TipoAssinatura = TipoAssinatura.Estabelecimento,
+            Estabelecimento = estabelecimentoDto,
+            Gateway = GatewayPagamento.MercadoPago
+        });
+
+        Assert.Equal(40, response.Id);
+        Assert.Equal("https://checkout.test/nova", response.PagamentoInicial?.CheckoutUrl);
+        _assinaturaRepository.Verify(
+            r => r.AdicionarAsync(It.IsAny<Assinatura>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _pagamentoRepository.Verify(
+            r => r.AdicionarAsync(It.IsAny<Pagamento>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    private AssinaturaService CreateService(bool usarCheckoutPro = false) =>
         new(
             _assinaturaRepository.Object,
             _assinaturaEstabelecimentoRepository.Object,
@@ -1085,7 +1402,9 @@ public class AssinaturaServiceTests
             _cobrancaAssinaturaService.Object,
             new AvatarBase64Decoder(Options.Create(new AvatarOptions())),
             _usuarioRepository.Object,
-            Options.Create(new MercadoPagoOptions()));
+            new Mock<IAssinaturaVisibilidadeService>().Object,
+            new Mock<IAssinaturaEncerramentoService>().Object,
+            Options.Create(new MercadoPagoOptions { UsarCheckoutPro = usarCheckoutPro }));
 
     private static PagamentoTransparenteMercadoPagoDto PagamentoValido() =>
         new()

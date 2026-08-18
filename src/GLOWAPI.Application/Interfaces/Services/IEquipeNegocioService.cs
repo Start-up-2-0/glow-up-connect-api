@@ -14,6 +14,12 @@ public interface IEquipeNegocioService
         ConvidarProfissionalEquipeRequestDto request,
         CancellationToken cancellationToken = default);
 
+    Task<ProfissionalEquipeResponseDto> AtualizarProfissionalAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        AtualizarProfissionalEquipeRequestDto request,
+        CancellationToken cancellationToken = default);
+
     Task<UsuarioEquipeResponseDto> AtualizarRoleUsuarioAsync(
         int estabelecimentoId,
         int usuarioId,
@@ -32,12 +38,28 @@ public interface IEquipeNegocioService
         AtualizarStatusProfissionalEquipeRequestDto request,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<AgendamentoFuturoEquipeResponseDto>> ListarAgendamentosFuturosProfissionalAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        CancellationToken cancellationToken = default);
+
+    Task<CancelarAgendamentosFuturosProfissionalEquipeResponseDto> CancelarAgendamentosFuturosProfissionalAsync(
+        int estabelecimentoId,
+        int profissionalId,
+        CancelarAgendamentosFuturosProfissionalEquipeRequestDto request,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<UsuarioEquipeResponseDto>> ListarUsuariosAsync(
         int estabelecimentoId,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<ProfissionalEquipeResponseDto>> ListarProfissionaisAsync(
         int estabelecimentoId,
+        CancellationToken cancellationToken = default);
+
+    Task<EquipeMembrosPaginadoResponseDto> ListarMembrosPaginadoAsync(
+        int estabelecimentoId,
+        EquipeMembrosFiltroDto filtro,
         CancellationToken cancellationToken = default);
 
     Task<ProfissionalVitrineResponseDto> CadastrarProfissionalVitrineAsync(

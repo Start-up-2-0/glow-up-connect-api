@@ -7,6 +7,7 @@ using GLOWAPI.Application.Models.Assinaturas;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
+using GLOWAPI.Domain.Exceptions.Usuario;
 
 namespace GLOWAPI.Application.Services;
 
@@ -88,7 +89,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
                 throw new AssinaturaTitularInvalidoException();
             }
 
-            estabelecimento = CriarEstabelecimento(payload.Estabelecimento);
+            estabelecimento = await CriarEstabelecimentoAsync(payload.Estabelecimento, cancellationToken);
             await TentarGeocodificarAsync(estabelecimento, cancellationToken);
             await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
             await _estabelecimentoUsuarioRepository.AdicionarAsync(new EstabelecimentoUsuario
@@ -106,6 +107,11 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
                 throw new AssinaturaTitularInvalidoException();
             }
 
+            await ValidarTelefoneContaProfissionalAutonomoAsync(
+                payload.ProfissionalAutonomo,
+                payload.UsuarioId,
+                cancellationToken);
+
             var profissional = await _profissionalRepository.ObterPorUsuarioIdAsync(payload.UsuarioId, cancellationToken)
                 ?? CriarProfissionalAutonomo(payload.ProfissionalAutonomo, payload.UsuarioId);
 
@@ -114,7 +120,9 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
                 await _profissionalRepository.AdicionarAsync(profissional, cancellationToken);
             }
 
-            estabelecimento = CriarEstabelecimentoAutonomo(payload.ProfissionalAutonomo);
+            estabelecimento = await CriarEstabelecimentoAutonomoAsync(
+                payload.ProfissionalAutonomo,
+                cancellationToken);
             await TentarGeocodificarAsync(estabelecimento, cancellationToken);
             await _estabelecimentoRepository.AdicionarAsync(estabelecimento, cancellationToken);
 
@@ -154,6 +162,36 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
         }
     }
 
+    private async Task ValidarTelefoneContaProfissionalAutonomoAsync(
+        CriarProfissionalAutonomoAssinaturaDto dto,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var usuario = await _usuarioRepository.ObterPorIdAsync(userId, cancellationToken);
+        if (usuario is null)
+        {
+            throw new UsuarioNaoEncontradoException();
+        }
+
+        var telefonePayload = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone);
+        var telefoneConta = TelefoneHelper.NormalizarParaArmazenamento(usuario.Telefone);
+
+        if (string.IsNullOrEmpty(telefonePayload))
+        {
+            throw new ProfissionalAutonomoAssinaturaInvalidoException("Telefone do profissional e obrigatorio.");
+        }
+
+        if (!TelefoneHelper.SaoEquivalentes(telefonePayload, telefoneConta))
+        {
+            throw new TelefoneAssinaturaDivergenteException();
+        }
+
+        if (!usuario.WhatsAppConfirmadoEm.HasValue)
+        {
+            throw new TelefoneAssinaturaNaoConfirmadoException();
+        }
+    }
+
     private async Task PromoverRoleSeNecessarioAsync(
         int userId,
         TipoAssinatura tipoAssinatura,
@@ -186,7 +224,9 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
         await _enderecoGeocodificacaoService.TentarGeocodificarAsync(estabelecimento.Endereco, cancellationToken);
     }
 
-    private Estabelecimento CriarEstabelecimento(CriarEstabelecimentoAssinaturaDto dto)
+    private async Task<Estabelecimento> CriarEstabelecimentoAsync(
+        CriarEstabelecimentoAssinaturaDto dto,
+        CancellationToken cancellationToken)
     {
         static Exception CriarExcecao(string mensagem) => new EstabelecimentoAssinaturaInvalidoException(mensagem);
 
@@ -194,6 +234,12 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
         {
             throw new EstabelecimentoAssinaturaInvalidoException("Descricao do estabelecimento deve ter no maximo 500 caracteres.");
         }
+
+        dto.CategoriaEstabelecimentoId = await ResolverCategoriaIdAsync(
+            dto.CategoriaEstabelecimentoId,
+            TipoAssinatura.Estabelecimento,
+            CriarExcecao,
+            cancellationToken);
 
         return new Estabelecimento
         {
@@ -203,25 +249,52 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
             Telefone = TelefoneHelper.NormalizarParaArmazenamento(
                 OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Telefone, "Telefone do estabelecimento", 20, CriarExcecao)),
             Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Email, "Email do estabelecimento", 255, CriarExcecao),
+            CategoriaEstabelecimentoId = dto.CategoriaEstabelecimentoId,
             Ativo = true,
-            Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao)
+            Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao),
+            Caixa = new Caixa()
         };
     }
 
-    private static Estabelecimento CriarEstabelecimentoAutonomo(CriarProfissionalAutonomoAssinaturaDto dto) =>
-        new()
+    private async Task<Estabelecimento> CriarEstabelecimentoAutonomoAsync(
+        CriarProfissionalAutonomoAssinaturaDto dto,
+        CancellationToken cancellationToken)
+    {
+        dto.CategoriaEstabelecimentoId = await ResolverCategoriaIdAsync(
+            dto.CategoriaEstabelecimentoId,
+            TipoAssinatura.ProfissionalAutonomo,
+            mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem),
+            cancellationToken);
+
+        return new()
         {
             Nome = dto.NomePublico.Trim(),
             Descricao = dto.Biografia.Trim(),
-            Logo = dto.Logo?.Trim(),
+            Logo = dto.Logo?.Trim() ?? string.Empty,
             Telefone = TelefoneHelper.NormalizarParaArmazenamento(dto.Telefone),
             Email = dto.Email.Trim(),
+            CategoriaEstabelecimentoId = dto.CategoriaEstabelecimentoId,
             Ativo = true,
             Endereco = OperacaoPerfilValidation.CriarEndereco(
                 dto.Endereco,
                 mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem)),
             Caixa = new Caixa()
         };
+    }
+
+    private async Task<int> ResolverCategoriaIdAsync(
+        int? informado,
+        TipoAssinatura tipoAssinatura,
+        Func<string, Exception> criarExcecao,
+        CancellationToken cancellationToken)
+    {
+        var categorias = await _estabelecimentoRepository.ListarCategoriasAsync(cancellationToken);
+        return CategoriaEstabelecimentoCatalogo.ResolverId(
+            informado,
+            tipoAssinatura,
+            categorias,
+            criarExcecao);
+    }
 
     private Profissional CriarProfissionalAutonomo(CriarProfissionalAutonomoAssinaturaDto dto, int userId)
     {
@@ -263,7 +336,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
         CancellationToken cancellationToken)
     {
         if (!assinatura.EstabelecimentoId.HasValue
-            || !PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano))
+            || !PlanoComercialCatalogo.PermiteMultiLoja(assinatura.Plano, assinatura.TipoAssinatura))
         {
             return;
         }

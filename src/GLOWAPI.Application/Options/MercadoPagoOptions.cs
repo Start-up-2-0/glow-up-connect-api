@@ -9,6 +9,12 @@ public class MercadoPagoOptions
     /// </summary>
     public bool UsarCheckoutPro { get; set; }
 
+    /// <summary>
+    /// Quando true, usa sandbox do Mercado Pago (sandbox_init_point, header X-scope: stage).
+    /// Necessario em homolog quando as credenciais de teste usam prefixo APP_USR-.
+    /// </summary>
+    public bool UsarSandbox { get; set; }
+
     public string AccessToken { get; set; } = string.Empty;
     public string WebhookSecret { get; set; } = string.Empty;
     public string ApiBaseUrl { get; set; } = "https://api.mercadopago.com";
@@ -40,4 +46,9 @@ public class MercadoPagoOptions
     /// Util em homolog quando o sandbox de subscriptions retorna 503.
     /// </summary>
     public bool PermitirTrialSemRecorrenciaNoGateway { get; set; }
+
+    public bool SandboxAtivo() =>
+        UsarSandbox
+        || (!string.IsNullOrWhiteSpace(AccessToken)
+            && AccessToken.TrimStart().StartsWith("TEST-", StringComparison.OrdinalIgnoreCase));
 }

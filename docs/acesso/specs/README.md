@@ -18,7 +18,7 @@ Fonte de verdade no codigo:
 |-----------|----------|
 | [liberacao-modulos.md](./liberacao-modulos.md) | Fluxo de liberacao (assinatura, pagamento, middleware) |
 | [catalogo-planos.md](./catalogo-planos.md) | Contrato de seed dos 3 planos no banco |
-| [promocao-lancamento.md](./promocao-lancamento.md) | Trial 30 dias — 100 primeiros tenants |
+| [promocao-lancamento.md](./promocao-lancamento.md) | Trial 14 dias — 100 primeiros tenants |
 | [ciclo-cobranca.md](./ciclo-cobranca.md) | Dia de vencimento, alertas D-3 e geracao D-2 |
 | [cobrancas-assinatura.md](./cobrancas-assinatura.md) | Pagamento interno, status e listagem API |
 

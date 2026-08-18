@@ -10,6 +10,7 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 ProxyOriginConfiguration.ConfigurarProxyOrigin(builder);
+RequestProofConfiguration.ConfigurarRequestProof(builder);
 KestrelMtlsConfiguration.ConfigurarKestrel(builder);
 
 builder.Services.AddControllers()
@@ -32,12 +33,18 @@ builder.Services.Configure<MensageriaWhatsAppOptions>(
 builder.Services.AddOptions<MercadoPagoOptions>()
     .Bind(builder.Configuration.GetSection(MercadoPagoOptions.SectionName))
     .PostConfigure(options => MercadoPagoCheckoutProUrlDefaults.Aplicar(options, builder.Configuration));
+builder.Services.Configure<WebhookPagamentoOptions>(
+    builder.Configuration.GetSection(WebhookPagamentoOptions.SectionName));
 builder.Services.Configure<GeocodificacaoOptions>(
     builder.Configuration.GetSection(GeocodificacaoOptions.SectionName));
 builder.Services.Configure<AssinaturaCobrancaOptions>(
     builder.Configuration.GetSection(AssinaturaCobrancaOptions.SectionName));
 builder.Services.Configure<AssinaturaCobrancaWorkerOptions>(
     builder.Configuration.GetSection(AssinaturaCobrancaWorkerOptions.SectionName));
+builder.Services.Configure<ExclusaoContaOptions>(
+    builder.Configuration.GetSection(ExclusaoContaOptions.SectionName));
+builder.Services.Configure<AvaliacaoAgregadoWorkerOptions>(
+    builder.Configuration.GetSection(AvaliacaoAgregadoWorkerOptions.SectionName));
 builder.Services.Configure<CorsOptions>(builder.Configuration.GetSection(CorsOptions.SectionName));
 builder.Services.Configure<RateLimitOptions>(builder.Configuration.GetSection(RateLimitOptions.SectionName));
 builder.Services.Configure<CaptchaOptions>(builder.Configuration.GetSection(CaptchaOptions.SectionName));
@@ -63,6 +70,12 @@ HostedConfigurationValidator.ValidarSeAmbienteHospedado(
 builder.Services.AddHostedService<MensagemNotificacaoWorker>();
 builder.Services.AddHostedService<MensagemNotificacaoRecuperacaoWorker>();
 builder.Services.AddHostedService<AssinaturaCobrancaWorker>();
+builder.Services.AddHostedService<AvaliacaoAgregadoWorker>();
+builder.Services.AddHostedService<GLOWAPI.Application.Services.ContasVencimentoBackgroundService>();
+builder.Services.AddHostedService<RetencaoDadosWorker>();
+builder.Services.AddHostedService<CompactacaoImagensWorker>();
+
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -72,7 +85,15 @@ builder.Services.AddSwaggerGen(options =>
         Name = "x-glow-token",
         Type = SecuritySchemeType.ApiKey,
         In = ParameterLocation.Header,
-        Description = "Token de autenticação customizado emitido no login"
+        Description = "Fallback legado. Preferencial: cookie HttpOnly guc_access (Path=/api) + withCredentials"
+    });
+
+    options.AddSecurityDefinition("GlowAccessCookie", new OpenApiSecurityScheme
+    {
+        Name = "guc_access",
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Cookie,
+        Description = "Access token em cookie HttpOnly (emitido no login/refresh)"
     });
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -83,7 +104,7 @@ builder.Services.AddSwaggerGen(options =>
                 Reference = new OpenApiReference
                 {
                     Type = ReferenceType.SecurityScheme,
-                    Id = "GlowToken"
+                    Id = "GlowAccessCookie"
                 }
             },
             Array.Empty<string>()
@@ -108,11 +129,20 @@ else
         mtlsStartup.PublicPort);
 }
 
-await app.ApplyPendingMigrationsAsync();
+var migrateOnly = args.Any(static a => string.Equals(a, "--migrate-only", StringComparison.OrdinalIgnoreCase));
+
+await app.ApplyPendingMigrationsAsync(force: migrateOnly);
+
+if (migrateOnly)
+{
+    app.Logger.LogInformation("Modo --migrate-only concluido; encerrando sem iniciar a API.");
+    return;
+}
 
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseMiddleware<PublicPortPathGuardMiddleware>();
 app.UseMiddleware<ProxyOriginMiddleware>();
+app.UseMiddleware<RequestProofMiddleware>();
 app.UseMiddleware<IpBurstRateLimitMiddleware>();
 
 // Railway termina TLS no edge; mTLS interno fica na :8443. Redirect HTTP->HTTPS quebraria o healthcheck em /health.

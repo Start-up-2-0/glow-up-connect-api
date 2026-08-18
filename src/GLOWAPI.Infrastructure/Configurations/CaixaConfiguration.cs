@@ -24,6 +24,10 @@ public class CaixaConfiguration : IEntityTypeConfiguration<Caixa>
             .HasPrecision(12, 2)
             .IsRequired();
 
+        builder.Property(caixa => caixa.ExigirSessaoCaixaAberta)
+            .HasDefaultValue(false)
+            .IsRequired();
+
         builder.Property(caixa => caixa.CreateAd)
             .IsRequired();
 

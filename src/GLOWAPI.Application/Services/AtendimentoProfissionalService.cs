@@ -35,19 +35,22 @@ public class AtendimentoProfissionalService : IAtendimentoProfissionalService
     private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
     private readonly IProfissionalEscopoAcessoService _profissionalEscopoAcessoService;
     private readonly ICurrentUserContext _currentUserContext;
+    private readonly IAvaliacaoAtendimentoService _avaliacaoAtendimentoService;
 
     public AtendimentoProfissionalService(
         IAgendamentoItemRepository agendamentoItemRepository,
         IAgendamentoHistoricoRepository agendamentoHistoricoRepository,
         IAutorizacaoNegocioService autorizacaoNegocioService,
         IProfissionalEscopoAcessoService profissionalEscopoAcessoService,
-        ICurrentUserContext currentUserContext)
+        ICurrentUserContext currentUserContext,
+        IAvaliacaoAtendimentoService avaliacaoAtendimentoService)
     {
         _agendamentoItemRepository = agendamentoItemRepository;
         _agendamentoHistoricoRepository = agendamentoHistoricoRepository;
         _autorizacaoNegocioService = autorizacaoNegocioService;
         _profissionalEscopoAcessoService = profissionalEscopoAcessoService;
         _currentUserContext = currentUserContext;
+        _avaliacaoAtendimentoService = avaliacaoAtendimentoService;
     }
 
     public async Task<AtendimentoProfissionalResponseDto> IniciarAsync(
@@ -103,25 +106,36 @@ public class AtendimentoProfissionalService : IAtendimentoProfissionalService
         await AutorizarEscopoItemAsync(estabelecimentoId, agendamentoItemId, cancellationToken);
 
         var item = await ObterItemAsync(agendamentoItemId, cancellationToken);
-        if (item.Status != AgendamentoItemStatus.EmAtendimento)
-        {
-            throw new AtendimentoStatusInvalidoException("Somente atendimento em andamento pode ser finalizado.");
-        }
+        var agendamento = item.Agendamento!;
 
-        if (item.Agendamento!.Status != AgendamentoStatus.EmAtendimento)
+        if (agendamento.Status != AgendamentoStatus.EmAtendimento)
         {
             throw new AtendimentoStatusInvalidoException("O agendamento precisa estar em atendimento para ser concluido.");
         }
 
-        var agendamento = item.Agendamento;
+        var itensParaConcluir = agendamento.Itens
+            .Where(i => i.Status is AgendamentoItemStatus.EmAtendimento or AgendamentoItemStatus.Confirmado)
+            .ToList();
+
+        if (itensParaConcluir.Count == 0
+            || itensParaConcluir.All(i => i.Status != AgendamentoItemStatus.EmAtendimento))
+        {
+            throw new AtendimentoStatusInvalidoException("Somente atendimento em andamento pode ser finalizado.");
+        }
+
+        var agora = DateTime.UtcNow;
         var statusAnteriorAgendamento = agendamento.Status;
 
-        item.Status = AgendamentoItemStatus.Concluido;
-        item.UpdatedAt = DateTime.UtcNow;
-        AtualizarStatusAgendamentoAposConclusao(item);
+        foreach (var itemAtivo in itensParaConcluir)
+        {
+            itemAtivo.Status = AgendamentoItemStatus.Concluido;
+            itemAtivo.UpdatedAt = agora;
+            _agendamentoItemRepository.Atualizar(itemAtivo);
+        }
 
-        if (agendamento.Status == AgendamentoStatus.Concluido
-            && statusAnteriorAgendamento != AgendamentoStatus.Concluido)
+        ConcluirAgendamento(agendamento, agora);
+
+        if (statusAnteriorAgendamento != AgendamentoStatus.Concluido)
         {
             await RegistrarHistoricoAsync(
                 agendamento,
@@ -130,9 +144,12 @@ public class AtendimentoProfissionalService : IAtendimentoProfissionalService
                 motivo: null,
                 agendamentoItemId: item.Id,
                 cancellationToken);
+
+            await _avaliacaoAtendimentoService.SolicitarAposConclusaoAsync(
+                agendamento,
+                cancellationToken);
         }
 
-        _agendamentoItemRepository.Atualizar(item);
         await _agendamentoItemRepository.SalvarAlteracoesAsync(cancellationToken);
 
         return AtendimentoProfissionalResponseDto.From(item);
@@ -209,18 +226,28 @@ public class AtendimentoProfissionalService : IAtendimentoProfissionalService
         return item;
     }
 
-    private static void AtualizarStatusAgendamentoAposConclusao(AgendamentoItem item)
+    /// <summary>
+    /// Conclusão é sempre do atendimento (agendamento) inteiro.
+    /// Itens Cancelado/Repassado não bloqueiam o fechamento.
+    /// </summary>
+    private static void ConcluirAgendamento(Agendamento agendamento, DateTime atualizadoEm)
     {
-        var agendamento = item.Agendamento!;
-        var todosConcluidos = agendamento.Itens.Count > 0
-            && agendamento.Itens.All(i => i.Id == item.Id
-                ? item.Status == AgendamentoItemStatus.Concluido
-                : i.Status == AgendamentoItemStatus.Concluido);
+        var itensRelevantes = agendamento.Itens
+            .Where(i => i.Status is not AgendamentoItemStatus.Cancelado
+                and not AgendamentoItemStatus.Repassado)
+            .ToList();
 
-        agendamento.Status = todosConcluidos
-            ? AgendamentoStatus.Concluido
-            : AgendamentoStatus.EmAtendimento;
-        agendamento.UpdatedAt = item.UpdatedAt;
+        var todosConcluidos = itensRelevantes.Count > 0
+            && itensRelevantes.All(i => i.Status == AgendamentoItemStatus.Concluido);
+
+        if (!todosConcluidos)
+        {
+            throw new AtendimentoStatusInvalidoException(
+                "Nao foi possivel concluir o atendimento: ainda ha itens pendentes.");
+        }
+
+        agendamento.Status = AgendamentoStatus.Concluido;
+        agendamento.UpdatedAt = atualizadoEm;
     }
 
     private async Task RegistrarHistoricoAsync(

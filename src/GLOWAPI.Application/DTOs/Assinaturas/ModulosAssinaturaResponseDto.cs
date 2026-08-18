@@ -27,12 +27,13 @@ public record ModulosAssinaturaResponseDto(
             EstabelecimentoId: estabelecimentoId ?? assinatura?.EstabelecimentoId,
             ProfissionalAutonomoId: null,
             Modulos: Array.Empty<string>(),
-            Limites: CriarLimites(assinatura?.Plano));
+            Limites: CriarLimites(assinatura));
 
     public static ModulosAssinaturaResponseDto Liberado(
         Assinatura assinatura,
         int estabelecimentoId,
-        IReadOnlyList<ModuloAssinatura> modulos) =>
+        IReadOnlyList<ModuloAssinatura> modulos,
+        int? profissionalAutonomoId = null) =>
         new(
             AssinaturaAtiva: true,
             AssinaturaId: assinatura.Id,
@@ -41,31 +42,26 @@ public record ModulosAssinaturaResponseDto(
             Status: assinatura.Status.ToString(),
             TipoAssinatura: ObterTipoAssinatura(assinatura),
             EstabelecimentoId: estabelecimentoId,
-            ProfissionalAutonomoId: null,
+            ProfissionalAutonomoId: profissionalAutonomoId,
             Modulos: modulos.Select(modulo => modulo.ToString()).ToList(),
-            Limites: CriarLimites(assinatura.Plano));
+            Limites: CriarLimites(assinatura));
 
-    private static LimitesAssinaturaDto CriarLimites(Plano? plano)
+    private static LimitesAssinaturaDto CriarLimites(Assinatura? assinatura)
     {
-        var perfil = PlanoComercialCatalogo.Obter(plano);
+        var tipo = assinatura?.TipoAssinatura ?? Domain.Enums.TipoAssinatura.Estabelecimento;
+        var plano = assinatura?.Plano;
+        var perfil = PlanoComercialCatalogo.Obter(plano, tipo);
 
         return new(
-            plano?.LimiteProfissionais,
+            perfil.LimiteProfissionaisEfetivo ?? plano?.LimiteProfissionais,
             plano?.LimiteServicos,
             plano?.LimiteAgendamentos,
             perfil.LimiteUsuarios,
             perfil.LimiteAgendamentosPorDia,
-            plano?.LimiteEstabelecimentos,
+            perfil.LimiteEstabelecimentosEfetivo ?? plano?.LimiteEstabelecimentos,
             perfil.PrioridadeListagemPublica);
     }
 
-    private static string? ObterTipoAssinatura(Assinatura? assinatura)
-    {
-        if (assinatura is null)
-        {
-            return null;
-        }
-
-        return GLOWAPI.Domain.Enums.TipoAssinatura.Estabelecimento.ToString();
-    }
+    private static string? ObterTipoAssinatura(Assinatura? assinatura) =>
+        assinatura?.TipoAssinatura.ToString();
 }

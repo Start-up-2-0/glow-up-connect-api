@@ -4,17 +4,26 @@ using GLOWAPI.Application.Models.Pagamentos;
 using GLOWAPI.Domain.Exceptions.Assinatura;
 using GLOWAPI.Domain.Exceptions.Auth;
 using GLOWAPI.Domain.Exceptions.Usuario;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace GLOWAPI.Tests.Unit.API;
 
 public class ExceptionMiddlewareTests
 {
+    private static IWebHostEnvironment CreateTestEnv()
+    {
+        var mock = new Mock<IWebHostEnvironment>();
+        mock.Setup(m => m.EnvironmentName).Returns("Development");
+        return mock.Object;
+    }
+
     [Fact]
     public async Task InvokeAsync_DeveRetornarFormatoPadronizado_ParaTokenExpirado()
     {
-        var middleware = new ExceptionMiddleware(_ => throw new TokenExpiredException(), NullLogger<ExceptionMiddleware>.Instance);
+        var middleware = new ExceptionMiddleware(_ => throw new TokenExpiredException(), NullLogger<ExceptionMiddleware>.Instance, CreateTestEnv());
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
 
@@ -30,7 +39,7 @@ public class ExceptionMiddlewareTests
     [Fact]
     public async Task InvokeAsync_DeveRetornarForbidden_ParaUsuarioBloqueado()
     {
-        var middleware = new ExceptionMiddleware(_ => throw new UserBlockedException(), NullLogger<ExceptionMiddleware>.Instance);
+        var middleware = new ExceptionMiddleware(_ => throw new UserBlockedException(), NullLogger<ExceptionMiddleware>.Instance, CreateTestEnv());
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
 
@@ -42,7 +51,7 @@ public class ExceptionMiddlewareTests
     [Fact]
     public async Task InvokeAsync_DeveRetornarNotFound_ParaUsuarioNaoEncontrado()
     {
-        var middleware = new ExceptionMiddleware(_ => throw new UsuarioNaoEncontradoException(), NullLogger<ExceptionMiddleware>.Instance);
+        var middleware = new ExceptionMiddleware(_ => throw new UsuarioNaoEncontradoException(), NullLogger<ExceptionMiddleware>.Instance, CreateTestEnv());
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
 
@@ -57,7 +66,7 @@ public class ExceptionMiddlewareTests
     [Fact]
     public async Task InvokeAsync_DeveRetornarForbidden_ParaEmailNaoConfirmado()
     {
-        var middleware = new ExceptionMiddleware(_ => throw new EmailNaoConfirmadoException(), NullLogger<ExceptionMiddleware>.Instance);
+        var middleware = new ExceptionMiddleware(_ => throw new EmailNaoConfirmadoException(), NullLogger<ExceptionMiddleware>.Instance, CreateTestEnv());
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
 
@@ -69,7 +78,7 @@ public class ExceptionMiddlewareTests
     [Fact]
     public async Task InvokeAsync_DeveRetornarBadRequest_ParaAvatarInvalido()
     {
-        var middleware = new ExceptionMiddleware(_ => throw new AvatarInvalidoException(), NullLogger<ExceptionMiddleware>.Instance);
+        var middleware = new ExceptionMiddleware(_ => throw new AvatarInvalidoException(), NullLogger<ExceptionMiddleware>.Instance, CreateTestEnv());
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
 
@@ -79,9 +88,24 @@ public class ExceptionMiddlewareTests
     }
 
     [Fact]
+    public async Task InvokeAsync_DeveRetornarBadRequest_ParaResetSenhaInvalido()
+    {
+        var middleware = new ExceptionMiddleware(_ => throw new ResetSenhaInvalidoException(), NullLogger<ExceptionMiddleware>.Instance, CreateTestEnv());
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
+        context.Response.Body.Seek(0, SeekOrigin.Begin);
+        var json = await JsonDocument.ParseAsync(context.Response.Body);
+        Assert.Equal("RESET_SENHA_INVALIDO", json.RootElement.GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task InvokeAsync_DeveRetornarConflict_ParaEmailJaCadastrado()
     {
-        var middleware = new ExceptionMiddleware(_ => throw new EmailJaCadastradoException(), NullLogger<ExceptionMiddleware>.Instance);
+        var middleware = new ExceptionMiddleware(_ => throw new EmailJaCadastradoException(), NullLogger<ExceptionMiddleware>.Instance, CreateTestEnv());
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
 
@@ -107,7 +131,8 @@ public class ExceptionMiddlewareTests
             _ => throw new GatewayPagamentoException(
                 "Mercado Pago retornou 503 ao criar assinatura recorrente.",
                 details),
-            NullLogger<ExceptionMiddleware>.Instance);
+            NullLogger<ExceptionMiddleware>.Instance,
+            CreateTestEnv());
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
 
