@@ -7,4 +7,10 @@ public class AssinaturaCobrancaOptions
     public int DiasAntecedenciaGeracaoCobranca { get; set; } = 7;
     public int DiasAntecedenciaAlertaFatura { get; set; } = 7;
     public int DiasToleranciaInadimplencia { get; set; } = 10;
+
+    /// <summary>
+    /// Quando true, a promocao de lancamento (trial 14 dias) fica indisponivel
+    /// mesmo com campanha ativa no banco. Util em staging para testar cobranca imediata.
+    /// </summary>
+    public bool DesativarPromocaoLancamento { get; set; }
 }

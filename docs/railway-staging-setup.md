@@ -37,6 +37,7 @@ Guia para configurar homologacao no **mesmo projeto Railway** da producao, com i
 | `RESEND_APITOKEN` | API key em [resend.com/api-keys](https://resend.com/api-keys) |
 | `Mensageria__Email__From` | Ex.: `Glow Up Connect <noreply@dominio-verificado.com>` |
 | `Mensageria__Email__Habilitado` | `true` |
+| `AssinaturaCobranca__DesativarPromocaoLancamento` | `true` (desliga trial de 14 dias para testar cobranca imediata; omitir ou `false` para manter a promocao) |
 | `MercadoPago__UsarCheckoutPro` | `true` |
 | `MercadoPago__UsarSandbox` | `true` |
 | `MercadoPago__AccessToken` | Access token da aba **Credenciais de teste** no painel MP (pode ser `TEST-...` ou `APP_USR-...`) |

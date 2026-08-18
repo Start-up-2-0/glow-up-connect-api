@@ -38,7 +38,8 @@ public class PromocaoLancamentoService : IPromocaoLancamentoService
                 CodigoCampanhaLancamento,
                 cancellationToken);
 
-        var disponivel = campanha is not null
+        var disponivel = !_options.DesativarPromocaoLancamento
+            && campanha is not null
             && campanha.Ativa
             && assinaturasUtilizadas < campanha.Limite;
         var vagasRestantes = campanha is null
@@ -67,6 +68,11 @@ public class PromocaoLancamentoService : IPromocaoLancamentoService
         int estabelecimentoId,
         CancellationToken cancellationToken = default)
     {
+        if (_options.DesativarPromocaoLancamento)
+        {
+            return false;
+        }
+
         if (estabelecimentoId > 0
             && await EstabelecimentoJaUsouPromocaoAsync(estabelecimentoId, cancellationToken))
         {

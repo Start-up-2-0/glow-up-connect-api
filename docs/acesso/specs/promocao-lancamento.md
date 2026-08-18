@@ -43,3 +43,5 @@ Oferecer **14 dias gratis** e **50% de desconto permanente na mensalidade** nos 
 ## Fallback
 
 Se a promocao nao estiver disponivel ou a reserva falhar, o fluxo segue como pagamento imediato (`PendentePagamento` + cobranca inicial).
+
+Em staging, `AssinaturaCobranca__DesativarPromocaoLancamento=true` força `disponivel = false` e impede reserva de vaga, mesmo com a campanha ativa no banco. Usar para testar Checkout Pro / cobranca imediata sem alterar `CampanhasPromocionais`.
