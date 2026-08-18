@@ -2356,6 +2356,17 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
 
+                    b.Property<string>("RecuperacaoCodigoHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime?>("RecuperacaoExpiraEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("RecuperacaoTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -2416,6 +2427,10 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("ExclusaoStatus", "ExclusaoEfetivarEm");
+
+                    b.HasIndex("RecuperacaoCodigoHash");
+
+                    b.HasIndex("RecuperacaoTokenHash");
 
                     b.HasIndex("WhatsAppConfirmacaoCodigoHash");
 
