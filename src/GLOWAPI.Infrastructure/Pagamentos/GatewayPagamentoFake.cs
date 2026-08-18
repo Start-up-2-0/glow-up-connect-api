@@ -65,6 +65,12 @@ public class GatewayPagamentoFake : IGatewayPagamento
             ResponsePayload: responsePayload));
     }
 
+    public Task<IReadOnlyList<string>> ListarPagamentosDaOrdemAsync(
+        string ordemId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<string>>(
+            string.IsNullOrWhiteSpace(ordemId) ? Array.Empty<string>() : new[] { ordemId });
+
     public Task<CriarAssinaturaRecorrenteGatewayResponse> CriarAssinaturaRecorrenteAsync(
         CriarAssinaturaRecorrenteGatewayRequest request,
         CancellationToken cancellationToken = default)

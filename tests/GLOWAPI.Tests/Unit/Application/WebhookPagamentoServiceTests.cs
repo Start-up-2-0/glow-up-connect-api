@@ -374,6 +374,70 @@ public class WebhookPagamentoServiceTests
     }
 
     [Fact]
+    public async Task RegistrarAsync_DeveProcessarPagamentos_QuandoWebhookForMerchantOrder()
+    {
+        var assinatura = new Assinatura
+        {
+            Id = 1,
+            PlanoId = 2,
+            Status = AssinaturaStatus.PendentePagamento,
+            Plano = new Plano { Id = 2, Periodo = PlanoPeriodo.Mensal }
+        };
+        var pagamento = new Pagamento
+        {
+            Id = 31,
+            AssinaturaId = 1,
+            Assinatura = assinatura,
+            Gateway = GatewayPagamento.MercadoPago,
+            GatewayPaymentId = "pref-1",
+            ReferenciaInterna = "assinatura-abc",
+            Status = PagamentoStatus.Pendente
+        };
+
+        _repository
+            .Setup(r => r.ObterPorEventoAsync(GatewayPagamento.MercadoPago, "evt-order-1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((WebhookPagamento?)null);
+        _repository
+            .Setup(r => r.AdicionarAsync(It.IsAny<WebhookPagamento>(), It.IsAny<CancellationToken>()))
+            .Callback<WebhookPagamento, CancellationToken>((webhook, _) => webhook.Id = 16)
+            .Returns(Task.CompletedTask);
+        _gatewayPagamentoResolver
+            .Setup(r => r.Resolver(GatewayPagamento.MercadoPago))
+            .Returns(_gatewayPagamento.Object);
+        _gatewayPagamento
+            .Setup(g => g.ListarPagamentosDaOrdemAsync("999", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "173530401375" });
+        _gatewayPagamento
+            .Setup(g => g.ConsultarPagamentoAsync("173530401375", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ConsultarPagamentoGatewayResponse(
+                Sucesso: true,
+                GatewayPaymentId: "173530401375",
+                Status: "approved",
+                ResponsePayload: "{}",
+                PagadorEmail: "cliente@email.com",
+                ReferenciaExterna: "assinatura-abc"));
+        _pagamentoRepository
+            .Setup(r => r.ObterPorGatewayPaymentIdAsync(GatewayPagamento.MercadoPago, "173530401375", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Pagamento?)null);
+        _pagamentoRepository
+            .Setup(r => r.ObterPorReferenciaInternaAsync("assinatura-abc", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagamento);
+
+        var response = await CreateService().RegistrarAsync(new RegistrarWebhookPagamentoRequestDto
+        {
+            Gateway = GatewayPagamento.MercadoPago,
+            EventId = "evt-order-1",
+            EventType = "merchant_order",
+            Payload = """{"id":"999","topic":"merchant_order"}"""
+        });
+
+        Assert.True(response.Processado);
+        Assert.Equal(PagamentoStatus.Pago, pagamento.Status);
+        Assert.Equal(AssinaturaStatus.Ativa, assinatura.Status);
+        Assert.Equal("173530401375", pagamento.GatewayPaymentId);
+    }
+
+    [Fact]
     public async Task RegistrarAsync_DeveCancelarAssinatura_QuandoEventoForCancelamento()
     {
         var assinatura = new Assinatura

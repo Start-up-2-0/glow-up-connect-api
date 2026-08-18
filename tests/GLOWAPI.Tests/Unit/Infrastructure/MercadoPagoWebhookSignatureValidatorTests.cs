@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Infrastructure.Security;
 using Microsoft.Extensions.Options;
@@ -117,7 +118,53 @@ public class MercadoPagoWebhookSignatureValidatorTests
         var valido = validator.Validar("ts=1,v1=deadbeef", "req", "12345", payload, out var motivo);
 
         Assert.False(valido);
-        Assert.Equal("timestamp_expirado", motivo);
+        Assert.Equal("assinatura_nao_confere", motivo);
+    }
+
+    [Fact]
+    public void Validar_DeveAceitarTimestampAntigo_ParaPermitirRetryDoMercadoPago()
+    {
+        var validator = CriarValidator();
+        var payload = """{"data":{"id":"12345"}}""";
+        var requestId = "req-retry";
+        var ts = DateTimeOffset.UtcNow.AddHours(-2).ToUnixTimeSeconds().ToString();
+        var manifest = MercadoPagoWebhookSignatureValidator.MontarManifest("12345", requestId, ts);
+        var signature = $"ts={ts},v1={ComputeHmacHex(manifest, Secret)}";
+
+        var valido = validator.Validar(signature, requestId, "12345", payload, out var motivo);
+
+        Assert.True(valido);
+        Assert.Null(motivo);
+    }
+
+    [Fact]
+    public void Validar_DeveAceitarSecretComAspas()
+    {
+        var validator = new MercadoPagoWebhookSignatureValidator(
+            Options.Create(new MercadoPagoOptions { WebhookSecret = $"\"{Secret}\"" }));
+        var payload = """{"data":{"id":"12345"}}""";
+        var requestId = "req-aspas";
+        var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var manifest = MercadoPagoWebhookSignatureValidator.MontarManifest("12345", requestId, ts);
+        var signature = $"ts={ts},v1={ComputeHmacHex(manifest, Secret)}";
+
+        var valido = validator.Validar(signature, requestId, "12345", payload, out var motivo);
+
+        Assert.True(valido);
+        Assert.Null(motivo);
+    }
+
+    [Fact]
+    public void EhSemAssinatura_DeveDetectarFeedDoMercadoPago()
+    {
+        Assert.True(MercadoPagoWebhookIpn.EhSemAssinatura(
+            null,
+            "MercadoPago Feed v2.0 merchant_order",
+            temIdentificadorQuery: false));
+        Assert.False(MercadoPagoWebhookIpn.EhSemAssinatura(
+            "ts=1,v1=abc",
+            "MercadoPago Feed v2.0 merchant_order",
+            temIdentificadorQuery: true));
     }
 
     [Fact]

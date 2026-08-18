@@ -207,6 +207,53 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             ReferenciaExterna: referenciaExterna);
     }
 
+    public async Task<IReadOnlyList<string>> ListarPagamentosDaOrdemAsync(
+        string ordemId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(ordemId) || string.IsNullOrWhiteSpace(_options.AccessToken))
+        {
+            return Array.Empty<string>();
+        }
+
+        using var httpRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            CriarRequestUri($"merchant_orders/{Uri.EscapeDataString(ordemId.Trim())}"));
+        AplicarHeadersMercadoPago(httpRequest);
+
+        var envio = await TentarEnviarAsync(httpRequest, cancellationToken);
+        if (!envio.Sucesso || envio.Response is null)
+        {
+            return Array.Empty<string>();
+        }
+
+        using var response = envio.Response;
+        var responsePayload = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return Array.Empty<string>();
+        }
+
+        using var document = JsonDocument.Parse(responsePayload);
+        if (!document.RootElement.TryGetProperty("payments", out var payments)
+            || payments.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<string>();
+        }
+
+        var ids = new List<string>();
+        foreach (var payment in payments.EnumerateArray())
+        {
+            var paymentId = ObterString(payment, "id");
+            if (!string.IsNullOrWhiteSpace(paymentId))
+            {
+                ids.Add(paymentId);
+            }
+        }
+
+        return ids;
+    }
+
     private async Task<CriarCobrancaGatewayResponse> CriarPreferenciaCheckoutProAsync(
         CriarCobrancaGatewayRequest request,
         CancellationToken cancellationToken)

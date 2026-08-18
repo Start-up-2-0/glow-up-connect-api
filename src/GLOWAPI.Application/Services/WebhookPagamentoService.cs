@@ -145,6 +145,12 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             return;
         }
 
+        if (EventoOrdemComercial(webhook.EventType))
+        {
+            await ProcessarOrdemComercialAsync(webhook, cancellationToken);
+            return;
+        }
+
         if (EventoPagamentoParaConsultaNoGateway(webhook.EventType))
         {
             await ProcessarPagamentoConsultandoGatewayAsync(webhook, cancellationToken);
@@ -202,6 +208,50 @@ public class WebhookPagamentoService : IWebhookPagamentoService
 
         webhook.Processado = true;
         webhook.ProcessadoEm = DateTime.UtcNow;
+    }
+
+    private async Task ProcessarOrdemComercialAsync(
+        WebhookPagamento webhook,
+        CancellationToken cancellationToken)
+    {
+        var ordemId = ExtrairGatewayPaymentId(webhook.Payload);
+        if (string.IsNullOrWhiteSpace(ordemId))
+        {
+            webhook.ErroProcessamento = "Payload nao contem id da merchant_order.";
+            return;
+        }
+
+        var gateway = _gatewayPagamentoResolver.Resolver(webhook.Gateway);
+        var pagamentoIds = await gateway.ListarPagamentosDaOrdemAsync(ordemId, cancellationToken);
+        if (pagamentoIds.Count == 0)
+        {
+            webhook.ErroProcessamento = "Merchant order nao retornou pagamentos.";
+            return;
+        }
+
+        string? ultimoErro = null;
+        foreach (var pagamentoId in pagamentoIds)
+        {
+            var webhookPagamento = new WebhookPagamento
+            {
+                Gateway = webhook.Gateway,
+                EventId = $"{webhook.EventId}:{pagamentoId}",
+                EventType = "payment.updated",
+                Payload = JsonSerializer.Serialize(new { data = new { id = pagamentoId } })
+            };
+
+            await ProcessarPagamentoConsultandoGatewayAsync(webhookPagamento, cancellationToken);
+            if (webhookPagamento.Processado)
+            {
+                webhook.Processado = true;
+                webhook.ProcessadoEm = DateTime.UtcNow;
+                return;
+            }
+
+            ultimoErro = webhookPagamento.ErroProcessamento;
+        }
+
+        webhook.ErroProcessamento = ultimoErro ?? "Nenhum pagamento da merchant order foi processado.";
     }
 
     private async Task ProcessarPagamentoConsultandoGatewayAsync(
@@ -435,6 +485,10 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         || eventType.Equals("payment.created", StringComparison.OrdinalIgnoreCase)
         || eventType.Equals("payment.updated", StringComparison.OrdinalIgnoreCase)
         || eventType.Equals("payment.updated_webhook", StringComparison.OrdinalIgnoreCase);
+
+    private static bool EventoOrdemComercial(string eventType) =>
+        eventType.Equals("merchant_order", StringComparison.OrdinalIgnoreCase)
+        || eventType.Contains("merchant_order", StringComparison.OrdinalIgnoreCase);
 
     private static string? ConverterStatusGatewayParaEvento(string status) =>
         status.ToLowerInvariant() switch
