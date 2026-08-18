@@ -4,8 +4,6 @@ namespace GLOWAPI.Application.Helpers;
 
 public static class HorarioFuncionamentoPublicoHelper
 {
-    private static readonly TimeZoneInfo FusoBrasil = ObterFusoBrasil();
-
     public static (bool AbertoAgora, string? HorarioAbertura, string? HorarioFechamento) ResolverParaHoje(
         IReadOnlyList<HorarioFuncionamentoEstabelecimento> horarios)
     {
@@ -29,21 +27,8 @@ public static class HorarioFuncionamentoPublicoHelper
         return (abertoAgora, abertura.ToString("HH:mm"), fechamento.ToString("HH:mm"));
     }
 
-    private static DateTime ObterDataHoraAtualBrasil() =>
-        TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, FusoBrasil);
+    private static DateTime ObterDataHoraAtualBrasil() => BrasilDateTimeHelper.Agora();
 
     private static DayOfWeek ObterDiaSemanaAtualBrasil() =>
         ObterDataHoraAtualBrasil().DayOfWeek;
-
-    private static TimeZoneInfo ObterFusoBrasil()
-    {
-        try
-        {
-            return TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
-        }
-        catch (TimeZoneNotFoundException)
-        {
-            return TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
-        }
-    }
 }

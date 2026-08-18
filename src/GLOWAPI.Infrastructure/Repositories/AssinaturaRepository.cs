@@ -160,6 +160,17 @@ public class AssinaturaRepository : Repository<Assinatura>, IAssinaturaRepositor
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Assinatura>> ListarPendentesComOnboardingJsonAsync(
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Include(assinatura => assinatura.Plano)
+            .Where(assinatura =>
+                assinatura.Status == AssinaturaStatus.PendentePagamento
+                && assinatura.OnboardingPendenteJson != null
+                && assinatura.OnboardingPendenteJson != string.Empty)
+            .OrderByDescending(assinatura => assinatura.Id)
+            .ToListAsync(cancellationToken);
+
     public async Task<bool> UsuarioJaTeveAssinaturaAsync(
         int usuarioId,
         CancellationToken cancellationToken = default)

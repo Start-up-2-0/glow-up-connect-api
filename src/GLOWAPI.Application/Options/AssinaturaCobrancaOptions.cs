@@ -13,4 +13,9 @@ public class AssinaturaCobrancaOptions
     /// mesmo com campanha ativa no banco. Util em staging para testar cobranca imediata.
     /// </summary>
     public bool DesativarPromocaoLancamento { get; set; }
+
+    /// <summary>
+    /// Validade do link de checkout inicial (Checkout Pro) em minutos, no horário de Brasília.
+    /// </summary>
+    public int MinutosExpiracaoCheckout { get; set; } = 5;
 }

@@ -55,6 +55,17 @@ public class PagamentoRepository : Repository<Pagamento>, IPagamentoRepository
             .ThenByDescending(pagamento => pagamento.Id)
             .ToListAsync(cancellationToken);
 
+    public Task<Pagamento?> ObterUltimoPendenteInicialPorAssinaturaAsync(
+        int assinaturaId,
+        CancellationToken cancellationToken = default) =>
+        DbSet
+            .Where(pagamento =>
+                pagamento.AssinaturaId == assinaturaId
+                && pagamento.Status == PagamentoStatus.Pendente
+                && pagamento.TipoCobranca == TipoCobrancaAssinatura.Inicial)
+            .OrderByDescending(pagamento => pagamento.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public async Task<IReadOnlyList<Pagamento>> ListarPendentesVencidosAsync(
         DateTime dataReferenciaUtc,
         CancellationToken cancellationToken = default) =>

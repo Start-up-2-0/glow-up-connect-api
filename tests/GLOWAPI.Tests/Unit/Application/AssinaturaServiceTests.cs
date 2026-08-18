@@ -2,6 +2,7 @@ using GLOWAPI.Application.DTOs.Assinaturas;
 using GLOWAPI.Application.DTOs.Pagamentos;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Models.Assinaturas;
 using GLOWAPI.Application.Models.Pagamentos;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Application.Services;
@@ -11,6 +12,7 @@ using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Assinatura;
 using GLOWAPI.Tests.Helpers;
 using Moq;
+using System.Text.Json;
 
 namespace GLOWAPI.Tests.Unit.Application;
 
@@ -136,6 +138,9 @@ public class AssinaturaServiceTests
             .Setup(r => r.AdicionarAsync(It.IsAny<Pagamento>(), It.IsAny<CancellationToken>()))
             .Callback<Pagamento, CancellationToken>((pagamento, _) => pagamento.Id = 90)
             .Returns(Task.CompletedTask);
+        _assinaturaRepository
+            .Setup(r => r.ListarPendentesComOnboardingJsonAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<Assinatura>());
     }
 
     [Fact]
@@ -1248,7 +1253,135 @@ public class AssinaturaServiceTests
                 }));
     }
 
-    private AssinaturaService CreateService() =>
+    [Fact]
+    public async Task IniciarAsync_NaoDevePromoverRole_QuandoAguardandoPagamento()
+    {
+        var usuario = UsuarioBuilder.Criar(id: 10, whatsAppConfirmadoEm: DateTime.UtcNow);
+        _usuarioRepository
+            .Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usuario);
+
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Plano { Id = 1, Ativo = true });
+
+        _estabelecimentoRepository
+            .Setup(r => r.ObterPorIdAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Estabelecimento { Id = 20, Ativo = true });
+
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ObterAtivoAsync(20, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EstabelecimentoUsuario
+            {
+                EstabelecimentoId = 20,
+                UsuarioId = 10,
+                RoleNoEstabelecimento = EstablishmentUserRole.Owner,
+                Ativo = true
+            });
+
+        _assinaturaRepository
+            .Setup(r => r.ExisteAtivaOuPendentePorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _assinaturaRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Assinatura>(), It.IsAny<CancellationToken>()))
+            .Callback<Assinatura, CancellationToken>((assinatura, _) => assinatura.Id = 30)
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService();
+        await service.IniciarAsync(new IniciarAssinaturaRequestDto
+        {
+            PlanoId = 1,
+            TipoAssinatura = TipoAssinatura.Estabelecimento,
+            EstabelecimentoId = 20,
+            Pagamento = PagamentoValido()
+        });
+
+        Assert.Equal(UserRole.Cliente, usuario.Role);
+        _usuarioRepository.Verify(r => r.Atualizar(It.IsAny<Usuario>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task IniciarAsync_DeveReutilizarAssinaturaPendente_QuandoCheckoutProExpirado()
+    {
+        var plano = new Plano { Id = 1, Ativo = true, Nome = "Essencial" };
+        _planoRepository
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(plano);
+
+        _estabelecimentoUsuarioRepository
+            .Setup(r => r.ListarAtivosPorUsuarioAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<EstabelecimentoUsuario>());
+
+        var estabelecimentoDto = new CriarEstabelecimentoAssinaturaDto
+        {
+            Nome = "Studio Glow",
+            Descricao = "Salao",
+            Logo = LogoBase64TestHelper.PngDataUri,
+            Telefone = "11999999999",
+            Email = "studio@email.com",
+            Endereco = EnderecoOperacaoDtoBuilder.Criar()
+        };
+
+        var pendente = new Assinatura
+        {
+            Id = 40,
+            PlanoId = 1,
+            Plano = plano,
+            Status = AssinaturaStatus.PendentePagamento,
+            Gateway = GatewayPagamento.MercadoPago,
+            OnboardingPendenteJson = JsonSerializer.Serialize(
+                new AssinaturaOnboardingPendentePayload(
+                    10,
+                    TipoAssinatura.Estabelecimento,
+                    estabelecimentoDto,
+                    null),
+                new JsonSerializerOptions(JsonSerializerDefaults.Web))
+        };
+
+        _assinaturaRepository
+            .Setup(r => r.ListarPendentesComOnboardingJsonAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Assinatura> { pendente });
+
+        var pagamentoRenovado = new Pagamento
+        {
+            Id = 91,
+            Gateway = GatewayPagamento.MercadoPago,
+            GatewayPaymentId = "pref_nova",
+            Status = PagamentoStatus.Pendente,
+            Valor = 29.99m,
+            Moeda = "BRL",
+            ExpiraEm = DateTime.Now.AddMinutes(5)
+        };
+
+        _cobrancaAssinaturaService
+            .Setup(s => s.ObterOuRenovarCheckoutInicialAsync(
+                pendente,
+                plano,
+                It.IsAny<PagamentoTransparenteMercadoPagoDto?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((pagamentoRenovado, "https://checkout.test/nova", null, true));
+
+        var service = CreateService(usarCheckoutPro: true);
+        var response = await service.IniciarAsync(new IniciarAssinaturaRequestDto
+        {
+            PlanoId = 1,
+            TipoAssinatura = TipoAssinatura.Estabelecimento,
+            Estabelecimento = estabelecimentoDto,
+            Gateway = GatewayPagamento.MercadoPago
+        });
+
+        Assert.Equal(40, response.Id);
+        Assert.Equal("https://checkout.test/nova", response.PagamentoInicial?.CheckoutUrl);
+        _assinaturaRepository.Verify(
+            r => r.AdicionarAsync(It.IsAny<Assinatura>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _pagamentoRepository.Verify(
+            r => r.AdicionarAsync(It.IsAny<Pagamento>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    private AssinaturaService CreateService(bool usarCheckoutPro = false) =>
         new(
             _assinaturaRepository.Object,
             _assinaturaEstabelecimentoRepository.Object,
@@ -1271,7 +1404,7 @@ public class AssinaturaServiceTests
             _usuarioRepository.Object,
             new Mock<IAssinaturaVisibilidadeService>().Object,
             new Mock<IAssinaturaEncerramentoService>().Object,
-            Options.Create(new MercadoPagoOptions()));
+            Options.Create(new MercadoPagoOptions { UsarCheckoutPro = usarCheckoutPro }));
 
     private static PagamentoTransparenteMercadoPagoDto PagamentoValido() =>
         new()

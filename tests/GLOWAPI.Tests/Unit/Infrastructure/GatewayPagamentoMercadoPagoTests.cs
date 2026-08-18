@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Models.Pagamentos;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Enums;
@@ -611,6 +612,57 @@ public class GatewayPagamentoMercadoPagoTests
 
         Assert.True(response.Sucesso);
         Assert.Equal("https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=prod", response.CheckoutUrl);
+    }
+
+    [Fact]
+    public async Task CriarCobrancaAsync_ComCheckoutProEExpiracao_DeveEnviarExpiresComOffsetBrasil()
+    {
+        string? payload = null;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            payload = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "id": "pref-exp-1",
+                      "init_point": "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=pref-exp-1"
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var gateway = CriarGateway(handler, new MercadoPagoOptions
+        {
+            AccessToken = "APP_USR-prod",
+            ApiBaseUrl = "https://api.mercadopago.com",
+            UsarCheckoutPro = true
+        });
+
+        var expiraEm = BrasilDateTimeHelper.Agora().AddMinutes(5);
+        var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
+            Gateway: GatewayPagamento.MercadoPago,
+            ReferenciaInterna: "assinatura-exp",
+            Descricao: "Assinatura Premium",
+            Valor: 199.90m,
+            Moeda: "BRL",
+            PagadorNome: "Maria",
+            PagadorEmail: "maria@email.com",
+            ExpiraEm: expiraEm));
+
+        Assert.True(response.Sucesso);
+        Assert.NotNull(payload);
+        using var json = JsonDocument.Parse(payload!);
+        var root = json.RootElement;
+        Assert.True(root.GetProperty("expires").GetBoolean());
+        Assert.Contains("-03:00", root.GetProperty("expiration_date_from").GetString(), StringComparison.Ordinal);
+        Assert.Contains("-03:00", root.GetProperty("expiration_date_to").GetString(), StringComparison.Ordinal);
+        Assert.Equal(
+            BrasilDateTimeHelper.FormatarIsoComOffset(expiraEm),
+            root.GetProperty("expiration_date_to").GetString());
     }
 
     private static GatewayPagamentoMercadoPago CriarGateway(

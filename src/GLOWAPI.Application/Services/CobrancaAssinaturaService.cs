@@ -1,6 +1,7 @@
 using System.Text.Json;
 using GLOWAPI.Application.DTOs.Assinaturas;
 using GLOWAPI.Application.DTOs.Pagamentos;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Pagamentos;
@@ -92,7 +93,8 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             $"assinatura-{Guid.NewGuid():N}",
             $"Assinatura {plano.Nome}",
             pagamentoTransparente,
-            cancellationToken);
+            cancellationToken,
+            comExpiracaoCheckout: true);
 
         await NotificarCobrancaPendenteComLinkAsync(
             assinatura,
@@ -101,6 +103,36 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             cancellationToken);
 
         return resultado;
+    }
+
+    public async Task<(Pagamento Pagamento, string? CheckoutUrl, string? QrCode, bool Novo)> ObterOuRenovarCheckoutInicialAsync(
+        Assinatura assinatura,
+        Plano plano,
+        PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
+        CancellationToken cancellationToken = default)
+    {
+        if (assinatura.Id > 0)
+        {
+            var pendente = await _pagamentoRepository.ObterUltimoPendenteInicialPorAssinaturaAsync(
+                assinatura.Id,
+                cancellationToken);
+
+            if (pendente is not null && CheckoutAindaValido(pendente))
+            {
+                return (pendente, ReconstruirCheckoutUrl(pendente), null, false);
+            }
+
+            if (pendente is not null)
+            {
+                pendente.Status = PagamentoStatus.Expirado;
+                pendente.UpdatedAt = DateTime.UtcNow;
+                _pagamentoRepository.Atualizar(pendente);
+                await _pagamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+            }
+        }
+
+        var gerado = await GerarCobrancaInicialAsync(assinatura, plano, pagamentoTransparente, cancellationToken);
+        return (gerado.Pagamento, gerado.CheckoutUrl, gerado.QrCode, true);
     }
 
     public async Task<Pagamento> GerarCobrancaRecorrenteAsync(
@@ -226,7 +258,8 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             $"Troca de plano para {novoPlano.Nome}",
             pagamentoTransparente,
             cancellationToken,
-            gateway);
+            gateway,
+            comExpiracaoCheckout: true);
 
         await NotificarCobrancaPendenteComLinkAsync(
             assinatura,
@@ -544,7 +577,8 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         string descricao,
         PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
         CancellationToken cancellationToken,
-        GatewayPagamento? gatewayOverride = null)
+        GatewayPagamento? gatewayOverride = null,
+        bool comExpiracaoCheckout = false)
     {
         var gatewayPagamento = gatewayOverride ?? assinatura.Gateway;
         var gateway = _gatewayPagamentoResolver.Resolver(gatewayPagamento);
@@ -558,6 +592,18 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             ? titular.Email
             : _currentUser.Email ?? string.Empty;
 
+        DateTime? expiraEm = null;
+        if (comExpiracaoCheckout)
+        {
+            var minutos = _assinaturaCobrancaOptions.MinutosExpiracaoCheckout;
+            if (minutos <= 0)
+            {
+                minutos = 5;
+            }
+
+            expiraEm = BrasilDateTimeHelper.Agora().AddMinutes(minutos);
+        }
+
         var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
             Gateway: gatewayPagamento,
             ReferenciaInterna: referenciaInterna,
@@ -566,6 +612,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             Moeda: "BRL",
             PagadorNome: pagadorNome,
             PagadorEmail: pagadorEmail,
+            ExpiraEm: expiraEm,
             Metadados: new Dictionary<string, string>
             {
                 ["assinaturaId"] = assinatura.Id > 0 ? assinatura.Id.ToString() : string.Empty,
@@ -599,7 +646,8 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             DataVencimento = ciclo.Vencimento,
             DataGeracao = ciclo.Geracao,
             CicloInicio = ciclo.Vencimento.AddMonths(-1),
-            CicloFim = ciclo.Vencimento
+            CicloFim = ciclo.Vencimento,
+            ExpiraEm = expiraEm
         };
 
         return (pagamento, response.CheckoutUrl, response.QrCode);
@@ -733,5 +781,27 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             PlanoPeriodo.Anual => baseCalculo.AddYears(1),
             _ => baseCalculo.AddMonths(1)
         };
+    }
+
+    private static bool CheckoutAindaValido(Pagamento pagamento) =>
+        pagamento.ExpiraEm.HasValue
+        && pagamento.ExpiraEm.Value > BrasilDateTimeHelper.Agora();
+
+    private string? ReconstruirCheckoutUrl(Pagamento pagamento)
+    {
+        if (string.IsNullOrWhiteSpace(pagamento.GatewayPaymentId))
+        {
+            return null;
+        }
+
+        if (!string.Equals(pagamento.MetodoPagamento, "checkout_pro", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var host = _mercadoPagoOptions.SandboxAtivo()
+            ? "https://sandbox.mercadopago.com.br"
+            : "https://www.mercadopago.com.br";
+        return $"{host}/checkout/v1/redirect?pref_id={Uri.EscapeDataString(pagamento.GatewayPaymentId)}";
     }
 }

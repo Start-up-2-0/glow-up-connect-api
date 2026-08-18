@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Pagamentos;
 using GLOWAPI.Application.Options;
@@ -327,6 +328,13 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         if (notificationUrl is not null)
         {
             payload["notification_url"] = notificationUrl;
+        }
+
+        if (request.ExpiraEm.HasValue)
+        {
+            payload["expires"] = true;
+            payload["expiration_date_from"] = BrasilDateTimeHelper.FormatarIsoComOffset(BrasilDateTimeHelper.Agora());
+            payload["expiration_date_to"] = BrasilDateTimeHelper.FormatarIsoComOffset(request.ExpiraEm.Value);
         }
 
         return payload;

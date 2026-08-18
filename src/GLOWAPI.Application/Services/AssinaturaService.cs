@@ -104,6 +104,22 @@ public class AssinaturaService : IAssinaturaService
 
         var elegivelTrial = await ElegivelPromocaoTrialAsync(request, userId, cancellationToken);
         var onboardingPendente = DeveAdiarOnboarding(request, elegivelTrial);
+
+        var pendenteExistente = await ResolverAssinaturaPendenteReutilizavelAsync(
+            request,
+            userId,
+            onboardingPendente,
+            cancellationToken);
+        if (pendenteExistente is not null)
+        {
+            return await ReutilizarAssinaturaPendenteAsync(
+                pendenteExistente,
+                plano,
+                request,
+                onboardingPendente,
+                cancellationToken);
+        }
+
         Assinatura assinatura;
         if (onboardingPendente)
         {
@@ -211,11 +227,6 @@ public class AssinaturaService : IAssinaturaService
             plano,
             _currentUser.Email,
             cancellationToken);
-
-        if (!onboardingPendente)
-        {
-            await PromoverRoleOnboardingAsync(userId, request.TipoAssinatura, cancellationToken);
-        }
 
         return await MontarRespostaInicioAsync(
             assinatura,
@@ -544,6 +555,135 @@ public class AssinaturaService : IAssinaturaService
         {
             throw new DowngradeComMultiplasLojasException();
         }
+    }
+
+    private async Task<Assinatura?> ResolverAssinaturaPendenteReutilizavelAsync(
+        IniciarAssinaturaRequestDto request,
+        int userId,
+        bool onboardingPendente,
+        CancellationToken cancellationToken)
+    {
+        if (onboardingPendente)
+        {
+            var pendentes = await _assinaturaRepository.ListarPendentesComOnboardingJsonAsync(cancellationToken)
+                ?? Array.Empty<Assinatura>();
+            foreach (var candidata in pendentes)
+            {
+                AssinaturaOnboardingPendentePayload? payload;
+                try
+                {
+                    payload = JsonSerializer.Deserialize<AssinaturaOnboardingPendentePayload>(
+                        candidata.OnboardingPendenteJson!,
+                        JsonOptions);
+                }
+                catch (JsonException)
+                {
+                    continue;
+                }
+
+                if (payload?.UsuarioId == userId)
+                {
+                    return candidata;
+                }
+            }
+
+            return null;
+        }
+
+        if (!request.EstabelecimentoId.HasValue)
+        {
+            return null;
+        }
+
+        var atual = await _assinaturaRepository.ObterAtualPorEstabelecimentoAsync(
+            request.EstabelecimentoId.Value,
+            cancellationToken);
+        return atual?.Status == AssinaturaStatus.PendentePagamento ? atual : null;
+    }
+
+    private async Task<AssinaturaResponseDto> ReutilizarAssinaturaPendenteAsync(
+        Assinatura assinatura,
+        Plano plano,
+        IniciarAssinaturaRequestDto request,
+        bool onboardingPendente,
+        CancellationToken cancellationToken)
+    {
+        if (onboardingPendente)
+        {
+            AtualizarOnboardingPendente(assinatura, request, ObterUserIdAutenticado());
+        }
+
+        if (assinatura.PlanoId != plano.Id)
+        {
+            assinatura.PlanoId = plano.Id;
+            assinatura.Plano = plano;
+            assinatura.UpdatedAt = DateTime.UtcNow;
+            _assinaturaRepository.Atualizar(assinatura);
+        }
+
+        var cobranca = await _cobrancaAssinaturaService.ObterOuRenovarCheckoutInicialAsync(
+            assinatura,
+            plano,
+            request.Pagamento,
+            cancellationToken);
+
+        if (cobranca.Novo)
+        {
+            await _assinaturaHistoricoService.RegistrarPagamentoAsync(
+                cobranca.Pagamento,
+                "PagamentoInicialCriado",
+                null,
+                cobranca.Pagamento.Status,
+                "Cobranca inicial renovada no gateway.",
+                cobranca.Pagamento.GatewayPaymentId,
+                cancellationToken);
+
+            await _pagamentoRepository.AdicionarAsync(cobranca.Pagamento, cancellationToken);
+            if (!cobranca.Pagamento.AssinaturaId.HasValue)
+            {
+                cobranca.Pagamento.AssinaturaId = assinatura.Id;
+            }
+
+            await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+        }
+
+        return await MontarRespostaInicioAsync(
+            assinatura,
+            cancellationToken,
+            PagamentoAssinaturaResponseDto.From(
+                cobranca.Pagamento,
+                cobranca.CheckoutUrl,
+                cobranca.QrCode));
+    }
+
+    private void AtualizarOnboardingPendente(
+        Assinatura assinatura,
+        IniciarAssinaturaRequestDto request,
+        int userId)
+    {
+        if (request.Estabelecimento is not null)
+        {
+            request.Estabelecimento.Logo = OperacaoPerfilValidation.ValidarLogoBase64(
+                request.Estabelecimento.Logo,
+                "Logo do estabelecimento",
+                _avatarBase64Decoder,
+                mensagem => new EstabelecimentoAssinaturaInvalidoException(mensagem));
+        }
+
+        if (request.ProfissionalAutonomo is not null)
+        {
+            request.ProfissionalAutonomo.Logo = ValidarLogoProfissionalAutonomo(request.ProfissionalAutonomo);
+        }
+
+        var payload = new AssinaturaOnboardingPendentePayload(
+            userId,
+            request.TipoAssinatura,
+            request.Estabelecimento,
+            request.ProfissionalAutonomo);
+
+        assinatura.OnboardingPendenteJson = JsonSerializer.Serialize(payload, JsonOptions);
+        assinatura.UpdatedAt = DateTime.UtcNow;
+        _assinaturaRepository.Atualizar(assinatura);
     }
 
     private bool DeveAdiarOnboarding(IniciarAssinaturaRequestDto request, bool elegivelTrial) =>
