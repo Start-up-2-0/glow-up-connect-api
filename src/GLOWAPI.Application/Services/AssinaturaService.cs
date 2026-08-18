@@ -569,6 +569,20 @@ public class AssinaturaService : IAssinaturaService
             }
         }
 
+        if (request.Estabelecimento is not null)
+        {
+            request.Estabelecimento.Logo = OperacaoPerfilValidation.ValidarLogoBase64(
+                request.Estabelecimento.Logo,
+                "Logo do estabelecimento",
+                _avatarBase64Decoder,
+                mensagem => new EstabelecimentoAssinaturaInvalidoException(mensagem));
+        }
+
+        if (request.ProfissionalAutonomo is not null)
+        {
+            request.ProfissionalAutonomo.Logo = ValidarLogoProfissionalAutonomo(request.ProfissionalAutonomo);
+        }
+
         var payload = new AssinaturaOnboardingPendentePayload(
             userId,
             request.TipoAssinatura,

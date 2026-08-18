@@ -63,7 +63,7 @@ public class AssinaturaConfiguration : IEntityTypeConfiguration<Assinatura>
         builder.Property(assinatura => assinatura.CanceladoEm);
 
         builder.Property(assinatura => assinatura.OnboardingPendenteJson)
-            .HasColumnType("text");
+            .HasColumnType("longtext");
 
         builder.Property(assinatura => assinatura.CreateAd)
             .IsRequired();

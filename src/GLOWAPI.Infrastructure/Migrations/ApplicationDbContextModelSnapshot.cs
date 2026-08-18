@@ -286,7 +286,7 @@ namespace GLOWAPI.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("OnboardingPendenteJson")
-                        .HasColumnType("text");
+                        .HasColumnType("longtext");
 
                     b.Property<decimal?>("PercentualDescontoPermanente")
                         .HasPrecision(5, 2)
