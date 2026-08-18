@@ -49,6 +49,16 @@ public class UsuarioRepository : Repository<Usuario>, IUsuarioRepository
         return DbSet.FirstOrDefaultAsync(usuario => usuario.ConfirmacaoCodigoHash == codigoHash, cancellationToken);
     }
 
+    public Task<Usuario?> ObterPorRecuperacaoTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default)
+    {
+        return DbSet.FirstOrDefaultAsync(usuario => usuario.RecuperacaoTokenHash == tokenHash, cancellationToken);
+    }
+
+    public Task<Usuario?> ObterPorRecuperacaoCodigoHashAsync(string codigoHash, CancellationToken cancellationToken = default)
+    {
+        return DbSet.FirstOrDefaultAsync(usuario => usuario.RecuperacaoCodigoHash == codigoHash, cancellationToken);
+    }
+
     public Task<Usuario?> ObterPorWhatsAppConfirmacaoTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default)
     {
         return DbSet.FirstOrDefaultAsync(usuario => usuario.WhatsAppConfirmacaoTokenHash == tokenHash, cancellationToken);
