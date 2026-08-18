@@ -88,6 +88,21 @@ public class ExceptionMiddlewareTests
     }
 
     [Fact]
+    public async Task InvokeAsync_DeveRetornarBadRequest_ParaResetSenhaInvalido()
+    {
+        var middleware = new ExceptionMiddleware(_ => throw new ResetSenhaInvalidoException(), NullLogger<ExceptionMiddleware>.Instance, CreateTestEnv());
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
+        context.Response.Body.Seek(0, SeekOrigin.Begin);
+        var json = await JsonDocument.ParseAsync(context.Response.Body);
+        Assert.Equal("RESET_SENHA_INVALIDO", json.RootElement.GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task InvokeAsync_DeveRetornarConflict_ParaEmailJaCadastrado()
     {
         var middleware = new ExceptionMiddleware(_ => throw new EmailJaCadastradoException(), NullLogger<ExceptionMiddleware>.Instance, CreateTestEnv());

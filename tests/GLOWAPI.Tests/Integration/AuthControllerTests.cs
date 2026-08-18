@@ -1,9 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
+using GLOWAPI.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GLOWAPI.Tests.Integration;
@@ -240,6 +242,156 @@ public class AuthControllerTests : IClassFixture<GlowApiWebApplicationFactory>
 
         var meResponse = await client.GetAsync("/api/usuario/me");
         Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_EmailInexistente_DeveRetornar200Generico()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/forgot-password", new
+        {
+            email = "naoexiste@email.com"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        Assert.True(body.GetProperty("success").GetBoolean());
+        Assert.Contains("cadastrado", body.GetProperty("message").GetString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_UsuarioAtivo_DeveEnfileirarMensagem()
+    {
+        const string email = "recupera-fila@email.com";
+        await _factory.SeedUsuarioAsync(email, "Senha123!");
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/forgot-password", new { email });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var usuario = Assert.Single(db.Usuarios, u => u.Email == email);
+        Assert.False(string.IsNullOrWhiteSpace(usuario.RecuperacaoTokenHash));
+        Assert.False(string.IsNullOrWhiteSpace(usuario.RecuperacaoCodigoHash));
+        Assert.NotNull(usuario.RecuperacaoExpiraEm);
+
+        var mensagem = Assert.Single(db.MensagensNotificacao, m => m.Destinatario == email);
+        Assert.Equal("Redefina sua senha", mensagem.Assunto);
+        Assert.Contains("/resetar-senha?token=", mensagem.Conteudo);
+        Assert.Contains("class=\"confirm-code\"", mensagem.Conteudo);
+    }
+
+    [Fact]
+    public async Task ResetPassword_PorToken_DeveTrocarSenhaEPermitirLogin()
+    {
+        const string email = "recupera-token@email.com";
+        const string senhaAntiga = "Senha123!";
+        const string senhaNova = "NovaSenha123!";
+        await _factory.SeedUsuarioAsync(email, senhaAntiga);
+
+        var client = _factory.CreateClient();
+        var forgot = await client.PostAsJsonAsync("/api/auth/forgot-password", new { email });
+        Assert.Equal(HttpStatusCode.OK, forgot.StatusCode);
+
+        string token;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var mensagem = Assert.Single(db.MensagensNotificacao, m => m.Destinatario == email);
+            token = ExtrairTokenRecuperacao(mensagem.Conteudo);
+        }
+
+        var reset = await client.PostAsJsonAsync("/api/auth/reset-password", new
+        {
+            token,
+            senha = senhaNova,
+            confirmarSenha = senhaNova
+        });
+        Assert.Equal(HttpStatusCode.OK, reset.StatusCode);
+
+        var loginAntiga = await client.PostAsJsonAsync("/api/auth/login", new { email, senha = senhaAntiga });
+        Assert.Equal(HttpStatusCode.Unauthorized, loginAntiga.StatusCode);
+
+        var loginNova = await client.PostAsJsonAsync("/api/auth/login", new { email, senha = senhaNova });
+        Assert.Equal(HttpStatusCode.OK, loginNova.StatusCode);
+    }
+
+    [Fact]
+    public async Task ResetPassword_PorCodigo_DeveTrocarSenha()
+    {
+        const string email = "recupera-codigo@email.com";
+        const string senhaNova = "NovaSenha123!";
+        await _factory.SeedUsuarioAsync(email, "Senha123!");
+
+        var client = _factory.CreateClient();
+        var forgot = await client.PostAsJsonAsync("/api/auth/forgot-password", new { email });
+        Assert.Equal(HttpStatusCode.OK, forgot.StatusCode);
+
+        string codigo;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var mensagem = Assert.Single(db.MensagensNotificacao, m => m.Destinatario == email);
+            codigo = ExtrairCodigoRecuperacao(mensagem.Conteudo);
+        }
+
+        var reset = await client.PostAsJsonAsync("/api/auth/reset-password", new
+        {
+            codigo,
+            senha = senhaNova,
+            confirmarSenha = senhaNova
+        });
+        Assert.Equal(HttpStatusCode.OK, reset.StatusCode);
+
+        var loginNova = await client.PostAsJsonAsync("/api/auth/login", new { email, senha = senhaNova });
+        Assert.Equal(HttpStatusCode.OK, loginNova.StatusCode);
+    }
+
+    [Fact]
+    public async Task ResetPassword_TokenInvalido_DeveRetornar400()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/reset-password", new
+        {
+            token = "token-inexistente",
+            senha = "NovaSenha123!",
+            confirmarSenha = "NovaSenha123!"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        Assert.Equal("RESET_SENHA_INVALIDO", body.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task ResetPassword_SemTokenNemCodigo_DeveRetornar400()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/reset-password", new
+        {
+            senha = "NovaSenha123!",
+            confirmarSenha = "NovaSenha123!"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        Assert.Equal("RESET_SENHA_INVALIDO", body.GetProperty("code").GetString());
+    }
+
+    private static string ExtrairTokenRecuperacao(string html)
+    {
+        var match = Regex.Match(html, @"resetar-senha\?token=([^""&\s<]+)", RegexOptions.IgnoreCase);
+        Assert.True(match.Success, "Token de recuperacao nao encontrado no e-mail.");
+        return Uri.UnescapeDataString(System.Net.WebUtility.HtmlDecode(match.Groups[1].Value));
+    }
+
+    private static string ExtrairCodigoRecuperacao(string html)
+    {
+        var match = Regex.Match(html, @"class=""confirm-code""[^>]*>\s*(\d{6})", RegexOptions.IgnoreCase);
+        Assert.True(match.Success, "Codigo de recuperacao nao encontrado no e-mail.");
+        return match.Groups[1].Value;
     }
 
     private string CriarTokenExpirado()
