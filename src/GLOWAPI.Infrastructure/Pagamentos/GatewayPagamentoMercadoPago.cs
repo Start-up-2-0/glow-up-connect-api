@@ -262,7 +262,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
 
         if (string.IsNullOrWhiteSpace(checkoutUrl))
         {
-            var ambiente = TokenMercadoPagoSandboxAtivo() ? "sandbox_init_point" : "init_point";
+            var ambiente = _options.SandboxAtivo() ? "sandbox_init_point" : "init_point";
             return CriarCobrancaGatewayResponse.Falha(
                 requestPayload,
                 responsePayload,
@@ -334,17 +334,14 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
 
     private string? ObterInitPointCheckoutPro(JsonElement root)
     {
-        if (TokenMercadoPagoSandboxAtivo())
+        if (_options.SandboxAtivo())
         {
-            return ObterString(root, "sandbox_init_point");
+            return ObterString(root, "sandbox_init_point")
+                ?? ObterString(root, "init_point");
         }
 
         return ObterString(root, "init_point");
     }
-
-    private bool TokenMercadoPagoSandboxAtivo() =>
-        !string.IsNullOrWhiteSpace(_options.AccessToken)
-        && _options.AccessToken.TrimStart().StartsWith("TEST-", StringComparison.OrdinalIgnoreCase);
 
     private object CriarPayload(CriarCobrancaGatewayRequest request)
     {
@@ -744,7 +741,7 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             request.Headers.Add("X-Idempotency-Key", idempotencyKey);
         }
 
-        if (_options.AccessToken.TrimStart().StartsWith("TEST-", StringComparison.OrdinalIgnoreCase))
+        if (_options.SandboxAtivo())
         {
             request.Headers.Add("X-scope", "stage");
         }

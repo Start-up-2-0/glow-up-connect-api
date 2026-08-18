@@ -1265,7 +1265,7 @@ public class AssinaturaService : IAssinaturaService
             return true;
         }
 
-        if (!TokenMercadoPagoSandboxAtivo())
+        if (!_mercadoPagoOptions.SandboxAtivo())
         {
             return false;
         }
@@ -1278,10 +1278,6 @@ public class AssinaturaService : IAssinaturaService
 
         return response.FailureInfo?.RequestUri?.Contains("preapproval", StringComparison.OrdinalIgnoreCase) == true;
     }
-
-    private bool TokenMercadoPagoSandboxAtivo() =>
-        !string.IsNullOrWhiteSpace(_mercadoPagoOptions.AccessToken)
-        && _mercadoPagoOptions.AccessToken.TrimStart().StartsWith("TEST-", StringComparison.OrdinalIgnoreCase);
 
     private static bool PagamentoCompativelComTrial(PagamentoTransparenteMercadoPagoDto? pagamento) =>
         pagamento is not null

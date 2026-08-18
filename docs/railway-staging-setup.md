@@ -38,7 +38,8 @@ Guia para configurar homologacao no **mesmo projeto Railway** da producao, com i
 | `Mensageria__Email__From` | Ex.: `Glow Up Connect <noreply@dominio-verificado.com>` |
 | `Mensageria__Email__Habilitado` | `true` |
 | `MercadoPago__UsarCheckoutPro` | `true` |
-| `MercadoPago__AccessToken` | Token `TEST-...` (sandbox) ou producao |
+| `MercadoPago__UsarSandbox` | `true` |
+| `MercadoPago__AccessToken` | Access token da aba **Credenciais de teste** no painel MP (pode ser `TEST-...` ou `APP_USR-...`) |
 | `MercadoPago__PayerEmailOverride` | (opcional sandbox) ex.: `test_user_123` |
 | `MercadoPago__WebhookSecret` | Secret do painel Mercado Pago (webhooks) |
 | `Cors__AllowedOrigins__0` | URL do frontend staging |

@@ -536,6 +536,83 @@ public class GatewayPagamentoMercadoPagoTests
         Assert.Equal("checkout_pro", response.MetodoPagamento);
     }
 
+    [Fact]
+    public async Task CriarCobrancaAsync_ComCheckoutProSandboxAppUsr_DeveUsarSandboxInitPoint()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Created)
+        {
+            Content = new StringContent(
+                """
+                {
+                  "id": "pref-test-2",
+                  "init_point": "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=prod",
+                  "sandbox_init_point": "https://sandbox.mercadopago.com.br/checkout/v1/redirect?pref_id=test"
+                }
+                """,
+                Encoding.UTF8,
+                "application/json")
+        });
+
+        var gateway = CriarGateway(handler, new MercadoPagoOptions
+        {
+            AccessToken = "APP_USR-123456789-test-sandbox-token",
+            ApiBaseUrl = "https://api.mercadopago.com",
+            UsarCheckoutPro = true,
+            UsarSandbox = true
+        });
+
+        var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
+            Gateway: GatewayPagamento.MercadoPago,
+            ReferenciaInterna: "assinatura-abc",
+            Descricao: "Assinatura Premium",
+            Valor: 199.90m,
+            Moeda: "BRL",
+            PagadorNome: "Maria",
+            PagadorEmail: "maria@email.com"));
+
+        Assert.True(response.Sucesso);
+        Assert.Equal("https://sandbox.mercadopago.com.br/checkout/v1/redirect?pref_id=test", response.CheckoutUrl);
+        Assert.Equal("checkout_pro", response.MetodoPagamento);
+    }
+
+    [Fact]
+    public async Task CriarCobrancaAsync_ComCheckoutProAppUsrSemUsarSandbox_DeveUsarInitPointProducao()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Created)
+        {
+            Content = new StringContent(
+                """
+                {
+                  "id": "pref-prod-1",
+                  "init_point": "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=prod",
+                  "sandbox_init_point": "https://sandbox.mercadopago.com.br/checkout/v1/redirect?pref_id=test"
+                }
+                """,
+                Encoding.UTF8,
+                "application/json")
+        });
+
+        var gateway = CriarGateway(handler, new MercadoPagoOptions
+        {
+            AccessToken = "APP_USR-123456789-test-sandbox-token",
+            ApiBaseUrl = "https://api.mercadopago.com",
+            UsarCheckoutPro = true,
+            UsarSandbox = false
+        });
+
+        var response = await gateway.CriarCobrancaAsync(new CriarCobrancaGatewayRequest(
+            Gateway: GatewayPagamento.MercadoPago,
+            ReferenciaInterna: "assinatura-abc",
+            Descricao: "Assinatura Premium",
+            Valor: 199.90m,
+            Moeda: "BRL",
+            PagadorNome: "Maria",
+            PagadorEmail: "maria@email.com"));
+
+        Assert.True(response.Sucesso);
+        Assert.Equal("https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=prod", response.CheckoutUrl);
+    }
+
     private static GatewayPagamentoMercadoPago CriarGateway(
         HttpMessageHandler handler,
         MercadoPagoOptions options)
