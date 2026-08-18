@@ -1,40 +1,51 @@
 # Recuperacao de senha — frontend
 
-Fluxo **esqueci a senha** e **redefinir senha**.
+Fluxo **esqueci a senha** e **redefinir senha**, no mesmo padrao da [confirmacao de conta](./confirmacao-conta.md).
 
 **Convencoes:** [convencoes.md](./convencoes.md) · **Indice:** [README.md](./README.md)
 
 ---
 
-## Status atual
+## Visao geral
 
-> Endpoints existem mas retornam **501 Not Implemented**.  
-> Nao integrar em producao ate o backend liberar a feature.
+| Metodo | Origem | Endpoint |
+|--------|--------|----------|
+| **Solicitar** | Tela `/auth/esqueci-senha` | `POST /api/auth/forgot-password` com `{ "email" }` |
+| **Link no e-mail** | Query `?token=` | `POST /api/auth/reset-password` com `{ "token", "senha", "confirmarSenha" }` |
+| **Codigo de 6 digitos** | Corpo do e-mail | `POST /api/auth/reset-password` com `{ "codigo", "senha", "confirmarSenha" }` |
 
-```http
-POST /api/auth/forgot-password
-POST /api/auth/reset-password
-```
+A resposta de `forgot-password` e **sempre 200 generico** (nao enumera se o e-mail existe). Reenvio reusa o mesmo endpoint.
 
-Resposta atual (501):
+Validade: **30 minutos** (`Auth:RecuperacaoSenhaMinutos`).
 
-```json
-{
-  "success": false,
-  "message": "Recuperação de senha ainda não implementada.",
-  "code": "NOT_IMPLEMENTED"
-}
+```mermaid
+sequenceDiagram
+    participant U as Usuario
+    participant F as Frontend
+    participant API as GLOWAPI
+    participant Email as E-mail
+
+    U->>F: Informa e-mail
+    F->>API: POST /api/auth/forgot-password
+    API-->>F: 200 mensagem generica
+    API->>Email: Link + codigo
+
+    alt Por link
+        U->>F: /resetar-senha?token=...
+        F->>API: POST reset-password { token, senha, confirmarSenha }
+    else Por codigo
+        U->>F: Digita 6 digitos e nova senha
+        F->>API: POST reset-password { codigo, senha, confirmarSenha }
+    end
+
+    API-->>F: 200 senha redefinida
 ```
 
 ---
 
-## Contrato previsto
+## Passo 1 — Solicitar e-mail
 
-Baseado no design interno (`docs/mensageria.md`). **Sujeito a alteracao** quando implementado.
-
-### Passo 1 — Solicitar e-mail
-
-**Tela frontend:** `/esqueci-senha`
+**Tela frontend:** `/auth/esqueci-senha`
 
 ```http
 POST {BASE_URL}/api/auth/forgot-password
@@ -45,7 +56,7 @@ Content-Type: application/json
 { "email": "maria@email.com" }
 ```
 
-Resposta esperada (200) — mensagem generica:
+Resposta (200) — mensagem generica:
 
 ```json
 {
@@ -54,24 +65,28 @@ Resposta esperada (200) — mensagem generica:
 }
 ```
 
-Link no e-mail (previsto):
+Link no e-mail:
 
 ```text
 {Auth:FrontendBaseUrl}/resetar-senha?token=<token-opaco>
 ```
 
-Validade prevista: **30 minutos**.
+O SPA registra alias `/resetar-senha` → `/auth/redefinir-senha` (preservando `?token=`).
 
 ---
 
-### Passo 2 — Redefinir senha
+## Passo 2 — Redefinir senha
 
-**Tela frontend:** `/resetar-senha?token=...`
+Informe **exatamente** `token` **ou** `codigo`, mais a nova senha.
+
+Regras de `senha`: mesmas do [cadastro.md](./cadastro.md). A nova senha deve ser diferente da atual.
 
 ```http
 POST {BASE_URL}/api/auth/reset-password
 Content-Type: application/json
 ```
+
+Por link:
 
 ```json
 {
@@ -81,9 +96,17 @@ Content-Type: application/json
 }
 ```
 
-Regras de `senha`: mesmas do [cadastro.md](./cadastro.md).
+Por codigo:
 
-Resposta esperada (200):
+```json
+{
+  "codigo": "482913",
+  "senha": "NovaSenha123!",
+  "confirmarSenha": "NovaSenha123!"
+}
+```
+
+Resposta (200):
 
 ```json
 {
@@ -92,36 +115,43 @@ Resposta esperada (200):
 }
 ```
 
+Apos o reset, todas as sessoes do usuario sao revogadas.
+
 ---
 
-## Erros previstos
+## Erros
 
 | HTTP | `code` | Quando |
 |------|--------|--------|
-| 400 | `RESET_SENHA_INVALIDO` | Token expirado ou invalido |
+| 400 | `RESET_SENHA_INVALIDO` | Token/codigo ausente, expirado, invalido, ou senha igual a atual |
 | 400 | — (validation) | Senhas nao conferem ou complexidade invalida |
 
 ---
 
-## Preparacao no frontend (agora)
+## Telas frontend
 
-1. Tela **Esqueci minha senha** — pode exibir "em breve" ou desabilitar submit.
-2. Tela **Redefinir senha** em `/resetar-senha?token=...`.
-3. Tratar `501 NOT_IMPLEMENTED` ate o backend entregar a feature.
+| Rota | Uso |
+|------|-----|
+| `/auth/esqueci-senha` | Informar e-mail |
+| `/auth/esqueci-senha/codigo` | Digitar codigo de 6 digitos |
+| `/auth/redefinir-senha` | Nova senha (`?token=` ou codigo da etapa anterior) |
+| `/auth/redefinir-senha/sucesso` | Confirmacao |
+| `/resetar-senha?token=` | Alias legado do link do e-mail |
 
 ---
 
-## TypeScript (previsto)
+## TypeScript
 
 ```typescript
 export interface ForgotPasswordRequest {
-  email: string;
+  email: string
 }
 
 export interface ResetPasswordRequest {
-  token: string;
-  senha: string;
-  confirmarSenha: string;
+  token?: string
+  codigo?: string
+  senha: string
+  confirmarSenha: string
 }
 ```
 
@@ -129,10 +159,11 @@ export interface ResetPasswordRequest {
 
 ## Checklist
 
-- [ ] Tela `/esqueci-senha` preparada
-- [ ] Tela `/resetar-senha?token=` preparada
-- [ ] Tratar `501` graciosamente
-- [ ] Apos implementacao: mesma UX de mensagem generica do reenvio de confirmacao
+- [x] `POST /api/auth/forgot-password` com mensagem generica
+- [x] E-mail com link + codigo de 6 digitos
+- [x] `POST /api/auth/reset-password` com token XOR codigo
+- [x] Alias `/resetar-senha?token=` no SPA
+- [x] Sem `verify-reset-code` / `resend-reset-code`
 
 ---
 
@@ -140,5 +171,7 @@ export interface ResetPasswordRequest {
 
 | Artefato | Caminho |
 |----------|---------|
-| Controller (stub) | `src/GLOWAPI.API/Controllers/AuthController.cs` |
-| Design mensageria | `docs/mensageria.md` (secao recuperacao de senha) |
+| Controller | `src/GLOWAPI.API/Controllers/AuthController.cs` |
+| Service | `src/GLOWAPI.Application/Services/RecuperacaoSenhaService.cs` |
+| Template | `src/GLOWAPI.Application/Mensageria/RecuperacaoSenhaTemplate.cs` |
+| Frontend | `src/composables/useForgotPassword.ts` |

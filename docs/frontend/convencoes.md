@@ -119,4 +119,4 @@ export interface ApiErrorResponse {
 | 400 | `CONFIRMACAO_EMAIL_INVALIDA` | Confirmacao |
 | 409 | `EMAIL_JA_CADASTRADO` | Cadastro |
 | 400 | `AVATAR_INVALIDO` | Cadastro |
-| 501 | `NOT_IMPLEMENTED` | Recuperacao de senha |
+| 400 | `RESET_SENHA_INVALIDO` | Recuperacao de senha |
