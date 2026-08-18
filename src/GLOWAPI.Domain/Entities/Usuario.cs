@@ -18,6 +18,9 @@ public class Usuario
     public string? ConfirmacaoTokenHash { get; set; }
     public string? ConfirmacaoCodigoHash { get; set; }
     public DateTime? ConfirmacaoExpiraEm { get; set; }
+    public string? RecuperacaoTokenHash { get; set; }
+    public string? RecuperacaoCodigoHash { get; set; }
+    public DateTime? RecuperacaoExpiraEm { get; set; }
     public DateTime? WhatsAppConfirmadoEm { get; set; }
     public string? WhatsAppConfirmacaoTokenHash { get; set; }
     public string? WhatsAppConfirmacaoCodigoHash { get; set; }
@@ -81,6 +84,13 @@ public class Usuario
         WhatsAppConfirmacaoTokenHash = null;
         WhatsAppConfirmacaoCodigoHash = null;
         WhatsAppConfirmacaoExpiraEm = null;
+    }
+
+    public void LimparRecuperacaoSenha()
+    {
+        RecuperacaoTokenHash = null;
+        RecuperacaoCodigoHash = null;
+        RecuperacaoExpiraEm = null;
     }
 
     public bool PodeReceberAlertasWhatsApp() =>
