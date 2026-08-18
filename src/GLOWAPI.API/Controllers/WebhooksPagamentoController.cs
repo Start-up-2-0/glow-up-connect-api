@@ -80,14 +80,36 @@ public class WebhooksPagamentoController : ControllerBase
         var dataIdQuery = ObterDataIdDaQuery();
         var signatureHeader = Request.Headers["x-signature"].FirstOrDefault();
         var requestIdHeader = Request.Headers["x-request-id"].FirstOrDefault();
+        var userAgent = Request.Headers.UserAgent.ToString();
         var temIdentificadorQuery = !string.IsNullOrWhiteSpace(dataIdQuery)
             || !string.IsNullOrWhiteSpace(id)
             || !string.IsNullOrWhiteSpace(topic);
 
         var ipnSemAssinatura = MercadoPagoWebhookIpn.EhSemAssinatura(
             signatureHeader,
-            Request.Headers.UserAgent.ToString(),
+            userAgent,
             temIdentificadorQuery);
+        var secretConfigurado = !string.IsNullOrWhiteSpace(_mercadoPagoOptions.WebhookSecret);
+        var liveMode = ExtrairLiveMode(payload);
+
+        _logger.LogInformation(
+            "Webhook Mercado Pago recebido. Path={Path} Query={Query} UserAgent={UserAgent} HasXSignature={HasXSignature} HasXRequestId={HasXRequestId} SignatureTs={SignatureTs} DataIdQuery={DataIdQuery} Id={Id} Topic={Topic} Type={Type} IpnSemAssinatura={IpnSemAssinatura} ValidarHmac={ValidarHmac} SecretConfigurado={SecretConfigurado} SecretLength={SecretLength} ContentLength={ContentLength} LiveMode={LiveMode}",
+            Request.Path.Value,
+            Request.QueryString.Value,
+            Truncar(userAgent, 200),
+            !string.IsNullOrWhiteSpace(signatureHeader),
+            !string.IsNullOrWhiteSpace(requestIdHeader),
+            MercadoPagoWebhookIpn.ExtrairTimestampAssinatura(signatureHeader),
+            dataIdQuery,
+            id,
+            topic,
+            type,
+            ipnSemAssinatura,
+            DeveValidarAssinaturaMercadoPago() && !ipnSemAssinatura,
+            secretConfigurado,
+            secretConfigurado ? _mercadoPagoOptions.WebhookSecret.Trim().Trim('"').Length : 0,
+            Request.ContentLength,
+            liveMode);
 
         if (DeveValidarAssinaturaMercadoPago()
             && !ipnSemAssinatura
@@ -99,10 +121,15 @@ public class WebhooksPagamentoController : ControllerBase
                 out var motivoFalha))
         {
             _logger.LogWarning(
-                "Webhook Mercado Pago recusado: {Motivo}. Path={Path} Query={Query}",
+                "Webhook Mercado Pago recusado. Motivo={Motivo} Path={Path} Query={Query} UserAgent={UserAgent} HasXSignature={HasXSignature} SignatureTs={SignatureTs} DataIdQuery={DataIdQuery} LiveMode={LiveMode}",
                 motivoFalha,
                 Request.Path.Value,
-                Request.QueryString.Value);
+                Request.QueryString.Value,
+                Truncar(userAgent, 200),
+                !string.IsNullOrWhiteSpace(signatureHeader),
+                MercadoPagoWebhookIpn.ExtrairTimestampAssinatura(signatureHeader),
+                dataIdQuery,
+                liveMode);
             return Unauthorized(ApiErrorResponse.From(
                 "Webhook do Mercado Pago nao autorizado.",
                 motivoFalha ?? "WEBHOOK_SIGNATURE_INVALID"));
@@ -132,6 +159,15 @@ public class WebhooksPagamentoController : ControllerBase
             EventType = eventType,
             Payload = rawPayload
         }, cancellationToken);
+
+        _logger.LogInformation(
+            "Webhook Mercado Pago aceito. WebhookId={WebhookId} EventId={EventId} EventType={EventType} Processado={Processado} Duplicado={Duplicado} IpnSemAssinatura={IpnSemAssinatura}",
+            webhook.Id,
+            webhook.EventId,
+            webhook.EventType,
+            webhook.Processado,
+            webhook.Duplicado,
+            ipnSemAssinatura);
 
         return Ok(ApiSuccessResponse<WebhookPagamentoResponseDto>.From(
             webhook.Duplicado
@@ -199,5 +235,32 @@ public class WebhooksPagamentoController : ControllerBase
             JsonValueKind.Number => current.GetRawText(),
             _ => null
         };
+    }
+
+    private static string? ExtrairLiveMode(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object
+            || !root.TryGetProperty("live_mode", out var liveMode))
+        {
+            return null;
+        }
+
+        return liveMode.ValueKind switch
+        {
+            JsonValueKind.True => "true",
+            JsonValueKind.False => "false",
+            JsonValueKind.String => liveMode.GetString(),
+            _ => liveMode.GetRawText()
+        };
+    }
+
+    private static string Truncar(string? valor, int maximo)
+    {
+        if (string.IsNullOrEmpty(valor) || valor.Length <= maximo)
+        {
+            return valor ?? string.Empty;
+        }
+
+        return valor[..maximo];
     }
 }

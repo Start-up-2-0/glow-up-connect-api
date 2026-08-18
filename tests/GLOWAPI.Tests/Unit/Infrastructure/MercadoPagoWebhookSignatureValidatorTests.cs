@@ -168,6 +168,15 @@ public class MercadoPagoWebhookSignatureValidatorTests
     }
 
     [Fact]
+    public void ExtrairTimestampAssinatura_DeveRetornarTsSemExporV1()
+    {
+        Assert.Equal(
+            "1700000000",
+            MercadoPagoWebhookIpn.ExtrairTimestampAssinatura("ts=1700000000,v1=deadbeef"));
+        Assert.Null(MercadoPagoWebhookIpn.ExtrairTimestampAssinatura(null));
+    }
+
+    [Fact]
     public void Validar_DeveRejeitarQuandoHashNaoConferir()
     {
         var validator = CriarValidator();

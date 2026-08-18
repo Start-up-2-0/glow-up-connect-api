@@ -6,6 +6,7 @@ using GLOWAPI.Application.Models.Caixa;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Pagamentos;
+using Microsoft.Extensions.Logging;
 
 namespace GLOWAPI.Application.Services;
 
@@ -22,6 +23,7 @@ public class WebhookPagamentoService : IWebhookPagamentoService
     private readonly IUsuarioRepository _usuarioRepository;
     private readonly IMovimentacaoCaixaService _movimentacaoCaixaService;
     private readonly IAgendamentoRepository _agendamentoRepository;
+    private readonly ILogger<WebhookPagamentoService> _logger;
 
     public WebhookPagamentoService(
         IWebhookPagamentoRepository webhookPagamentoRepository,
@@ -34,7 +36,8 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         IAssinaturaEncerramentoService assinaturaEncerramentoService,
         IUsuarioRepository usuarioRepository,
         IMovimentacaoCaixaService movimentacaoCaixaService,
-        IAgendamentoRepository agendamentoRepository)
+        IAgendamentoRepository agendamentoRepository,
+        ILogger<WebhookPagamentoService> logger)
     {
         _webhookPagamentoRepository = webhookPagamentoRepository;
         _pagamentoRepository = pagamentoRepository;
@@ -47,6 +50,7 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         _usuarioRepository = usuarioRepository;
         _movimentacaoCaixaService = movimentacaoCaixaService;
         _agendamentoRepository = agendamentoRepository;
+        _logger = logger;
     }
 
     public async Task<WebhookPagamentoResponseDto> RegistrarAsync(
@@ -63,6 +67,12 @@ public class WebhookPagamentoService : IWebhookPagamentoService
 
         if (webhookExistente is not null)
         {
+            _logger.LogInformation(
+                "Webhook de pagamento duplicado ignorado. Gateway={Gateway} EventId={EventId} EventType={EventType} Processado={Processado}",
+                webhookExistente.Gateway,
+                webhookExistente.EventId,
+                webhookExistente.EventType,
+                webhookExistente.Processado);
             return WebhookPagamentoResponseDto.From(webhookExistente, duplicado: true);
         }
 
@@ -78,6 +88,26 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         await _webhookPagamentoRepository.AdicionarAsync(webhook, cancellationToken);
         await ProcessarAsync(webhook, cancellationToken);
         await _webhookPagamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        if (webhook.Processado)
+        {
+            _logger.LogInformation(
+                "Webhook de pagamento processado. Gateway={Gateway} EventId={EventId} EventType={EventType} WebhookId={WebhookId}",
+                webhook.Gateway,
+                webhook.EventId,
+                webhook.EventType,
+                webhook.Id);
+        }
+        else
+        {
+            _logger.LogWarning(
+                "Webhook de pagamento nao processado. Gateway={Gateway} EventId={EventId} EventType={EventType} WebhookId={WebhookId} Erro={Erro}",
+                webhook.Gateway,
+                webhook.EventId,
+                webhook.EventType,
+                webhook.Id,
+                webhook.ErroProcessamento ?? "(sem erro)");
+        }
 
         return WebhookPagamentoResponseDto.From(webhook, duplicado: false);
     }
@@ -218,11 +248,19 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         if (string.IsNullOrWhiteSpace(ordemId))
         {
             webhook.ErroProcessamento = "Payload nao contem id da merchant_order.";
+            _logger.LogWarning(
+                "Webhook merchant_order sem id. EventId={EventId}",
+                webhook.EventId);
             return;
         }
 
         var gateway = _gatewayPagamentoResolver.Resolver(webhook.Gateway);
         var pagamentoIds = await gateway.ListarPagamentosDaOrdemAsync(ordemId, cancellationToken);
+        _logger.LogInformation(
+            "Webhook merchant_order consultado. EventId={EventId} OrdemId={OrdemId} PagamentosNaOrdem={PagamentosNaOrdem}",
+            webhook.EventId,
+            ordemId,
+            pagamentoIds.Count);
         if (pagamentoIds.Count == 0)
         {
             webhook.ErroProcessamento = "Merchant order nao retornou pagamentos.";
@@ -245,6 +283,11 @@ public class WebhookPagamentoService : IWebhookPagamentoService
             {
                 webhook.Processado = true;
                 webhook.ProcessadoEm = DateTime.UtcNow;
+                _logger.LogInformation(
+                    "Webhook merchant_order ativou pagamento. EventId={EventId} OrdemId={OrdemId} PagamentoId={PagamentoId}",
+                    webhook.EventId,
+                    ordemId,
+                    pagamentoId);
                 return;
             }
 
@@ -252,6 +295,11 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         }
 
         webhook.ErroProcessamento = ultimoErro ?? "Nenhum pagamento da merchant order foi processado.";
+        _logger.LogWarning(
+            "Webhook merchant_order nao ativou pagamento. EventId={EventId} OrdemId={OrdemId} Erro={Erro}",
+            webhook.EventId,
+            ordemId,
+            webhook.ErroProcessamento);
     }
 
     private async Task ProcessarPagamentoConsultandoGatewayAsync(
@@ -267,6 +315,13 @@ public class WebhookPagamentoService : IWebhookPagamentoService
 
         var gateway = _gatewayPagamentoResolver.Resolver(webhook.Gateway);
         var consulta = await gateway.ConsultarPagamentoAsync(gatewayPaymentId, cancellationToken);
+        _logger.LogInformation(
+            "Webhook consultou pagamento no gateway. EventId={EventId} GatewayPaymentId={GatewayPaymentId} Sucesso={Sucesso} Status={Status} ReferenciaExternaPresente={ReferenciaExternaPresente}",
+            webhook.EventId,
+            gatewayPaymentId,
+            consulta.Sucesso,
+            consulta.Status,
+            !string.IsNullOrWhiteSpace(consulta.ReferenciaExterna));
         if (!consulta.Sucesso)
         {
             webhook.ErroProcessamento = consulta.MensagemErro ?? "Nao foi possivel consultar pagamento no gateway.";
@@ -278,6 +333,11 @@ public class WebhookPagamentoService : IWebhookPagamentoService
         {
             webhook.Processado = true;
             webhook.ProcessadoEm = DateTime.UtcNow;
+            _logger.LogInformation(
+                "Webhook pagamento com status nao mapeado marcado processado. EventId={EventId} GatewayPaymentId={GatewayPaymentId} Status={Status}",
+                webhook.EventId,
+                gatewayPaymentId,
+                consulta.Status);
             return;
         }
 

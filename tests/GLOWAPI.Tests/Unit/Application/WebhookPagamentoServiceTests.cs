@@ -4,6 +4,7 @@ using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Pagamentos;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Application.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
@@ -589,6 +590,7 @@ public class WebhookPagamentoServiceTests
             _assinaturaEncerramentoService.Object,
             _usuarioRepository.Object,
             _movimentacaoCaixaService.Object,
-            _agendamentoRepository.Object);
+            _agendamentoRepository.Object,
+            NullLogger<WebhookPagamentoService>.Instance);
     }
 }
