@@ -27,9 +27,32 @@ public class OnboardingPublicacaoServiceTests
         var service = CreateService();
         var status = await service.ObterStatusAsync(estabelecimento.Id);
 
-        Assert.True(status.OnboardingObrigatorioPendente);
-        Assert.False(status.ProntoParaPublicacao);
-        Assert.Equal(OnboardingPublicacaoService.EtapaEquipe, status.ProximaEtapa);
+        Assert.False(status.OnboardingObrigatorioPendente);
+        Assert.True(status.ProntoParaPublicacao);
+        Assert.Null(status.ProximaEtapa);
+    }
+
+    [Fact]
+    public async Task RecalcularVisibilidadeAsync_DevePublicarLojaIncompleta_QuandoAssinaturaAtiva()
+    {
+        var estabelecimento = CriarEstabelecimentoLoja();
+        ConfigurarAssinaturaAtiva(TipoAssinatura.Estabelecimento);
+        ConfigurarLojaIncompleta();
+
+        Estabelecimento? capturado = null;
+        _estabelecimentoRepository
+            .Setup(r => r.Atualizar(It.IsAny<Estabelecimento>()))
+            .Callback<Estabelecimento>(e => capturado = e);
+        _estabelecimentoRepository
+            .Setup(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        var service = CreateService();
+        var visivel = await service.RecalcularVisibilidadeAsync(estabelecimento.Id);
+
+        Assert.True(visivel);
+        Assert.NotNull(capturado);
+        Assert.True(capturado!.VisivelPublicamente);
     }
 
     [Fact]

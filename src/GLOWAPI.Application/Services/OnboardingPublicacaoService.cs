@@ -71,12 +71,18 @@ public class OnboardingPublicacaoService : IOnboardingPublicacaoService
             tipoAssinatura,
             cancellationToken);
 
-        var onboardingPendente = assinaturaAtiva && !avaliacao.ProntoParaPublicacao;
+        var onboardingPendente = assinaturaAtiva
+            && OnboardingPublicacaoObrigatorio(tipoAssinatura)
+            && !avaliacao.ProntoParaPublicacao;
+
+        var prontoParaPublicacao = OnboardingPublicacaoObrigatorio(tipoAssinatura)
+            ? avaliacao.ProntoParaPublicacao
+            : assinaturaAtiva;
 
         return new OnboardingPublicacaoStatusDto(
             estabelecimentoId,
             tipoAssinatura.ToString(),
-            avaliacao.ProntoParaPublicacao,
+            prontoParaPublicacao,
             estabelecimento.VisivelPublicamente,
             onboardingPendente,
             onboardingPendente ? avaliacao.ProximaEtapa : null,
@@ -108,7 +114,8 @@ public class OnboardingPublicacaoService : IOnboardingPublicacaoService
             estabelecimento,
             tipoAssinatura,
             cancellationToken);
-        var deveSerVisivel = assinaturaAtiva && avaliacao.ProntoParaPublicacao;
+        var deveSerVisivel = assinaturaAtiva && (
+            !OnboardingPublicacaoObrigatorio(tipoAssinatura) || avaliacao.ProntoParaPublicacao);
 
         if (estabelecimento.VisivelPublicamente == deveSerVisivel)
         {
@@ -133,6 +140,9 @@ public class OnboardingPublicacaoService : IOnboardingPublicacaoService
             await RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         }
     }
+
+    private static bool OnboardingPublicacaoObrigatorio(TipoAssinatura tipoAssinatura) =>
+        tipoAssinatura == TipoAssinatura.ProfissionalAutonomo;
 
     private async Task<(bool ProntoParaPublicacao, string? ProximaEtapa, IReadOnlyList<OnboardingEtapaStatusDto> Etapas)> AvaliarProntidaoAsync(
         Estabelecimento estabelecimento,
