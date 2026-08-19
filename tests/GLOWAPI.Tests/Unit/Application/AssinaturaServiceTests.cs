@@ -56,7 +56,7 @@ public class AssinaturaServiceTests
                 new()
                 {
                     Id = 2,
-                    Nome = "Barbeiro ou cabeleireiro(a)",
+                    Nome = "Barbeiro",
                     TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
                     Ativo = true
                 }

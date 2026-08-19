@@ -100,7 +100,14 @@ public class EstabelecimentoDescobertaServiceTests
                 new()
                 {
                     Id = 2,
-                    Nome = "Barbeiro ou cabeleireiro(a)",
+                    Nome = "Barbeiro",
+                    TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+                    Ativo = true
+                },
+                new()
+                {
+                    Id = 3,
+                    Nome = "Cabeleireiro(a)",
                     TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
                     Ativo = true
                 }
@@ -114,10 +121,10 @@ public class EstabelecimentoDescobertaServiceTests
         Assert.Equal(1, lojas[0].Id);
         Assert.Equal("Barbearia ou salão de beleza", lojas[0].Nome);
         Assert.Equal("Estabelecimento", lojas[0].TipoAssinatura);
-        Assert.Single(autonomos);
-        Assert.Equal(2, autonomos[0].Id);
-        Assert.Equal("Barbeiro ou cabeleireiro(a)", autonomos[0].Nome);
-        Assert.Equal("ProfissionalAutonomo", autonomos[0].TipoAssinatura);
+        Assert.Equal(2, autonomos.Count);
+        Assert.Contains(autonomos, categoria => categoria.Id == 2 && categoria.Nome == "Barbeiro");
+        Assert.Contains(autonomos, categoria => categoria.Id == 3 && categoria.Nome == "Cabeleireiro(a)");
+        Assert.All(autonomos, categoria => Assert.Equal("ProfissionalAutonomo", categoria.TipoAssinatura));
     }
 
     private EstabelecimentoDescobertaService CreateService()

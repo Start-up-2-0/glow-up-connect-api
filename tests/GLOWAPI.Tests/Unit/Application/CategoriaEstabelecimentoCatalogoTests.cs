@@ -18,7 +18,14 @@ public class CategoriaEstabelecimentoCatalogoTests
         new()
         {
             Id = 2,
-            Nome = "Barbeiro ou cabeleireiro(a)",
+            Nome = "Barbeiro",
+            TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+            Ativo = true
+        },
+        new()
+        {
+            Id = 3,
+            Nome = "Cabeleireiro(a)",
             TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
             Ativo = true
         }
@@ -57,13 +64,20 @@ public class CategoriaEstabelecimentoCatalogoTests
             TipoAssinatura.Estabelecimento,
             Catalogo,
             mensagem => new InvalidOperationException(mensagem));
-        var idAutonomo = CategoriaEstabelecimentoCatalogo.ResolverId(
-            null,
-            TipoAssinatura.ProfissionalAutonomo,
-            Catalogo,
-            mensagem => new InvalidOperationException(mensagem));
 
         Assert.Equal(1, idLoja);
-        Assert.Equal(2, idAutonomo);
+    }
+
+    [Fact]
+    public void ResolverId_DeveExigirEscolha_QuandoAutonomoTemVariasCategorias()
+    {
+        var excecao = Assert.Throws<InvalidOperationException>(() =>
+            CategoriaEstabelecimentoCatalogo.ResolverId(
+                null,
+                TipoAssinatura.ProfissionalAutonomo,
+                Catalogo,
+                mensagem => new InvalidOperationException(mensagem)));
+
+        Assert.Equal("Area de atuacao do profissional e obrigatoria.", excecao.Message);
     }
 }

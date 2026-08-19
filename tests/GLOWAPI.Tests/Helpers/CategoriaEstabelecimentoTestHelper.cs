@@ -18,7 +18,7 @@ public static class CategoriaEstabelecimentoTestHelper
             cancellationToken);
         await GarantirCategoriaAsync(
             db,
-            "Barbeiro ou cabeleireiro(a)",
+            "Barbeiro",
             TipoAssinatura.ProfissionalAutonomo,
             cancellationToken);
     }
