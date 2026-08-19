@@ -663,6 +663,8 @@ public class GatewayPagamentoMercadoPagoTests
         Assert.Equal(
             BrasilDateTimeHelper.FormatarIsoComOffset(expiraEm),
             root.GetProperty("expiration_date_to").GetString());
+        Assert.False(root.TryGetProperty("back_urls", out _));
+        Assert.False(root.TryGetProperty("auto_return", out _));
     }
 
     private static GatewayPagamentoMercadoPago CriarGateway(

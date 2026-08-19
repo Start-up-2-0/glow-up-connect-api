@@ -61,12 +61,6 @@ public static class HostedConfigurationValidator
             faltando.Add("MercadoPago__WebhookSecret");
         }
 
-        var usarCheckoutPro = configuration.GetValue<bool>($"{MercadoPagoOptions.SectionName}:UsarCheckoutPro");
-        if (usarCheckoutPro && string.IsNullOrWhiteSpace(frontendBaseUrl))
-        {
-            faltando.Add("Auth__FrontendBaseUrl (obrigatorio com MercadoPago__UsarCheckoutPro para back_urls)");
-        }
-
         if (string.Equals(environmentName, "Staging", StringComparison.OrdinalIgnoreCase)
             && string.IsNullOrWhiteSpace(configuration[$"{SwaggerOptions.SectionName}:AccessKey"]))
         {
