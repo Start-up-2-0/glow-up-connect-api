@@ -14,17 +14,20 @@ public class HorarioFuncionamentoNegocioService : IHorarioFuncionamentoNegocioSe
     private readonly IHorarioAtendimentoProfissionalRepository _horarioAtendimentoProfissionalRepository;
     private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
+    private readonly IOnboardingPublicacaoService _onboardingPublicacaoService;
 
     public HorarioFuncionamentoNegocioService(
         IHorarioFuncionamentoEstabelecimentoRepository horarioFuncionamentoRepository,
         IHorarioAtendimentoProfissionalRepository horarioAtendimentoProfissionalRepository,
         IAutorizacaoNegocioService autorizacaoNegocioService,
-        IAuditoriaNegocioService auditoriaNegocioService)
+        IAuditoriaNegocioService auditoriaNegocioService,
+        IOnboardingPublicacaoService onboardingPublicacaoService)
     {
         _horarioFuncionamentoRepository = horarioFuncionamentoRepository;
         _horarioAtendimentoProfissionalRepository = horarioAtendimentoProfissionalRepository;
         _autorizacaoNegocioService = autorizacaoNegocioService;
         _auditoriaNegocioService = auditoriaNegocioService;
+        _onboardingPublicacaoService = onboardingPublicacaoService;
     }
 
     public async Task<IReadOnlyList<HorarioFuncionamentoResponseDto>> ListarAsync(
@@ -78,6 +81,7 @@ public class HorarioFuncionamentoNegocioService : IHorarioFuncionamentoNegocioSe
 
         await _horarioFuncionamentoRepository.AdicionarAsync(horario, cancellationToken);
         await _horarioFuncionamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.HorarioFuncionamentoCriado,
@@ -151,6 +155,7 @@ public class HorarioFuncionamentoNegocioService : IHorarioFuncionamentoNegocioSe
 
         _horarioFuncionamentoRepository.Atualizar(horario);
         await _horarioFuncionamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.HorarioFuncionamentoAlterado,
@@ -216,6 +221,7 @@ public class HorarioFuncionamentoNegocioService : IHorarioFuncionamentoNegocioSe
 
         _horarioFuncionamentoRepository.Atualizar(horario);
         await _horarioFuncionamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.HorarioFuncionamentoStatusAlterado,

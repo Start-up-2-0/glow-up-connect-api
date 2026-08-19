@@ -11,7 +11,14 @@ public class CategoriaEstabelecimentoCatalogoTests
         new()
         {
             Id = 1,
-            Nome = "Barbearia ou salão de beleza",
+            Nome = "Barbearia",
+            TipoAssinatura = TipoAssinatura.Estabelecimento,
+            Ativo = true
+        },
+        new()
+        {
+            Id = 18,
+            Nome = "Salão de Beleza",
             TipoAssinatura = TipoAssinatura.Estabelecimento,
             Ativo = true
         },
@@ -57,15 +64,16 @@ public class CategoriaEstabelecimentoCatalogoTests
     }
 
     [Fact]
-    public void ResolverId_DeveAtribuirCategoriaUnicaDoTipo_QuandoNaoInformada()
+    public void ResolverId_DeveExigirEscolha_QuandoLojaTemVariasCategorias()
     {
-        var idLoja = CategoriaEstabelecimentoCatalogo.ResolverId(
-            null,
-            TipoAssinatura.Estabelecimento,
-            Catalogo,
-            mensagem => new InvalidOperationException(mensagem));
+        var excecao = Assert.Throws<InvalidOperationException>(() =>
+            CategoriaEstabelecimentoCatalogo.ResolverId(
+                null,
+                TipoAssinatura.Estabelecimento,
+                Catalogo,
+                mensagem => new InvalidOperationException(mensagem)));
 
-        Assert.Equal(1, idLoja);
+        Assert.Equal("Categoria do estabelecimento e obrigatoria.", excecao.Message);
     }
 
     [Fact]

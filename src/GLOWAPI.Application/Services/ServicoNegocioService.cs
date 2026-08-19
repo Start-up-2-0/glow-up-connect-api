@@ -18,6 +18,7 @@ public class ServicoNegocioService : IServicoNegocioService
     private readonly IProfissionalEscopoAcessoService _profissionalEscopoAcessoService;
     private readonly IModulosAssinaturaService _modulosAssinaturaService;
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
+    private readonly IOnboardingPublicacaoService _onboardingPublicacaoService;
 
     public ServicoNegocioService(
         IServicoRepository servicoRepository,
@@ -27,7 +28,8 @@ public class ServicoNegocioService : IServicoNegocioService
         IAutorizacaoNegocioService autorizacaoNegocioService,
         IProfissionalEscopoAcessoService profissionalEscopoAcessoService,
         IModulosAssinaturaService modulosAssinaturaService,
-        IAuditoriaNegocioService auditoriaNegocioService)
+        IAuditoriaNegocioService auditoriaNegocioService,
+        IOnboardingPublicacaoService onboardingPublicacaoService)
     {
         _servicoRepository = servicoRepository;
         _estabelecimentoRepository = estabelecimentoRepository;
@@ -37,6 +39,7 @@ public class ServicoNegocioService : IServicoNegocioService
         _profissionalEscopoAcessoService = profissionalEscopoAcessoService;
         _modulosAssinaturaService = modulosAssinaturaService;
         _auditoriaNegocioService = auditoriaNegocioService;
+        _onboardingPublicacaoService = onboardingPublicacaoService;
     }
 
     public async Task<IReadOnlyList<ServicoResponseDto>> ListarAsync(
@@ -103,6 +106,7 @@ public class ServicoNegocioService : IServicoNegocioService
 
         await _servicoRepository.AdicionarAsync(servico, cancellationToken);
         await _servicoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.ServicoCriado,
@@ -158,6 +162,7 @@ public class ServicoNegocioService : IServicoNegocioService
 
         _servicoRepository.Atualizar(servico);
         await _servicoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.ServicoAlterado,
@@ -206,6 +211,7 @@ public class ServicoNegocioService : IServicoNegocioService
 
         _servicoRepository.Atualizar(servico);
         await _servicoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.ServicoStatusAlterado,
@@ -228,7 +234,7 @@ public class ServicoNegocioService : IServicoNegocioService
         CancellationToken cancellationToken = default)
     {
         var estabelecimento = await _estabelecimentoRepository.ObterPorPublicGuidAsync(publicGuid, cancellationToken);
-        if (estabelecimento is null || !estabelecimento.Ativo)
+        if (estabelecimento is null || !estabelecimento.Ativo || !estabelecimento.VisivelPublicamente)
         {
             throw new NegocioNaoEncontradoException();
         }
@@ -299,6 +305,13 @@ public class ServicoNegocioService : IServicoNegocioService
         if (vinculo?.EstabelecimentoId is null || !vinculo.Ativo || !vinculo.PodeReceberAgendamento)
         {
             throw new ProfissionalSemVinculoNegocioException();
+        }
+
+        if (vinculo.Estabelecimento is null
+            || !vinculo.Estabelecimento.Ativo
+            || !vinculo.Estabelecimento.VisivelPublicamente)
+        {
+            throw new NegocioNaoEncontradoException();
         }
 
         var servicos = await _servicoRepository.ListarPorEstabelecimentoAsync(

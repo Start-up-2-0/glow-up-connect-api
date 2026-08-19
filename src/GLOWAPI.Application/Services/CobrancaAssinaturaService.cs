@@ -28,6 +28,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
     private readonly ICurrentUserContext _currentUser;
     private readonly IAssinaturaOnboardingFinalizacaoService _assinaturaOnboardingFinalizacaoService;
     private readonly IAssinaturaVisibilidadeService _assinaturaVisibilidadeService;
+    private readonly IOnboardingPublicacaoService _onboardingPublicacaoService;
     private readonly IAssinaturaEncerramentoService _assinaturaEncerramentoService;
     private readonly IUsuarioRepository _usuarioRepository;
     private readonly MercadoPagoOptions _mercadoPagoOptions;
@@ -45,6 +46,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         ICurrentUserContext currentUser,
         IAssinaturaOnboardingFinalizacaoService assinaturaOnboardingFinalizacaoService,
         IAssinaturaVisibilidadeService assinaturaVisibilidadeService,
+        IOnboardingPublicacaoService onboardingPublicacaoService,
         IAssinaturaEncerramentoService assinaturaEncerramentoService,
         IUsuarioRepository usuarioRepository,
         IOptions<MercadoPagoOptions> mercadoPagoOptions,
@@ -61,6 +63,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         _currentUser = currentUser;
         _assinaturaOnboardingFinalizacaoService = assinaturaOnboardingFinalizacaoService;
         _assinaturaVisibilidadeService = assinaturaVisibilidadeService;
+        _onboardingPublicacaoService = onboardingPublicacaoService;
         _assinaturaEncerramentoService = assinaturaEncerramentoService;
         _usuarioRepository = usuarioRepository;
         _mercadoPagoOptions = mercadoPagoOptions.Value;
@@ -337,11 +340,15 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
 
         if (statusAssinaturaAnterior == AssinaturaStatus.Inadimplente)
         {
-            await _assinaturaVisibilidadeService.ReexibirLojasVinculadasAsync(assinatura, cancellationToken);
+            await _onboardingPublicacaoService.RecalcularVisibilidadePorAssinaturaAsync(
+                assinatura,
+                cancellationToken);
         }
         else if (statusAssinaturaAnterior is AssinaturaStatus.PendentePagamento or AssinaturaStatus.Trial)
         {
-            await _assinaturaVisibilidadeService.ReexibirLojasVinculadasAsync(assinatura, cancellationToken);
+            await _onboardingPublicacaoService.RecalcularVisibilidadePorAssinaturaAsync(
+                assinatura,
+                cancellationToken);
         }
 
         _assinaturaRepository.Atualizar(assinatura);

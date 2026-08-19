@@ -22,6 +22,7 @@ public class ProfissionalAutonomoPerfilServiceTests
     private readonly Mock<IUsuarioRepository> _usuarioRepository = new();
     private readonly Mock<IConfirmacaoWhatsAppService> _confirmacaoWhatsAppService = new();
     private readonly Mock<IConfirmacaoWhatsAppEstabelecimentoService> _confirmacaoWhatsAppEstabelecimentoService = new();
+    private readonly Mock<IOnboardingPublicacaoService> _onboardingPublicacaoService = new();
 
     public ProfissionalAutonomoPerfilServiceTests()
     {
@@ -141,5 +142,6 @@ public class ProfissionalAutonomoPerfilServiceTests
             _enderecoGeocodificacaoService.Object,
             _confirmacaoWhatsAppService.Object,
             _confirmacaoWhatsAppEstabelecimentoService.Object,
-            new AvatarBase64Decoder(Options.Create(new AvatarOptions())));
+            new AvatarBase64Decoder(Options.Create(new AvatarOptions())),
+            _onboardingPublicacaoService.Object);
 }

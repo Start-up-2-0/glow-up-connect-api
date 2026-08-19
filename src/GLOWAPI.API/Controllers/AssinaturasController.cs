@@ -14,17 +14,20 @@ public class AssinaturasController : ControllerBase
     private readonly IAssinaturaService _assinaturaService;
     private readonly ICobrancaAssinaturaService _cobrancaAssinaturaService;
     private readonly IAssinaturaOnboardingContextoService _assinaturaOnboardingContextoService;
+    private readonly IOnboardingPublicacaoService _onboardingPublicacaoService;
     private readonly ICurrentUserContext _currentUser;
 
     public AssinaturasController(
         IAssinaturaService assinaturaService,
         ICobrancaAssinaturaService cobrancaAssinaturaService,
         IAssinaturaOnboardingContextoService assinaturaOnboardingContextoService,
+        IOnboardingPublicacaoService onboardingPublicacaoService,
         ICurrentUserContext currentUser)
     {
         _assinaturaService = assinaturaService;
         _cobrancaAssinaturaService = cobrancaAssinaturaService;
         _assinaturaOnboardingContextoService = assinaturaOnboardingContextoService;
+        _onboardingPublicacaoService = onboardingPublicacaoService;
         _currentUser = currentUser;
     }
 
@@ -40,6 +43,46 @@ public class AssinaturasController : ControllerBase
         return Ok(ApiSuccessResponse<AssinaturaOnboardingContextoResponseDto>.From(
             "Contexto de onboarding obtido com sucesso.",
             contexto));
+    }
+
+    [HttpGet("onboarding/publicacao")]
+    [RequerPermissaoNegocio(PermissaoNegocio.NegocioVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ObterStatusPublicacao(
+        [FromQuery] int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Unauthorized();
+        }
+
+        var status = await _onboardingPublicacaoService.ObterStatusAsync(estabelecimentoId, cancellationToken);
+        return Ok(ApiSuccessResponse<OnboardingPublicacaoStatusDto>.From(
+            "Status de publicacao obtido com sucesso.",
+            status));
+    }
+
+    [HttpPost("onboarding/publicacao/recalcular")]
+    [RequerPermissaoNegocio(PermissaoNegocio.NegocioEditar, "estabelecimentoId")]
+    public async Task<IActionResult> RecalcularPublicacao(
+        [FromQuery] int estabelecimentoId,
+        CancellationToken cancellationToken)
+    {
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Unauthorized();
+        }
+
+        var visivel = await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(
+            estabelecimentoId,
+            cancellationToken);
+        var status = await _onboardingPublicacaoService.ObterStatusAsync(estabelecimentoId, cancellationToken);
+
+        return Ok(ApiSuccessResponse<OnboardingPublicacaoStatusDto>.From(
+            visivel
+                ? "Perfil publicado com sucesso."
+                : "Perfil atualizado. Conclua o onboarding para publicar.",
+            status));
     }
 
     [HttpPost]

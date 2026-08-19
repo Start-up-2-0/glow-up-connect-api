@@ -17,4 +17,8 @@ public interface IProfissionalServicoRepository : IRepository<ProfissionalServic
     Task<IReadOnlyList<int>> ListarProfissionaisAtivosPorServicoAsync(
         int servicoId,
         CancellationToken cancellationToken = default);
+
+    Task<bool> ExisteVinculoAtivoPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default);
 }

@@ -16,6 +16,7 @@ public class ProfissionalServicoNegocioService : IProfissionalServicoNegocioServ
     private readonly IAgendamentoItemRepository _agendamentoItemRepository;
     private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
+    private readonly IOnboardingPublicacaoService _onboardingPublicacaoService;
 
     public ProfissionalServicoNegocioService(
         IServicoRepository servicoRepository,
@@ -23,7 +24,8 @@ public class ProfissionalServicoNegocioService : IProfissionalServicoNegocioServ
         IProfissionalServicoRepository profissionalServicoRepository,
         IAgendamentoItemRepository agendamentoItemRepository,
         IAutorizacaoNegocioService autorizacaoNegocioService,
-        IAuditoriaNegocioService auditoriaNegocioService)
+        IAuditoriaNegocioService auditoriaNegocioService,
+        IOnboardingPublicacaoService onboardingPublicacaoService)
     {
         _servicoRepository = servicoRepository;
         _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
@@ -31,6 +33,7 @@ public class ProfissionalServicoNegocioService : IProfissionalServicoNegocioServ
         _agendamentoItemRepository = agendamentoItemRepository;
         _autorizacaoNegocioService = autorizacaoNegocioService;
         _auditoriaNegocioService = auditoriaNegocioService;
+        _onboardingPublicacaoService = onboardingPublicacaoService;
     }
 
     public async Task<ProfissionalServicoResponseDto> VincularAsync(
@@ -89,6 +92,8 @@ public class ProfissionalServicoNegocioService : IProfissionalServicoNegocioServ
             await _profissionalServicoRepository.SalvarAlteracoesAsync(cancellationToken);
         }
 
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
+
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.ProfissionalServicoVinculado,
@@ -134,6 +139,7 @@ public class ProfissionalServicoNegocioService : IProfissionalServicoNegocioServ
 
         _profissionalServicoRepository.Atualizar(vinculo);
         await _profissionalServicoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.ProfissionalServicoAlterado,
@@ -183,6 +189,7 @@ public class ProfissionalServicoNegocioService : IProfissionalServicoNegocioServ
 
         _profissionalServicoRepository.Atualizar(vinculo);
         await _profissionalServicoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.ProfissionalServicoDesvinculado,

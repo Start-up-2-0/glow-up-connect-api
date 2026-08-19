@@ -49,7 +49,14 @@ public class AssinaturaServiceTests
                 new()
                 {
                     Id = 1,
-                    Nome = "Barbearia ou salão de beleza",
+                    Nome = "Barbearia",
+                    TipoAssinatura = TipoAssinatura.Estabelecimento,
+                    Ativo = true
+                },
+                new()
+                {
+                    Id = 18,
+                    Nome = "Salão de Beleza",
                     TipoAssinatura = TipoAssinatura.Estabelecimento,
                     Ativo = true
                 },
@@ -247,6 +254,7 @@ public class AssinaturaServiceTests
                 Logo = LogoBase64TestHelper.PngDataUri,
                 Telefone = "11999999999",
                 Email = "studio@email.com",
+                CategoriaEstabelecimentoId = 1,
                 Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Sao Paulo", logradouro: "Rua Glow")
             }
         });

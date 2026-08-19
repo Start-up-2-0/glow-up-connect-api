@@ -18,17 +18,20 @@ public class AssinaturaOnboardingContextoService : IAssinaturaOnboardingContexto
     private readonly IAssinaturaRepository _assinaturaRepository;
     private readonly IAssinaturaEstabelecimentoRepository _assinaturaEstabelecimentoRepository;
     private readonly ICurrentUserContext _currentUserContext;
+    private readonly IOnboardingPublicacaoService _onboardingPublicacaoService;
 
     public AssinaturaOnboardingContextoService(
         IEstabelecimentoUsuarioRepository estabelecimentoUsuarioRepository,
         IAssinaturaRepository assinaturaRepository,
         IAssinaturaEstabelecimentoRepository assinaturaEstabelecimentoRepository,
-        ICurrentUserContext currentUserContext)
+        ICurrentUserContext currentUserContext,
+        IOnboardingPublicacaoService onboardingPublicacaoService)
     {
         _estabelecimentoUsuarioRepository = estabelecimentoUsuarioRepository;
         _assinaturaRepository = assinaturaRepository;
         _assinaturaEstabelecimentoRepository = assinaturaEstabelecimentoRepository;
         _currentUserContext = currentUserContext;
+        _onboardingPublicacaoService = onboardingPublicacaoService;
     }
 
     public async Task<AssinaturaOnboardingContextoResponseDto> ObterContextoAsync(
@@ -73,82 +76,129 @@ public class AssinaturaOnboardingContextoService : IAssinaturaOnboardingContexto
 
         if (estabelecimentos.Count == 0)
         {
-            return new AssinaturaOnboardingContextoResponseDto(
-                false,
-                estabelecimentos,
-                EtapaCadastrarEstabelecimento,
+            return await EnriquecerRespostaAsync(
+                new AssinaturaOnboardingContextoResponseDto(
+                    false,
+                    estabelecimentos,
+                    EtapaCadastrarEstabelecimento,
+                    null,
+                    podeAdicionarLoja,
+                    lojasVinculadas,
+                    limiteLojas,
+                    assinaturaPremiumId),
                 null,
-                podeAdicionarLoja,
-                lojasVinculadas,
-                limiteLojas,
-                assinaturaPremiumId);
+                cancellationToken);
         }
 
         if (podeAdicionarLoja)
         {
             var matrizId = await ObterEstabelecimentoMatrizIdAsync(assinaturaPremiumId!.Value, cancellationToken);
-            return new AssinaturaOnboardingContextoResponseDto(
-                true,
-                estabelecimentos,
-                EtapaAdicionarLoja,
+            return await EnriquecerRespostaAsync(
+                new AssinaturaOnboardingContextoResponseDto(
+                    true,
+                    estabelecimentos,
+                    EtapaAdicionarLoja,
+                    matrizId,
+                    true,
+                    lojasVinculadas,
+                    limiteLojas,
+                    assinaturaPremiumId),
                 matrizId,
-                true,
-                lojasVinculadas,
-                limiteLojas,
-                assinaturaPremiumId);
+                cancellationToken);
         }
 
         var comAssinaturaAtiva = estabelecimentos.Where(e => e.AssinaturaAtiva).ToList();
         if (comAssinaturaAtiva.Count == estabelecimentos.Count)
         {
-            return new AssinaturaOnboardingContextoResponseDto(
-                true,
-                estabelecimentos,
-                EtapaGerenciarAssinatura,
+            return await EnriquecerRespostaAsync(
+                new AssinaturaOnboardingContextoResponseDto(
+                    true,
+                    estabelecimentos,
+                    EtapaGerenciarAssinatura,
+                    comAssinaturaAtiva[0].EstabelecimentoId,
+                    false,
+                    lojasVinculadas,
+                    limiteLojas,
+                    assinaturaPremiumId),
                 comAssinaturaAtiva[0].EstabelecimentoId,
-                false,
-                lojasVinculadas,
-                limiteLojas,
-                assinaturaPremiumId);
+                cancellationToken);
         }
 
         var comPendente = estabelecimentos.Where(e => e.AssinaturaPendente).ToList();
         if (comPendente.Count > 0)
         {
-            return new AssinaturaOnboardingContextoResponseDto(
-                true,
-                estabelecimentos,
-                EtapaGerenciarAssinatura,
+            return await EnriquecerRespostaAsync(
+                new AssinaturaOnboardingContextoResponseDto(
+                    true,
+                    estabelecimentos,
+                    EtapaGerenciarAssinatura,
+                    comPendente[0].EstabelecimentoId,
+                    false,
+                    lojasVinculadas,
+                    limiteLojas,
+                    assinaturaPremiumId),
                 comPendente[0].EstabelecimentoId,
-                false,
-                lojasVinculadas,
-                limiteLojas,
-                assinaturaPremiumId);
+                cancellationToken);
         }
 
         var podeAssinar = estabelecimentos.FirstOrDefault(e => e.PodeContratar);
         if (podeAssinar is not null)
         {
-            return new AssinaturaOnboardingContextoResponseDto(
+            return await EnriquecerRespostaAsync(
+                new AssinaturaOnboardingContextoResponseDto(
+                    true,
+                    estabelecimentos,
+                    EtapaAssinarPlano,
+                    podeAssinar.EstabelecimentoId,
+                    false,
+                    lojasVinculadas,
+                    limiteLojas,
+                    assinaturaPremiumId),
+                podeAssinar.EstabelecimentoId,
+                cancellationToken);
+        }
+
+        return await EnriquecerRespostaAsync(
+            new AssinaturaOnboardingContextoResponseDto(
                 true,
                 estabelecimentos,
-                EtapaAssinarPlano,
-                podeAssinar.EstabelecimentoId,
+                EtapaGerenciarAssinatura,
+                estabelecimentos[0].EstabelecimentoId,
                 false,
                 lojasVinculadas,
                 limiteLojas,
-                assinaturaPremiumId);
+                assinaturaPremiumId),
+            estabelecimentos[0].EstabelecimentoId,
+            cancellationToken);
+    }
+
+    private async Task<AssinaturaOnboardingContextoResponseDto> EnriquecerRespostaAsync(
+        AssinaturaOnboardingContextoResponseDto resposta,
+        int? estabelecimentoIdPublicacao,
+        CancellationToken cancellationToken)
+    {
+        if (!estabelecimentoIdPublicacao.HasValue)
+        {
+            return resposta;
         }
 
-        return new AssinaturaOnboardingContextoResponseDto(
-            true,
-            estabelecimentos,
-            EtapaGerenciarAssinatura,
-            estabelecimentos[0].EstabelecimentoId,
-            false,
-            lojasVinculadas,
-            limiteLojas,
-            assinaturaPremiumId);
+        var estabelecimento = resposta.Estabelecimentos
+            .FirstOrDefault(item => item.EstabelecimentoId == estabelecimentoIdPublicacao.Value);
+        if (estabelecimento is null || !estabelecimento.AssinaturaAtiva)
+        {
+            return resposta;
+        }
+
+        var status = await _onboardingPublicacaoService.ObterStatusAsync(
+            estabelecimentoIdPublicacao.Value,
+            cancellationToken);
+
+        return resposta with
+        {
+            OnboardingObrigatorioPendente = status.OnboardingObrigatorioPendente,
+            ProximaEtapaPublicacao = status.ProximaEtapa,
+            EtapasPublicacao = status.Etapas
+        };
     }
 
     private async Task<(bool PodeAdicionar, int LojasVinculadas, int? Limite, int? AssinaturaId)> ObterContextoMultiLojaAsync(

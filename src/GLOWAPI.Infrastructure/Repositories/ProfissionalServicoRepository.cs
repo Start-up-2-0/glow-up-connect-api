@@ -44,4 +44,22 @@ public class ProfissionalServicoRepository : Repository<ProfissionalServico>, IP
             .Distinct()
             .ToListAsync(cancellationToken);
     }
+
+    public Task<bool> ExisteVinculoAtivoPorEstabelecimentoAsync(
+        int estabelecimentoId,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet.AnyAsync(
+            ps => ps.Ativo
+                && ps.Servico != null
+                && ps.Servico.Ativo
+                && ps.Servico.EstabelecimentoId == estabelecimentoId
+                && ps.Profissional != null
+                && ps.Profissional.Ativo
+                && ps.Profissional.Estabelecimentos.Any(vinculo =>
+                    vinculo.EstabelecimentoId == estabelecimentoId
+                    && vinculo.Ativo
+                    && vinculo.PodeReceberAgendamento),
+            cancellationToken);
+    }
 }

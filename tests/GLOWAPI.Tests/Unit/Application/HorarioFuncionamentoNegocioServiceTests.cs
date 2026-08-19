@@ -16,6 +16,7 @@ public class HorarioFuncionamentoNegocioServiceTests
     private readonly Mock<IHorarioAtendimentoProfissionalRepository> _horarioAtendimentoProfissionalRepository = new();
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
+    private readonly Mock<IOnboardingPublicacaoService> _onboardingPublicacaoService = new();
 
     public HorarioFuncionamentoNegocioServiceTests()
     {
@@ -444,5 +445,6 @@ public class HorarioFuncionamentoNegocioServiceTests
             _horarioFuncionamentoRepository.Object,
             _horarioAtendimentoProfissionalRepository.Object,
             _autorizacaoNegocioService.Object,
-            _auditoriaNegocioService.Object);
+            _auditoriaNegocioService.Object,
+            _onboardingPublicacaoService.Object);
 }

@@ -251,6 +251,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
             Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Email, "Email do estabelecimento", 255, CriarExcecao),
             CategoriaEstabelecimentoId = dto.CategoriaEstabelecimentoId,
             Ativo = true,
+            VisivelPublicamente = false,
             Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao),
             Caixa = new Caixa()
         };
@@ -275,6 +276,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
             Email = dto.Email.Trim(),
             CategoriaEstabelecimentoId = dto.CategoriaEstabelecimentoId,
             Ativo = true,
+            VisivelPublicamente = false,
             Endereco = OperacaoPerfilValidation.CriarEndereco(
                 dto.Endereco,
                 mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem)),

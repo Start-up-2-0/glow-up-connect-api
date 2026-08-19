@@ -21,6 +21,7 @@ public class ServicoNegocioServiceTests
     private readonly Mock<IProfissionalEscopoAcessoService> _profissionalEscopoAcessoService = new();
     private readonly Mock<IModulosAssinaturaService> _modulosAssinaturaService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
+    private readonly Mock<IOnboardingPublicacaoService> _onboardingPublicacaoService = new();
 
     public ServicoNegocioServiceTests()
     {
@@ -224,7 +225,8 @@ public class ServicoNegocioServiceTests
         _autorizacaoNegocioService.Object,
         _profissionalEscopoAcessoService.Object,
         _modulosAssinaturaService.Object,
-        _auditoriaNegocioService.Object);
+        _auditoriaNegocioService.Object,
+        _onboardingPublicacaoService.Object);
 
     private static AutorizacaoNegocioResultado CriarAutorizacao(PermissaoNegocio permissao) =>
         new(20, 10, EstablishmentUserRole.Owner, false, new HashSet<PermissaoNegocio> { permissao });

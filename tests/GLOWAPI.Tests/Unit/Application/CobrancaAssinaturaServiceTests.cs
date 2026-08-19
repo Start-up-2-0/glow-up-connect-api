@@ -358,6 +358,7 @@ public class CobrancaAssinaturaServiceTests
             _currentUser.Object,
             new Mock<IAssinaturaOnboardingFinalizacaoService>().Object,
             new Mock<IAssinaturaVisibilidadeService>().Object,
+            new Mock<IOnboardingPublicacaoService>().Object,
             new Mock<IAssinaturaEncerramentoService>().Object,
             new Mock<IUsuarioRepository>().Object,
             Options.Create(new MercadoPagoOptions { UsarCheckoutPro = usarCheckoutPro, UsarSandbox = usarSandbox }),

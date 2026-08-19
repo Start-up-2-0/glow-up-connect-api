@@ -1005,6 +1005,7 @@ public class AssinaturaService : IAssinaturaService
             Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Email, "Email do estabelecimento", 255, CriarExcecao),
             CategoriaEstabelecimentoId = dto.CategoriaEstabelecimentoId,
             Ativo = true,
+            VisivelPublicamente = false,
             Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao),
             Caixa = new Caixa()
         };
@@ -1030,6 +1031,7 @@ public class AssinaturaService : IAssinaturaService
             Email = dto.Email.Trim(),
             CategoriaEstabelecimentoId = dto.CategoriaEstabelecimentoId,
             Ativo = true,
+            VisivelPublicamente = false,
             Endereco = OperacaoPerfilValidation.CriarEndereco(
                 dto.Endereco,
                 mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem)),
@@ -1056,6 +1058,7 @@ public class AssinaturaService : IAssinaturaService
             Email = profissional.Email.Trim(),
             CategoriaEstabelecimentoId = categoriaId,
             Ativo = true,
+            VisivelPublicamente = false,
             Caixa = new Caixa()
         };
     }

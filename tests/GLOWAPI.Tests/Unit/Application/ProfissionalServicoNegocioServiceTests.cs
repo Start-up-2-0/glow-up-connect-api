@@ -18,6 +18,7 @@ public class ProfissionalServicoNegocioServiceTests
     private readonly Mock<IAgendamentoItemRepository> _agendamentoItemRepository = new();
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
+    private readonly Mock<IOnboardingPublicacaoService> _onboardingPublicacaoService = new();
 
     public ProfissionalServicoNegocioServiceTests()
     {
@@ -188,5 +189,6 @@ public class ProfissionalServicoNegocioServiceTests
             _profissionalServicoRepository.Object,
             _agendamentoItemRepository.Object,
             _autorizacaoNegocioService.Object,
-            _auditoriaNegocioService.Object);
+            _auditoriaNegocioService.Object,
+            _onboardingPublicacaoService.Object);
 }
