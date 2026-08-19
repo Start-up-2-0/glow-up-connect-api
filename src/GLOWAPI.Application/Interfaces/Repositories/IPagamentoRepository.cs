@@ -28,4 +28,11 @@ public interface IPagamentoRepository : IRepository<Pagamento>
     Task<Pagamento?> ObterPagoPorAgendamentoAsync(
         int agendamentoId,
         CancellationToken cancellationToken = default);
+
+    Task<bool> ExistePagoPorAssinaturaCicloAsync(
+        int assinaturaId,
+        int numeroCiclo,
+        DateTime dataVencimento,
+        int? excluirPagamentoId = null,
+        CancellationToken cancellationToken = default);
 }

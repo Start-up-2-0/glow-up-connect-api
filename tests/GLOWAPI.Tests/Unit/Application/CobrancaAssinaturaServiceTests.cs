@@ -47,6 +47,15 @@ public class CobrancaAssinaturaServiceTests
             .Setup(r => r.ListarPorAssinaturaAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<Pagamento>());
 
+        _pagamentoRepository
+            .Setup(r => r.ExistePagoPorAssinaturaCicloAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<DateTime>(),
+                It.IsAny<int?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
         _titularContatoService
             .Setup(s => s.ResolverAsync(It.IsAny<Assinatura>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AssinaturaTitularContato
@@ -343,6 +352,159 @@ public class CobrancaAssinaturaServiceTests
 
         Assert.Equal(PagamentoStatus.Pago, pagamento.Status);
         Assert.Equal(AssinaturaStatus.Ativa, assinatura.Status);
+    }
+
+    [Fact]
+    public async Task ProcessarPagamentoAprovadoAsync_PagamentoInicial_NaoDeveAvancarProximoVencimento()
+    {
+        var proximoVencimento = new DateTime(2026, 9, 18, 0, 0, 0, DateTimeKind.Utc);
+        var assinatura = new Assinatura
+        {
+            Id = 10,
+            Status = AssinaturaStatus.PendentePagamento,
+            ProximaDataVencimento = proximoVencimento,
+            ProximaDataGeracaoCobranca = new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc),
+            ProximaDataAlerta = new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc),
+            Plano = new Plano { Id = 1, Periodo = PlanoPeriodo.Mensal }
+        };
+        var pagamento = new Pagamento
+        {
+            Id = 8,
+            Status = PagamentoStatus.Pendente,
+            Assinatura = assinatura,
+            AssinaturaId = 10,
+            TipoCobranca = TipoCobrancaAssinatura.Inicial,
+            NumeroCiclo = 1,
+            DataVencimento = proximoVencimento
+        };
+
+        var service = CreateService();
+        await service.ProcessarPagamentoAprovadoAsync(pagamento, "{}");
+
+        Assert.Equal(PagamentoStatus.Pago, pagamento.Status);
+        Assert.Equal(proximoVencimento, assinatura.ProximaDataVencimento);
+        Assert.Equal(new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc), assinatura.ProximaDataGeracaoCobranca);
+    }
+
+    [Fact]
+    public async Task ProcessarPagamentoAprovadoAsync_PagamentoRecorrente_DeveAvancarProximoVencimento()
+    {
+        var proximoVencimento = new DateTime(2026, 9, 18, 0, 0, 0, DateTimeKind.Utc);
+        var assinatura = new Assinatura
+        {
+            Id = 10,
+            Status = AssinaturaStatus.Ativa,
+            ProximaDataVencimento = proximoVencimento,
+            ProximaDataGeracaoCobranca = new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc),
+            ProximaDataAlerta = new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc),
+            Plano = new Plano { Id = 1, Periodo = PlanoPeriodo.Mensal }
+        };
+        var pagamento = new Pagamento
+        {
+            Id = 9,
+            Status = PagamentoStatus.Pendente,
+            Assinatura = assinatura,
+            AssinaturaId = 10,
+            TipoCobranca = TipoCobrancaAssinatura.Recorrente,
+            NumeroCiclo = 2,
+            DataVencimento = proximoVencimento
+        };
+
+        var service = CreateService();
+        await service.ProcessarPagamentoAprovadoAsync(pagamento, "{}");
+
+        Assert.Equal(new DateTime(2026, 10, 18, 0, 0, 0, DateTimeKind.Utc), assinatura.ProximaDataVencimento);
+        Assert.Equal(new DateTime(2026, 10, 11, 0, 0, 0, DateTimeKind.Utc), assinatura.ProximaDataGeracaoCobranca);
+    }
+
+    [Fact]
+    public async Task ProcessarPagamentoAprovadoAsync_DuplicadoMesmoCiclo_DeveCancelarSemAvancarCiclo()
+    {
+        var proximoVencimento = new DateTime(2026, 9, 18, 0, 0, 0, DateTimeKind.Utc);
+        var assinatura = new Assinatura
+        {
+            Id = 10,
+            Status = AssinaturaStatus.Ativa,
+            ProximaDataVencimento = proximoVencimento,
+            ProximaDataGeracaoCobranca = new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc),
+            Plano = new Plano { Id = 1, Periodo = PlanoPeriodo.Mensal }
+        };
+        var pagamento = new Pagamento
+        {
+            Id = 11,
+            Status = PagamentoStatus.Pendente,
+            Assinatura = assinatura,
+            AssinaturaId = 10,
+            TipoCobranca = TipoCobrancaAssinatura.Inicial,
+            NumeroCiclo = 1,
+            DataVencimento = proximoVencimento
+        };
+
+        _pagamentoRepository
+            .Setup(r => r.ExistePagoPorAssinaturaCicloAsync(
+                10,
+                1,
+                proximoVencimento,
+                11,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var service = CreateService();
+        await service.ProcessarPagamentoAprovadoAsync(pagamento, "{}");
+
+        Assert.Equal(PagamentoStatus.Cancelado, pagamento.Status);
+        Assert.Equal(proximoVencimento, assinatura.ProximaDataVencimento);
+    }
+
+    [Fact]
+    public async Task GerarCobrancaRecorrenteAsync_ComVencimentoJaPago_DeveAvancarEGerarProximoCiclo()
+    {
+        var vencimentoAtual = new DateTime(2026, 9, 18, 0, 0, 0, DateTimeKind.Utc);
+        var assinatura = new Assinatura
+        {
+            Id = 10,
+            EstabelecimentoId = 1,
+            Gateway = GatewayPagamento.MercadoPago,
+            GatewaySubscriptionId = "sub-test-1",
+            ProximaDataVencimento = vencimentoAtual,
+            ProximaDataGeracaoCobranca = new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc),
+            ProximaDataAlerta = new DateTime(2026, 9, 11, 0, 0, 0, DateTimeKind.Utc),
+            Plano = new Plano { Id = 1, Nome = "Premium", Preco = 79.99m, Periodo = PlanoPeriodo.Mensal }
+        };
+
+        _pagamentoRepository
+            .Setup(r => r.ListarPorAssinaturaAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[]
+            {
+                new Pagamento
+                {
+                    Id = 1,
+                    AssinaturaId = 10,
+                    NumeroCiclo = 1,
+                    Status = PagamentoStatus.Pago,
+                    DataVencimento = vencimentoAtual,
+                    TipoCobranca = TipoCobrancaAssinatura.Inicial
+                }
+            });
+
+        Pagamento? pagamentoGerado = null;
+        _pagamentoRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Pagamento>(), It.IsAny<CancellationToken>()))
+            .Callback<Pagamento, CancellationToken>((pagamento, _) =>
+            {
+                pagamento.Id = 2;
+                pagamentoGerado = pagamento;
+            })
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService(usarCheckoutPro: true);
+        var pagamento = await service.GerarCobrancaRecorrenteAsync(assinatura);
+
+        Assert.NotNull(pagamentoGerado);
+        Assert.Equal(TipoCobrancaAssinatura.Recorrente, pagamento.TipoCobranca);
+        Assert.Equal(2, pagamento.NumeroCiclo);
+        Assert.Equal(new DateTime(2026, 10, 18, 0, 0, 0, DateTimeKind.Utc), pagamento.DataVencimento);
+        Assert.Equal(new DateTime(2026, 10, 18, 0, 0, 0, DateTimeKind.Utc), assinatura.ProximaDataVencimento);
     }
 
     private CobrancaAssinaturaService CreateService(bool usarCheckoutPro = true, bool usarSandbox = false) =>
