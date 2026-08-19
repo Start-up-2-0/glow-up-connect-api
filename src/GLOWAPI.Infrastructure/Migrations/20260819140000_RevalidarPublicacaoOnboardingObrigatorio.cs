@@ -1,3 +1,5 @@
+using GLOWAPI.Infrastructure;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -8,6 +10,8 @@ namespace GLOWAPI.Infrastructure.Migrations;
 /// Revalidação retroativa: assinaturas ativas com onboarding incompleto deixam de ficar públicas.
 /// A lógica completa é reaplicada no login via UsuarioNegocioContextoService.
 /// </summary>
+[DbContext(typeof(ApplicationDbContext))]
+[Migration("20260819140000_RevalidarPublicacaoOnboardingObrigatorio")]
 public partial class RevalidarPublicacaoOnboardingObrigatorio : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

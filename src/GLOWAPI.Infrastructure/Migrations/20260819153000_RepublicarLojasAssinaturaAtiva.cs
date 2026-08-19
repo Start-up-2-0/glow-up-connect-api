@@ -1,3 +1,5 @@
+using GLOWAPI.Infrastructure;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -7,6 +9,8 @@ namespace GLOWAPI.Infrastructure.Migrations;
 /// <summary>
 /// Reativa visibilidade pública de lojas com assinatura ativa (onboarding obrigatório permanece só para autônomos).
 /// </summary>
+[DbContext(typeof(ApplicationDbContext))]
+[Migration("20260819153000_RepublicarLojasAssinaturaAtiva")]
 public partial class RepublicarLojasAssinaturaAtiva : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
