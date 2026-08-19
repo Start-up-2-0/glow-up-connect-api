@@ -121,7 +121,7 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
                 nomePublico = "Autonomo Fluxo",
                 biografia = "Fluxo integrado autonomo",
                 logo = LogoBase64TestHelper.PngDataUri,
-                telefone = "11988888888",
+                telefone = "11999999999",
                 email = "autonomo-fluxo@email.com",
                 endereco = new
                 {
@@ -214,7 +214,8 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
             Telefone = "11999999999",
             Senha = hasher.Hash(senha),
             Role = role,
-            Ativo = true
+            Ativo = true,
+            WhatsAppConfirmadoEm = DateTime.UtcNow
         };
 
         var plano = new Plano
@@ -230,6 +231,7 @@ public class FluxoIntegradoAssinaturaTests : IClassFixture<GlowApiWebApplication
         };
 
         await CampanhaPromocionalTestHelper.DesabilitarPromocaoAsync(db);
+        await CategoriaEstabelecimentoTestHelper.GarantirCatalogoAsync(db);
         db.Usuarios.Add(usuario);
         db.Planos.Add(plano);
         await db.SaveChangesAsync();

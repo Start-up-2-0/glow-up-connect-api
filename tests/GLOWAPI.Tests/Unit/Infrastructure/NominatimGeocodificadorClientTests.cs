@@ -2,7 +2,6 @@ using System.Net;
 using System.Text.Json;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Geolocalizacao;
-using GLOWAPI.Application.Models.Geolocalizacao;
 using GLOWAPI.Application.Options;
 using GLOWAPI.Infrastructure.Geolocalizacao;
 using Microsoft.Extensions.Logging.Abstractions;

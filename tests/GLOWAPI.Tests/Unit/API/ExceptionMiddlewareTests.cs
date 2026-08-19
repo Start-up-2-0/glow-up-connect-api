@@ -103,6 +103,24 @@ public class ExceptionMiddlewareTests
     }
 
     [Fact]
+    public async Task InvokeAsync_DeveRetornarBadRequest_ParaTelefoneAssinaturaNaoConfirmado()
+    {
+        var middleware = new ExceptionMiddleware(
+            _ => throw new TelefoneAssinaturaNaoConfirmadoException(),
+            NullLogger<ExceptionMiddleware>.Instance,
+            CreateTestEnv());
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
+        context.Response.Body.Seek(0, SeekOrigin.Begin);
+        var json = await JsonDocument.ParseAsync(context.Response.Body);
+        Assert.Equal("TELEFONE_NAO_CONFIRMADO", json.RootElement.GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task InvokeAsync_DeveRetornarConflict_ParaEmailJaCadastrado()
     {
         var middleware = new ExceptionMiddleware(_ => throw new EmailJaCadastradoException(), NullLogger<ExceptionMiddleware>.Instance, CreateTestEnv());

@@ -11,9 +11,7 @@ public class EvolutionSendTextRequestBuilderTests
         const string body = """
             {
               "number": "557991992830",
-              "textMessage": {
-                "text": "Hello, World!"
-              }
+              "text": "Hello, World!"
             }
             """;
 
@@ -24,7 +22,7 @@ public class EvolutionSendTextRequestBuilderTests
 
         Assert.Equal(esperado.RootElement.GetProperty("number").GetString(), atual.RootElement.GetProperty("number").GetString());
         Assert.Equal(
-            esperado.RootElement.GetProperty("textMessage").GetProperty("text").GetString(),
-            atual.RootElement.GetProperty("textMessage").GetProperty("text").GetString());
+            esperado.RootElement.GetProperty("text").GetString(),
+            atual.RootElement.GetProperty("text").GetString());
     }
 }

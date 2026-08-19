@@ -280,7 +280,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
                 nomePublico = "Maria Glow",
                 biografia = "Especialista em beleza",
                 logo = LogoBase64TestHelper.PngDataUri,
-                telefone = "11988888888",
+                telefone = "11999999999",
                 email = "maria@email.com",
                 endereco = new
                 {
@@ -315,7 +315,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         Assert.Equal(seed.UsuarioId, profissional!.UsuarioId);
         Assert.Equal("Maria Glow", profissional.NomePublico);
         Assert.StartsWith("data:image/png;base64,", profissional!.Logo);
-        Assert.Equal("5511988888888", profissional.Telefone);
+        Assert.Equal("5511999999999", profissional.Telefone);
         Assert.Equal("maria@email.com", profissional.Email);
         Assert.Equal(ProfessionalType.Autonomo, profissional.TipoProfissional);
         Assert.True(profissional.Ativo);
@@ -340,7 +340,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
     }
 
     [Fact]
-    public async Task Iniciar_ComEmailPendenteConfirmacao_DeveCriarAssinaturaEPromoverRole()
+    public async Task Iniciar_ComEmailPendenteConfirmacao_DeveCriarAssinaturaSemPromoverRole()
     {
         const string email = "onboarding-pendente@email.com";
         const string senha = "Senha123!";
@@ -393,7 +393,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var usuario = db.Usuarios.Single(item => item.Email == email);
         Assert.False(usuario.Ativo);
-        Assert.Equal(UserRole.DonoEstabelecimento, usuario.Role);
+        Assert.Equal(UserRole.Cliente, usuario.Role);
     }
 
     private async Task<int> SeedPlanoPublicoAsync()
@@ -402,6 +402,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
         await CampanhaPromocionalTestHelper.DesabilitarPromocaoAsync(db);
+        await CategoriaEstabelecimentoTestHelper.GarantirCatalogoAsync(db);
 
         var plano = new Plano
         {
@@ -468,6 +469,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         };
 
         await CampanhaPromocionalTestHelper.DesabilitarPromocaoAsync(db);
+        await CategoriaEstabelecimentoTestHelper.GarantirCatalogoAsync(db);
         db.Usuarios.Add(usuario);
         db.Planos.Add(plano);
         db.Estabelecimentos.Add(estabelecimento);
@@ -534,7 +536,8 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
             Telefone = "11999999999",
             Senha = hasher.Hash(senha),
             Role = UserRole.DonoEstabelecimento,
-            Ativo = true
+            Ativo = true,
+            WhatsAppConfirmadoEm = DateTime.UtcNow
         };
 
         var plano = new Plano
@@ -550,6 +553,7 @@ public class AssinaturasControllerTests : IClassFixture<GlowApiWebApplicationFac
         };
 
         await CampanhaPromocionalTestHelper.DesabilitarPromocaoAsync(db);
+        await CategoriaEstabelecimentoTestHelper.GarantirCatalogoAsync(db);
         db.Usuarios.Add(usuario);
         db.Planos.Add(plano);
         await db.SaveChangesAsync();

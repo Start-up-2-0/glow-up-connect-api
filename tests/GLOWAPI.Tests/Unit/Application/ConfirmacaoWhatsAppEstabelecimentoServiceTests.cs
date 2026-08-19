@@ -73,8 +73,8 @@ public class ConfirmacaoWhatsAppEstabelecimentoServiceTests
             ["owner@email.com", "OWNER@email.com"]);
 
         Assert.Equal(2, mensagens.Count);
-        Assert.Single(mensagens.Where(dto => dto.Canal == CanalMensagemNotificacao.WhatsApp));
-        Assert.Single(mensagens.Where(dto => dto.Canal == CanalMensagemNotificacao.Email));
+        Assert.Single(mensagens, dto => dto.Canal == CanalMensagemNotificacao.WhatsApp);
+        Assert.Single(mensagens, dto => dto.Canal == CanalMensagemNotificacao.Email);
     }
 
     private ConfirmacaoWhatsAppEstabelecimentoService CreateService() =>
