@@ -22,6 +22,8 @@ public class ServicoNegocioServiceTests
     private readonly Mock<IModulosAssinaturaService> _modulosAssinaturaService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
     private readonly Mock<IOnboardingPublicacaoService> _onboardingPublicacaoService = new();
+    private readonly Mock<IAvatarBase64Decoder> _avatarBase64Decoder = new();
+    private readonly Mock<IBase64ImageThumbnailer> _thumbnailer = new();
 
     public ServicoNegocioServiceTests()
     {
@@ -75,6 +77,7 @@ public class ServicoNegocioServiceTests
         Assert.Equal(20, capturado!.EstabelecimentoId);
         Assert.True(capturado.Ativo);
         Assert.Equal("Corte", response.Nome);
+        Assert.Equal(TipoServico.Individual, capturado!.TipoServico);
         _auditoriaNegocioService.Verify(
             s => s.RegistrarAsync(
                 20,
@@ -217,6 +220,31 @@ public class ServicoNegocioServiceTests
                 new AtualizarStatusServicoRequestDto { Ativo = true }));
     }
 
+    [Fact]
+    public async Task CriarAsync_DeveCriarServicoCombo()
+    {
+        Servico? capturado = null;
+        _servicoRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Servico>(), It.IsAny<CancellationToken>()))
+            .Callback<Servico, CancellationToken>((servico, _) => capturado = servico)
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService();
+        var response = await service.CriarAsync(
+            20,
+            new CriarServicoRequestDto
+            {
+                Nome = "Combo Completo",
+                PrecoBase = 75,
+                DuracaoMinutos = 90,
+                TipoServico = TipoServico.Combo,
+            });
+
+        Assert.NotNull(capturado);
+        Assert.Equal(TipoServico.Combo, capturado!.TipoServico);
+        Assert.Equal(TipoServico.Combo, response.TipoServico);
+    }
+
     private ServicoNegocioService CreateService() => new(
         _servicoRepository.Object,
         _estabelecimentoRepository.Object,
@@ -226,7 +254,9 @@ public class ServicoNegocioServiceTests
         _profissionalEscopoAcessoService.Object,
         _modulosAssinaturaService.Object,
         _auditoriaNegocioService.Object,
-        _onboardingPublicacaoService.Object);
+        _onboardingPublicacaoService.Object,
+        _avatarBase64Decoder.Object,
+        _thumbnailer.Object);
 
     private static AutorizacaoNegocioResultado CriarAutorizacao(PermissaoNegocio permissao) =>
         new(20, 10, EstablishmentUserRole.Owner, false, new HashSet<PermissaoNegocio> { permissao });

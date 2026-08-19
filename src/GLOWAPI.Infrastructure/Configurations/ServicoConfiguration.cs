@@ -1,4 +1,5 @@
 using GLOWAPI.Domain.Entities;
+using GLOWAPI.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -25,6 +26,15 @@ public class ServicoConfiguration : IEntityTypeConfiguration<Servico>
 
         builder.Property(servico => servico.DuracaoMinutos)
             .IsRequired();
+
+        builder.Property(servico => servico.TipoServico)
+            .HasConversion(tipo => tipo.ToString(), tipo => Enum.Parse<TipoServico>(tipo))
+            .IsRequired()
+            .HasMaxLength(50)
+            .HasDefaultValue(TipoServico.Individual);
+
+        builder.Property(servico => servico.Imagem)
+            .HasColumnType("longtext");
 
         builder.Property(servico => servico.Ativo)
             .HasDefaultValue(true);

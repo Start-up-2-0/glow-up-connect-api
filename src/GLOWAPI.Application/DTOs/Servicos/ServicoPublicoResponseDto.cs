@@ -1,4 +1,5 @@
 using GLOWAPI.Domain.Entities;
+using GLOWAPI.Domain.Enums;
 
 namespace GLOWAPI.Application.DTOs.Servicos;
 
@@ -11,6 +12,8 @@ public class ServicoPublicoResponseDto
     public decimal PrecoMaximo { get; set; }
     public int DuracaoMinutosBase { get; set; }
     public int DuracaoMinutosEstimada { get; set; }
+    public TipoServico TipoServico { get; set; } = TipoServico.Individual;
+    public string? Imagem { get; set; }
 
     public static ServicoPublicoResponseDto From(Servico servico, int? profissionalId = null)
     {
@@ -32,7 +35,9 @@ public class ServicoPublicoResponseDto
                 PrecoMinimo = preco,
                 PrecoMaximo = preco,
                 DuracaoMinutosBase = servico.DuracaoMinutos,
-                DuracaoMinutosEstimada = duracao
+                DuracaoMinutosEstimada = duracao,
+                TipoServico = servico.TipoServico,
+                Imagem = servico.Imagem,
             };
         }
 
@@ -53,7 +58,9 @@ public class ServicoPublicoResponseDto
             PrecoMinimo = precos.Min(),
             PrecoMaximo = precos.Max(),
             DuracaoMinutosBase = servico.DuracaoMinutos,
-            DuracaoMinutosEstimada = duracoes.Min()
+            DuracaoMinutosEstimada = duracoes.Min(),
+            TipoServico = servico.TipoServico,
+            Imagem = servico.Imagem,
         };
     }
 }

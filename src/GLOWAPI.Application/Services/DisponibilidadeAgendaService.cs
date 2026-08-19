@@ -2,6 +2,7 @@ using GLOWAPI.Application.DTOs.Horarios;
 using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Repositories;
 using GLOWAPI.Application.Interfaces.Services;
+using GLOWAPI.Application.Validators;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Negocios;
@@ -168,6 +169,8 @@ public class DisponibilidadeAgendaService : IDisponibilidadeAgendaService
 
             servicos.Add(servico);
         }
+
+        ServicoSelecaoValidador.ValidarCombinacaoPorIds(servicoIds, servicos);
 
         var profissionais = await ResolverProfissionaisAsync(
             estabelecimentoId,

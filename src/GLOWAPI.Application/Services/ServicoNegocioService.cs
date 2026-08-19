@@ -19,6 +19,8 @@ public class ServicoNegocioService : IServicoNegocioService
     private readonly IModulosAssinaturaService _modulosAssinaturaService;
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
     private readonly IOnboardingPublicacaoService _onboardingPublicacaoService;
+    private readonly IAvatarBase64Decoder _avatarBase64Decoder;
+    private readonly IBase64ImageThumbnailer _thumbnailer;
 
     public ServicoNegocioService(
         IServicoRepository servicoRepository,
@@ -29,7 +31,9 @@ public class ServicoNegocioService : IServicoNegocioService
         IProfissionalEscopoAcessoService profissionalEscopoAcessoService,
         IModulosAssinaturaService modulosAssinaturaService,
         IAuditoriaNegocioService auditoriaNegocioService,
-        IOnboardingPublicacaoService onboardingPublicacaoService)
+        IOnboardingPublicacaoService onboardingPublicacaoService,
+        IAvatarBase64Decoder avatarBase64Decoder,
+        IBase64ImageThumbnailer thumbnailer)
     {
         _servicoRepository = servicoRepository;
         _estabelecimentoRepository = estabelecimentoRepository;
@@ -40,6 +44,8 @@ public class ServicoNegocioService : IServicoNegocioService
         _modulosAssinaturaService = modulosAssinaturaService;
         _auditoriaNegocioService = auditoriaNegocioService;
         _onboardingPublicacaoService = onboardingPublicacaoService;
+        _avatarBase64Decoder = avatarBase64Decoder;
+        _thumbnailer = thumbnailer;
     }
 
     public async Task<IReadOnlyList<ServicoResponseDto>> ListarAsync(
@@ -92,6 +98,8 @@ public class ServicoNegocioService : IServicoNegocioService
             request.PrecoBase,
             request.DuracaoMinutos);
 
+        var tipoServico = ServicoValidador.ValidarTipoServico(request.TipoServico);
+
         await ValidarLimiteServicosAsync(estabelecimentoId, cancellationToken);
 
         var servico = new Servico
@@ -101,6 +109,8 @@ public class ServicoNegocioService : IServicoNegocioService
             Descricao = request.Descricao?.Trim() ?? string.Empty,
             PrecoBase = request.PrecoBase,
             DuracaoMinutos = request.DuracaoMinutos,
+            TipoServico = tipoServico,
+            Imagem = ProcessarImagemInformada(request.Imagem, request.ImagemContentType),
             Ativo = true
         };
 
@@ -117,6 +127,7 @@ public class ServicoNegocioService : IServicoNegocioService
                 servico.Nome,
                 servico.PrecoBase,
                 servico.DuracaoMinutos,
+                servico.TipoServico,
                 servico.Ativo
             },
             cancellationToken);
@@ -146,18 +157,27 @@ public class ServicoNegocioService : IServicoNegocioService
             estabelecimentoId,
             cancellationToken);
 
+        var tipoServico = ServicoValidador.ValidarTipoServico(request.TipoServico ?? servico.TipoServico);
+
         var alteracaoAnterior = new
         {
             servico.Nome,
             servico.Descricao,
             servico.PrecoBase,
-            servico.DuracaoMinutos
+            servico.DuracaoMinutos,
+            servico.TipoServico
         };
 
         servico.Nome = request.Nome.Trim();
         servico.Descricao = request.Descricao?.Trim() ?? string.Empty;
         servico.PrecoBase = request.PrecoBase;
         servico.DuracaoMinutos = request.DuracaoMinutos;
+        servico.TipoServico = tipoServico;
+        if (!string.IsNullOrWhiteSpace(request.Imagem))
+        {
+            servico.Imagem = ProcessarImagemInformada(request.Imagem, request.ImagemContentType);
+        }
+
         servico.UpdatedAt = DateTime.UtcNow;
 
         _servicoRepository.Atualizar(servico);
@@ -176,7 +196,8 @@ public class ServicoNegocioService : IServicoNegocioService
                     servico.Nome,
                     servico.Descricao,
                     servico.PrecoBase,
-                    servico.DuracaoMinutos
+                    servico.DuracaoMinutos,
+                    servico.TipoServico
                 }
             },
             cancellationToken);
@@ -369,4 +390,13 @@ public class ServicoNegocioService : IServicoNegocioService
             throw new LimiteServicosNegocioExcedidoException();
         }
     }
+
+    private string? ProcessarImagemInformada(string? imagem, string? imagemContentType) =>
+        OperacaoPerfilValidation.ValidarImagemOpcional(
+            imagem,
+            imagemContentType,
+            "Imagem do servico",
+            _avatarBase64Decoder,
+            _thumbnailer,
+            message => new ServicoNegocioInvalidoException(message));
 }

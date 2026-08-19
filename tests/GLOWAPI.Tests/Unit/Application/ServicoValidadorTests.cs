@@ -1,4 +1,5 @@
 using GLOWAPI.Application.Validators;
+using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Negocios;
 
 namespace GLOWAPI.Tests.Unit.Application;
@@ -40,5 +41,17 @@ public class ServicoValidadorTests
     {
         Assert.Throws<ServicoNegocioInvalidoException>(() =>
             ServicoValidador.ValidarServico("Corte", null, 10, duracao));
+    }
+
+    [Fact]
+    public void ValidarTipoServico_DeveRetornarIndividual_QuandoNulo()
+    {
+        Assert.Equal(TipoServico.Individual, ServicoValidador.ValidarTipoServico(null));
+    }
+
+    [Fact]
+    public void ValidarTipoServico_DeveRetornarCombo_QuandoInformado()
+    {
+        Assert.Equal(TipoServico.Combo, ServicoValidador.ValidarTipoServico(TipoServico.Combo));
     }
 }

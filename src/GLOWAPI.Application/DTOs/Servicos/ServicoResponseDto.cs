@@ -1,4 +1,5 @@
 using GLOWAPI.Domain.Entities;
+using GLOWAPI.Domain.Enums;
 
 namespace GLOWAPI.Application.DTOs.Servicos;
 
@@ -10,6 +11,8 @@ public class ServicoResponseDto
     public string Descricao { get; set; } = string.Empty;
     public decimal PrecoBase { get; set; }
     public int DuracaoMinutos { get; set; }
+    public TipoServico TipoServico { get; set; } = TipoServico.Individual;
+    public string? Imagem { get; set; }
     public bool Ativo { get; set; }
     public IReadOnlyList<ServicoProfissionalResumoDto> Profissionais { get; set; } = [];
 
@@ -23,6 +26,8 @@ public class ServicoResponseDto
             Descricao = servico.Descricao,
             PrecoBase = servico.PrecoBase,
             DuracaoMinutos = servico.DuracaoMinutos,
+            TipoServico = servico.TipoServico,
+            Imagem = servico.Imagem,
             Ativo = servico.Ativo,
             Profissionais = servico.Profissionais
                 .Select(vinculo => new ServicoProfissionalResumoDto
