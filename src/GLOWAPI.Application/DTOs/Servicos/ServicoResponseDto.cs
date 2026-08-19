@@ -21,7 +21,7 @@ public class ServicoResponseDto
         return new ServicoResponseDto
         {
             Id = servico.Id,
-            EstabelecimentoId = servico.EstabelecimentoId!.Value,
+            EstabelecimentoId = servico.EstabelecimentoId ?? 0,
             Nome = servico.Nome,
             Descricao = servico.Descricao,
             PrecoBase = servico.PrecoBase,
@@ -29,7 +29,7 @@ public class ServicoResponseDto
             TipoServico = servico.TipoServico,
             Imagem = servico.Imagem,
             Ativo = servico.Ativo,
-            Profissionais = servico.Profissionais
+            Profissionais = (servico.Profissionais ?? [])
                 .Select(vinculo => new ServicoProfissionalResumoDto
                 {
                     ProfissionalId = vinculo.ProfissionalId,

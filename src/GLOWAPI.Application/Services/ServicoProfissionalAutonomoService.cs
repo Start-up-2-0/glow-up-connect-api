@@ -60,12 +60,16 @@ public class ServicoProfissionalAutonomoService : IServicoProfissionalAutonomoSe
             request,
             cancellationToken);
 
-        await _profissionalServicoNegocioService.VincularAsync(
-            contexto.EstabelecimentoId,
-            contexto.ProfissionalId,
-            servico.Id,
-            new VincularServicoProfissionalRequestDto(),
-            cancellationToken);
+        if (!servico.Profissionais.Any(vinculo =>
+                vinculo.ProfissionalId == contexto.ProfissionalId && vinculo.Ativo))
+        {
+            await _profissionalServicoNegocioService.VincularAsync(
+                contexto.EstabelecimentoId,
+                contexto.ProfissionalId,
+                servico.Id,
+                new VincularServicoProfissionalRequestDto(),
+                cancellationToken);
+        }
 
         var servicos = await _servicoNegocioService.ListarAsync(
             contexto.EstabelecimentoId,

@@ -19,6 +19,7 @@ public class ServicoNegocioService : IServicoNegocioService
     private readonly IModulosAssinaturaService _modulosAssinaturaService;
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
     private readonly IOnboardingPublicacaoService _onboardingPublicacaoService;
+    private readonly IProfissionalServicoRepository _profissionalServicoRepository;
     private readonly IAvatarBase64Decoder _avatarBase64Decoder;
     private readonly IBase64ImageThumbnailer _thumbnailer;
 
@@ -32,6 +33,7 @@ public class ServicoNegocioService : IServicoNegocioService
         IModulosAssinaturaService modulosAssinaturaService,
         IAuditoriaNegocioService auditoriaNegocioService,
         IOnboardingPublicacaoService onboardingPublicacaoService,
+        IProfissionalServicoRepository profissionalServicoRepository,
         IAvatarBase64Decoder avatarBase64Decoder,
         IBase64ImageThumbnailer thumbnailer)
     {
@@ -44,6 +46,7 @@ public class ServicoNegocioService : IServicoNegocioService
         _modulosAssinaturaService = modulosAssinaturaService;
         _auditoriaNegocioService = auditoriaNegocioService;
         _onboardingPublicacaoService = onboardingPublicacaoService;
+        _profissionalServicoRepository = profissionalServicoRepository;
         _avatarBase64Decoder = avatarBase64Decoder;
         _thumbnailer = thumbnailer;
     }
@@ -116,6 +119,7 @@ public class ServicoNegocioService : IServicoNegocioService
 
         await _servicoRepository.AdicionarAsync(servico, cancellationToken);
         await _servicoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await VincularProfissionalAutonomoSeUnicoAsync(estabelecimentoId, servico, cancellationToken);
         await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
@@ -389,6 +393,61 @@ public class ServicoNegocioService : IServicoNegocioService
         {
             throw new LimiteServicosNegocioExcedidoException();
         }
+    }
+
+    private async Task VincularProfissionalAutonomoSeUnicoAsync(
+        int estabelecimentoId,
+        Servico servico,
+        CancellationToken cancellationToken)
+    {
+        var vinculos = await _profissionalEstabelecimentoRepository
+            .ListarAtivosComAgendamentoPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
+        var autonomo = vinculos
+            .Where(vinculo => vinculo.Profissional?.TipoProfissional == ProfessionalType.Autonomo)
+            .Take(2)
+            .ToList();
+
+        if (autonomo.Count != 1)
+        {
+            return;
+        }
+
+        var profissionalId = autonomo[0].ProfissionalId;
+        var existente = await _profissionalServicoRepository.ObterPorProfissionalEServicoAsync(
+            profissionalId,
+            servico.Id,
+            cancellationToken);
+
+        ProfissionalServico vinculo;
+        if (existente is not null)
+        {
+            if (existente.Ativo)
+            {
+                return;
+            }
+
+            existente.Preco = servico.PrecoBase;
+            existente.DuracaoMinutos = servico.DuracaoMinutos;
+            existente.Ativo = true;
+            existente.UpdatedAt = DateTime.UtcNow;
+            _profissionalServicoRepository.Atualizar(existente);
+            vinculo = existente;
+        }
+        else
+        {
+            vinculo = new ProfissionalServico
+            {
+                ProfissionalId = profissionalId,
+                ServicoId = servico.Id,
+                Preco = servico.PrecoBase,
+                DuracaoMinutos = servico.DuracaoMinutos,
+                Ativo = true
+            };
+            await _profissionalServicoRepository.AdicionarAsync(vinculo, cancellationToken);
+        }
+
+        await _profissionalServicoRepository.SalvarAlteracoesAsync(cancellationToken);
+        servico.Profissionais.Add(vinculo);
     }
 
     private string? ProcessarImagemInformada(string? imagem, string? imagemContentType) =>

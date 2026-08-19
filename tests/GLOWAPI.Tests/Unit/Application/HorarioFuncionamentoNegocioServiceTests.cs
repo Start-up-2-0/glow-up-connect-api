@@ -14,6 +14,7 @@ public class HorarioFuncionamentoNegocioServiceTests
 {
     private readonly Mock<IHorarioFuncionamentoEstabelecimentoRepository> _horarioFuncionamentoRepository = new();
     private readonly Mock<IHorarioAtendimentoProfissionalRepository> _horarioAtendimentoProfissionalRepository = new();
+    private readonly Mock<IProfissionalEstabelecimentoRepository> _profissionalEstabelecimentoRepository = new();
     private readonly Mock<IAutorizacaoNegocioService> _autorizacaoNegocioService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
     private readonly Mock<IOnboardingPublicacaoService> _onboardingPublicacaoService = new();
@@ -61,6 +62,19 @@ public class HorarioFuncionamentoNegocioServiceTests
             .Setup(r => r.ListarAtivosPorEstabelecimentoEDiaAsync(
                 It.IsAny<int>(),
                 It.IsAny<DayOfWeek>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ListarAtivosComAgendamentoPorEstabelecimentoAsync(
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _horarioAtendimentoProfissionalRepository
+            .Setup(r => r.ListarPorEstabelecimentoAsync(
+                It.IsAny<int>(),
+                It.IsAny<int?>(),
+                It.IsAny<DayOfWeek?>(),
+                It.IsAny<bool?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
     }
@@ -444,6 +458,7 @@ public class HorarioFuncionamentoNegocioServiceTests
         new(
             _horarioFuncionamentoRepository.Object,
             _horarioAtendimentoProfissionalRepository.Object,
+            _profissionalEstabelecimentoRepository.Object,
             _autorizacaoNegocioService.Object,
             _auditoriaNegocioService.Object,
             _onboardingPublicacaoService.Object);
