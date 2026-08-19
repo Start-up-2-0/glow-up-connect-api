@@ -52,12 +52,11 @@ public class ProvedorMensagemWhatsAppTests
 
         Assert.NotNull(bodyCapturado);
         Assert.Contains("Mensagem teste", bodyCapturado);
-        Assert.Contains("textMessage", bodyCapturado);
-        Assert.DoesNotContain("\"text\":\"Mensagem teste\"", bodyCapturado!.Replace(" ", string.Empty));
+        Assert.DoesNotContain("textMessage", bodyCapturado);
 
         using var json = System.Text.Json.JsonDocument.Parse(bodyCapturado);
-        Assert.Equal("551199999999", json.RootElement.GetProperty("number").GetString());
-        Assert.Equal("Mensagem teste", json.RootElement.GetProperty("textMessage").GetProperty("text").GetString());
+        Assert.Equal("5511999999999", json.RootElement.GetProperty("number").GetString());
+        Assert.Equal("Mensagem teste", json.RootElement.GetProperty("text").GetString());
         Assert.True(requestCapturado!.Headers.Contains("apiKey"));
     }
 
@@ -125,7 +124,7 @@ public class ProvedorMensagemWhatsAppTests
         Assert.True(resultado.Sucesso);
         Assert.Equal(1, handler.CallCount);
         Assert.NotNull(bodyCapturado);
-        Assert.Contains("557998755111", bodyCapturado);
+        Assert.Contains("5579998755111", bodyCapturado);
     }
 
     [Fact]

@@ -1,6 +1,5 @@
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Geolocalizacao;
-using GLOWAPI.Application.Models.Geolocalizacao;
 using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Tests.Helpers;

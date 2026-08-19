@@ -82,6 +82,18 @@ public class ProvedorMensagemWhatsApp : IProvedorMensagem
                 mensagem.Destinatario,
                 mensagem.PayloadJson);
 
+            if (candidatos.Count == 0)
+            {
+                swInterface.Stop();
+                return new ResultadoEnvioMensagem(
+                    Sucesso: false,
+                    RequestPayload: requestPayloadStub,
+                    ResponsePayload: null,
+                    RespostaProvedor: null,
+                    MensagemErro: "Destinatario WhatsApp invalido.",
+                    TempoExecucaoMs: (int)swInterface.ElapsedMilliseconds);
+            }
+
             // LOG TEMPORARIO: Payload que sera enviado para Evolution API
             var logRequestBodyParaEvolution = EvolutionSendTextRequestBuilder.CriarBodyV1(
                 candidatos.FirstOrDefault() ?? mensagem.Destinatario,

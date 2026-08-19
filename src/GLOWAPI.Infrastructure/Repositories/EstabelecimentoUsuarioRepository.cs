@@ -64,7 +64,7 @@ public class EstabelecimentoUsuarioRepository : Repository<EstabelecimentoUsuari
         return await DbSet
             .AsNoTracking()
             .Include(vinculo => vinculo.Estabelecimento)
-            .ThenInclude(estabelecimento => estabelecimento.CategoriaEstabelecimento)
+            .ThenInclude(estabelecimento => estabelecimento!.CategoriaEstabelecimento)
             .Where(vinculo => vinculo.UsuarioId == usuarioId
                 && vinculo.Ativo
                 && vinculo.Estabelecimento != null

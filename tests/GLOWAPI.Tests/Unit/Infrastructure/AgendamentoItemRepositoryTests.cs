@@ -16,12 +16,32 @@ public class AgendamentoItemRepositoryTests
             .Options;
 
         await using var context = new ApplicationDbContext(options);
+        var inicio = ProximaData(DayOfWeek.Monday, new TimeOnly(9, 30));
+        var fim = ProximaData(DayOfWeek.Monday, new TimeOnly(10, 30));
+
+        context.Servicos.Add(new Servico
+        {
+            Id = 1,
+            Nome = "Corte",
+            DuracaoMinutos = 60,
+            Ativo = true
+        });
+        context.Profissionais.Add(new Profissional
+        {
+            Id = 40,
+            NomePublico = "Profissional Teste",
+            TipoProfissional = ProfessionalType.VinculadoEstabelecimento,
+            Ativo = true
+        });
         context.Agendamentos.Add(new Agendamento
         {
             Id = 1,
             EstabelecimentoId = 20,
-            UsuarioClienteId = 10,
+            UsuarioClienteId = null,
+            Inicio = inicio,
+            Fim = fim,
             Status = AgendamentoStatus.Confirmado,
+            ClienteNome = "Cliente Teste",
             Itens =
             [
                 new AgendamentoItem
@@ -29,8 +49,8 @@ public class AgendamentoItemRepositoryTests
                     Id = 1,
                     ServicoId = 1,
                     ProfissionalId = 40,
-                    Inicio = ProximaData(DayOfWeek.Monday, new TimeOnly(9, 30)),
-                    Fim = ProximaData(DayOfWeek.Monday, new TimeOnly(10, 30)),
+                    Inicio = inicio,
+                    Fim = fim,
                     Status = AgendamentoItemStatus.Confirmado
                 }
             ]
@@ -54,12 +74,12 @@ public class AgendamentoItemRepositoryTests
 
     private static DateTime ProximaData(DayOfWeek diaSemana, TimeOnly horario)
     {
-        var data = DateTime.UtcNow.Date.AddDays(1);
+        var data = DateTime.UtcNow.Date.AddDays(7);
         while (data.DayOfWeek != diaSemana)
         {
             data = data.AddDays(1);
         }
 
-        return data.Add(horario.ToTimeSpan());
+        return DateTime.SpecifyKind(data.Add(horario.ToTimeSpan()), DateTimeKind.Utc);
     }
 }

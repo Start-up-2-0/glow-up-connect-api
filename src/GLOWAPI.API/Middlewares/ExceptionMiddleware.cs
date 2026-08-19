@@ -77,6 +77,8 @@ public class ExceptionMiddleware
                     or PagamentoAssinaturaInvalidoException
                     or DiaVencimentoAssinaturaInvalidoException
                     or ProfissionalAutonomoAssinaturaInvalidoException
+                    or TelefoneAssinaturaDivergenteException
+                    or TelefoneAssinaturaNaoConfirmadoException
                     or TrocaPlanoAssinaturaInvalidaException
                     or WebhookPagamentoInvalidoException
                     or AtendimentoStatusInvalidoException

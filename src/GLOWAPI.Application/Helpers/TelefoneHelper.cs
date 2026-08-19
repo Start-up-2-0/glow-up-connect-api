@@ -28,7 +28,7 @@ public static class TelefoneHelper
     }
 
     /// <summary>
-    /// Formato preferido para envio Evolution/WhatsApp: celular BR sem o nono digito apos DDI+DDD, quando aplicavel.
+    /// Formato preferido para envio Evolution/WhatsApp: celular BR com DDI 55 e nono digito quando o numero ja o possui.
     /// </summary>
     public static string NormalizarParaEvolutionEnvio(string telefone)
     {
@@ -37,7 +37,6 @@ public static class TelefoneHelper
         {
             return string.Empty;
         }
-
 
         return normalizado;
     }
@@ -65,7 +64,12 @@ public static class TelefoneHelper
             return false;
         }
 
-        return normalizadoA == normalizadoB;
+        if (normalizadoA == normalizadoB)
+        {
+            return true;
+        }
+
+        return SaoEquivalentesCelularBrasil(normalizadoA, normalizadoB);
     }
 
     /// <summary>
@@ -163,5 +167,40 @@ public static class TelefoneHelper
         return $"https://wa.me/{numero}?text={texto}";
     }
 
+    private static bool SaoEquivalentesCelularBrasil(string telefoneA, string telefoneB)
+    {
+        var varianteA = ObterVarianteCelularBrasilSemNonoDigito(telefoneA);
+        var varianteB = ObterVarianteCelularBrasilSemNonoDigito(telefoneB);
 
+        if (varianteA is null || varianteB is null)
+        {
+            return false;
+        }
+
+        return varianteA == varianteB
+            || varianteA == telefoneB
+            || varianteB == telefoneA;
+    }
+
+    private static string? ObterVarianteCelularBrasilSemNonoDigito(string telefone)
+    {
+        if (!telefone.StartsWith("55", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var numeroLocal = telefone[2..];
+
+        if (numeroLocal.Length == 11 && numeroLocal[2] == '9')
+        {
+            return $"55{numeroLocal[..2]}{numeroLocal[3..]}";
+        }
+
+        if (numeroLocal.Length == 10)
+        {
+            return $"55{numeroLocal[..2]}9{numeroLocal[2..]}";
+        }
+
+        return null;
+    }
 }
