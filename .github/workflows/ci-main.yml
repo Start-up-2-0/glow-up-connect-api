@@ -68,11 +68,11 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: csharp
       - uses: github/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
       - run: dotnet build GLOWAPI.sln -c Release
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
