@@ -31,7 +31,7 @@ public partial class RevalidarPublicacaoOnboardingObrigatorio : Migration
                         WHERE s.EstabelecimentoId = e.Id AND s.Ativo = 1
                     )
                  OR NOT EXISTS (
-                        SELECT 1 FROM HorarioAtendimentoProfissionais h
+                        SELECT 1 FROM HorariosAtendimentoProfissional h
                         WHERE h.EstabelecimentoId = e.Id AND h.Ativo = 1
                     )
                  OR (
@@ -46,7 +46,7 @@ public partial class RevalidarPublicacaoOnboardingObrigatorio : Migration
                                   AND p.Ativo = 1
                             )
                          OR NOT EXISTS (
-                                SELECT 1 FROM HorarioFuncionamentoEstabelecimentos hf
+                                SELECT 1 FROM HorariosFuncionamentoEstabelecimento hf
                                 WHERE hf.EstabelecimentoId = e.Id AND hf.Ativo = 1
                             )
                          OR NOT EXISTS (
