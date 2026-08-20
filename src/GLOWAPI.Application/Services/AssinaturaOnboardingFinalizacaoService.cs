@@ -24,6 +24,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
     private readonly IUsuarioRepository _usuarioRepository;
     private readonly IEnderecoGeocodificacaoService _enderecoGeocodificacaoService;
     private readonly IAvatarBase64Decoder _avatarBase64Decoder;
+    private readonly IConfirmacaoWhatsAppEstabelecimentoService _confirmacaoWhatsAppEstabelecimentoService;
 
     public AssinaturaOnboardingFinalizacaoService(
         IEstabelecimentoRepository estabelecimentoRepository,
@@ -34,7 +35,8 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
         IAssinaturaEstabelecimentoRepository assinaturaEstabelecimentoRepository,
         IUsuarioRepository usuarioRepository,
         IEnderecoGeocodificacaoService enderecoGeocodificacaoService,
-        IAvatarBase64Decoder avatarBase64Decoder)
+        IAvatarBase64Decoder avatarBase64Decoder,
+        IConfirmacaoWhatsAppEstabelecimentoService confirmacaoWhatsAppEstabelecimentoService)
     {
         _estabelecimentoRepository = estabelecimentoRepository;
         _estabelecimentoUsuarioRepository = estabelecimentoUsuarioRepository;
@@ -45,6 +47,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
         _usuarioRepository = usuarioRepository;
         _enderecoGeocodificacaoService = enderecoGeocodificacaoService;
         _avatarBase64Decoder = avatarBase64Decoder;
+        _confirmacaoWhatsAppEstabelecimentoService = confirmacaoWhatsAppEstabelecimentoService;
     }
 
     public async Task FinalizarSePendenteAsync(Assinatura assinatura, CancellationToken cancellationToken = default)
@@ -154,6 +157,19 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
 
         await PromoverRoleSeNecessarioAsync(payload.UsuarioId, payload.TipoAssinatura, cancellationToken);
         await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        var usuario = await _usuarioRepository.ObterPorIdAsync(payload.UsuarioId, cancellationToken);
+        try
+        {
+            await _confirmacaoWhatsAppEstabelecimentoService.IniciarAposCriacaoAsync(
+                estabelecimento,
+                usuario,
+                cancellationToken);
+        }
+        catch (Exception)
+        {
+            // Onboarding ja persistido; o WhatsApp pode ser solicitado depois no perfil.
+        }
 
         var assinaturaComPlano = await _assinaturaRepository.ObterPorIdComPlanoAsync(assinatura.Id, cancellationToken);
         if (assinaturaComPlano is not null)

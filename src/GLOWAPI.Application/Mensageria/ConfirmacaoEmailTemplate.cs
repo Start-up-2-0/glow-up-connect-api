@@ -25,7 +25,7 @@ public static class ConfirmacaoEmailTemplate
 
         var conteudoCard = EmailTemplateBlocos.Juntar(
             EmailTemplateBlocos.ParagrafoCentralizado(
-                "Use o botao abaixo para confirmar automaticamente ou copie o codigo de confirmacao."),
+                "Use o botao abaixo para confirmar automaticamente ou copie o codigo de confirmacao. Depois disso, enviaremos um e-mail para voce confirmar o WhatsApp e receber alertas."),
             EmailTemplateBlocos.Botao(new EmailTemplateBotao
             {
                 Texto = "Confirmar e-mail",

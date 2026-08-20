@@ -6,6 +6,7 @@ using GLOWAPI.Application.Services;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Usuario;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 
@@ -16,6 +17,7 @@ public class ConfirmacaoEmailServiceTests
     private readonly Mock<IUsuarioRepository> _usuarioRepository = new();
     private readonly Mock<IGlowTokenService> _tokenService = new();
     private readonly Mock<IMensagemNotificacaoService> _mensagemService = new();
+    private readonly Mock<IConfirmacaoWhatsAppService> _confirmacaoWhatsAppService = new();
     private readonly AuthOptions _authOptions = new()
     {
         ConfirmacaoEmailHoras = 24,
@@ -44,6 +46,62 @@ public class ConfirmacaoEmailServiceTests
         Assert.True(usuario.Ativo);
         Assert.Null(usuario.ConfirmacaoTokenHash);
         _usuarioRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _confirmacaoWhatsAppService.Verify(
+            s => s.IniciarConfirmacaoAsync(It.IsAny<Usuario>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ConfirmarPorCodigoAsync_DeveIniciarConfirmacaoWhatsApp_QuandoTelefonePendente()
+    {
+        var usuario = CriarUsuarioPendente();
+        usuario.Telefone = "11988887777";
+        _usuarioRepository
+            .Setup(r => r.ObterPorConfirmacaoCodigoHashAsync("hash-482913", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usuario);
+
+        var service = CreateService();
+        await service.ConfirmarPorCodigoAsync("482913");
+
+        _confirmacaoWhatsAppService.Verify(
+            s => s.IniciarConfirmacaoAsync(usuario, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ConfirmarPorCodigoAsync_NaoDeveIniciarWhatsApp_QuandoJaConfirmado()
+    {
+        var usuario = CriarUsuarioPendente();
+        usuario.Telefone = "11988887777";
+        usuario.WhatsAppConfirmadoEm = DateTime.UtcNow;
+        _usuarioRepository
+            .Setup(r => r.ObterPorConfirmacaoCodigoHashAsync("hash-482913", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usuario);
+
+        var service = CreateService();
+        await service.ConfirmarPorCodigoAsync("482913");
+
+        _confirmacaoWhatsAppService.Verify(
+            s => s.IniciarConfirmacaoAsync(It.IsAny<Usuario>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ConfirmarPorCodigoAsync_DeveAtivarUsuario_QuandoInicioWhatsAppFalhar()
+    {
+        var usuario = CriarUsuarioPendente();
+        usuario.Telefone = "11988887777";
+        _usuarioRepository
+            .Setup(r => r.ObterPorConfirmacaoCodigoHashAsync("hash-482913", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usuario);
+        _confirmacaoWhatsAppService
+            .Setup(s => s.IniciarConfirmacaoAsync(It.IsAny<Usuario>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ConfirmacaoWhatsAppInvalidaException());
+
+        var service = CreateService();
+        await service.ConfirmarPorCodigoAsync("482913");
+
+        Assert.True(usuario.Ativo);
     }
 
     [Fact]
@@ -109,5 +167,7 @@ public class ConfirmacaoEmailServiceTests
         _tokenService.Object,
         _mensagemService.Object,
         Mock.Of<IAgendamentoConfirmacaoContaService>(),
-        Options.Create(_authOptions));
+        _confirmacaoWhatsAppService.Object,
+        Options.Create(_authOptions),
+        NullLogger<ConfirmacaoEmailService>.Instance);
 }

@@ -81,6 +81,39 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
         return instrucoes;
     }
 
+    public async Task IniciarAposCriacaoAsync(
+        Estabelecimento estabelecimento,
+        Usuario? usuario,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(estabelecimento.Telefone)
+            || estabelecimento.WhatsAppConfirmadoEm.HasValue)
+        {
+            return;
+        }
+
+        if (usuario is not null
+            && usuario.WhatsAppConfirmadoEm.HasValue
+            && TelefoneHelper.SaoEquivalentes(estabelecimento.Telefone, usuario.Telefone))
+        {
+            estabelecimento.WhatsAppConfirmadoEm = usuario.WhatsAppConfirmadoEm;
+            estabelecimento.WhatsAppOptIn = usuario.WhatsAppOptIn;
+            estabelecimento.LimparConfirmacaoWhatsApp();
+            estabelecimento.UpdatedAt = DateTime.UtcNow;
+            _estabelecimentoRepository.Atualizar(estabelecimento);
+            await _estabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
+            return;
+        }
+
+        var emailsDestino = EmailDestinoHelper.Deduplicar(
+        [
+            estabelecimento.Email,
+            usuario?.Email ?? string.Empty
+        ]);
+
+        await IniciarConfirmacaoAsync(estabelecimento, emailsDestino, cancellationToken);
+    }
+
     public Task ConfirmarPorCodigoAsync(
         int estabelecimentoId,
         string codigo,

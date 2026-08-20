@@ -11,6 +11,11 @@ public interface IConfirmacaoWhatsAppEstabelecimentoService
         IReadOnlyList<string> emailsDestino,
         CancellationToken cancellationToken = default);
 
+    Task IniciarAposCriacaoAsync(
+        Estabelecimento estabelecimento,
+        Usuario? usuario,
+        CancellationToken cancellationToken = default);
+
     Task ConfirmarPorCodigoAsync(
         int estabelecimentoId,
         string codigo,
