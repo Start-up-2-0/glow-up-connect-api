@@ -567,6 +567,7 @@ public class WebhookPagamentoServiceTests
             _currentUser.Object,
             _onboardingFinalizacao.Object,
             new Mock<IAssinaturaVisibilidadeService>().Object,
+            new Mock<IOnboardingPublicacaoService>().Object,
             new Mock<IAssinaturaEncerramentoService>().Object,
             new Mock<IUsuarioRepository>().Object,
             Options.Create(new MercadoPagoOptions()),

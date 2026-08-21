@@ -11,14 +11,28 @@ public class CategoriaEstabelecimentoCatalogoTests
         new()
         {
             Id = 1,
-            Nome = "Barbearia ou salão de beleza",
+            Nome = "Barbearia",
+            TipoAssinatura = TipoAssinatura.Estabelecimento,
+            Ativo = true
+        },
+        new()
+        {
+            Id = 18,
+            Nome = "Salão de Beleza",
             TipoAssinatura = TipoAssinatura.Estabelecimento,
             Ativo = true
         },
         new()
         {
             Id = 2,
-            Nome = "Barbeiro ou cabeleireiro(a)",
+            Nome = "Barbeiro",
+            TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+            Ativo = true
+        },
+        new()
+        {
+            Id = 3,
+            Nome = "Cabeleireiro(a)",
             TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
             Ativo = true
         }
@@ -50,20 +64,28 @@ public class CategoriaEstabelecimentoCatalogoTests
     }
 
     [Fact]
-    public void ResolverId_DeveAtribuirCategoriaUnicaDoTipo_QuandoNaoInformada()
+    public void ResolverId_DeveExigirEscolha_QuandoLojaTemVariasCategorias()
     {
-        var idLoja = CategoriaEstabelecimentoCatalogo.ResolverId(
-            null,
-            TipoAssinatura.Estabelecimento,
-            Catalogo,
-            mensagem => new InvalidOperationException(mensagem));
-        var idAutonomo = CategoriaEstabelecimentoCatalogo.ResolverId(
-            null,
-            TipoAssinatura.ProfissionalAutonomo,
-            Catalogo,
-            mensagem => new InvalidOperationException(mensagem));
+        var excecao = Assert.Throws<InvalidOperationException>(() =>
+            CategoriaEstabelecimentoCatalogo.ResolverId(
+                null,
+                TipoAssinatura.Estabelecimento,
+                Catalogo,
+                mensagem => new InvalidOperationException(mensagem)));
 
-        Assert.Equal(1, idLoja);
-        Assert.Equal(2, idAutonomo);
+        Assert.Equal("Categoria do estabelecimento e obrigatoria.", excecao.Message);
+    }
+
+    [Fact]
+    public void ResolverId_DeveExigirEscolha_QuandoAutonomoTemVariasCategorias()
+    {
+        var excecao = Assert.Throws<InvalidOperationException>(() =>
+            CategoriaEstabelecimentoCatalogo.ResolverId(
+                null,
+                TipoAssinatura.ProfissionalAutonomo,
+                Catalogo,
+                mensagem => new InvalidOperationException(mensagem)));
+
+        Assert.Equal("Area de atuacao do profissional e obrigatoria.", excecao.Message);
     }
 }

@@ -100,4 +100,22 @@ public class PagamentoRepository : Repository<Pagamento>, IPagamentoRepository
                 && pagamento.Status == PagamentoStatus.Pago,
             cancellationToken);
     }
+
+    public Task<bool> ExistePagoPorAssinaturaCicloAsync(
+        int assinaturaId,
+        int numeroCiclo,
+        DateTime dataVencimento,
+        int? excluirPagamentoId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var vencimento = dataVencimento.Date;
+        return DbSet.AnyAsync(
+            pagamento => pagamento.AssinaturaId == assinaturaId
+                && pagamento.NumeroCiclo == numeroCiclo
+                && pagamento.DataVencimento.HasValue
+                && pagamento.DataVencimento.Value.Date == vencimento
+                && pagamento.Status == PagamentoStatus.Pago
+                && (!excluirPagamentoId.HasValue || pagamento.Id != excluirPagamentoId.Value),
+            cancellationToken);
+    }
 }

@@ -79,7 +79,8 @@ public class PermissionMiddleware
                     context,
                     StatusCodes.Status403Forbidden,
                     "Assinatura ativa com o modulo solicitado e obrigatoria para acessar este recurso.",
-                    "SUBSCRIPTION_MODULE_BLOCKED");
+                    "SUBSCRIPTION_MODULE_BLOCKED",
+                    new { modulo = requisito.Modulo.ToString() });
                 return;
             }
         }
@@ -221,7 +222,12 @@ public class PermissionMiddleware
         }
     }
 
-    private static async Task WriteErrorAsync(HttpContext context, int statusCode, string message, string code)
+    private static async Task WriteErrorAsync(
+        HttpContext context,
+        int statusCode,
+        string message,
+        string code,
+        object? details = null)
     {
         if (context.Response.HasStarted)
         {
@@ -230,6 +236,6 @@ public class PermissionMiddleware
 
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/json";
-        await context.Response.WriteAsJsonAsync(ApiErrorResponse.From(message, code));
+        await context.Response.WriteAsJsonAsync(ApiErrorResponse.From(message, code, details));
     }
 }

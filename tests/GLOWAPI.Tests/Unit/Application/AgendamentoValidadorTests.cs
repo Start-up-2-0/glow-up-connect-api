@@ -164,6 +164,51 @@ public class AgendamentoValidadorTests
                 usuarioClienteId: null));
     }
 
+    [Fact]
+    public async Task PrepararAsync_DeveRejeitarComboComIndividuais()
+    {
+        ConfigurarCenarioBasico(ProfessionalType.VinculadoEstabelecimento);
+
+        var combo = new Servico
+        {
+            Id = 10,
+            EstabelecimentoId = 1,
+            Nome = "Combo Completo",
+            DuracaoMinutos = 90,
+            PrecoBase = 75,
+            TipoServico = TipoServico.Combo,
+            Ativo = true,
+        };
+
+        _servicoRepository
+            .Setup(r => r.ObterPorIdEEstabelecimentoAsync(10, 1, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(combo);
+
+        _profissionalServicoRepository
+            .Setup(r => r.ObterPorProfissionalEServicoAsync(2, 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProfissionalServico
+            {
+                ProfissionalId = 2,
+                ServicoId = 10,
+                DuracaoMinutos = 90,
+                Preco = 75,
+                Ativo = true,
+            });
+
+        var validador = CreateValidador();
+
+        await Assert.ThrowsAsync<AgendamentoServicosInvalidosException>(() =>
+            validador.PrepararAsync(
+                1,
+                2,
+                [10, 5],
+                ObterProximaSegunda(),
+                new TimeOnly(10, 0),
+                OrigemAgendamento.PublicoLoja,
+                CriarDadosVisitante(),
+                usuarioClienteId: null));
+    }
+
     private void ConfigurarCenarioBasico(ProfessionalType tipoProfissional)
     {
         _estabelecimentoRepository

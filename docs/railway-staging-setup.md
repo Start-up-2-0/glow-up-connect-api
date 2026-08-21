@@ -121,7 +121,7 @@ $env:MYSQL_CS = "Server=...;Port=...;Database=...;User=...;Password=...;SslMode=
 | Variavel | Valor |
 |----------|--------|
 | `VITE_API_BASE_URL` | `/api` |
-| `VITE_CAPTCHA_SITE_KEY` | Site key reCAPTCHA v2 Checkbox |
+| `VITE_CAPTCHA_SITE_KEY` | Site key reCAPTCHA v2 Checkbox (também no serviço da **landing**, senão o convite/login público não mostra o widget) |
 | `GLOW_PROXY_SECRET` | Mesmo valor da API |
 | `API_INTERNAL_HOST` | Host privado da API (`<servico>.railway.internal`) |
 | `API_INTERNAL_URL` | (opcional) `https://<servico-api>.railway.internal` — **sem porta na URL** |

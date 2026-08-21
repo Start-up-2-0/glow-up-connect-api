@@ -130,6 +130,8 @@ public class AgendamentoValidador : IAgendamentoValidador
             vinculos.Add(vinculoServico);
         }
 
+        ServicoSelecaoValidador.ValidarCombinacao(servicos);
+
         var ordemServicos = servicoIds
             .Distinct()
             .Select(id => servicos.First(servico => servico.Id == id))

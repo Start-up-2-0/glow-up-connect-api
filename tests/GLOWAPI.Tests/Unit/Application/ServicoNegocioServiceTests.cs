@@ -21,6 +21,10 @@ public class ServicoNegocioServiceTests
     private readonly Mock<IProfissionalEscopoAcessoService> _profissionalEscopoAcessoService = new();
     private readonly Mock<IModulosAssinaturaService> _modulosAssinaturaService = new();
     private readonly Mock<IAuditoriaNegocioService> _auditoriaNegocioService = new();
+    private readonly Mock<IOnboardingPublicacaoService> _onboardingPublicacaoService = new();
+    private readonly Mock<IProfissionalServicoRepository> _profissionalServicoRepository = new();
+    private readonly Mock<IAvatarBase64Decoder> _avatarBase64Decoder = new();
+    private readonly Mock<IBase64ImageThumbnailer> _thumbnailer = new();
 
     public ServicoNegocioServiceTests()
     {
@@ -45,9 +49,18 @@ public class ServicoNegocioServiceTests
                 20,
                 [ModuloAssinatura.Servicos]));
 
-        _servicoRepository
-            .Setup(r => r.ContarAtivosPorEstabelecimentoAsync(20, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(0);
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ListarAtivosComAgendamentoPorEstabelecimentoAsync(
+                20,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<ProfissionalEstabelecimento>());
+
+        _profissionalServicoRepository
+            .Setup(r => r.ObterPorProfissionalEServicoAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProfissionalServico?)null);
     }
 
     [Fact]
@@ -74,6 +87,7 @@ public class ServicoNegocioServiceTests
         Assert.Equal(20, capturado!.EstabelecimentoId);
         Assert.True(capturado.Ativo);
         Assert.Equal("Corte", response.Nome);
+        Assert.Equal(TipoServico.Individual, capturado!.TipoServico);
         _auditoriaNegocioService.Verify(
             s => s.RegistrarAsync(
                 20,
@@ -216,6 +230,75 @@ public class ServicoNegocioServiceTests
                 new AtualizarStatusServicoRequestDto { Ativo = true }));
     }
 
+    [Fact]
+    public async Task CriarAsync_DeveCriarServicoCombo()
+    {
+        Servico? capturado = null;
+        _servicoRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<Servico>(), It.IsAny<CancellationToken>()))
+            .Callback<Servico, CancellationToken>((servico, _) => capturado = servico)
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService();
+        var response = await service.CriarAsync(
+            20,
+            new CriarServicoRequestDto
+            {
+                Nome = "Combo Completo",
+                PrecoBase = 75,
+                DuracaoMinutos = 90,
+                TipoServico = TipoServico.Combo,
+            });
+
+        Assert.NotNull(capturado);
+        Assert.Equal(TipoServico.Combo, capturado!.TipoServico);
+        Assert.Equal(TipoServico.Combo, response.TipoServico);
+    }
+
+    [Fact]
+    public async Task CriarAsync_DeveVincularProfissional_QuandoTenantForAutonomo()
+    {
+        _profissionalEstabelecimentoRepository
+            .Setup(r => r.ListarAtivosComAgendamentoPorEstabelecimentoAsync(
+                20,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([
+                new ProfissionalEstabelecimento
+                {
+                    ProfissionalId = 40,
+                    EstabelecimentoId = 20,
+                    Ativo = true,
+                    PodeReceberAgendamento = true,
+                    Profissional = new Profissional
+                    {
+                        Id = 40,
+                        TipoProfissional = ProfessionalType.Autonomo,
+                        Ativo = true
+                    }
+                }
+            ]);
+
+        ProfissionalServico? vinculo = null;
+        _profissionalServicoRepository
+            .Setup(r => r.AdicionarAsync(It.IsAny<ProfissionalServico>(), It.IsAny<CancellationToken>()))
+            .Callback<ProfissionalServico, CancellationToken>((item, _) => vinculo = item)
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService();
+        var response = await service.CriarAsync(
+            20,
+            new CriarServicoRequestDto
+            {
+                Nome = "Corte",
+                PrecoBase = 80,
+                DuracaoMinutos = 45
+            });
+
+        Assert.NotNull(vinculo);
+        Assert.Equal(40, vinculo!.ProfissionalId);
+        Assert.Contains(response.Profissionais, p => p.ProfissionalId == 40 && p.Ativo);
+    }
+
     private ServicoNegocioService CreateService() => new(
         _servicoRepository.Object,
         _estabelecimentoRepository.Object,
@@ -224,7 +307,11 @@ public class ServicoNegocioServiceTests
         _autorizacaoNegocioService.Object,
         _profissionalEscopoAcessoService.Object,
         _modulosAssinaturaService.Object,
-        _auditoriaNegocioService.Object);
+        _auditoriaNegocioService.Object,
+        _onboardingPublicacaoService.Object,
+        _profissionalServicoRepository.Object,
+        _avatarBase64Decoder.Object,
+        _thumbnailer.Object);
 
     private static AutorizacaoNegocioResultado CriarAutorizacao(PermissaoNegocio permissao) =>
         new(20, 10, EstablishmentUserRole.Owner, false, new HashSet<PermissaoNegocio> { permissao });

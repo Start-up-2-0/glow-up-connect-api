@@ -33,15 +33,15 @@ Inclui **todos os modulos do Basic** mais os abaixo.
 
 Tudo do Basic, mais:
 
-- Multiusuario
+- Multiusuário
 - Agenda compartilhada
-- Gestao de profissionais
-- Historico de clientes
-- Confirmacao automatica via WhatsApp
-- Lembrete automatico de agendamento
+- Gestão de profissionais
+- Histórico de clientes
+- Confirmação automática via WhatsApp
+- Lembrete automático de agendamento
 - Aviso de cancelamento
-- Dashboard basico
-- Relatorios basicos
+- Dashboard básico
+- Relatórios básicos
 
 ## O que o Plus desbloqueia na operacao
 
@@ -54,7 +54,7 @@ Tudo do Basic, mais:
 | Convites por link (`/api/convites/*`) | sim |
 | Notificacoes WhatsApp aos clientes | sim |
 | Caixa / lancamentos | **nao** |
-| Comissao automatica | **nao** |
+| Comissão automática | **nao** |
 
 ## Permissoes de negocio necessarias
 

@@ -36,6 +36,7 @@ public class AssinaturaServiceTests
     private readonly Mock<IPromocaoLancamentoService> _promocaoLancamentoService = new();
     private readonly Mock<ICobrancaAssinaturaService> _cobrancaAssinaturaService = new();
     private readonly Mock<IUsuarioRepository> _usuarioRepository = new();
+    private readonly Mock<IConfirmacaoWhatsAppEstabelecimentoService> _confirmacaoWhatsAppEstabelecimentoService = new();
 
     public AssinaturaServiceTests()
     {
@@ -49,14 +50,21 @@ public class AssinaturaServiceTests
                 new()
                 {
                     Id = 1,
-                    Nome = "Barbearia ou salão de beleza",
+                    Nome = "Barbearia",
+                    TipoAssinatura = TipoAssinatura.Estabelecimento,
+                    Ativo = true
+                },
+                new()
+                {
+                    Id = 18,
+                    Nome = "Salão de Beleza",
                     TipoAssinatura = TipoAssinatura.Estabelecimento,
                     Ativo = true
                 },
                 new()
                 {
                     Id = 2,
-                    Nome = "Barbeiro ou cabeleireiro(a)",
+                    Nome = "Barbeiro",
                     TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
                     Ativo = true
                 }
@@ -203,6 +211,12 @@ public class AssinaturaServiceTests
             It.Is<Plano>(plano => plano.Id == 1),
             "usuario@email.com",
             It.IsAny<CancellationToken>()), Times.Once);
+        _confirmacaoWhatsAppEstabelecimentoService.Verify(
+            s => s.IniciarAposCriacaoAsync(
+                It.IsAny<Estabelecimento>(),
+                It.IsAny<Usuario>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -247,6 +261,7 @@ public class AssinaturaServiceTests
                 Logo = LogoBase64TestHelper.PngDataUri,
                 Telefone = "11999999999",
                 Email = "studio@email.com",
+                CategoriaEstabelecimentoId = 1,
                 Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Sao Paulo", logradouro: "Rua Glow")
             }
         });
@@ -278,6 +293,12 @@ public class AssinaturaServiceTests
         _estabelecimentoRepository.Verify(r => r.AdicionarAsync(It.IsAny<Estabelecimento>(), It.IsAny<CancellationToken>()), Times.Once);
         _estabelecimentoUsuarioRepository.Verify(r => r.AdicionarAsync(It.IsAny<EstabelecimentoUsuario>(), It.IsAny<CancellationToken>()), Times.Once);
         _assinaturaRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _confirmacaoWhatsAppEstabelecimentoService.Verify(
+            s => s.IniciarAposCriacaoAsync(
+                estabelecimentoCriado!,
+                It.Is<Usuario>(u => u.Id == 10),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -1404,6 +1425,7 @@ public class AssinaturaServiceTests
             _usuarioRepository.Object,
             new Mock<IAssinaturaVisibilidadeService>().Object,
             new Mock<IAssinaturaEncerramentoService>().Object,
+            _confirmacaoWhatsAppEstabelecimentoService.Object,
             Options.Create(new MercadoPagoOptions { UsarCheckoutPro = usarCheckoutPro }));
 
     private static PagamentoTransparenteMercadoPagoDto PagamentoValido() =>

@@ -16,12 +16,13 @@ public class ConfirmacaoEmailTemplateTests
 
         html.Should().Contain("<!doctype html>");
         html.Should().Contain("GlowUp Connect");
-        html.Should().Contain("#ffbf00");
+        html.Should().Contain("#92679b");
         html.Should().Contain("Confirmar e-mail");
         html.Should().Contain($"cid:{EmailTemplateInlineAssets.LogoContentId}");
         html.Should().NotContain("data:image");
         html.Should().Contain("482913");
         html.Should().Contain("class=\"confirm-code\"");
+        html.Should().Contain("confirmar o WhatsApp");
         html.Should().Contain("@media only screen and (max-width: 620px)");
         html.Should().Contain("role=\"presentation\"");
         html.Should().Contain("Joao &lt;Teste&gt;");

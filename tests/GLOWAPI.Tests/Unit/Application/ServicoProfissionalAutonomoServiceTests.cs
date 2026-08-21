@@ -95,6 +95,63 @@ public class ServicoProfissionalAutonomoServiceTests
     }
 
     [Fact]
+    public async Task CriarAsync_NaoDeveVincularDeNovo_QuandoJaEstiverVinculado()
+    {
+        _servicoNegocioService
+            .Setup(s => s.CriarAsync(20, It.IsAny<CriarServicoRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ServicoResponseDto
+            {
+                Id = 30,
+                Nome = "Corte",
+                EstabelecimentoId = 20,
+                Ativo = true,
+                Profissionais =
+                [
+                    new ServicoProfissionalResumoDto
+                    {
+                        ProfissionalId = 40,
+                        Ativo = true,
+                        Preco = 80,
+                        DuracaoMinutos = 45
+                    }
+                ]
+            });
+        _servicoNegocioService
+            .Setup(s => s.ListarAsync(
+                20,
+                It.Is<ServicoFiltroDto>(f => f.ProfissionalId == 40),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([
+                new ServicoResponseDto
+                {
+                    Id = 30,
+                    Nome = "Corte",
+                    EstabelecimentoId = 20,
+                    Ativo = true
+                }
+            ]);
+
+        var service = CreateService();
+        await service.CriarAsync(
+            40,
+            new CriarServicoRequestDto
+            {
+                Nome = "Corte",
+                PrecoBase = 80,
+                DuracaoMinutos = 45
+            });
+
+        _profissionalServicoNegocioService.Verify(
+            s => s.VincularAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<VincularServicoProfissionalRequestDto>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task ListarAsync_DeveLancarExcecao_QuandoUsuarioNaoEProprietario()
     {
         _profissionalRepository

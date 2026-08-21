@@ -25,15 +25,15 @@ WhatsApp
 
 ## Funcionalidades adicionais (catalogo)
 
-- Multiusuario
+- Multiusuário
 - Agenda compartilhada
-- Gestao de profissionais
-- Historico de clientes
-- Confirmacao automatica via WhatsApp
-- Lembrete automatico de agendamento
+- Gestão de profissionais
+- Histórico de clientes
+- Confirmação automática via WhatsApp
+- Lembrete automático de agendamento
 - Aviso de cancelamento
-- Dashboard basico
-- Relatorios basicos
+- Dashboard básico
+- Relatórios básicos
 
 ## Limites
 
@@ -51,7 +51,7 @@ Campos `LimiteProfissionais`, `LimiteServicos`, `LimiteAgendamentos` no banco: *
 
 - Caixa (`GET .../caixa` → 403)
 - Financeiro (relatorios avancados)
-- Comissao automatica
+- Comissão automática
 - Prioridade no marketplace
 
 ## Personas alvo

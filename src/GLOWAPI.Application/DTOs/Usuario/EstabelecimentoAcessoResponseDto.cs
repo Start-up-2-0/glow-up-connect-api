@@ -25,4 +25,6 @@ public record EstabelecimentoAcessoResponseDto(
     LimitesAssinaturaDto Limites,
     string? TipoAssinatura = null,
     [property: JsonPropertyName("categoriaId")] int? CategoriaEstabelecimentoId = null,
-    [property: JsonPropertyName("categoria")] string? CategoriaEstabelecimento = null);
+    [property: JsonPropertyName("categoria")] string? CategoriaEstabelecimento = null,
+    bool OnboardingObrigatorioPendente = false,
+    string? ProximaEtapaOnboarding = null);

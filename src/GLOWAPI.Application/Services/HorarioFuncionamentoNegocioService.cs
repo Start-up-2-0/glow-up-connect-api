@@ -12,19 +12,25 @@ public class HorarioFuncionamentoNegocioService : IHorarioFuncionamentoNegocioSe
 {
     private readonly IHorarioFuncionamentoEstabelecimentoRepository _horarioFuncionamentoRepository;
     private readonly IHorarioAtendimentoProfissionalRepository _horarioAtendimentoProfissionalRepository;
+    private readonly IProfissionalEstabelecimentoRepository _profissionalEstabelecimentoRepository;
     private readonly IAutorizacaoNegocioService _autorizacaoNegocioService;
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
+    private readonly IOnboardingPublicacaoService _onboardingPublicacaoService;
 
     public HorarioFuncionamentoNegocioService(
         IHorarioFuncionamentoEstabelecimentoRepository horarioFuncionamentoRepository,
         IHorarioAtendimentoProfissionalRepository horarioAtendimentoProfissionalRepository,
+        IProfissionalEstabelecimentoRepository profissionalEstabelecimentoRepository,
         IAutorizacaoNegocioService autorizacaoNegocioService,
-        IAuditoriaNegocioService auditoriaNegocioService)
+        IAuditoriaNegocioService auditoriaNegocioService,
+        IOnboardingPublicacaoService onboardingPublicacaoService)
     {
         _horarioFuncionamentoRepository = horarioFuncionamentoRepository;
         _horarioAtendimentoProfissionalRepository = horarioAtendimentoProfissionalRepository;
+        _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
         _autorizacaoNegocioService = autorizacaoNegocioService;
         _auditoriaNegocioService = auditoriaNegocioService;
+        _onboardingPublicacaoService = onboardingPublicacaoService;
     }
 
     public async Task<IReadOnlyList<HorarioFuncionamentoResponseDto>> ListarAsync(
@@ -78,6 +84,8 @@ public class HorarioFuncionamentoNegocioService : IHorarioFuncionamentoNegocioSe
 
         await _horarioFuncionamentoRepository.AdicionarAsync(horario, cancellationToken);
         await _horarioFuncionamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await SincronizarAtendimentoAutonomoAsync(horario, cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.HorarioFuncionamentoCriado,
@@ -151,6 +159,8 @@ public class HorarioFuncionamentoNegocioService : IHorarioFuncionamentoNegocioSe
 
         _horarioFuncionamentoRepository.Atualizar(horario);
         await _horarioFuncionamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await SincronizarAtendimentoAutonomoAsync(horario, cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.HorarioFuncionamentoAlterado,
@@ -216,6 +226,8 @@ public class HorarioFuncionamentoNegocioService : IHorarioFuncionamentoNegocioSe
 
         _horarioFuncionamentoRepository.Atualizar(horario);
         await _horarioFuncionamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await SincronizarAtendimentoAutonomoAsync(horario, cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.HorarioFuncionamentoStatusAlterado,
@@ -321,5 +333,69 @@ public class HorarioFuncionamentoNegocioService : IHorarioFuncionamentoNegocioSe
                     "A alteracao deixaria horarios ativos de profissionais fora do funcionamento do negocio.");
             }
         }
+    }
+
+    private async Task SincronizarAtendimentoAutonomoAsync(
+        HorarioFuncionamentoEstabelecimento horario,
+        CancellationToken cancellationToken)
+    {
+        var vinculos = await _profissionalEstabelecimentoRepository
+            .ListarAtivosComAgendamentoPorEstabelecimentoAsync(horario.EstabelecimentoId, cancellationToken);
+        var autonomos = vinculos
+            .Where(vinculo => vinculo.Profissional?.TipoProfissional == ProfessionalType.Autonomo)
+            .Take(2)
+            .ToList();
+
+        if (autonomos.Count != 1)
+        {
+            return;
+        }
+
+        var profissionalId = autonomos[0].ProfissionalId;
+        var existentes = await _horarioAtendimentoProfissionalRepository.ListarPorEstabelecimentoAsync(
+            horario.EstabelecimentoId,
+            profissionalId,
+            horario.DiaSemana,
+            cancellationToken: cancellationToken);
+        var existenteId = existentes.FirstOrDefault()?.Id;
+
+        if (!existenteId.HasValue)
+        {
+            if (!horario.Ativo)
+            {
+                return;
+            }
+
+            await _horarioAtendimentoProfissionalRepository.AdicionarAsync(
+                new HorarioAtendimentoProfissional
+                {
+                    EstabelecimentoId = horario.EstabelecimentoId,
+                    ProfissionalId = profissionalId,
+                    DiaSemana = horario.DiaSemana,
+                    HoraInicio = horario.HoraInicio,
+                    HoraFim = horario.HoraFim,
+                    Ativo = true
+                },
+                cancellationToken);
+        }
+        else
+        {
+            var alvo = await _horarioAtendimentoProfissionalRepository.ObterPorIdEEstabelecimentoAsync(
+                existenteId.Value,
+                horario.EstabelecimentoId,
+                cancellationToken);
+            if (alvo is null)
+            {
+                return;
+            }
+
+            alvo.HoraInicio = horario.HoraInicio;
+            alvo.HoraFim = horario.HoraFim;
+            alvo.Ativo = horario.Ativo;
+            alvo.UpdatedAt = DateTime.UtcNow;
+            _horarioAtendimentoProfissionalRepository.Atualizar(alvo);
+        }
+
+        await _horarioAtendimentoProfissionalRepository.SalvarAlteracoesAsync(cancellationToken);
     }
 }

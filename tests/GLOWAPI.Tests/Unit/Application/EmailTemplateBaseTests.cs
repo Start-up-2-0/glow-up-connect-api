@@ -19,7 +19,7 @@ public class EmailTemplateBaseTests
 
         html.Should().Contain("<!doctype html>");
         html.Should().Contain("GlowUp Connect");
-        html.Should().Contain("#ffbf00");
+        html.Should().Contain("#92679b");
         html.Should().Contain($"cid:{EmailTemplateInlineAssets.LogoContentId}");
         html.Should().Contain("Precisa de ajuda?");
         html.Should().Contain("role=\"presentation\"");

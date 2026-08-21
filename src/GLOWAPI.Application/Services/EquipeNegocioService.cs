@@ -23,6 +23,7 @@ public class EquipeNegocioService : IEquipeNegocioService
     private readonly IAvatarBase64Decoder _avatarBase64Decoder;
     private readonly IBase64ImageThumbnailer _thumbnailer;
     private readonly IConviteNegocioRepository _conviteRepository;
+    private readonly IOnboardingPublicacaoService _onboardingPublicacaoService;
 
     public EquipeNegocioService(
         IUsuarioRepository usuarioRepository,
@@ -37,7 +38,8 @@ public class EquipeNegocioService : IEquipeNegocioService
         IEquipeNotificacaoService equipeNotificacaoService,
         IAvatarBase64Decoder avatarBase64Decoder,
         IBase64ImageThumbnailer thumbnailer,
-        IConviteNegocioRepository conviteRepository)
+        IConviteNegocioRepository conviteRepository,
+        IOnboardingPublicacaoService onboardingPublicacaoService)
     {
         _usuarioRepository = usuarioRepository;
         _profissionalRepository = profissionalRepository;
@@ -52,6 +54,7 @@ public class EquipeNegocioService : IEquipeNegocioService
         _avatarBase64Decoder = avatarBase64Decoder;
         _thumbnailer = thumbnailer;
         _conviteRepository = conviteRepository;
+        _onboardingPublicacaoService = onboardingPublicacaoService;
     }
 
     public async Task<UsuarioEquipeResponseDto> CadastrarUsuarioAsync(
@@ -170,6 +173,7 @@ public class EquipeNegocioService : IEquipeNegocioService
 
             _profissionalEstabelecimentoRepository.Atualizar(vinculoExistente);
             await _profissionalEstabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
+            await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
             await AuditarProfissionalAsync(
                 estabelecimentoId,
                 TipoAcaoAuditoriaNegocio.ProfissionalConvidado,
@@ -194,6 +198,7 @@ public class EquipeNegocioService : IEquipeNegocioService
 
         await _profissionalEstabelecimentoRepository.AdicionarAsync(vinculo, cancellationToken);
         await _profissionalEstabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await AuditarProfissionalAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.ProfissionalConvidado,
@@ -254,6 +259,7 @@ public class EquipeNegocioService : IEquipeNegocioService
         profissional.UpdatedAt = DateTime.UtcNow;
         _profissionalRepository.Atualizar(profissional);
         await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
 
         return ProfissionalEquipeResponseDto.From(vinculo, profissional);
     }
@@ -409,6 +415,7 @@ public class EquipeNegocioService : IEquipeNegocioService
 
         _profissionalEstabelecimentoRepository.Atualizar(vinculo);
         await _profissionalEstabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.ProfissionalStatusAlterado,
@@ -1104,6 +1111,7 @@ public class EquipeNegocioService : IEquipeNegocioService
 
         await _profissionalEstabelecimentoRepository.AdicionarAsync(vinculo, cancellationToken);
         await _profissionalEstabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
 
         await AuditarProfissionalAsync(
             estabelecimentoId,
@@ -1146,6 +1154,7 @@ public class EquipeNegocioService : IEquipeNegocioService
 
         _profissionalRepository.Atualizar(profissional);
         await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
 
         return ProfissionalVitrineResponseDto.From(vinculo, profissional);
     }
@@ -1183,6 +1192,7 @@ public class EquipeNegocioService : IEquipeNegocioService
         _profissionalEstabelecimentoRepository.Atualizar(vinculo);
         _profissionalRepository.Atualizar(profissional);
         await _profissionalEstabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
 
         return ProfissionalVitrineResponseDto.From(vinculo, profissional);
     }

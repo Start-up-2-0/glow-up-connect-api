@@ -17,6 +17,7 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
     private readonly IAssinaturaRepository _assinaturaRepository;
     private readonly ICampanhaPromocionalRepository _campanhaPromocionalRepository;
     private readonly ICurrentUserContext _currentUserContext;
+    private readonly IOnboardingPublicacaoService _onboardingPublicacaoService;
 
     public UsuarioNegocioContextoService(
         IEstabelecimentoUsuarioRepository estabelecimentoUsuarioRepository,
@@ -26,7 +27,8 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
         IModulosAssinaturaService modulosAssinaturaService,
         IAssinaturaRepository assinaturaRepository,
         ICampanhaPromocionalRepository campanhaPromocionalRepository,
-        ICurrentUserContext currentUserContext)
+        ICurrentUserContext currentUserContext,
+        IOnboardingPublicacaoService onboardingPublicacaoService)
     {
         _estabelecimentoUsuarioRepository = estabelecimentoUsuarioRepository;
         _profissionalEstabelecimentoRepository = profissionalEstabelecimentoRepository;
@@ -36,6 +38,7 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
         _assinaturaRepository = assinaturaRepository;
         _campanhaPromocionalRepository = campanhaPromocionalRepository;
         _currentUserContext = currentUserContext;
+        _onboardingPublicacaoService = onboardingPublicacaoService;
     }
 
     public async Task<IReadOnlyList<EstabelecimentoAcessoResponseDto>> ListarEstabelecimentosAsync(
@@ -70,6 +73,20 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
                 cancellationToken);
 
             var (diasTrial, _) = await ObterDiasTrialAsync(modulos.AssinaturaId, cancellationToken);
+
+            var onboardingPendente = false;
+            string? proximaEtapaOnboarding = null;
+            if (modulos.AssinaturaAtiva && vinculo.RoleNoEstabelecimento == EstablishmentUserRole.Owner)
+            {
+                await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(
+                    vinculo.EstabelecimentoId,
+                    cancellationToken);
+                var statusPublicacao = await _onboardingPublicacaoService.ObterStatusAsync(
+                    vinculo.EstabelecimentoId,
+                    cancellationToken);
+                onboardingPendente = statusPublicacao.OnboardingObrigatorioPendente;
+                proximaEtapaOnboarding = statusPublicacao.ProximaEtapa;
+            }
 
             // Regra de acesso: em plano de loja única (Básico/Plus), o Dono só enxerga a loja principal.
             var limiteEstabelecimentos = modulos.Limites.Estabelecimentos;
@@ -123,7 +140,9 @@ public class UsuarioNegocioContextoService : IUsuarioNegocioContextoService
                 modulos.Limites,
                 modulos.TipoAssinatura,
                 vinculo.Estabelecimento.CategoriaEstabelecimentoId,
-                vinculo.Estabelecimento.CategoriaEstabelecimento?.Nome));
+                vinculo.Estabelecimento.CategoriaEstabelecimento?.Nome,
+                onboardingPendente,
+                proximaEtapaOnboarding));
         }
 
         return response;

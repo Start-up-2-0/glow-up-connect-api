@@ -93,14 +93,28 @@ public class EstabelecimentoDescobertaServiceTests
                 new()
                 {
                     Id = 1,
-                    Nome = "Barbearia ou salão de beleza",
+                    Nome = "Barbearia",
+                    TipoAssinatura = TipoAssinatura.Estabelecimento,
+                    Ativo = true
+                },
+                new()
+                {
+                    Id = 18,
+                    Nome = "Salão de Beleza",
                     TipoAssinatura = TipoAssinatura.Estabelecimento,
                     Ativo = true
                 },
                 new()
                 {
                     Id = 2,
-                    Nome = "Barbeiro ou cabeleireiro(a)",
+                    Nome = "Barbeiro",
+                    TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
+                    Ativo = true
+                },
+                new()
+                {
+                    Id = 3,
+                    Nome = "Cabeleireiro(a)",
                     TipoAssinatura = TipoAssinatura.ProfissionalAutonomo,
                     Ativo = true
                 }
@@ -110,14 +124,14 @@ public class EstabelecimentoDescobertaServiceTests
         var lojas = await service.ListarCategoriasAsync(TipoAssinatura.Estabelecimento);
         var autonomos = await service.ListarCategoriasAsync(TipoAssinatura.ProfissionalAutonomo);
 
-        Assert.Single(lojas);
-        Assert.Equal(1, lojas[0].Id);
-        Assert.Equal("Barbearia ou salão de beleza", lojas[0].Nome);
-        Assert.Equal("Estabelecimento", lojas[0].TipoAssinatura);
-        Assert.Single(autonomos);
-        Assert.Equal(2, autonomos[0].Id);
-        Assert.Equal("Barbeiro ou cabeleireiro(a)", autonomos[0].Nome);
-        Assert.Equal("ProfissionalAutonomo", autonomos[0].TipoAssinatura);
+        Assert.Equal(2, lojas.Count);
+        Assert.Contains(lojas, categoria => categoria.Id == 1 && categoria.Nome == "Barbearia");
+        Assert.Contains(lojas, categoria => categoria.Id == 18 && categoria.Nome == "Salão de Beleza");
+        Assert.All(lojas, categoria => Assert.Equal("Estabelecimento", categoria.TipoAssinatura));
+        Assert.Equal(2, autonomos.Count);
+        Assert.Contains(autonomos, categoria => categoria.Id == 2 && categoria.Nome == "Barbeiro");
+        Assert.Contains(autonomos, categoria => categoria.Id == 3 && categoria.Nome == "Cabeleireiro(a)");
+        Assert.All(autonomos, categoria => Assert.Equal("ProfissionalAutonomo", categoria.TipoAssinatura));
     }
 
     private EstabelecimentoDescobertaService CreateService()

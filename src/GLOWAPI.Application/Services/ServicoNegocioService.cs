@@ -18,6 +18,10 @@ public class ServicoNegocioService : IServicoNegocioService
     private readonly IProfissionalEscopoAcessoService _profissionalEscopoAcessoService;
     private readonly IModulosAssinaturaService _modulosAssinaturaService;
     private readonly IAuditoriaNegocioService _auditoriaNegocioService;
+    private readonly IOnboardingPublicacaoService _onboardingPublicacaoService;
+    private readonly IProfissionalServicoRepository _profissionalServicoRepository;
+    private readonly IAvatarBase64Decoder _avatarBase64Decoder;
+    private readonly IBase64ImageThumbnailer _thumbnailer;
 
     public ServicoNegocioService(
         IServicoRepository servicoRepository,
@@ -27,7 +31,11 @@ public class ServicoNegocioService : IServicoNegocioService
         IAutorizacaoNegocioService autorizacaoNegocioService,
         IProfissionalEscopoAcessoService profissionalEscopoAcessoService,
         IModulosAssinaturaService modulosAssinaturaService,
-        IAuditoriaNegocioService auditoriaNegocioService)
+        IAuditoriaNegocioService auditoriaNegocioService,
+        IOnboardingPublicacaoService onboardingPublicacaoService,
+        IProfissionalServicoRepository profissionalServicoRepository,
+        IAvatarBase64Decoder avatarBase64Decoder,
+        IBase64ImageThumbnailer thumbnailer)
     {
         _servicoRepository = servicoRepository;
         _estabelecimentoRepository = estabelecimentoRepository;
@@ -37,6 +45,10 @@ public class ServicoNegocioService : IServicoNegocioService
         _profissionalEscopoAcessoService = profissionalEscopoAcessoService;
         _modulosAssinaturaService = modulosAssinaturaService;
         _auditoriaNegocioService = auditoriaNegocioService;
+        _onboardingPublicacaoService = onboardingPublicacaoService;
+        _profissionalServicoRepository = profissionalServicoRepository;
+        _avatarBase64Decoder = avatarBase64Decoder;
+        _thumbnailer = thumbnailer;
     }
 
     public async Task<IReadOnlyList<ServicoResponseDto>> ListarAsync(
@@ -89,6 +101,8 @@ public class ServicoNegocioService : IServicoNegocioService
             request.PrecoBase,
             request.DuracaoMinutos);
 
+        var tipoServico = ServicoValidador.ValidarTipoServico(request.TipoServico);
+
         await ValidarLimiteServicosAsync(estabelecimentoId, cancellationToken);
 
         var servico = new Servico
@@ -98,11 +112,15 @@ public class ServicoNegocioService : IServicoNegocioService
             Descricao = request.Descricao?.Trim() ?? string.Empty,
             PrecoBase = request.PrecoBase,
             DuracaoMinutos = request.DuracaoMinutos,
+            TipoServico = tipoServico,
+            Imagem = ProcessarImagemInformada(request.Imagem, request.ImagemContentType),
             Ativo = true
         };
 
         await _servicoRepository.AdicionarAsync(servico, cancellationToken);
         await _servicoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await VincularProfissionalAutonomoSeUnicoAsync(estabelecimentoId, servico, cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.ServicoCriado,
@@ -113,6 +131,7 @@ public class ServicoNegocioService : IServicoNegocioService
                 servico.Nome,
                 servico.PrecoBase,
                 servico.DuracaoMinutos,
+                servico.TipoServico,
                 servico.Ativo
             },
             cancellationToken);
@@ -142,22 +161,32 @@ public class ServicoNegocioService : IServicoNegocioService
             estabelecimentoId,
             cancellationToken);
 
+        var tipoServico = ServicoValidador.ValidarTipoServico(request.TipoServico ?? servico.TipoServico);
+
         var alteracaoAnterior = new
         {
             servico.Nome,
             servico.Descricao,
             servico.PrecoBase,
-            servico.DuracaoMinutos
+            servico.DuracaoMinutos,
+            servico.TipoServico
         };
 
         servico.Nome = request.Nome.Trim();
         servico.Descricao = request.Descricao?.Trim() ?? string.Empty;
         servico.PrecoBase = request.PrecoBase;
         servico.DuracaoMinutos = request.DuracaoMinutos;
+        servico.TipoServico = tipoServico;
+        if (!string.IsNullOrWhiteSpace(request.Imagem))
+        {
+            servico.Imagem = ProcessarImagemInformada(request.Imagem, request.ImagemContentType);
+        }
+
         servico.UpdatedAt = DateTime.UtcNow;
 
         _servicoRepository.Atualizar(servico);
         await _servicoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.ServicoAlterado,
@@ -171,7 +200,8 @@ public class ServicoNegocioService : IServicoNegocioService
                     servico.Nome,
                     servico.Descricao,
                     servico.PrecoBase,
-                    servico.DuracaoMinutos
+                    servico.DuracaoMinutos,
+                    servico.TipoServico
                 }
             },
             cancellationToken);
@@ -206,6 +236,7 @@ public class ServicoNegocioService : IServicoNegocioService
 
         _servicoRepository.Atualizar(servico);
         await _servicoRepository.SalvarAlteracoesAsync(cancellationToken);
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
         await _auditoriaNegocioService.RegistrarAsync(
             estabelecimentoId,
             TipoAcaoAuditoriaNegocio.ServicoStatusAlterado,
@@ -228,7 +259,7 @@ public class ServicoNegocioService : IServicoNegocioService
         CancellationToken cancellationToken = default)
     {
         var estabelecimento = await _estabelecimentoRepository.ObterPorPublicGuidAsync(publicGuid, cancellationToken);
-        if (estabelecimento is null || !estabelecimento.Ativo)
+        if (estabelecimento is null || !estabelecimento.Ativo || !estabelecimento.VisivelPublicamente)
         {
             throw new NegocioNaoEncontradoException();
         }
@@ -301,6 +332,13 @@ public class ServicoNegocioService : IServicoNegocioService
             throw new ProfissionalSemVinculoNegocioException();
         }
 
+        if (vinculo.Estabelecimento is null
+            || !vinculo.Estabelecimento.Ativo
+            || !vinculo.Estabelecimento.VisivelPublicamente)
+        {
+            throw new NegocioNaoEncontradoException();
+        }
+
         var servicos = await _servicoRepository.ListarPorEstabelecimentoAsync(
             vinculo.EstabelecimentoId,
             ativo: true,
@@ -356,4 +394,68 @@ public class ServicoNegocioService : IServicoNegocioService
             throw new LimiteServicosNegocioExcedidoException();
         }
     }
+
+    private async Task VincularProfissionalAutonomoSeUnicoAsync(
+        int estabelecimentoId,
+        Servico servico,
+        CancellationToken cancellationToken)
+    {
+        var vinculos = await _profissionalEstabelecimentoRepository
+            .ListarAtivosComAgendamentoPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
+        var autonomo = vinculos
+            .Where(vinculo => vinculo.Profissional?.TipoProfissional == ProfessionalType.Autonomo)
+            .Take(2)
+            .ToList();
+
+        if (autonomo.Count != 1)
+        {
+            return;
+        }
+
+        var profissionalId = autonomo[0].ProfissionalId;
+        var existente = await _profissionalServicoRepository.ObterPorProfissionalEServicoAsync(
+            profissionalId,
+            servico.Id,
+            cancellationToken);
+
+        ProfissionalServico vinculo;
+        if (existente is not null)
+        {
+            if (existente.Ativo)
+            {
+                return;
+            }
+
+            existente.Preco = servico.PrecoBase;
+            existente.DuracaoMinutos = servico.DuracaoMinutos;
+            existente.Ativo = true;
+            existente.UpdatedAt = DateTime.UtcNow;
+            _profissionalServicoRepository.Atualizar(existente);
+            vinculo = existente;
+        }
+        else
+        {
+            vinculo = new ProfissionalServico
+            {
+                ProfissionalId = profissionalId,
+                ServicoId = servico.Id,
+                Preco = servico.PrecoBase,
+                DuracaoMinutos = servico.DuracaoMinutos,
+                Ativo = true
+            };
+            await _profissionalServicoRepository.AdicionarAsync(vinculo, cancellationToken);
+        }
+
+        await _profissionalServicoRepository.SalvarAlteracoesAsync(cancellationToken);
+        servico.Profissionais.Add(vinculo);
+    }
+
+    private string? ProcessarImagemInformada(string? imagem, string? imagemContentType) =>
+        OperacaoPerfilValidation.ValidarImagemOpcional(
+            imagem,
+            imagemContentType,
+            "Imagem do servico",
+            _avatarBase64Decoder,
+            _thumbnailer,
+            message => new ServicoNegocioInvalidoException(message));
 }

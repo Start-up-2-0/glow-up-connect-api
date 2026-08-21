@@ -1,3 +1,5 @@
+using GLOWAPI.Domain.Enums;
+
 namespace GLOWAPI.Domain.Entities;
 
 public class Servico
@@ -8,6 +10,8 @@ public class Servico
     public string Descricao { get; set; } = string.Empty;
     public decimal PrecoBase { get; set; }
     public int DuracaoMinutos { get; set; }
+    public TipoServico TipoServico { get; set; } = TipoServico.Individual;
+    public string? Imagem { get; set; }
     public bool Ativo { get; set; } = true;
     public DateTime CreateAd { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }

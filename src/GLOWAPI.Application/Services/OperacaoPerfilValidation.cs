@@ -40,6 +40,30 @@ internal static partial class OperacaoPerfilValidation
         }
     }
 
+    public static string? ValidarImagemOpcional(
+        string? imagem,
+        string? imagemContentType,
+        string nomeCampo,
+        IAvatarBase64Decoder decoder,
+        IBase64ImageThumbnailer? thumbnailer,
+        Func<string, Exception> criarExcecao)
+    {
+        if (string.IsNullOrWhiteSpace(imagem))
+        {
+            return null;
+        }
+
+        try
+        {
+            var normalizado = decoder.ValidarENormalizar(imagem.Trim(), imagemContentType);
+            return thumbnailer is null ? normalizado : thumbnailer.ParaPersistencia(normalizado);
+        }
+        catch (AvatarInvalidoException ex)
+        {
+            throw criarExcecao(ex.Message.Replace("Avatar", nomeCampo, StringComparison.Ordinal));
+        }
+    }
+
     public static string ValidarTextoObrigatorio(
         string valor,
         string campo,

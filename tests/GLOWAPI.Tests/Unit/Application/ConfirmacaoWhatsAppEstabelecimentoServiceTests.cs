@@ -77,6 +77,69 @@ public class ConfirmacaoWhatsAppEstabelecimentoServiceTests
         Assert.Single(mensagens, dto => dto.Canal == CanalMensagemNotificacao.Email);
     }
 
+    [Fact]
+    public async Task IniciarAposCriacaoAsync_DeveCopiarConfirmacao_QuandoTelefoneCoincideComUsuario()
+    {
+        var confirmadoEm = DateTime.UtcNow.AddMinutes(-10);
+        var estabelecimento = new Estabelecimento
+        {
+            Id = 40,
+            Nome = "Studio Glow",
+            Telefone = "11988887777",
+            Email = "comercial@studio.com"
+        };
+        var usuario = new Usuario
+        {
+            Id = 10,
+            Email = "owner@email.com",
+            Telefone = "11988887777",
+            WhatsAppConfirmadoEm = confirmadoEm,
+            WhatsAppOptIn = true
+        };
+
+        var service = CreateService();
+        await service.IniciarAposCriacaoAsync(estabelecimento, usuario);
+
+        Assert.Equal(confirmadoEm, estabelecimento.WhatsAppConfirmadoEm);
+        Assert.True(estabelecimento.WhatsAppOptIn);
+        _mensagemService.Verify(
+            m => m.RegistrarAsync(It.IsAny<RegistrarMensagemNotificacaoDto>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _estabelecimentoRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task IniciarAposCriacaoAsync_DeveEnviarConfirmacao_QuandoTelefoneDiverge()
+    {
+        var estabelecimento = new Estabelecimento
+        {
+            Id = 40,
+            Nome = "Studio Glow",
+            Telefone = "11977776666",
+            Email = "comercial@studio.com"
+        };
+        var usuario = new Usuario
+        {
+            Id = 10,
+            Email = "owner@email.com",
+            Telefone = "11988887777",
+            WhatsAppConfirmadoEm = DateTime.UtcNow
+        };
+
+        var mensagens = new List<RegistrarMensagemNotificacaoDto>();
+        _mensagemService
+            .Setup(m => m.RegistrarAsync(It.IsAny<RegistrarMensagemNotificacaoDto>(), It.IsAny<CancellationToken>()))
+            .Callback<RegistrarMensagemNotificacaoDto, CancellationToken>((dto, _) => mensagens.Add(dto));
+
+        var service = CreateService();
+        await service.IniciarAposCriacaoAsync(estabelecimento, usuario);
+
+        Assert.Null(estabelecimento.WhatsAppConfirmadoEm);
+        Assert.Contains(mensagens, dto => dto.Canal == CanalMensagemNotificacao.Email);
+        Assert.Contains(mensagens, dto => dto.Destinatario == "owner@email.com");
+        Assert.Contains(mensagens, dto => dto.Destinatario == "comercial@studio.com");
+    }
+
     private ConfirmacaoWhatsAppEstabelecimentoService CreateService() =>
         new(
             _estabelecimentoRepository.Object,

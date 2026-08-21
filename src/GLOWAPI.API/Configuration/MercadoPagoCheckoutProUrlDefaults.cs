@@ -11,14 +11,6 @@ public static class MercadoPagoCheckoutProUrlDefaults
             return;
         }
 
-        var frontendBaseUrl = configuration[$"{AuthOptions.SectionName}:FrontendBaseUrl"]?.Trim().TrimEnd('/');
-        if (!string.IsNullOrWhiteSpace(frontendBaseUrl))
-        {
-            options.SuccessUrl = PreencherSeVazio(options.SuccessUrl, $"{frontendBaseUrl}/assinatura/sucesso");
-            options.PendingUrl = PreencherSeVazio(options.PendingUrl, $"{frontendBaseUrl}/assinatura/pendente");
-            options.FailureUrl = PreencherSeVazio(options.FailureUrl, $"{frontendBaseUrl}/assinatura/falha");
-        }
-
         if (!string.IsNullOrWhiteSpace(options.NotificationUrl))
         {
             return;
@@ -47,7 +39,4 @@ public static class MercadoPagoCheckoutProUrlDefaults
 
         return null;
     }
-
-    private static string PreencherSeVazio(string atual, string fallback) =>
-        string.IsNullOrWhiteSpace(atual) ? fallback : atual.Trim();
 }

@@ -7,6 +7,7 @@ using GLOWAPI.Application.Options;
 using GLOWAPI.Domain.Entities;
 using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Usuario;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace GLOWAPI.Application.Services;
@@ -17,20 +18,26 @@ public class ConfirmacaoEmailService : IConfirmacaoEmailService
     private readonly IGlowTokenService _tokenService;
     private readonly IMensagemNotificacaoService _mensagemNotificacaoService;
     private readonly IAgendamentoConfirmacaoContaService _agendamentoConfirmacaoContaService;
+    private readonly IConfirmacaoWhatsAppService _confirmacaoWhatsAppService;
     private readonly AuthOptions _authOptions;
+    private readonly ILogger<ConfirmacaoEmailService> _logger;
 
     public ConfirmacaoEmailService(
         IUsuarioRepository usuarioRepository,
         IGlowTokenService tokenService,
         IMensagemNotificacaoService mensagemNotificacaoService,
         IAgendamentoConfirmacaoContaService agendamentoConfirmacaoContaService,
-        IOptions<AuthOptions> authOptions)
+        IConfirmacaoWhatsAppService confirmacaoWhatsAppService,
+        IOptions<AuthOptions> authOptions,
+        ILogger<ConfirmacaoEmailService> logger)
     {
         _usuarioRepository = usuarioRepository;
         _tokenService = tokenService;
         _mensagemNotificacaoService = mensagemNotificacaoService;
         _agendamentoConfirmacaoContaService = agendamentoConfirmacaoContaService;
+        _confirmacaoWhatsAppService = confirmacaoWhatsAppService;
         _authOptions = authOptions.Value;
+        _logger = logger;
     }
 
     public async Task<(string TokenPlano, string CodigoPlano)> GerarEEnviarConfirmacaoAsync(
@@ -133,6 +140,30 @@ public class ConfirmacaoEmailService : IConfirmacaoEmailService
         await _agendamentoConfirmacaoContaService.ProcessarConfirmacaoContaClienteAsync(
             usuario.Id,
             cancellationToken);
+
+        await IniciarConfirmacaoWhatsAppSePendenteAsync(usuario, cancellationToken);
+    }
+
+    private async Task IniciarConfirmacaoWhatsAppSePendenteAsync(
+        Usuario usuario,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(usuario.Telefone) || usuario.WhatsAppConfirmadoEm.HasValue)
+        {
+            return;
+        }
+
+        try
+        {
+            await _confirmacaoWhatsAppService.IniciarConfirmacaoAsync(usuario, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "E-mail confirmado, mas nao foi possivel iniciar a confirmacao de WhatsApp. UsuarioId={UsuarioId}",
+                usuario.Id);
+        }
     }
 
     private static string GerarCodigoNumerico(int digitos)

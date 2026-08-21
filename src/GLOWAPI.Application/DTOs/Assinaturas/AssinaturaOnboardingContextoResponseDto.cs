@@ -16,4 +16,7 @@ public record AssinaturaOnboardingContextoResponseDto(
     bool PodeAdicionarLoja,
     int LojasVinculadas,
     int? LimiteLojas,
-    int? AssinaturaPremiumId);
+    int? AssinaturaPremiumId,
+    bool OnboardingObrigatorioPendente = false,
+    string? ProximaEtapaPublicacao = null,
+    IReadOnlyList<OnboardingEtapaStatusDto>? EtapasPublicacao = null);

@@ -21,6 +21,7 @@ public class EstabelecimentoPerfilServiceTests
     private readonly Mock<IConfirmacaoWhatsAppEstabelecimentoService> _confirmacaoWhatsAppEstabelecimentoService = new();
     private readonly Mock<IUsuarioRepository> _usuarioRepository = new();
     private readonly Mock<ICurrentUserContext> _currentUser = new();
+    private readonly Mock<IOnboardingPublicacaoService> _onboardingPublicacaoService = new();
 
     public EstabelecimentoPerfilServiceTests()
     {
@@ -208,5 +209,6 @@ public class EstabelecimentoPerfilServiceTests
             _usuarioRepository.Object,
             _currentUser.Object,
             new AvatarBase64Decoder(Options.Create(new AvatarOptions())),
-            new Base64ImageThumbnailer(Options.Create(new AvatarOptions())));
+            new Base64ImageThumbnailer(Options.Create(new AvatarOptions())),
+            _onboardingPublicacaoService.Object);
 }

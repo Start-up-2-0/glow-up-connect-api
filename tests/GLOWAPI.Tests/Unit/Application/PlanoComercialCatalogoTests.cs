@@ -103,4 +103,51 @@ public class PlanoComercialCatalogoTests
                 new Plano { Nome = "Essencial", Preco = 79.90m },
                 TipoAssinatura.Estabelecimento));
     }
+
+    [Fact]
+    public void ResolverDescricao_Autonomo_DeveUsarCopySemEquipeNemMultiUnidade()
+    {
+        var essencial = new Plano
+        {
+            Nome = "Essencial",
+            Descricao = "Operacao completa com equipe, WhatsApp e gestao para uma unidade"
+        };
+        var premium = new Plano
+        {
+            Nome = "Premium",
+            Descricao = "Caixa, financeiro, comissoes, ate 5 unidades e prioridade no marketplace"
+        };
+
+        Assert.Equal(
+            "Agenda, clientes e perfil público para quem atende sozinho",
+            PlanoComercialCatalogo.ResolverDescricao(essencial, TipoAssinatura.ProfissionalAutonomo));
+        Assert.Equal(
+            "WhatsApp, caixa pessoal, financeiro e prioridade no marketplace",
+            PlanoComercialCatalogo.ResolverDescricao(premium, TipoAssinatura.ProfissionalAutonomo));
+        Assert.Equal(
+            "Operação completa com equipe, WhatsApp e gestão para uma unidade",
+            PlanoComercialCatalogo.ResolverDescricao(essencial, TipoAssinatura.Estabelecimento));
+        Assert.Equal(
+            "Caixa, financeiro, comissões, até 5 unidades e prioridade no marketplace",
+            PlanoComercialCatalogo.ResolverDescricao(premium, TipoAssinatura.Estabelecimento));
+    }
+
+    [Fact]
+    public void Obter_Funcionalidades_DevemUsarOrtografiaComAcentos()
+    {
+        var essencialLoja = PlanoComercialCatalogo.Obter(
+            new Plano { Nome = "Essencial" },
+            TipoAssinatura.Estabelecimento);
+        var premiumAutonomo = PlanoComercialCatalogo.Obter(
+            new Plano { Nome = "Premium" },
+            TipoAssinatura.ProfissionalAutonomo);
+
+        Assert.Contains("Cadastro de serviços", essencialLoja.Funcionalidades);
+        Assert.Contains("Configuração de horários", essencialLoja.Funcionalidades);
+        Assert.Contains("Confirmação automática via WhatsApp", essencialLoja.Funcionalidades);
+        Assert.Contains("Perfil profissional público", premiumAutonomo.Funcionalidades);
+        Assert.Contains("Presença no Explorar Lojas", premiumAutonomo.Funcionalidades);
+        Assert.Contains("Relatórios financeiros", premiumAutonomo.Funcionalidades);
+        Assert.Contains("Dashboard avançado", premiumAutonomo.Funcionalidades);
+    }
 }

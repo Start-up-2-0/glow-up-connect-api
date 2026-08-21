@@ -19,6 +19,7 @@ public class UsuarioNegocioContextoServiceTests
     private readonly Mock<IAssinaturaRepository> _assinaturaRepository = new();
     private readonly Mock<ICampanhaPromocionalRepository> _campanhaPromocionalRepository = new();
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
+    private readonly Mock<IOnboardingPublicacaoService> _onboardingPublicacaoService = new();
 
     [Fact]
     public async Task ListarEstabelecimentosAsync_DeveRetornarContextosDoUsuarioComPermissoesEModulos()
@@ -220,5 +221,6 @@ public class UsuarioNegocioContextoServiceTests
             _modulosAssinaturaService.Object,
             _assinaturaRepository.Object,
             _campanhaPromocionalRepository.Object,
-            _currentUserContext.Object);
+            _currentUserContext.Object,
+            _onboardingPublicacaoService.Object);
 }

@@ -1,3 +1,4 @@
+using GLOWAPI.Domain.Enums;
 using GLOWAPI.Domain.Exceptions.Negocios;
 
 namespace GLOWAPI.Application.Validators;
@@ -53,6 +54,17 @@ public static class ServicoValidador
         ValidarDescricao(descricao);
         ValidarPreco(precoBase);
         ValidarDuracao(duracaoMinutos);
+    }
+
+    public static TipoServico ValidarTipoServico(TipoServico? tipoServico)
+    {
+        var tipo = tipoServico ?? TipoServico.Individual;
+        if (!Enum.IsDefined(tipo))
+        {
+            throw new ServicoNegocioInvalidoException("Tipo de servico invalido.");
+        }
+
+        return tipo;
     }
 
     public static void ValidarPrecoDuracaoVinculo(decimal preco, int duracaoMinutos)

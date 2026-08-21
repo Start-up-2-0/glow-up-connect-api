@@ -122,6 +122,7 @@ public class PermissionMiddlewareTests
         Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
         var body = await LerCorpoJson(context);
         Assert.Equal("SUBSCRIPTION_MODULE_BLOCKED", body.GetProperty("code").GetString());
+        Assert.Equal("Caixa", body.GetProperty("details").GetProperty("modulo").GetString());
     }
 
     [Fact]

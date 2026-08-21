@@ -28,6 +28,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
     private readonly ICurrentUserContext _currentUser;
     private readonly IAssinaturaOnboardingFinalizacaoService _assinaturaOnboardingFinalizacaoService;
     private readonly IAssinaturaVisibilidadeService _assinaturaVisibilidadeService;
+    private readonly IOnboardingPublicacaoService _onboardingPublicacaoService;
     private readonly IAssinaturaEncerramentoService _assinaturaEncerramentoService;
     private readonly IUsuarioRepository _usuarioRepository;
     private readonly MercadoPagoOptions _mercadoPagoOptions;
@@ -45,6 +46,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         ICurrentUserContext currentUser,
         IAssinaturaOnboardingFinalizacaoService assinaturaOnboardingFinalizacaoService,
         IAssinaturaVisibilidadeService assinaturaVisibilidadeService,
+        IOnboardingPublicacaoService onboardingPublicacaoService,
         IAssinaturaEncerramentoService assinaturaEncerramentoService,
         IUsuarioRepository usuarioRepository,
         IOptions<MercadoPagoOptions> mercadoPagoOptions,
@@ -61,6 +63,7 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         _currentUser = currentUser;
         _assinaturaOnboardingFinalizacaoService = assinaturaOnboardingFinalizacaoService;
         _assinaturaVisibilidadeService = assinaturaVisibilidadeService;
+        _onboardingPublicacaoService = onboardingPublicacaoService;
         _assinaturaEncerramentoService = assinaturaEncerramentoService;
         _usuarioRepository = usuarioRepository;
         _mercadoPagoOptions = mercadoPagoOptions.Value;
@@ -73,6 +76,20 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         PagamentoTransparenteMercadoPagoDto? pagamentoTransparente,
         CancellationToken cancellationToken = default)
     {
+        if (assinatura.Id > 0 && assinatura.ProximaDataVencimento.HasValue)
+        {
+            var cicloJaPago = await _pagamentoRepository.ExistePagoPorAssinaturaCicloAsync(
+                assinatura.Id,
+                1,
+                assinatura.ProximaDataVencimento.Value,
+                cancellationToken: cancellationToken);
+
+            if (cicloJaPago)
+            {
+                throw new PagamentoAssinaturaInvalidoException("A cobranca inicial deste ciclo ja foi paga.");
+            }
+        }
+
         var ciclo = assinatura.ProximaDataVencimento.HasValue
             ? new CicloCobrancaDatasDto(
                 assinatura.ProximaDataVencimento.Value,
@@ -149,15 +166,38 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             throw new PagamentoAssinaturaInvalidoException("Assinatura sem proxima data de vencimento configurada.");
         }
 
+        var periodo = assinatura.Plano.Periodo;
         var vencimento = assinatura.ProximaDataVencimento.Value.Date;
         var cobrancasExistentes = await _pagamentoRepository.ListarPorAssinaturaAsync(assinatura.Id, cancellationToken);
-        if (cobrancasExistentes.Any(pagamento =>
-                pagamento.DataVencimento.HasValue
-                && pagamento.DataVencimento.Value.Date == vencimento
-                && pagamento.Status is PagamentoStatus.Pendente or PagamentoStatus.Pago or PagamentoStatus.Atrasado))
+
+        while (true)
         {
-            return cobrancasExistentes.First(pagamento =>
-                pagamento.DataVencimento.HasValue && pagamento.DataVencimento.Value.Date == vencimento);
+            var cobrancasDoVencimento = cobrancasExistentes
+                .Where(pagamento =>
+                    pagamento.DataVencimento.HasValue
+                    && pagamento.DataVencimento.Value.Date == vencimento)
+                .ToList();
+
+            var pendente = cobrancasDoVencimento.FirstOrDefault(pagamento =>
+                pagamento.Status is PagamentoStatus.Pendente or PagamentoStatus.Atrasado);
+            if (pendente is not null)
+            {
+                return pendente;
+            }
+
+            var pago = cobrancasDoVencimento.FirstOrDefault(pagamento =>
+                pagamento.Status == PagamentoStatus.Pago);
+            if (pago is null)
+            {
+                break;
+            }
+
+            var proximoCiclo = _cicloCobrancaService.CalcularProximoCiclo(vencimento, periodo);
+            _cicloCobrancaService.AplicarCicloNaAssinatura(assinatura, proximoCiclo);
+            assinatura.UpdatedAt = DateTime.UtcNow;
+            _assinaturaRepository.Atualizar(assinatura);
+            await _assinaturaRepository.SalvarAlteracoesAsync(cancellationToken);
+            vencimento = proximoCiclo.Vencimento.Date;
         }
 
         var numeroCiclo = cobrancasExistentes.Count == 0
@@ -280,6 +320,32 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
             return;
         }
 
+        if (pagamento.AssinaturaId is int assinaturaId
+            && pagamento.DataVencimento is DateTime dataVencimento
+            && await _pagamentoRepository.ExistePagoPorAssinaturaCicloAsync(
+                assinaturaId,
+                pagamento.NumeroCiclo,
+                dataVencimento,
+                pagamento.Id,
+                cancellationToken))
+        {
+            var statusDuplicadoAnterior = pagamento.Status;
+            pagamento.Status = PagamentoStatus.Cancelado;
+            pagamento.UpdatedAt = DateTime.UtcNow;
+            _pagamentoRepository.Atualizar(pagamento);
+
+            await _assinaturaHistoricoService.RegistrarPagamentoAsync(
+                pagamento,
+                "PagamentoDuplicadoIgnorado",
+                statusDuplicadoAnterior,
+                pagamento.Status,
+                "Pagamento duplicado do mesmo ciclo ignorado.",
+                payloadJson,
+                cancellationToken);
+            await _pagamentoRepository.SalvarAlteracoesAsync(cancellationToken);
+            return;
+        }
+
         var statusPagamentoAnterior = pagamento.Status;
         pagamento.Status = PagamentoStatus.Pago;
         pagamento.PagoEm = DateTime.UtcNow;
@@ -327,21 +393,19 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         assinatura.UltimoPagamentoId = pagamento.Id;
         assinatura.UpdatedAt = DateTime.UtcNow;
 
-        if (assinatura.ProximaDataVencimento.HasValue)
-        {
-            var proximoCiclo = _cicloCobrancaService.CalcularProximoCiclo(
-                assinatura.ProximaDataVencimento.Value,
-                assinatura.Plano?.Periodo ?? PlanoPeriodo.Mensal);
-            _cicloCobrancaService.AplicarCicloNaAssinatura(assinatura, proximoCiclo);
-        }
+        AvancarCicloSePagamentoQuitouVencimentoAtual(assinatura, pagamento);
 
         if (statusAssinaturaAnterior == AssinaturaStatus.Inadimplente)
         {
-            await _assinaturaVisibilidadeService.ReexibirLojasVinculadasAsync(assinatura, cancellationToken);
+            await _onboardingPublicacaoService.RecalcularVisibilidadePorAssinaturaAsync(
+                assinatura,
+                cancellationToken);
         }
         else if (statusAssinaturaAnterior is AssinaturaStatus.PendentePagamento or AssinaturaStatus.Trial)
         {
-            await _assinaturaVisibilidadeService.ReexibirLojasVinculadasAsync(assinatura, cancellationToken);
+            await _onboardingPublicacaoService.RecalcularVisibilidadePorAssinaturaAsync(
+                assinatura,
+                cancellationToken);
         }
 
         _assinaturaRepository.Atualizar(assinatura);
@@ -759,6 +823,29 @@ public class CobrancaAssinaturaService : ICobrancaAssinaturaService
         }
 
         return null;
+    }
+
+    private void AvancarCicloSePagamentoQuitouVencimentoAtual(Assinatura assinatura, Pagamento pagamento)
+    {
+        if (!assinatura.ProximaDataVencimento.HasValue || !pagamento.DataVencimento.HasValue)
+        {
+            return;
+        }
+
+        if (pagamento.TipoCobranca == TipoCobrancaAssinatura.Inicial)
+        {
+            return;
+        }
+
+        if (pagamento.DataVencimento.Value.Date != assinatura.ProximaDataVencimento.Value.Date)
+        {
+            return;
+        }
+
+        var proximoCiclo = _cicloCobrancaService.CalcularProximoCiclo(
+            assinatura.ProximaDataVencimento.Value,
+            assinatura.Plano?.Periodo ?? PlanoPeriodo.Mensal);
+        _cicloCobrancaService.AplicarCicloNaAssinatura(assinatura, proximoCiclo);
     }
 
     private static DateTime? CalcularFimEncadeado(DateTime? fimAnterior, DateTime pagoEm, PlanoPeriodo? periodo)

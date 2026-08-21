@@ -29,7 +29,7 @@ public record PlanoResponseDto(
         return new(
             plano.Id,
             plano.Nome,
-            plano.Descricao,
+            PlanoComercialCatalogo.ResolverDescricao(plano, tipoAssinatura),
             PlanoComercialCatalogo.ResolverPreco(plano, tipoAssinatura),
             plano.Periodo.ToString(),
             perfil.LimiteProfissionaisEfetivo ?? plano.LimiteProfissionais,

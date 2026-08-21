@@ -26,6 +26,7 @@ public class EquipeNegocioServiceTests
     private readonly Mock<IEquipeNotificacaoService> _equipeNotificacaoService = new();
     private readonly Mock<IAvatarBase64Decoder> _avatarBase64Decoder = new();
     private readonly Mock<IConviteNegocioRepository> _conviteNegocioRepository = new();
+    private readonly Mock<IOnboardingPublicacaoService> _onboardingPublicacaoService = new();
 
     public EquipeNegocioServiceTests()
     {
@@ -1115,7 +1116,8 @@ public class EquipeNegocioServiceTests
             _equipeNotificacaoService.Object,
             _avatarBase64Decoder.Object,
             new Base64ImageThumbnailer(Options.Create(new AvatarOptions())),
-            _conviteNegocioRepository.Object);
+            _conviteNegocioRepository.Object,
+            _onboardingPublicacaoService.Object);
 
     private static ModulosAssinaturaResponseDto CriarModulosPlus() =>
         ModulosAssinaturaResponseDto.Liberado(

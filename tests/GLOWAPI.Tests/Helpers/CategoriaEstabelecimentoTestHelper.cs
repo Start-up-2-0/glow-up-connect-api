@@ -13,12 +13,17 @@ public static class CategoriaEstabelecimentoTestHelper
     {
         await GarantirCategoriaAsync(
             db,
-            "Barbearia ou salão de beleza",
+            "Barbearia",
             TipoAssinatura.Estabelecimento,
             cancellationToken);
         await GarantirCategoriaAsync(
             db,
-            "Barbeiro ou cabeleireiro(a)",
+            "Salão de Beleza",
+            TipoAssinatura.Estabelecimento,
+            cancellationToken);
+        await GarantirCategoriaAsync(
+            db,
+            "Barbeiro",
             TipoAssinatura.ProfissionalAutonomo,
             cancellationToken);
     }
@@ -31,7 +36,8 @@ public static class CategoriaEstabelecimentoTestHelper
     {
         var existente = await db.CategoriasEstabelecimento
             .FirstOrDefaultAsync(
-                categoria => categoria.TipoAssinatura == tipoAssinatura && categoria.Ativo,
+                categoria => categoria.TipoAssinatura == tipoAssinatura
+                    && categoria.Nome == nome,
                 cancellationToken);
 
         if (existente is null)

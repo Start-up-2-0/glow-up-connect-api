@@ -331,9 +331,6 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
         CriarCobrancaGatewayRequest request,
         string pagadorEmail)
     {
-        var successUrl = TextoOuNull(_options.SuccessUrl);
-        var failureUrl = TextoOuNull(_options.FailureUrl);
-        var pendingUrl = TextoOuNull(_options.PendingUrl);
         var notificationUrl = TextoOuNull(_options.NotificationUrl);
 
         var payload = new Dictionary<string, object?>
@@ -356,21 +353,6 @@ public class GatewayPagamentoMercadoPago : IGatewayPagamento
             ["external_reference"] = request.ReferenciaInterna,
             ["metadata"] = request.Metadados
         };
-
-        if (successUrl is not null || failureUrl is not null || pendingUrl is not null)
-        {
-            payload["back_urls"] = new
-            {
-                success = successUrl,
-                failure = failureUrl,
-                pending = pendingUrl
-            };
-        }
-
-        if (!string.IsNullOrWhiteSpace(successUrl))
-        {
-            payload["auto_return"] = "approved";
-        }
 
         if (notificationUrl is not null)
         {

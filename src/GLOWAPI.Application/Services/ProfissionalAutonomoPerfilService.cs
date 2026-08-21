@@ -20,6 +20,7 @@ public class ProfissionalAutonomoPerfilService : IProfissionalAutonomoPerfilServ
     private readonly IConfirmacaoWhatsAppService _confirmacaoWhatsAppService;
     private readonly IConfirmacaoWhatsAppEstabelecimentoService _confirmacaoWhatsAppEstabelecimentoService;
     private readonly IAvatarBase64Decoder _avatarBase64Decoder;
+    private readonly IOnboardingPublicacaoService _onboardingPublicacaoService;
 
     public ProfissionalAutonomoPerfilService(
         IProfissionalRepository profissionalRepository,
@@ -30,7 +31,8 @@ public class ProfissionalAutonomoPerfilService : IProfissionalAutonomoPerfilServ
         IEnderecoGeocodificacaoService enderecoGeocodificacaoService,
         IConfirmacaoWhatsAppService confirmacaoWhatsAppService,
         IConfirmacaoWhatsAppEstabelecimentoService confirmacaoWhatsAppEstabelecimentoService,
-        IAvatarBase64Decoder avatarBase64Decoder)
+        IAvatarBase64Decoder avatarBase64Decoder,
+        IOnboardingPublicacaoService onboardingPublicacaoService)
     {
         _profissionalRepository = profissionalRepository;
         _estabelecimentoRepository = estabelecimentoRepository;
@@ -41,6 +43,7 @@ public class ProfissionalAutonomoPerfilService : IProfissionalAutonomoPerfilServ
         _confirmacaoWhatsAppService = confirmacaoWhatsAppService;
         _confirmacaoWhatsAppEstabelecimentoService = confirmacaoWhatsAppEstabelecimentoService;
         _avatarBase64Decoder = avatarBase64Decoder;
+        _onboardingPublicacaoService = onboardingPublicacaoService;
     }
 
     public async Task<ProfissionalAutonomoPerfilResponseDto> AtualizarAsync(
@@ -132,6 +135,11 @@ public class ProfissionalAutonomoPerfilService : IProfissionalAutonomoPerfilServ
 
         _profissionalRepository.Atualizar(profissional);
         await _profissionalRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        if (vinculo?.EstabelecimentoId is int estabelecimentoId)
+        {
+            await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
+        }
 
         if (!string.Equals(telefoneAnterior, profissional.Telefone, StringComparison.Ordinal)
             && !string.IsNullOrWhiteSpace(profissional.Telefone))

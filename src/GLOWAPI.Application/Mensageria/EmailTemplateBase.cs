@@ -40,20 +40,20 @@ public static class EmailTemplateBase
                 }
               </style>
             </head>
-            <body style="margin:0; padding:0; background-color:#ffffff; font-family:'Poppins', Arial, Helvetica, sans-serif; color:{{EmailTemplateCores.Escura}};">
+            <body style="margin:0; padding:0; background-color:{{EmailTemplateCores.Canvas}}; font-family:'Poppins', Arial, Helvetica, sans-serif; color:{{EmailTemplateCores.Texto}};">
               <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
                 {{preheader}}
               </div>
 
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff; margin:0; padding:24px 12px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:{{EmailTemplateCores.Canvas}}; margin:0; padding:24px 12px;">
                 <tr>
                   <td align="center">
                     <table role="presentation" class="email-shell" width="600" cellspacing="0" cellpadding="0" border="0" style="width:600px; max-width:600px;">
                       <tr>
-                        <td class="email-card" style="background:#ffffff; border:1px solid rgba(40,40,40,0.4); border-radius:20px; overflow:hidden;">
+                        <td class="email-card" style="background:{{EmailTemplateCores.Superficie}}; border:1px solid {{EmailTemplateCores.Borda}}; border-radius:20px; overflow:hidden;">
                           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                             <tr>
-                              <td class="header-banner" style="background-color:{{EmailTemplateCores.Amarela}}; padding:0; position:relative;">
+                              <td class="header-banner" style="background-color:{{EmailTemplateCores.Accent}}; padding:0; position:relative;">
                                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                                   <tr>
                                     <td width="130" valign="middle" style="padding:12px 0 12px 8px;">
@@ -70,7 +70,7 @@ public static class EmailTemplateBase
 
                             <tr>
                               <td class="content-pad" style="padding:32px 40px 12px;">
-                                <h1 class="title" style="margin:0; color:{{EmailTemplateCores.Escura}}; font-family:'Montserrat', Arial, Helvetica, sans-serif; font-size:48px; line-height:52px; font-weight:300; text-align:center;">
+                                <h1 class="title" style="margin:0; color:{{EmailTemplateCores.Texto}}; font-family:'Montserrat', Arial, Helvetica, sans-serif; font-size:48px; line-height:52px; font-weight:300; text-align:center;">
                                   {{titulo}}
                                 </h1>
                                 {{subtituloHtml}}
@@ -79,7 +79,7 @@ public static class EmailTemplateBase
 
                             <tr>
                               <td class="content-pad" style="padding:12px 32px 32px;">
-                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:rgba(255,255,255,0.6); border:0.5px solid rgba(40,40,40,0.6); border-radius:20px;">
+                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:rgba(255,255,255,0.6); border:0.5px solid {{EmailTemplateCores.Borda}}; border-radius:20px;">
                                   <tr>
                                     <td style="padding:32px 28px;">
                                       {{layout.ConteudoCard}}
@@ -90,12 +90,12 @@ public static class EmailTemplateBase
                             </tr>
 
                             <tr>
-                              <td style="height:1px; background:rgba(40,40,40,0.15); margin:0 32px;"></td>
+                              <td style="height:1px; background:{{EmailTemplateCores.Divisor}}; margin:0 32px;"></td>
                             </tr>
 
                             <tr>
                               <td class="content-pad" style="padding:28px 40px 36px;">
-                                <p style="margin:0 0 12px; color:{{EmailTemplateCores.Escura}}; font-size:18px; line-height:24px; font-weight:600;">Precisa de ajuda?</p>
+                                <p style="margin:0 0 12px; color:{{EmailTemplateCores.Texto}}; font-size:18px; line-height:24px; font-weight:600;">Precisa de ajuda?</p>
                                 <p style="margin:0 0 12px; color:{{EmailTemplateCores.TextoSuave}}; font-size:12px; line-height:20px;">
                                   Nosso suporte pode ajudar com cadastro, acesso e confirmacao de conta.
                                 </p>

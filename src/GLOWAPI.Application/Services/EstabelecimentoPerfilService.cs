@@ -21,6 +21,7 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
     private readonly ICurrentUserContext _currentUser;
     private readonly IAvatarBase64Decoder _avatarBase64Decoder;
     private readonly IBase64ImageThumbnailer _thumbnailer;
+    private readonly IOnboardingPublicacaoService _onboardingPublicacaoService;
 
     public EstabelecimentoPerfilService(
         IEstabelecimentoRepository estabelecimentoRepository,
@@ -30,7 +31,8 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
         IUsuarioRepository usuarioRepository,
         ICurrentUserContext currentUser,
         IAvatarBase64Decoder avatarBase64Decoder,
-        IBase64ImageThumbnailer thumbnailer)
+        IBase64ImageThumbnailer thumbnailer,
+        IOnboardingPublicacaoService onboardingPublicacaoService)
     {
         _estabelecimentoRepository = estabelecimentoRepository;
         _autorizacaoNegocioService = autorizacaoNegocioService;
@@ -40,6 +42,7 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
         _currentUser = currentUser;
         _avatarBase64Decoder = avatarBase64Decoder;
         _thumbnailer = thumbnailer;
+        _onboardingPublicacaoService = onboardingPublicacaoService;
     }
 
 
@@ -146,7 +149,7 @@ public class EstabelecimentoPerfilService : IEstabelecimentoPerfilService
 
         await _estabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
 
-
+        await _onboardingPublicacaoService.RecalcularVisibilidadeAsync(estabelecimentoId, cancellationToken);
 
         if (!string.Equals(telefoneAnterior, estabelecimento.Telefone, StringComparison.Ordinal)
 

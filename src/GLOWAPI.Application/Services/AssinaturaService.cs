@@ -39,6 +39,7 @@ public class AssinaturaService : IAssinaturaService
     private readonly IUsuarioRepository _usuarioRepository;
     private readonly IAssinaturaVisibilidadeService _assinaturaVisibilidadeService;
     private readonly IAssinaturaEncerramentoService _assinaturaEncerramentoService;
+    private readonly IConfirmacaoWhatsAppEstabelecimentoService _confirmacaoWhatsAppEstabelecimentoService;
     private readonly MercadoPagoOptions _mercadoPagoOptions;
 
     public AssinaturaService(
@@ -63,6 +64,7 @@ public class AssinaturaService : IAssinaturaService
         IUsuarioRepository usuarioRepository,
         IAssinaturaVisibilidadeService assinaturaVisibilidadeService,
         IAssinaturaEncerramentoService assinaturaEncerramentoService,
+        IConfirmacaoWhatsAppEstabelecimentoService confirmacaoWhatsAppEstabelecimentoService,
         IOptions<MercadoPagoOptions> mercadoPagoOptions)
     {
         _assinaturaRepository = assinaturaRepository;
@@ -86,6 +88,7 @@ public class AssinaturaService : IAssinaturaService
         _usuarioRepository = usuarioRepository;
         _assinaturaVisibilidadeService = assinaturaVisibilidadeService;
         _assinaturaEncerramentoService = assinaturaEncerramentoService;
+        _confirmacaoWhatsAppEstabelecimentoService = confirmacaoWhatsAppEstabelecimentoService;
         _mercadoPagoOptions = mercadoPagoOptions.Value;
     }
 
@@ -162,6 +165,10 @@ public class AssinaturaService : IAssinaturaService
             if (!onboardingPendente)
             {
                 await PromoverRoleOnboardingAsync(userId, request.TipoAssinatura, cancellationToken);
+                await IniciarConfirmacaoWhatsAppEstabelecimentoCriadoAsync(
+                    assinatura,
+                    userId,
+                    cancellationToken);
             }
 
             return await MontarRespostaInicioAsync(assinatura, cancellationToken, diasTrial: diasTrial);
@@ -220,6 +227,14 @@ public class AssinaturaService : IAssinaturaService
         if (!pagamentoInicial.Pagamento.AssinaturaId.HasValue)
         {
             pagamentoInicial.Pagamento.AssinaturaId = assinatura.Id;
+        }
+
+        if (!onboardingPendente)
+        {
+            await IniciarConfirmacaoWhatsAppEstabelecimentoCriadoAsync(
+                assinatura,
+                userId,
+                cancellationToken);
         }
 
         await _assinaturaNotificacaoService.AssinaturaIniciadaAsync(
@@ -502,6 +517,19 @@ public class AssinaturaService : IAssinaturaService
         }, cancellationToken);
 
         await _assinaturaEstabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
+
+        var usuario = await _usuarioRepository.ObterPorIdAsync(userId, cancellationToken);
+        try
+        {
+            await _confirmacaoWhatsAppEstabelecimentoService.IniciarAposCriacaoAsync(
+                estabelecimento,
+                usuario,
+                cancellationToken);
+        }
+        catch (Exception)
+        {
+            // Unidade ja persistida; o WhatsApp pode ser solicitado depois no perfil da loja.
+        }
 
         return new AdicionarEstabelecimentoAssinaturaResponseDto(
             estabelecimento.Id,
@@ -1005,6 +1033,7 @@ public class AssinaturaService : IAssinaturaService
             Email = OperacaoPerfilValidation.ValidarTextoObrigatorio(dto.Email, "Email do estabelecimento", 255, CriarExcecao),
             CategoriaEstabelecimentoId = dto.CategoriaEstabelecimentoId,
             Ativo = true,
+            VisivelPublicamente = false,
             Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao),
             Caixa = new Caixa()
         };
@@ -1030,6 +1059,7 @@ public class AssinaturaService : IAssinaturaService
             Email = dto.Email.Trim(),
             CategoriaEstabelecimentoId = dto.CategoriaEstabelecimentoId,
             Ativo = true,
+            VisivelPublicamente = false,
             Endereco = OperacaoPerfilValidation.CriarEndereco(
                 dto.Endereco,
                 mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem)),
@@ -1056,6 +1086,7 @@ public class AssinaturaService : IAssinaturaService
             Email = profissional.Email.Trim(),
             CategoriaEstabelecimentoId = categoriaId,
             Ativo = true,
+            VisivelPublicamente = false,
             Caixa = new Caixa()
         };
     }
@@ -1593,6 +1624,31 @@ public class AssinaturaService : IAssinaturaService
             pagamentoInicial,
             diasTrial,
             requerConfirmacaoEmail);
+    }
+
+    private async Task IniciarConfirmacaoWhatsAppEstabelecimentoCriadoAsync(
+        Assinatura assinatura,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var estabelecimento = assinatura.Estabelecimento;
+        if (estabelecimento is null || string.IsNullOrWhiteSpace(estabelecimento.Telefone))
+        {
+            return;
+        }
+
+        var usuario = await _usuarioRepository.ObterPorIdAsync(userId, cancellationToken);
+        try
+        {
+            await _confirmacaoWhatsAppEstabelecimentoService.IniciarAposCriacaoAsync(
+                estabelecimento,
+                usuario,
+                cancellationToken);
+        }
+        catch (Exception)
+        {
+            // Assinatura ja persistida; o WhatsApp pode ser solicitado depois no perfil da loja.
+        }
     }
 
     private int ObterUserIdAutenticado()
