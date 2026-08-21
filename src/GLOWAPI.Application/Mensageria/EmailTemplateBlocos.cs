@@ -30,14 +30,14 @@ public static class EmailTemplateBlocos
 {
     public static string ParagrafoCentralizado(string texto) =>
         $"""
-            <p style="margin:0 0 16px; color:{EmailTemplateCores.Escura}; font-size:18px; line-height:26px; text-align:center;">
+            <p style="margin:0 0 16px; color:{EmailTemplateCores.Texto}; font-size:18px; line-height:26px; text-align:center;">
               {Html(texto)}
             </p>
             """;
 
     public static string ParagrafoHtml(string htmlSeguro) =>
         $"""
-            <div style="margin:0 0 16px; color:{EmailTemplateCores.Escura}; font-size:18px; line-height:26px; text-align:center;">
+            <div style="margin:0 0 16px; color:{EmailTemplateCores.Texto}; font-size:18px; line-height:26px; text-align:center;">
               {htmlSeguro}
             </div>
             """;
@@ -46,9 +46,9 @@ public static class EmailTemplateBlocos
     {
         var (fundo, texto) = botao.Estilo switch
         {
-            EmailTemplateBotaoEstilo.Link => (EmailTemplateCores.Link, "#ffffff"),
-            EmailTemplateBotaoEstilo.WhatsApp => (EmailTemplateCores.WhatsApp, "#ffffff"),
-            _ => (EmailTemplateCores.Escura, EmailTemplateCores.Amarela)
+            EmailTemplateBotaoEstilo.Link => (EmailTemplateCores.Link, EmailTemplateCores.Superficie),
+            EmailTemplateBotaoEstilo.WhatsApp => (EmailTemplateCores.WhatsApp, EmailTemplateCores.Superficie),
+            _ => (EmailTemplateCores.Accent, EmailTemplateCores.Superficie)
         };
 
         var urlSegura = Html(botao.Url);
@@ -71,9 +71,9 @@ public static class EmailTemplateBlocos
         $"""
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
               <tr>
-                <td width="42%" style="border-top:1px solid rgba(40,40,40,0.25); font-size:0; line-height:0;">&nbsp;</td>
+                <td width="42%" style="border-top:1px solid {EmailTemplateCores.BordaMedia}; font-size:0; line-height:0;">&nbsp;</td>
                 <td align="center" style="padding:0 12px; color:{EmailTemplateCores.TextoSuave}; font-size:18px; line-height:18px; opacity:0.4; white-space:nowrap;">ou</td>
-                <td width="42%" style="border-top:1px solid rgba(40,40,40,0.25); font-size:0; line-height:0;">&nbsp;</td>
+                <td width="42%" style="border-top:1px solid {EmailTemplateCores.BordaMedia}; font-size:0; line-height:0;">&nbsp;</td>
               </tr>
             </table>
             """;
@@ -82,11 +82,11 @@ public static class EmailTemplateBlocos
         $"""
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:20px;">
               <tr>
-                <td align="center" style="padding:22px 16px; background:{EmailTemplateCores.Escura}; border:2px dashed {EmailTemplateCores.Amarela}; border-radius:20px;">
-                  <div style="color:{EmailTemplateCores.Amarela}; font-size:14px; font-weight:300; letter-spacing:0.04em; text-transform:uppercase;">
+                <td align="center" style="padding:22px 16px; background:{EmailTemplateCores.SuperficieEscura}; border:2px dashed {EmailTemplateCores.DestaqueClaro}; border-radius:20px;">
+                  <div style="color:{EmailTemplateCores.DestaqueClaro}; font-size:14px; font-weight:300; letter-spacing:0.04em; text-transform:uppercase;">
                     {Html(rotulo)}
                   </div>
-                  <div class="confirm-code" style="margin-top:10px; color:{EmailTemplateCores.Amarela}; font-size:32px; line-height:40px; font-weight:500; letter-spacing:7px;">
+                  <div class="confirm-code" style="margin-top:10px; color:{EmailTemplateCores.DestaqueClaro}; font-size:32px; line-height:40px; font-weight:500; letter-spacing:7px;">
                     {Html(codigo)}
                   </div>
                 </td>

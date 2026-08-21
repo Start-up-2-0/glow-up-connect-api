@@ -16,7 +16,7 @@ public class RecuperacaoSenhaTemplateTests
 
         html.Should().Contain("<!doctype html>");
         html.Should().Contain("GlowUp Connect");
-        html.Should().Contain("#ffbf00");
+        html.Should().Contain("#92679b");
         html.Should().Contain("Redefinir senha");
         html.Should().Contain($"cid:{EmailTemplateInlineAssets.LogoContentId}");
         html.Should().NotContain("data:image");
