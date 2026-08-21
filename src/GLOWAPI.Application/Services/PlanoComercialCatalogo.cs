@@ -12,12 +12,12 @@ public static class PlanoComercialCatalogo
 
     private static readonly IReadOnlyList<string> FuncionalidadesBasic =
     [
-        "Cadastro de servicos",
+        "Cadastro de serviços",
         "Agenda simples",
-        "Configuracao de horarios",
-        "Pagina publica basica",
-        "Gestao simples de clientes",
-        "Confirmacao por e-mail",
+        "Configuração de horários",
+        "Página pública básica",
+        "Gestão simples de clientes",
+        "Confirmação por e-mail",
         "Cancelamento por e-mail",
         "Lembrete por e-mail"
     ];
@@ -25,64 +25,64 @@ public static class PlanoComercialCatalogo
     private static readonly IReadOnlyList<string> FuncionalidadesPlus =
     [
         .. FuncionalidadesBasic,
-        "Multiusuario",
+        "Multiusuário",
         "Agenda compartilhada",
-        "Gestao de profissionais",
-        "Historico de clientes",
-        "Confirmacao automatica via WhatsApp",
-        "Lembrete automatico de agendamento",
+        "Gestão de profissionais",
+        "Histórico de clientes",
+        "Confirmação automática via WhatsApp",
+        "Lembrete automático de agendamento",
         "Aviso de cancelamento",
-        "Dashboard basico",
-        "Relatorios basicos"
+        "Dashboard básico",
+        "Relatórios básicos"
     ];
 
     private static readonly IReadOnlyList<string> FuncionalidadesEssencial =
     [
         .. FuncionalidadesPlus,
-        "Operacao completa para uma unidade"
+        "Operação completa para uma unidade"
     ];
 
     private static readonly IReadOnlyList<string> FuncionalidadesPremium =
     [
         .. FuncionalidadesEssencial,
-        "Ate 5 unidades na mesma assinatura",
+        "Até 5 unidades na mesma assinatura",
         "Painel consolidado da rede",
         "Controle de caixa",
         "Fluxo financeiro",
-        "Comissao automatica",
-        "Relatorios financeiros",
+        "Comissão automática",
+        "Relatórios financeiros",
         "CRM de clientes",
-        "Auditoria de operacoes",
-        "Dashboard avancado",
-        "Metricas do estabelecimento",
-        "Historico financeiro",
-        "Gestao completa da equipe",
+        "Auditoria de operações",
+        "Dashboard avançado",
+        "Métricas do estabelecimento",
+        "Histórico financeiro",
+        "Gestão completa da equipe",
         "Prioridade na busca e listagem do marketplace"
     ];
 
     private static readonly IReadOnlyList<string> FuncionalidadesAutonomoEssencial =
     [
         "Agenda pessoal",
-        "Cadastro de servicos",
-        "Configuracao de horarios",
-        "Perfil profissional publico",
-        "Presenca no Explorar Lojas",
-        "Gestao de clientes e historico",
-        "Notificacoes por e-mail",
-        "Confirmacao e lembrete por e-mail",
-        "Historico de atendimentos"
+        "Cadastro de serviços",
+        "Configuração de horários",
+        "Perfil profissional público",
+        "Presença no Explorar Lojas",
+        "Gestão de clientes e histórico",
+        "Notificações por e-mail",
+        "Confirmação e lembrete por e-mail",
+        "Histórico de atendimentos"
     ];
 
     private static readonly IReadOnlyList<string> FuncionalidadesAutonomoPremium =
     [
         .. FuncionalidadesAutonomoEssencial,
-        "Confirmacao automatica via WhatsApp",
-        "Lembrete automatico de agendamento",
+        "Confirmação automática via WhatsApp",
+        "Lembrete automático de agendamento",
         "Aviso de cancelamento via WhatsApp",
         "Controle de caixa pessoal",
         "Fluxo financeiro",
-        "Relatorios financeiros",
-        "Dashboard avancado",
+        "Relatórios financeiros",
+        "Dashboard avançado",
         "Prioridade na busca e listagem do marketplace"
     ];
 
@@ -182,6 +182,45 @@ public static class PlanoComercialCatalogo
 
         // Essencial e legados (Plus/Basic) para autônomo
         return PrecoAutonomoEssencial;
+    }
+
+    /// <summary>
+    /// Descrição comercial efetiva com ortografia correta.
+    /// Autônomo usa copy sem equipe/comissões/multi-unidade; loja usa textos comerciais acentuados.
+    /// </summary>
+    public static string ResolverDescricao(
+        Plano? plano,
+        TipoAssinatura tipoAssinatura = TipoAssinatura.Estabelecimento)
+    {
+        if (plano is null)
+        {
+            return string.Empty;
+        }
+
+        var nomeNormalizado = Normalizar(plano.Nome);
+
+        if (tipoAssinatura == TipoAssinatura.ProfissionalAutonomo)
+        {
+            if (nomeNormalizado.Contains("premium", StringComparison.Ordinal))
+            {
+                return "WhatsApp, caixa pessoal, financeiro e prioridade no marketplace";
+            }
+
+            // Essencial e legados (Plus/Basic) para autônomo
+            return "Agenda, clientes e perfil público para quem atende sozinho";
+        }
+
+        if (nomeNormalizado.Contains("premium", StringComparison.Ordinal))
+        {
+            return "Caixa, financeiro, comissões, até 5 unidades e prioridade no marketplace";
+        }
+
+        if (nomeNormalizado.Contains("essencial", StringComparison.Ordinal))
+        {
+            return "Operação completa com equipe, WhatsApp e gestão para uma unidade";
+        }
+
+        return plano.Descricao;
     }
 
     private static PlanoComercialPerfil ObterPerfilEstabelecimento(Plano plano)

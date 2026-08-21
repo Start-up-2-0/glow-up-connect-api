@@ -38,18 +38,18 @@ Estabelecimentos Premium podem aparecer com prioridade em `/api/publico/estabele
 
 Tudo do Essencial, mais:
 
-- Ate 5 unidades na mesma assinatura
+- Até 5 unidades na mesma assinatura
 - Painel consolidado da rede (`GET /api/rede/resumo`)
 - CRM de clientes
 - Auditoria de negocio
 - Controle de caixa
 - Fluxo financeiro
-- Comissao automatica
-- Relatorios financeiros
-- Dashboard avancado
-- Metricas do estabelecimento
-- Historico financeiro
-- Gestao completa da equipe
+- Comissão automática
+- Relatórios financeiros
+- Dashboard avançado
+- Métricas do estabelecimento
+- Histórico financeiro
+- Gestão completa da equipe
 - Prioridade na busca e listagem do marketplace
 
 ## O que o Premium desbloqueia na operacao

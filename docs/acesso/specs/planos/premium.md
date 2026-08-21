@@ -28,12 +28,12 @@ ComissaoProfissionais
 
 - Controle de caixa
 - Fluxo financeiro
-- Comissao automatica
-- Relatorios financeiros
-- Dashboard avancado
-- Metricas do estabelecimento
-- Historico financeiro
-- Gestao completa da equipe
+- Comissão automática
+- Relatórios financeiros
+- Dashboard avançado
+- Métricas do estabelecimento
+- Histórico financeiro
+- Gestão completa da equipe
 - Prioridade na busca e listagem do marketplace
 
 ## Limites

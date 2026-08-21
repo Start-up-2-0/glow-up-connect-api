@@ -24,12 +24,12 @@ Notificacoes, Email
 
 ## Funcionalidades (catalogo)
 
-- Cadastro de servicos
+- Cadastro de serviços
 - Agenda simples
-- Configuracao de horarios
-- Pagina publica basica
-- Gestao simples de clientes
-- Confirmacao por e-mail
+- Configuração de horários
+- Página pública básica
+- Gestão simples de clientes
+- Confirmação por e-mail
 - Cancelamento por e-mail
 - Lembrete por e-mail
 

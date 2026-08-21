@@ -4,6 +4,7 @@ Variante comercial do mesmo Essencial/Premium, resolvida por `TipoAssinatura.Pro
 
 ## Essencial (autônomo)
 
+- Descrição: *Agenda, clientes e perfil público para quem atende sozinho*
 - Preço: **R$ 49,99**/mês
 - Agenda, serviços, horários, notificações e e-mail
 - Clientes e histórico de atendimentos
@@ -12,6 +13,7 @@ Variante comercial do mesmo Essencial/Premium, resolvida por `TipoAssinatura.Pro
 
 ## Premium (autônomo)
 
+- Descrição: *WhatsApp, caixa pessoal, financeiro e prioridade no marketplace*
 - Preço: **R$ 79,99**/mês
 - Tudo do Essencial, mais:
 - WhatsApp automático
@@ -24,3 +26,4 @@ Variante comercial do mesmo Essencial/Premium, resolvida por `TipoAssinatura.Pro
 
 `Assinatura.TipoAssinatura = ProfissionalAutonomo` + nome do plano contendo `Essencial` ou `Premium` em `PlanoComercialCatalogo`.
 Preço efetivo: `PlanoComercialCatalogo.ResolverPreco(plano, ProfissionalAutonomo)`.
+Descrição efetiva: `PlanoComercialCatalogo.ResolverDescricao(plano, ProfissionalAutonomo)`.
