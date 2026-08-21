@@ -125,14 +125,40 @@ public class OnboardingPublicacaoServiceTests
         Assert.True(capturado!.VisivelPublicamente);
     }
 
-    private void ConfigurarAssinaturaAtiva(TipoAssinatura tipoAssinatura)
+    [Fact]
+    public async Task RecalcularVisibilidadeAsync_DeveManterVisivel_QuandoCancelamentoAgendado()
+    {
+        var estabelecimento = CriarEstabelecimentoLoja();
+        ConfigurarAssinatura(TipoAssinatura.Estabelecimento, AssinaturaStatus.CancelamentoAgendado);
+        ConfigurarLojaCompleta();
+
+        Estabelecimento? capturado = null;
+        _estabelecimentoRepository
+            .Setup(r => r.Atualizar(It.IsAny<Estabelecimento>()))
+            .Callback<Estabelecimento>(e => capturado = e);
+        _estabelecimentoRepository
+            .Setup(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        var service = CreateService();
+        var visivel = await service.RecalcularVisibilidadeAsync(estabelecimento.Id);
+
+        Assert.True(visivel);
+        Assert.NotNull(capturado);
+        Assert.True(capturado!.VisivelPublicamente);
+    }
+
+    private void ConfigurarAssinaturaAtiva(TipoAssinatura tipoAssinatura) =>
+        ConfigurarAssinatura(tipoAssinatura, AssinaturaStatus.Ativa);
+
+    private void ConfigurarAssinatura(TipoAssinatura tipoAssinatura, AssinaturaStatus status)
     {
         _assinaturaRepository
             .Setup(r => r.ObterAssinaturaEfetivaPorEstabelecimentoAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Assinatura
             {
                 Id = 1,
-                Status = AssinaturaStatus.Ativa,
+                Status = status,
                 TipoAssinatura = tipoAssinatura,
                 EstabelecimentoId = 10,
             });

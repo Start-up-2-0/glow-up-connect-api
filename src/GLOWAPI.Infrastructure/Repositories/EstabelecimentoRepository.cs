@@ -196,7 +196,8 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
                 && estabelecimentoIds.Contains(assinatura.EstabelecimentoId.Value)
                 && (assinatura.Status == AssinaturaStatus.Ativa
                     || assinatura.Status == AssinaturaStatus.Trial
-                    || assinatura.Status == AssinaturaStatus.Inadimplente))
+                    || assinatura.Status == AssinaturaStatus.Inadimplente
+                    || assinatura.Status == AssinaturaStatus.CancelamentoAgendado))
             .ToListAsync(cancellationToken);
 
         foreach (var assinatura in assinaturasDiretas)
@@ -223,7 +224,8 @@ public class EstabelecimentoRepository : Repository<Estabelecimento>, IEstabelec
                 && vinculo.Assinatura != null
                 && (vinculo.Assinatura.Status == AssinaturaStatus.Ativa
                     || vinculo.Assinatura.Status == AssinaturaStatus.Trial
-                    || vinculo.Assinatura.Status == AssinaturaStatus.Inadimplente))
+                    || vinculo.Assinatura.Status == AssinaturaStatus.Inadimplente
+                    || vinculo.Assinatura.Status == AssinaturaStatus.CancelamentoAgendado))
             .ToListAsync(cancellationToken);
 
         foreach (var vinculo in vinculos)
