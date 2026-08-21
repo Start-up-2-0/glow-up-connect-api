@@ -104,7 +104,8 @@ public static class HostedConfigurationValidator
             }
         }
 
-        var captchaEnabled = configuration.GetValue($"{CaptchaOptions.SectionName}:Enabled", true);
+        // Default false: captcha está desligado temporariamente; SecretKey só é obrigatória se reativado.
+        var captchaEnabled = configuration.GetValue($"{CaptchaOptions.SectionName}:Enabled", false);
         if (captchaEnabled && string.IsNullOrWhiteSpace(configuration[$"{CaptchaOptions.SectionName}:SecretKey"]))
         {
             faltando.Add("Captcha__SecretKey");

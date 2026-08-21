@@ -45,13 +45,17 @@ Rotas isentas: `GET /health`, `/api/webhooks/**`. Demais rotas de app exigem o h
 
 ## CAPTCHA (login e cadastro)
 
+> **Status:** temporariamente **desligado** na plataforma (API + app + landing). Código e config permanecem para reativação.
+
 | Variável | Uso |
 |----------|-----|
-| `Captcha__Enabled` | `true` em staging/production |
+| `Captcha__Enabled` | `true` só quando for reativar em staging/production |
 | `Captcha__SecretKey` | Secret server-side reCAPTCHA v2 |
 | `VITE_CAPTCHA_SITE_KEY` | Site key reCAPTCHA v2 Checkbox no build do **app** e da **landing** |
 
-Falha de validação: `400` `CAPTCHA_INVALIDO`.
+Para reativar: `TemporariamenteDesligado = false` em `RecaptchaValidator`, `CAPTCHA_TEMPORARILY_DISABLED = false` nos `useCaptcha` (app/landing), e `Captcha__Enabled=true` + keys.
+
+Falha de validação (quando ativo): `400` `CAPTCHA_INVALIDO`.
 
 ## mTLS (Caddy → API, rede privada Railway)
 
