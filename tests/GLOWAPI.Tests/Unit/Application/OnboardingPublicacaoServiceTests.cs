@@ -97,6 +97,34 @@ public class OnboardingPublicacaoServiceTests
         Assert.Equal(OnboardingPublicacaoService.EtapaPerfil, status.ProximaEtapa);
     }
 
+    [Fact]
+    public async Task RecalcularVisibilidadeAsync_DevePublicarAutonomoIncompleto_QuandoAssinaturaAtiva()
+    {
+        var estabelecimento = CriarEstabelecimentoAutonomo(perfilCompleto: false);
+        ConfigurarAssinaturaAtiva(TipoAssinatura.ProfissionalAutonomo);
+        _servicoRepository
+            .Setup(r => r.ContarAtivosPorEstabelecimentoAsync(estabelecimento.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _horarioAtendimentoProfissionalRepository
+            .Setup(r => r.ListarPorEstabelecimentoAsync(estabelecimento.Id, null, null, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        Estabelecimento? capturado = null;
+        _estabelecimentoRepository
+            .Setup(r => r.Atualizar(It.IsAny<Estabelecimento>()))
+            .Callback<Estabelecimento>(e => capturado = e);
+        _estabelecimentoRepository
+            .Setup(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        var service = CreateService();
+        var visivel = await service.RecalcularVisibilidadeAsync(estabelecimento.Id);
+
+        Assert.True(visivel);
+        Assert.NotNull(capturado);
+        Assert.True(capturado!.VisivelPublicamente);
+    }
+
     private void ConfigurarAssinaturaAtiva(TipoAssinatura tipoAssinatura)
     {
         _assinaturaRepository

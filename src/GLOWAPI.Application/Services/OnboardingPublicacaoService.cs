@@ -105,17 +105,10 @@ public class OnboardingPublicacaoService : IOnboardingPublicacaoService
             estabelecimentoId,
             cancellationToken);
         var assinaturaAtiva = assinatura?.Status is AssinaturaStatus.Ativa or AssinaturaStatus.Trial;
-        var tipoAssinatura = assinatura?.TipoAssinatura
-            ?? await _estabelecimentoRepository.ObterTipoAssinaturaPublicoAsync(
-                estabelecimentoId,
-                cancellationToken);
 
-        var avaliacao = await AvaliarProntidaoAsync(
-            estabelecimento,
-            tipoAssinatura,
-            cancellationToken);
-        var deveSerVisivel = assinaturaAtiva && (
-            !OnboardingPublicacaoObrigatorio(tipoAssinatura) || avaliacao.ProntoParaPublicacao);
+        // Marketplace lista lojas e autônomos com assinatura ativa.
+        // O onboarding obrigatório do autônomo segue no status (wizard), sem bloquear a vitrine.
+        var deveSerVisivel = assinaturaAtiva;
 
         if (estabelecimento.VisivelPublicamente == deveSerVisivel)
         {
