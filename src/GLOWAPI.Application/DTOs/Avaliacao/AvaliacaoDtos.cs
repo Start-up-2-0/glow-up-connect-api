@@ -9,7 +9,9 @@ public record CriarAvaliacaoAtendimentoRequestDto(
 public record AvaliacaoResumoClienteDto(
     int NotaEstabelecimento,
     int NotaProfissional,
-    DateTime AvaliadoEm);
+    DateTime AvaliadoEm,
+    string? ComentarioEstabelecimento = null,
+    string? ComentarioProfissional = null);
 
 public record AvaliacaoContextoResponseDto(
     string Status,
