@@ -54,6 +54,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<ConviteNegocio> ConvitesNegocio { get; set; }
     public DbSet<ConviteNegocioUtilizacao> ConvitesNegocioUtilizacoes { get; set; }
     public DbSet<IpRateLimitBlock> IpRateLimitBlocks { get; set; }
+    public DbSet<FavoritoCliente> FavoritosCliente { get; set; }
+    public DbSet<Comodidade> Comodidades { get; set; }
+    public DbSet<EstabelecimentoComodidade> EstabelecimentoComodidades { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

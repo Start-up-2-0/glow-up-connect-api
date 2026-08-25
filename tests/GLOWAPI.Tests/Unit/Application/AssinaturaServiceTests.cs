@@ -18,6 +18,7 @@ namespace GLOWAPI.Tests.Unit.Application;
 
 public class AssinaturaServiceTests
 {
+    private readonly Mock<IComodidadeRepository> _comodidadeRepository = new();
     private readonly Mock<IAssinaturaRepository> _assinaturaRepository = new();
     private readonly Mock<IAssinaturaEstabelecimentoRepository> _assinaturaEstabelecimentoRepository = new();
     private readonly Mock<IPlanoRepository> _planoRepository = new();
@@ -40,6 +41,9 @@ public class AssinaturaServiceTests
 
     public AssinaturaServiceTests()
     {
+        _comodidadeRepository
+            .Setup(r => r.ListarAtivasAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<Comodidade>());
         _usuarioRepository
             .Setup(r => r.ObterPorIdAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(UsuarioBuilder.Criar(id: 10, whatsAppConfirmadoEm: DateTime.UtcNow));
@@ -222,6 +226,9 @@ public class AssinaturaServiceTests
     [Fact]
     public async Task IniciarAsync_DeveCriarEstabelecimentoEVinculoOwner_QuandoInformarDadosDoEstabelecimento()
     {
+        _comodidadeRepository
+            .Setup(r => r.ListarAtivasAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new Comodidade { Id = 1, Ativo = true }, new Comodidade { Id = 4, Ativo = true }]);
         _planoRepository
             .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Plano { Id = 1, Ativo = true });
@@ -262,7 +269,8 @@ public class AssinaturaServiceTests
                 Telefone = "11999999999",
                 Email = "studio@email.com",
                 CategoriaEstabelecimentoId = 1,
-                Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Sao Paulo", logradouro: "Rua Glow")
+                Endereco = EnderecoOperacaoDtoBuilder.Criar(cidade: "Sao Paulo", logradouro: "Rua Glow"),
+                ComodidadeIds = [1, 4]
             }
         });
 
@@ -283,6 +291,7 @@ public class AssinaturaServiceTests
         Assert.True(estabelecimentoCriado.Ativo);
         Assert.Equal(1, estabelecimentoCriado.CategoriaEstabelecimentoId);
         Assert.NotEqual(Guid.Empty, estabelecimentoCriado.PublicGuid);
+        Assert.Equal(new[] { 1, 4 }, estabelecimentoCriado.Comodidades.Select(item => item.ComodidadeId));
 
         Assert.NotNull(vinculoCriado);
         Assert.Equal(10, vinculoCriado!.UsuarioId);
@@ -1426,6 +1435,7 @@ public class AssinaturaServiceTests
             new Mock<IAssinaturaVisibilidadeService>().Object,
             new Mock<IAssinaturaEncerramentoService>().Object,
             _confirmacaoWhatsAppEstabelecimentoService.Object,
+            _comodidadeRepository.Object,
             Options.Create(new MercadoPagoOptions { UsarCheckoutPro = usarCheckoutPro }));
 
     private static PagamentoTransparenteMercadoPagoDto PagamentoValido() =>

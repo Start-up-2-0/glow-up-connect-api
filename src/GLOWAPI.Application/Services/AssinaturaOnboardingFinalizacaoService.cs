@@ -25,6 +25,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
     private readonly IEnderecoGeocodificacaoService _enderecoGeocodificacaoService;
     private readonly IAvatarBase64Decoder _avatarBase64Decoder;
     private readonly IConfirmacaoWhatsAppEstabelecimentoService _confirmacaoWhatsAppEstabelecimentoService;
+    private readonly IComodidadeRepository _comodidadeRepository;
 
     public AssinaturaOnboardingFinalizacaoService(
         IEstabelecimentoRepository estabelecimentoRepository,
@@ -36,7 +37,8 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
         IUsuarioRepository usuarioRepository,
         IEnderecoGeocodificacaoService enderecoGeocodificacaoService,
         IAvatarBase64Decoder avatarBase64Decoder,
-        IConfirmacaoWhatsAppEstabelecimentoService confirmacaoWhatsAppEstabelecimentoService)
+        IConfirmacaoWhatsAppEstabelecimentoService confirmacaoWhatsAppEstabelecimentoService,
+        IComodidadeRepository comodidadeRepository)
     {
         _estabelecimentoRepository = estabelecimentoRepository;
         _estabelecimentoUsuarioRepository = estabelecimentoUsuarioRepository;
@@ -48,6 +50,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
         _enderecoGeocodificacaoService = enderecoGeocodificacaoService;
         _avatarBase64Decoder = avatarBase64Decoder;
         _confirmacaoWhatsAppEstabelecimentoService = confirmacaoWhatsAppEstabelecimentoService;
+        _comodidadeRepository = comodidadeRepository;
     }
 
     public async Task FinalizarSePendenteAsync(Assinatura assinatura, CancellationToken cancellationToken = default)
@@ -256,6 +259,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
             TipoAssinatura.Estabelecimento,
             CriarExcecao,
             cancellationToken);
+        await ValidarComodidadesAsync(dto.ComodidadeIds, TipoAssinatura.Estabelecimento, cancellationToken);
 
         return new Estabelecimento
         {
@@ -269,7 +273,8 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
             Ativo = true,
             VisivelPublicamente = false,
             Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao),
-            Caixa = new Caixa()
+            Caixa = new Caixa(),
+            Comodidades = CriarVinculosComodidades(dto.ComodidadeIds)
         };
     }
 
@@ -282,6 +287,7 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
             TipoAssinatura.ProfissionalAutonomo,
             mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem),
             cancellationToken);
+        await ValidarComodidadesAsync(dto.ComodidadeIds, TipoAssinatura.ProfissionalAutonomo, cancellationToken);
 
         return new()
         {
@@ -296,9 +302,37 @@ public class AssinaturaOnboardingFinalizacaoService : IAssinaturaOnboardingFinal
             Endereco = OperacaoPerfilValidation.CriarEndereco(
                 dto.Endereco,
                 mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem)),
-            Caixa = new Caixa()
+            Caixa = new Caixa(),
+            Comodidades = CriarVinculosComodidades(dto.ComodidadeIds)
         };
     }
+
+    private async Task ValidarComodidadesAsync(
+        IReadOnlyCollection<int> ids,
+        TipoAssinatura tipoAssinatura,
+        CancellationToken cancellationToken)
+    {
+        if (ids.Count != ids.Distinct().Count())
+        {
+            throw CriarExcecaoComodidade(tipoAssinatura, "A lista de comodidades possui itens duplicados.");
+        }
+
+        var idsAtivos = (await _comodidadeRepository.ListarAtivasAsync(cancellationToken))
+            .Select(comodidade => comodidade.Id)
+            .ToHashSet();
+        if (ids.Any(id => !idsAtivos.Contains(id)))
+        {
+            throw CriarExcecaoComodidade(tipoAssinatura, "Uma ou mais comodidades sao invalidas ou estao inativas.");
+        }
+    }
+
+    private static Exception CriarExcecaoComodidade(TipoAssinatura tipoAssinatura, string mensagem) =>
+        tipoAssinatura == TipoAssinatura.ProfissionalAutonomo
+            ? new ProfissionalAutonomoAssinaturaInvalidoException(mensagem)
+            : new EstabelecimentoAssinaturaInvalidoException(mensagem);
+
+    private static ICollection<EstabelecimentoComodidade> CriarVinculosComodidades(IEnumerable<int> ids) =>
+        ids.Select(id => new EstabelecimentoComodidade { ComodidadeId = id }).ToList();
 
     private async Task<int> ResolverCategoriaIdAsync(
         int? informado,

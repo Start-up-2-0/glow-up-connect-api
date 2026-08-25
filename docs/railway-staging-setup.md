@@ -48,8 +48,8 @@ Guia para configurar homologacao no **mesmo projeto Railway** da producao, com i
 | `GLOW_PROXY_SECRET` | Secret compartilhado com o servico do app (header `X-Glow-Proxy-Secret`) |
 | `REQUEST_PROOF_SECRET` | Secret para request proof de uso unico (min. 32 caracteres) |
 | `RequestProof__Enabled` | `true` (padrao em staging quando o secret existe) |
-| `Captcha__Enabled` | `true` |
-| `Captcha__SecretKey` | Secret reCAPTCHA v2 (server-side; par da Site key) |
+| `Captcha__Enabled` | `false` (temporariamente desligado; `true` só ao reativar) |
+| `Captcha__SecretKey` | Secret reCAPTCHA v2 (só obrigatório se `Captcha__Enabled=true`) |
 | `MTLS_SERVER_CERT` / `MTLS_SERVER_KEY` / `MTLS_CA_CERT` | (fase mTLS) PEMs multiline — ver `scripts/tls/generate-mtls-certs.sh` |
 | `MTLS_CLIENT_CERT_THUMBPRINT` | (fase mTLS) thumbprint SHA1 do cert do Caddy |
 | `MTLS_MUTUAL_TLS_PORT` | `8443` — porta do listener mTLS (exibida nos logs de startup) |
@@ -121,7 +121,7 @@ $env:MYSQL_CS = "Server=...;Port=...;Database=...;User=...;Password=...;SslMode=
 | Variavel | Valor |
 |----------|--------|
 | `VITE_API_BASE_URL` | `/api` |
-| `VITE_CAPTCHA_SITE_KEY` | Site key reCAPTCHA v2 Checkbox (também no serviço da **landing**, senão o convite/login público não mostra o widget) |
+| `VITE_CAPTCHA_SITE_KEY` | (opcional enquanto captcha estiver desligado) Site key reCAPTCHA v2 — também na **landing** ao reativar |
 | `GLOW_PROXY_SECRET` | Mesmo valor da API |
 | `API_INTERNAL_HOST` | Host privado da API (`<servico>.railway.internal`) |
 | `API_INTERNAL_URL` | (opcional) `https://<servico-api>.railway.internal` — **sem porta na URL** |
@@ -137,7 +137,7 @@ O Caddy faz proxy `/api/*` → API e injeta `X-Glow-Proxy-Secret`. Webhooks exte
 ### Rollout recomendado (staging)
 
 1. Deploy BFF + `GLOW_PROXY_SECRET` + `VITE_API_BASE_URL=/api`
-2. Ativar CAPTCHA (`Captcha__*` + `VITE_CAPTCHA_SITE_KEY`)
+2. CAPTCHA está temporariamente desligado; ao reativar: `Captcha__*` + `VITE_CAPTCHA_SITE_KEY` + flags no código (ver `fase1-hardening.md`)
 3. Gerar PKI (`scripts/tls/generate-mtls-certs.sh`), configurar `MTLS_*` e `MTLS_REQUIRED=true` nos dois servicos
 4. Configurar `REQUEST_PROOF_SECRET` na API e redeploy do App (interceptor de proofs)
 5. Limpar bloqueios antigos em `IpRateLimitBlocks` se necessario

@@ -37,6 +37,7 @@ public class Usuario
     public ICollection<EstabelecimentoUsuario> Estabelecimentos { get; set; } = new List<EstabelecimentoUsuario>();
     public ICollection<Agendamento> Agendamentos { get; set; } = new List<Agendamento>();
     public ICollection<SessaoAutenticacao> Sessoes { get; set; } = new List<SessaoAutenticacao>();
+    public ICollection<FavoritoCliente> Favoritos { get; set; } = new List<FavoritoCliente>();
 
     public void RegistrarTentativaFalha()
     {

@@ -52,7 +52,7 @@ public class AvaliacaoAtendimentoService : IAvaliacaoAtendimentoService
         Guid token,
         CancellationToken cancellationToken = default)
     {
-        var convite = await ObterConviteValidoAsync(token, cancellationToken);
+        var convite = await ObterConviteValidoAsync(token, permitirUtilizado: true, cancellationToken);
         var agendamento = convite.Agendamento!;
         return await MontarContextoAsync(agendamento, cancellationToken);
     }
@@ -78,7 +78,7 @@ public class AvaliacaoAtendimentoService : IAvaliacaoAtendimentoService
         CriarAvaliacaoAtendimentoRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        var convite = await ObterConviteValidoAsync(token, cancellationToken);
+        var convite = await ObterConviteValidoAsync(token, permitirUtilizado: false, cancellationToken);
         var agendamento = convite.Agendamento!;
 
         await CriarAvaliacaoAsync(
@@ -179,7 +179,9 @@ public class AvaliacaoAtendimentoService : IAvaliacaoAtendimentoService
             : new AvaliacaoResumoClienteDto(
                 avaliacao.NotaEstabelecimento,
                 avaliacao.NotaProfissional,
-                avaliacao.AvaliadoEm);
+                avaliacao.AvaliadoEm,
+                avaliacao.ComentarioEstabelecimento,
+                avaliacao.ComentarioProfissional);
     }
 
     private async Task CriarAvaliacaoAsync(
@@ -258,7 +260,9 @@ public class AvaliacaoAtendimentoService : IAvaliacaoAtendimentoService
             : new AvaliacaoResumoClienteDto(
                 avaliacao.NotaEstabelecimento,
                 avaliacao.NotaProfissional,
-                avaliacao.AvaliadoEm);
+                avaliacao.AvaliadoEm,
+                avaliacao.ComentarioEstabelecimento,
+                avaliacao.ComentarioProfissional);
 
         return new AvaliacaoContextoResponseDto(
             status,
@@ -291,6 +295,7 @@ public class AvaliacaoAtendimentoService : IAvaliacaoAtendimentoService
 
     private async Task<AvaliacaoConvite> ObterConviteValidoAsync(
         Guid token,
+        bool permitirUtilizado,
         CancellationToken cancellationToken)
     {
         var convite = await _avaliacaoConviteRepository.ObterPorTokenComAgendamentoAsync(token, cancellationToken);
@@ -299,7 +304,7 @@ public class AvaliacaoAtendimentoService : IAvaliacaoAtendimentoService
             throw new AvaliacaoConviteInvalidoException();
         }
 
-        if (convite.UtilizadoEm.HasValue)
+        if (convite.UtilizadoEm.HasValue && !permitirUtilizado)
         {
             throw new AvaliacaoJaRealizadaException();
         }

@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IOnboardingPublicacaoService, OnboardingPublicacaoService>();
         services.AddScoped<IAssinaturaHistoricoService, AssinaturaHistoricoService>();
         services.AddScoped<IEstabelecimentoPerfilService, EstabelecimentoPerfilService>();
+        services.AddScoped<IComodidadePerfilService, ComodidadePerfilService>();
         services.AddScoped<IProfissionalAutonomoPerfilService, ProfissionalAutonomoPerfilService>();
         services.AddScoped<IModulosAssinaturaService, ModulosAssinaturaService>();
         services.AddScoped<IMatrizPermissaoNegocioService, MatrizPermissaoNegocioService>();
@@ -87,6 +88,7 @@ public static class DependencyInjection
         services.AddScoped<IAvaliacaoAtendimentoService, AvaliacaoAtendimentoService>();
         services.AddScoped<IAvaliacaoResumoService, AvaliacaoResumoService>();
         services.AddScoped<IAvaliacaoAgregadoWorkerService, AvaliacaoAgregadoWorkerService>();
+        services.AddScoped<IFavoritoClienteService, FavoritoClienteService>();
         services.AddScoped<IMetaNegocioService, MetaNegocioService>();
         services.AddScoped<ICompactacaoImagensPersistidasService, CompactacaoImagensPersistidasService>();
         services.AddScoped<IRetencaoDadosService, RetencaoDadosService>();

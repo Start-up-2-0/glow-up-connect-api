@@ -2,6 +2,7 @@ using GLOWAPI.API.Models;
 using GLOWAPI.Application.DTOs.Horarios;
 using GLOWAPI.Application.DTOs.Profissionais;
 using GLOWAPI.Application.DTOs.Servicos;
+using GLOWAPI.Application.DTOs.Estabelecimentos;
 using GLOWAPI.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,15 +15,42 @@ public class ProfissionaisAutonomosController : ControllerBase
     private readonly IProfissionalAutonomoPerfilService _profissionalAutonomoPerfilService;
     private readonly IHorarioProfissionalAutonomoService _horarioProfissionalAutonomoService;
     private readonly IServicoProfissionalAutonomoService _servicoProfissionalAutonomoService;
+    private readonly IComodidadePerfilService _comodidadePerfilService;
 
     public ProfissionaisAutonomosController(
         IProfissionalAutonomoPerfilService profissionalAutonomoPerfilService,
         IHorarioProfissionalAutonomoService horarioProfissionalAutonomoService,
-        IServicoProfissionalAutonomoService servicoProfissionalAutonomoService)
+        IServicoProfissionalAutonomoService servicoProfissionalAutonomoService,
+        IComodidadePerfilService comodidadePerfilService)
     {
         _profissionalAutonomoPerfilService = profissionalAutonomoPerfilService;
         _horarioProfissionalAutonomoService = horarioProfissionalAutonomoService;
         _servicoProfissionalAutonomoService = servicoProfissionalAutonomoService;
+        _comodidadePerfilService = comodidadePerfilService;
+    }
+
+    [HttpGet("{profissionalId:int}/comodidades")]
+    public async Task<IActionResult> ListarComodidades(int profissionalId, CancellationToken cancellationToken)
+    {
+        var comodidades = await _comodidadePerfilService.ListarPorProfissionalAutonomoAsync(profissionalId, cancellationToken);
+        return Ok(ApiSuccessResponse<IReadOnlyList<ComodidadeDto>>.From(
+            "Comodidades do profissional autonomo listadas com sucesso.",
+            comodidades));
+    }
+
+    [HttpPut("{profissionalId:int}/comodidades")]
+    public async Task<IActionResult> AtualizarComodidades(
+        int profissionalId,
+        [FromBody] AtualizarComodidadesRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var comodidades = await _comodidadePerfilService.AtualizarProfissionalAutonomoAsync(
+            profissionalId,
+            request.ComodidadeIds,
+            cancellationToken);
+        return Ok(ApiSuccessResponse<IReadOnlyList<ComodidadeDto>>.From(
+            "Comodidades do profissional autonomo atualizadas com sucesso.",
+            comodidades));
     }
 
     [HttpPut("{profissionalId:int}/perfil")]

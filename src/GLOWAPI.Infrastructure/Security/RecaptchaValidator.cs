@@ -11,6 +11,13 @@ public class RecaptchaValidator : ICaptchaValidator
 {
     private const string VerifyUrl = "https://www.google.com/recaptcha/api/siteverify";
 
+    /// <summary>
+    /// Captcha desligado temporariamente em toda a plataforma.
+    /// Para reativar: false aqui + Captcha__Enabled=true + SecretKey + VITE_CAPTCHA_SITE_KEY
+    /// + CAPTCHA_TEMPORARILY_DISABLED=false nos useCaptcha (app/landing).
+    /// </summary>
+    private const bool TemporariamenteDesligado = true;
+
     private readonly HttpClient _httpClient;
     private readonly CaptchaOptions _options;
     private readonly ILogger<RecaptchaValidator> _logger;
@@ -30,7 +37,7 @@ public class RecaptchaValidator : ICaptchaValidator
         string? remoteIp,
         CancellationToken cancellationToken = default)
     {
-        if (!_options.Enabled)
+        if (TemporariamenteDesligado || !_options.Enabled)
         {
             return true;
         }

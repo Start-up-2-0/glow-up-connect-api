@@ -48,6 +48,7 @@ public static class DependencyInjection
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
         services.AddScoped<IEstabelecimentoRepository, EstabelecimentoRepository>();
+        services.AddScoped<IComodidadeRepository, ComodidadeRepository>();
         services.AddScoped<IEstabelecimentoUsuarioRepository, EstabelecimentoUsuarioRepository>();
         services.AddScoped<IProfissionalRepository, ProfissionalRepository>();
         services.AddScoped<IProfissionalEstabelecimentoRepository, ProfissionalEstabelecimentoRepository>();
@@ -63,6 +64,7 @@ public static class DependencyInjection
         services.AddScoped<IAgendamentoPropostaRemarcacaoRepository, AgendamentoPropostaRemarcacaoRepository>();
         services.AddScoped<IAvaliacaoAtendimentoRepository, AvaliacaoAtendimentoRepository>();
         services.AddScoped<IAvaliacaoConviteRepository, AvaliacaoConviteRepository>();
+        services.AddScoped<IFavoritoClienteRepository, FavoritoClienteRepository>();
         services.AddScoped<ICaixaRepository, CaixaRepository>();
         services.AddScoped<IPlanoRepository, PlanoRepository>();
         services.AddScoped<IAssinaturaRepository, AssinaturaRepository>();
