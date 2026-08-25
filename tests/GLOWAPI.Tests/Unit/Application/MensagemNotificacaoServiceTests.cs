@@ -45,7 +45,8 @@ public class MensagemNotificacaoServiceTests
                 Canal = CanalMensagemNotificacao.WhatsApp,
                 Destinatario = "5579991917634",
                 Assunto = "Confirmacao WhatsApp aprovada",
-                Conteudo = "Confirmado"
+                Conteudo = "Confirmado",
+                EhVerificacaoWhatsApp = true
             },
             "evolution-whatsapp-v1-textMessage");
 
@@ -55,6 +56,50 @@ public class MensagemNotificacaoServiceTests
                 m.Status == StatusMensagemNotificacao.Enviado
                 && m.Destinatario == "5579991917634"),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RegistrarAsync_NaoDevePersistirWhatsAppDeUsuarioNaoConfirmado()
+    {
+        var repo = new Mock<IMensagemNotificacaoRepository>();
+        var usuarios = new Mock<IUsuarioRepository>();
+        usuarios.Setup(r => r.ObterPorIdAsync(7, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Usuario { Id = 7, Telefone = "5579999999999" });
+        var service = new MensagemNotificacaoService(
+            repo.Object, usuarios.Object, Mock.Of<IEstabelecimentoRepository>(), Options.Create(_options));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.RegistrarAsync(new RegistrarMensagemNotificacaoDto
+        {
+            Canal = CanalMensagemNotificacao.WhatsApp,
+            Destinatario = "5579999999999",
+            Conteudo = "Alerta",
+            UsuarioId = 7
+        }));
+
+        repo.Verify(r => r.AdicionarAsync(It.IsAny<MensagemNotificacao>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RegistrarAsync_DevePersistirWhatsAppDeUsuarioConfirmado()
+    {
+        var repo = new Mock<IMensagemNotificacaoRepository>();
+        var usuarios = new Mock<IUsuarioRepository>();
+        usuarios.Setup(r => r.ObterPorIdAsync(7, It.IsAny<CancellationToken>())).ReturnsAsync(new Usuario
+        {
+            Id = 7, Telefone = "5579999999999", WhatsAppConfirmadoEm = DateTime.UtcNow, WhatsAppOptIn = true
+        });
+        var service = new MensagemNotificacaoService(
+            repo.Object, usuarios.Object, Mock.Of<IEstabelecimentoRepository>(), Options.Create(_options));
+
+        await service.RegistrarAsync(new RegistrarMensagemNotificacaoDto
+        {
+            Canal = CanalMensagemNotificacao.WhatsApp,
+            Destinatario = "5579999999999",
+            Conteudo = "Alerta",
+            UsuarioId = 7
+        });
+
+        repo.Verify(r => r.AdicionarAsync(It.IsAny<MensagemNotificacao>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -89,5 +134,5 @@ public class MensagemNotificacaoServiceTests
     }
 
     private MensagemNotificacaoService CreateService(IMensagemNotificacaoRepository repository) =>
-        new(repository, Options.Create(_options));
+        new(repository, Mock.Of<IUsuarioRepository>(), Mock.Of<IEstabelecimentoRepository>(), Options.Create(_options));
 }

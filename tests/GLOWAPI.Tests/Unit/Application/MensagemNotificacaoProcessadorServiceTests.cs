@@ -57,6 +57,8 @@ public class MensagemNotificacaoProcessadorServiceTests
         var service = new MensagemNotificacaoProcessadorService(
             repo.Object,
             resolver,
+            Mock.Of<IUsuarioRepository>(),
+            Mock.Of<IEstabelecimentoRepository>(),
             Options.Create(new MensageriaOptions { TamanhoLote = 10 }),
             NullLogger<MensagemNotificacaoProcessadorService>.Instance);
 
@@ -64,5 +66,33 @@ public class MensagemNotificacaoProcessadorServiceTests
 
         Assert.Equal(2, processadas);
         repo.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessarLoteAsync_DeveCancelarWhatsApp_QuandoConfirmacaoFoiRevogadaAposEnfileirar()
+    {
+        var mensagem = new MensagemNotificacao
+        {
+            Id = 3, Canal = CanalMensagemNotificacao.WhatsApp, Destinatario = "5579999999999",
+            Conteudo = "alerta", Status = StatusMensagemNotificacao.Processando, UsuarioId = 7
+        };
+        var repo = new Mock<IMensagemNotificacaoRepository>();
+        repo.Setup(r => r.ReservarLoteAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([mensagem]);
+        var usuarios = new Mock<IUsuarioRepository>();
+        usuarios.Setup(r => r.ObterPorIdAsync(7, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Usuario { Id = 7, Telefone = "5579999999999", WhatsAppConfirmadoEm = null });
+        var provedor = new Mock<IProvedorMensagem>();
+        provedor.Setup(p => p.CanalSuportado).Returns(CanalMensagemNotificacao.WhatsApp);
+
+        var service = new MensagemNotificacaoProcessadorService(
+            repo.Object, new ProvedorMensagemResolver([provedor.Object]), usuarios.Object,
+            Mock.Of<IEstabelecimentoRepository>(), Options.Create(new MensageriaOptions { TamanhoLote = 10 }),
+            NullLogger<MensagemNotificacaoProcessadorService>.Instance);
+
+        await service.ProcessarLoteAsync("worker-test");
+
+        Assert.Equal(StatusMensagemNotificacao.Cancelado, mensagem.Status);
+        provedor.Verify(p => p.EnviarAsync(It.IsAny<MensagemNotificacao>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }

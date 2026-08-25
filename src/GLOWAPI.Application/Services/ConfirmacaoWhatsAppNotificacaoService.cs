@@ -181,6 +181,7 @@ public class ConfirmacaoWhatsAppNotificacaoService : IConfirmacaoWhatsAppNotific
             Assunto = assunto,
             Conteudo = conteudo,
             EstabelecimentoId = estabelecimentoId,
+            EhVerificacaoWhatsApp = true,
             Prioridade = prioridade
         }, cancellationToken);
 

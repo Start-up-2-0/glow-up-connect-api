@@ -26,7 +26,8 @@ public class ConfirmacaoWhatsAppServiceTests
         ConfirmacaoCodigoDigitos = 6
     };
 
-    private const string TokenConfirmacao = "NTUxMTk4ODg4Nzc3Nw==";
+    private static readonly string TokenConfirmacao = ConfirmacaoWhatsAppTokenHelper.Gerar(
+        1, ConfirmacaoWhatsAppTokenHelper.TipoConta, "11988887777");
 
     public ConfirmacaoWhatsAppServiceTests()
     {
@@ -66,7 +67,7 @@ public class ConfirmacaoWhatsAppServiceTests
 
         Assert.Equal("5511999999999", instrucoes.NumeroPlataforma);
         Assert.Equal(TokenConfirmacao, instrucoes.TokenConfirmacao);
-        Assert.Contains("/c/NTUxMTk4ODg4Nzc3Nw==", instrucoes.LinkConfirmacao);
+        Assert.Contains($"/c/{TokenConfirmacao}", instrucoes.LinkConfirmacao);
         Assert.Contains("wa.me/5511999999999", instrucoes.LinkWhatsApp);
         Assert.Contains(Uri.EscapeDataString(TokenConfirmacao), instrucoes.LinkWhatsApp);
         Assert.True(instrucoes.WhatsAppEnviado);
@@ -84,7 +85,7 @@ public class ConfirmacaoWhatsAppServiceTests
     {
         var usuario = CriarUsuarioPendenteWhatsApp();
         _usuarioRepository
-            .Setup(r => r.ObterPorTelefoneNormalizadoAsync("5511988887777", It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(usuario);
 
         var service = CreateService();
@@ -99,7 +100,7 @@ public class ConfirmacaoWhatsAppServiceTests
     [Fact]
     public async Task TentarConfirmarPorMensagemInboundAsync_DeveConfirmarPorToken_QuandoTelefoneRemetenteVazio()
     {
-        const string token = "NTU3OTk5ODc1NTExMQ==";
+        var token = ConfirmacaoWhatsAppTokenHelper.Gerar(9, ConfirmacaoWhatsAppTokenHelper.TipoConta, "79998755111");
         var usuario = new Usuario
         {
             Id = 9,
@@ -112,7 +113,7 @@ public class ConfirmacaoWhatsAppServiceTests
         };
 
         _usuarioRepository
-            .Setup(r => r.ObterPorWhatsAppConfirmacaoTokenHashAsync($"hash-{token}", It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterPorIdAsync(9, It.IsAny<CancellationToken>()))
             .ReturnsAsync(usuario);
 
         var service = CreateService();
@@ -160,7 +161,7 @@ public class ConfirmacaoWhatsAppServiceTests
     {
         var usuario = CriarUsuarioPendenteWhatsApp();
         _usuarioRepository
-            .Setup(r => r.ObterPorTelefoneNormalizadoAsync("5511988887777", It.IsAny<CancellationToken>()))
+            .Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(usuario);
 
         var service = CreateService();
@@ -169,6 +170,19 @@ public class ConfirmacaoWhatsAppServiceTests
         Assert.NotNull(destino);
         Assert.Equal("5511988887777", destino!.Telefone);
         Assert.Equal("Maria", destino.Nome);
+    }
+
+    [Fact]
+    public async Task TentarConfirmarPorMensagemInboundAsync_DeveRecusar_QuandoTelefoneMudou()
+    {
+        var usuario = CriarUsuarioPendenteWhatsApp();
+        usuario.Telefone = "11977776666";
+        _usuarioRepository.Setup(r => r.ObterPorIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(usuario);
+
+        var resultado = await CreateService().TentarConfirmarPorMensagemInboundAsync("5511988887777", TokenConfirmacao);
+
+        Assert.False(resultado.Confirmado);
+        Assert.Null(usuario.WhatsAppConfirmadoEm);
     }
 
     [Fact]

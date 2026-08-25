@@ -47,7 +47,10 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
             throw new ConfirmacaoWhatsAppInvalidaException();
         }
 
-        var tokenConfirmacao = TelefoneHelper.GerarTokenConfirmacao(estabelecimento.Telefone);
+        var tipo = estabelecimento.CategoriaEstabelecimento?.TipoAssinatura == TipoAssinatura.ProfissionalAutonomo
+            ? ConfirmacaoWhatsAppTokenHelper.TipoProfissionalAutonomo
+            : ConfirmacaoWhatsAppTokenHelper.TipoEstabelecimento;
+        var tokenConfirmacao = ConfirmacaoWhatsAppTokenHelper.Gerar(estabelecimento.Id, tipo, estabelecimento.Telefone);
 
         estabelecimento.WhatsAppConfirmacaoTokenHash = _tokenService.HashToken(tokenConfirmacao);
         estabelecimento.WhatsAppConfirmacaoCodigoHash = null;
@@ -61,6 +64,7 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
             _whatsAppOptions,
             _authOptions,
             estabelecimento.Telefone,
+            tokenConfirmacao,
             whatsAppEnviado: false,
             emailEnviado: false);
 
@@ -89,19 +93,6 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
         if (string.IsNullOrWhiteSpace(estabelecimento.Telefone)
             || estabelecimento.WhatsAppConfirmadoEm.HasValue)
         {
-            return;
-        }
-
-        if (usuario is not null
-            && usuario.WhatsAppConfirmadoEm.HasValue
-            && TelefoneHelper.SaoEquivalentes(estabelecimento.Telefone, usuario.Telefone))
-        {
-            estabelecimento.WhatsAppConfirmadoEm = usuario.WhatsAppConfirmadoEm;
-            estabelecimento.WhatsAppOptIn = usuario.WhatsAppOptIn;
-            estabelecimento.LimparConfirmacaoWhatsApp();
-            estabelecimento.UpdatedAt = DateTime.UtcNow;
-            _estabelecimentoRepository.Atualizar(estabelecimento);
-            await _estabelecimentoRepository.SalvarAlteracoesAsync(cancellationToken);
             return;
         }
 
@@ -142,6 +133,11 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
         if (estabelecimentoPorToken is not null)
         {
             return await ProcessarConfirmacaoInboundDoEstabelecimentoAsync(estabelecimentoPorToken, cancellationToken);
+        }
+
+        if (ConfirmacaoWhatsAppTokenHelper.PareceTentativaConfirmacaoPorToken(textoMensagem))
+        {
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.EntidadeNaoEncontrada);
         }
 
         if (!ConfirmacaoWhatsAppTokenHelper.MensagemContemTokenConfirmacao(textoMensagem, telefoneRemetente))
@@ -188,6 +184,8 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
                 EstabelecimentoId: estabelecimentoPorToken.Id);
         }
 
+        if (ConfirmacaoWhatsAppTokenHelper.PareceTentativaConfirmacaoPorToken(textoMensagem)) return null;
+
         if (!ConfirmacaoWhatsAppTokenHelper.MensagemContemTokenConfirmacao(textoMensagem, telefoneRemetente))
         {
             return null;
@@ -231,6 +229,7 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
             Assunto = "Confirmacao WhatsApp comercial Glow Up Connect",
             Conteudo = conteudo,
             EstabelecimentoId = estabelecimentoId,
+            EhVerificacaoWhatsApp = true,
             Prioridade = 2
         }, cancellationToken);
 
@@ -372,22 +371,22 @@ public class ConfirmacaoWhatsAppEstabelecimentoService : IConfirmacaoWhatsAppEst
     {
         foreach (var token in ConfirmacaoWhatsAppTokenHelper.ExtrairTokensCandidatos(textoMensagem))
         {
-            if (!ConfirmacaoWhatsAppTokenHelper.TokenPareceTelefoneBrasileiro(token))
+            if (!ConfirmacaoWhatsAppTokenHelper.TentarDecodificar(token, out var payload)
+                || payload!.Type is not (ConfirmacaoWhatsAppTokenHelper.TipoEstabelecimento
+                    or ConfirmacaoWhatsAppTokenHelper.TipoProfissionalAutonomo))
             {
                 continue;
             }
 
             var hash = _tokenService.HashToken(token);
-            var estabelecimento = await _estabelecimentoRepository.ObterPorWhatsAppConfirmacaoTokenHashAsync(
-                hash,
-                cancellationToken);
+            var estabelecimento = await _estabelecimentoRepository.ObterPorIdAsync(payload.Id, cancellationToken);
 
-            if (estabelecimento is null)
+            if (estabelecimento is null || estabelecimento.WhatsAppConfirmacaoTokenHash != hash)
             {
                 continue;
             }
 
-            if (!TelefoneHelper.TokenCorrespondeTelefone(token, estabelecimento.Telefone))
+            if (!TelefoneHelper.SaoEquivalentes(payload.Phone, estabelecimento.Telefone))
             {
                 continue;
             }

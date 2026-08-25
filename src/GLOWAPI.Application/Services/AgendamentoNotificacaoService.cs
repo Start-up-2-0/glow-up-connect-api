@@ -291,14 +291,14 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             return;
         }
 
-        var destinatarios = new List<(string Telefone, int EstabelecimentoId)>();
+        var destinatarios = new List<(string Telefone, int? EstabelecimentoId, int? UsuarioId)>();
 
         if (estabelecimento.PodeReceberAlertasWhatsApp())
         {
             var telefoneEstabelecimento = TelefoneHelper.NormalizarParaWhatsApp(estabelecimento.Telefone);
             if (!string.IsNullOrWhiteSpace(telefoneEstabelecimento))
             {
-                destinatarios.Add((telefoneEstabelecimento, estabelecimento.Id));
+                destinatarios.Add((telefoneEstabelecimento, estabelecimento.Id, null));
             }
         }
 
@@ -308,11 +308,11 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             var telefoneProfissional = TelefoneHelper.NormalizarParaWhatsApp(usuarioProfissional.Telefone);
             if (!string.IsNullOrWhiteSpace(telefoneProfissional))
             {
-                destinatarios.Add((telefoneProfissional, estabelecimento.Id));
+                destinatarios.Add((telefoneProfissional, null, usuarioProfissional.Id));
             }
         }
 
-        foreach (var (destinatario, estabelecimentoId) in destinatarios.Distinct())
+        foreach (var (destinatario, estabelecimentoId, usuarioId) in destinatarios.Distinct())
         {
             await _mensagemNotificacaoService.RegistrarAsync(new RegistrarMensagemNotificacaoDto
             {
@@ -321,6 +321,7 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
                 Assunto = assunto,
                 Conteudo = conteudo,
                 EstabelecimentoId = estabelecimentoId,
+                UsuarioId = usuarioId,
                 Prioridade = 1,
                 PayloadJson = payloadJson
             }, cancellationToken);
@@ -407,6 +408,7 @@ public class AgendamentoNotificacaoService : IAgendamentoNotificacaoService
             Assunto = assunto,
             Conteudo = conteudoWhatsApp,
             EstabelecimentoId = estabelecimento.Id,
+            UsuarioId = usuarioCliente?.Id,
             Prioridade = 1,
             PayloadJson = JsonSerializer.Serialize(new
             {

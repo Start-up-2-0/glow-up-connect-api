@@ -4,7 +4,8 @@ namespace GLOWAPI.Tests.Unit.Application;
 
 public class ConfirmacaoWhatsAppTokenHelperTests
 {
-    private const string TokenUsuario = "NTU3OTk5ODc1NTExMQ==";
+    private static readonly string TokenUsuario = ConfirmacaoWhatsAppTokenHelper.Gerar(
+        9, ConfirmacaoWhatsAppTokenHelper.TipoConta, "5579998755111");
 
     [Fact]
     public void ExtrairTokensCandidatos_DeveExtrairTokenBase64DaMensagem()
@@ -28,5 +29,14 @@ public class ConfirmacaoWhatsAppTokenHelperTests
     {
         Assert.True(ConfirmacaoWhatsAppTokenHelper.TokenPareceTelefoneBrasileiro(TokenUsuario));
         Assert.False(ConfirmacaoWhatsAppTokenHelper.TokenPareceTelefoneBrasileiro("abc"));
+    }
+
+    [Fact]
+    public void TentarDecodificar_DeveConterIdTipoETelefone()
+    {
+        Assert.True(ConfirmacaoWhatsAppTokenHelper.TentarDecodificar(TokenUsuario, out var payload));
+        Assert.Equal(9, payload!.Id);
+        Assert.Equal("account", payload.Type);
+        Assert.Equal("5579998755111", payload.Phone);
     }
 }

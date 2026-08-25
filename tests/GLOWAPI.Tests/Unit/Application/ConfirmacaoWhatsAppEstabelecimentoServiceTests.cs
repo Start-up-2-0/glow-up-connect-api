@@ -78,7 +78,7 @@ public class ConfirmacaoWhatsAppEstabelecimentoServiceTests
     }
 
     [Fact]
-    public async Task IniciarAposCriacaoAsync_DeveCopiarConfirmacao_QuandoTelefoneCoincideComUsuario()
+    public async Task IniciarAposCriacaoAsync_DeveConfirmarEstabelecimentoSeparadamente_QuandoTelefoneCoincideComUsuario()
     {
         var confirmadoEm = DateTime.UtcNow.AddMinutes(-10);
         var estabelecimento = new Estabelecimento
@@ -97,14 +97,18 @@ public class ConfirmacaoWhatsAppEstabelecimentoServiceTests
             WhatsAppOptIn = true
         };
 
+        var mensagens = new List<RegistrarMensagemNotificacaoDto>();
+        _mensagemService
+            .Setup(m => m.RegistrarAsync(It.IsAny<RegistrarMensagemNotificacaoDto>(), It.IsAny<CancellationToken>()))
+            .Callback<RegistrarMensagemNotificacaoDto, CancellationToken>((dto, _) => mensagens.Add(dto));
+
         var service = CreateService();
         await service.IniciarAposCriacaoAsync(estabelecimento, usuario);
 
-        Assert.Equal(confirmadoEm, estabelecimento.WhatsAppConfirmadoEm);
-        Assert.True(estabelecimento.WhatsAppOptIn);
-        _mensagemService.Verify(
-            m => m.RegistrarAsync(It.IsAny<RegistrarMensagemNotificacaoDto>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        Assert.Null(estabelecimento.WhatsAppConfirmadoEm);
+        Assert.False(estabelecimento.WhatsAppOptIn);
+        Assert.Contains(mensagens, dto => dto.Canal == CanalMensagemNotificacao.WhatsApp);
+        Assert.Contains(mensagens, dto => dto.Canal == CanalMensagemNotificacao.Email);
         _estabelecimentoRepository.Verify(r => r.SalvarAlteracoesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
