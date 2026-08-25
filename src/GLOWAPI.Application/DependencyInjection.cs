@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IOnboardingPublicacaoService, OnboardingPublicacaoService>();
         services.AddScoped<IAssinaturaHistoricoService, AssinaturaHistoricoService>();
         services.AddScoped<IEstabelecimentoPerfilService, EstabelecimentoPerfilService>();
+        services.AddScoped<IComodidadePerfilService, ComodidadePerfilService>();
         services.AddScoped<IProfissionalAutonomoPerfilService, ProfissionalAutonomoPerfilService>();
         services.AddScoped<IModulosAssinaturaService, ModulosAssinaturaService>();
         services.AddScoped<IMatrizPermissaoNegocioService, MatrizPermissaoNegocioService>();

@@ -42,6 +42,7 @@ public class EstabelecimentosController : ControllerBase
     private readonly IAvaliacaoResumoService _avaliacaoResumoService;
     private readonly IMetaNegocioService _metaNegocioService;
     private readonly IDashboardNegocioService _dashboardNegocioService;
+    private readonly IComodidadePerfilService _comodidadePerfilService;
 
     public EstabelecimentosController(
         IEstabelecimentoPerfilService estabelecimentoPerfilService,
@@ -63,7 +64,8 @@ public class EstabelecimentosController : ControllerBase
         IAuditoriaConsultaNegocioService auditoriaConsultaNegocioService,
         IAvaliacaoResumoService avaliacaoResumoService,
         IMetaNegocioService metaNegocioService,
-        IDashboardNegocioService dashboardNegocioService)
+        IDashboardNegocioService dashboardNegocioService,
+        IComodidadePerfilService comodidadePerfilService)
     {
         _estabelecimentoPerfilService = estabelecimentoPerfilService;
         _equipeNegocioService = equipeNegocioService;
@@ -85,6 +87,33 @@ public class EstabelecimentosController : ControllerBase
         _avaliacaoResumoService = avaliacaoResumoService;
         _metaNegocioService = metaNegocioService;
         _dashboardNegocioService = dashboardNegocioService;
+        _comodidadePerfilService = comodidadePerfilService;
+    }
+
+    [HttpGet("{estabelecimentoId:int}/comodidades")]
+    [RequerPermissaoNegocio(PermissaoNegocio.NegocioVisualizar, "estabelecimentoId")]
+    public async Task<IActionResult> ListarComodidades(int estabelecimentoId, CancellationToken cancellationToken)
+    {
+        var comodidades = await _comodidadePerfilService.ListarPorEstabelecimentoAsync(estabelecimentoId, cancellationToken);
+        return Ok(ApiSuccessResponse<IReadOnlyList<ComodidadeDto>>.From(
+            "Comodidades do estabelecimento listadas com sucesso.",
+            comodidades));
+    }
+
+    [HttpPut("{estabelecimentoId:int}/comodidades")]
+    [RequerPermissaoNegocio(PermissaoNegocio.NegocioEditar, "estabelecimentoId")]
+    public async Task<IActionResult> AtualizarComodidades(
+        int estabelecimentoId,
+        [FromBody] AtualizarComodidadesRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var comodidades = await _comodidadePerfilService.AtualizarEstabelecimentoAsync(
+            estabelecimentoId,
+            request.ComodidadeIds,
+            cancellationToken);
+        return Ok(ApiSuccessResponse<IReadOnlyList<ComodidadeDto>>.From(
+            "Comodidades do estabelecimento atualizadas com sucesso.",
+            comodidades));
     }
 
     [HttpGet("{estabelecimentoId:int}/perfil")]

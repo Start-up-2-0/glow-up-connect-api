@@ -31,6 +31,7 @@ public class Estabelecimento
     public ICollection<HorarioAtendimentoProfissional> HorariosProfissionais { get; set; } = new List<HorarioAtendimentoProfissional>();
     public ICollection<Agendamento> Agendamentos { get; set; } = new List<Agendamento>();
     public ICollection<Assinatura> Assinaturas { get; set; } = new List<Assinatura>();
+    public ICollection<EstabelecimentoComodidade> Comodidades { get; set; } = new List<EstabelecimentoComodidade>();
     public Endereco? Endereco { get; set; }
     public Caixa? Caixa { get; set; }
     public ICollection<Meta> Metas { get; set; } = new List<Meta>();

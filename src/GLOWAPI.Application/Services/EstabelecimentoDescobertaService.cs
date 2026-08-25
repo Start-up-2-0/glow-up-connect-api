@@ -18,17 +18,20 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
     private readonly IHorarioFuncionamentoEstabelecimentoRepository _horarioFuncionamentoRepository;
     private readonly IGeocodificadorService _geocodificadorService;
     private readonly IBase64ImageThumbnailer _thumbnailer;
+    private readonly IComodidadeRepository _comodidadeRepository;
 
     public EstabelecimentoDescobertaService(
         IEstabelecimentoRepository estabelecimentoRepository,
         IHorarioFuncionamentoEstabelecimentoRepository horarioFuncionamentoRepository,
         IGeocodificadorService geocodificadorService,
-        IBase64ImageThumbnailer thumbnailer)
+        IBase64ImageThumbnailer thumbnailer,
+        IComodidadeRepository comodidadeRepository)
     {
         _estabelecimentoRepository = estabelecimentoRepository;
         _horarioFuncionamentoRepository = horarioFuncionamentoRepository;
         _geocodificadorService = geocodificadorService;
         _thumbnailer = thumbnailer;
+        _comodidadeRepository = comodidadeRepository;
     }
 
     public async Task<EstabelecimentosProximosPaginadoResponseDto> ListarProximosAsync(
@@ -149,6 +152,10 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             estabelecimento.Id,
             cancellationToken);
 
+        var comodidades = await _comodidadeRepository.ListarPorEstabelecimentoAsync(
+            estabelecimento.Id,
+            cancellationToken);
+
         return new EstabelecimentoPublicoResponseDto(
             estabelecimento.PublicGuid,
             estabelecimento.Nome,
@@ -163,7 +170,13 @@ public class EstabelecimentoDescobertaService : IEstabelecimentoDescobertaServic
             horarioFechamento,
             estabelecimento.CategoriaEstabelecimentoId,
             estabelecimento.CategoriaEstabelecimento?.Nome,
-            tipoAssinatura.ToString());
+            tipoAssinatura.ToString(),
+            comodidades.Select(item => new ComodidadeDto(
+                item.Id,
+                item.Nome,
+                item.Slug,
+                item.Icone,
+                item.Ordem)).ToList());
     }
 
     private static void ValidarCoordenadas(decimal latitude, decimal longitude)

@@ -41,6 +41,7 @@ public class AssinaturaService : IAssinaturaService
     private readonly IAssinaturaEncerramentoService _assinaturaEncerramentoService;
     private readonly IConfirmacaoWhatsAppEstabelecimentoService _confirmacaoWhatsAppEstabelecimentoService;
     private readonly MercadoPagoOptions _mercadoPagoOptions;
+    private readonly IComodidadeRepository _comodidadeRepository;
 
     public AssinaturaService(
         IAssinaturaRepository assinaturaRepository,
@@ -65,6 +66,7 @@ public class AssinaturaService : IAssinaturaService
         IAssinaturaVisibilidadeService assinaturaVisibilidadeService,
         IAssinaturaEncerramentoService assinaturaEncerramentoService,
         IConfirmacaoWhatsAppEstabelecimentoService confirmacaoWhatsAppEstabelecimentoService,
+        IComodidadeRepository comodidadeRepository,
         IOptions<MercadoPagoOptions> mercadoPagoOptions)
     {
         _assinaturaRepository = assinaturaRepository;
@@ -89,6 +91,7 @@ public class AssinaturaService : IAssinaturaService
         _assinaturaVisibilidadeService = assinaturaVisibilidadeService;
         _assinaturaEncerramentoService = assinaturaEncerramentoService;
         _confirmacaoWhatsAppEstabelecimentoService = confirmacaoWhatsAppEstabelecimentoService;
+        _comodidadeRepository = comodidadeRepository;
         _mercadoPagoOptions = mercadoPagoOptions.Value;
     }
 
@@ -104,6 +107,7 @@ public class AssinaturaService : IAssinaturaService
         }
 
         ValidarTitular(request);
+        await ValidarComodidadesOnboardingAsync(request, cancellationToken);
 
         var elegivelTrial = await ElegivelPromocaoTrialAsync(request, userId, cancellationToken);
         var onboardingPendente = DeveAdiarOnboarding(request, elegivelTrial);
@@ -1005,6 +1009,36 @@ public class AssinaturaService : IAssinaturaService
         }
     }
 
+    private async Task ValidarComodidadesOnboardingAsync(
+        IniciarAssinaturaRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var ids = request.Estabelecimento?.ComodidadeIds
+            ?? request.ProfissionalAutonomo?.ComodidadeIds
+            ?? Array.Empty<int>();
+
+        if (ids.Count != ids.Distinct().Count())
+        {
+            throw CriarExcecaoComodidade(request.TipoAssinatura, "A lista de comodidades possui itens duplicados.");
+        }
+
+        var idsAtivos = (await _comodidadeRepository.ListarAtivasAsync(cancellationToken))
+            .Select(comodidade => comodidade.Id)
+            .ToHashSet();
+        if (ids.Any(id => !idsAtivos.Contains(id)))
+        {
+            throw CriarExcecaoComodidade(request.TipoAssinatura, "Uma ou mais comodidades sao invalidas ou estao inativas.");
+        }
+    }
+
+    private static Exception CriarExcecaoComodidade(TipoAssinatura tipoAssinatura, string mensagem) =>
+        tipoAssinatura == TipoAssinatura.ProfissionalAutonomo
+            ? new ProfissionalAutonomoAssinaturaInvalidoException(mensagem)
+            : new EstabelecimentoAssinaturaInvalidoException(mensagem);
+
+    private static ICollection<EstabelecimentoComodidade> CriarVinculosComodidades(IEnumerable<int> ids) =>
+        ids.Select(id => new EstabelecimentoComodidade { ComodidadeId = id }).ToList();
+
     private Estabelecimento CriarEstabelecimento(CriarEstabelecimentoAssinaturaDto dto)
     {
         static Exception CriarExcecao(string mensagem) => new EstabelecimentoAssinaturaInvalidoException(mensagem);
@@ -1035,7 +1069,8 @@ public class AssinaturaService : IAssinaturaService
             Ativo = true,
             VisivelPublicamente = false,
             Endereco = OperacaoPerfilValidation.CriarEndereco(dto.Endereco, CriarExcecao),
-            Caixa = new Caixa()
+            Caixa = new Caixa(),
+            Comodidades = CriarVinculosComodidades(dto.ComodidadeIds)
         };
     }
 
@@ -1063,7 +1098,8 @@ public class AssinaturaService : IAssinaturaService
             Endereco = OperacaoPerfilValidation.CriarEndereco(
                 dto.Endereco,
                 mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem)),
-            Caixa = new Caixa()
+            Caixa = new Caixa(),
+            Comodidades = CriarVinculosComodidades(dto.ComodidadeIds)
         };
     }
 
@@ -1119,6 +1155,13 @@ public class AssinaturaService : IAssinaturaService
             mensagem => new ProfissionalAutonomoAssinaturaInvalidoException(mensagem));
 
         estabelecimento.Caixa ??= new Caixa();
+        if (estabelecimento.Id > 0)
+        {
+            await _comodidadeRepository.SubstituirDoEstabelecimentoAsync(
+                estabelecimento.Id,
+                dto.ComodidadeIds,
+                cancellationToken);
+        }
     }
 
     private Profissional CriarProfissionalAutonomo(

@@ -16,4 +16,5 @@ public class CriarProfissionalAutonomoAssinaturaDto
     public int? CategoriaEstabelecimentoId { get; set; }
 
     public EnderecoOperacaoDto Endereco { get; set; } = new();
+    public IReadOnlyList<int> ComodidadeIds { get; set; } = Array.Empty<int>();
 }

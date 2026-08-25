@@ -11,6 +11,7 @@ namespace GLOWAPI.Tests.Unit.Application;
 
 public class EstabelecimentoDescobertaServiceTests
 {
+    private readonly Mock<IComodidadeRepository> _comodidadeRepository = new();
     private readonly Mock<IEstabelecimentoRepository> _estabelecimentoRepository = new();
     private readonly Mock<IHorarioFuncionamentoEstabelecimentoRepository> _horarioFuncionamentoRepository = new();
     private readonly Mock<IGeocodificadorService> _geocodificadorService = new();
@@ -148,6 +149,7 @@ public class EstabelecimentoDescobertaServiceTests
             _estabelecimentoRepository.Object,
             _horarioFuncionamentoRepository.Object,
             _geocodificadorService.Object,
-            _thumbnailer.Object);
+            _thumbnailer.Object,
+            _comodidadeRepository.Object);
     }
 }
