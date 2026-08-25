@@ -7,6 +7,8 @@ public class MensagemNotificacao
     public int Id { get; set; }
     public Guid Guid { get; set; } = Guid.NewGuid();
     public int? EstabelecimentoId { get; set; }
+    public int? UsuarioId { get; set; }
+    public bool EhVerificacaoWhatsApp { get; set; }
     public CanalMensagemNotificacao Canal { get; set; }
     public string Destinatario { get; set; } = string.Empty;
     public string Assunto { get; set; } = string.Empty;
@@ -90,6 +92,15 @@ public class MensagemNotificacao
         }
 
         Status = StatusMensagemNotificacao.Cancelado;
+        InstanciaWorker = null;
+        ProcessamentoIniciadoEm = null;
+        AtualizadoEm = utcNow;
+    }
+
+    public void CancelarPorWhatsAppNaoConfirmado(DateTime utcNow)
+    {
+        Status = StatusMensagemNotificacao.Cancelado;
+        MensagemErro = "WhatsApp nao confirmado no momento do envio.";
         InstanciaWorker = null;
         ProcessamentoIniciadoEm = null;
         AtualizadoEm = utcNow;

@@ -22,6 +22,11 @@ public class RegistrarMensagemNotificacaoDto
 
     public int? EstabelecimentoId { get; set; }
 
+    public int? UsuarioId { get; set; }
+
+    /// <summary>Excecao restrita a mensagens do proprio fluxo de verificacao do numero.</summary>
+    public bool EhVerificacaoWhatsApp { get; set; }
+
     public int Prioridade { get; set; }
 
     public DateTime? AgendadoPara { get; set; }

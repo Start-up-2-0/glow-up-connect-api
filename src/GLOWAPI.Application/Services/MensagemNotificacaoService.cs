@@ -12,13 +12,19 @@ namespace GLOWAPI.Application.Services;
 public class MensagemNotificacaoService : IMensagemNotificacaoService
 {
     private readonly IMensagemNotificacaoRepository _repository;
+    private readonly IUsuarioRepository _usuarioRepository;
+    private readonly IEstabelecimentoRepository _estabelecimentoRepository;
     private readonly MensageriaOptions _options;
 
     public MensagemNotificacaoService(
         IMensagemNotificacaoRepository repository,
+        IUsuarioRepository usuarioRepository,
+        IEstabelecimentoRepository estabelecimentoRepository,
         IOptions<MensageriaOptions> options)
     {
         _repository = repository;
+        _usuarioRepository = usuarioRepository;
+        _estabelecimentoRepository = estabelecimentoRepository;
         _options = options.Value;
     }
 
@@ -26,12 +32,15 @@ public class MensagemNotificacaoService : IMensagemNotificacaoService
         RegistrarMensagemNotificacaoDto dto,
         CancellationToken cancellationToken = default)
     {
+        await ValidarWhatsAppAsync(dto, cancellationToken);
         var utcNow = DateTime.UtcNow;
 
         var mensagem = new MensagemNotificacao
         {
             Guid = Guid.NewGuid(),
             EstabelecimentoId = dto.EstabelecimentoId,
+            UsuarioId = dto.UsuarioId,
+            EhVerificacaoWhatsApp = dto.EhVerificacaoWhatsApp,
             Canal = dto.Canal,
             Destinatario = dto.Destinatario.Trim(),
             Assunto = dto.Assunto?.Trim() ?? string.Empty,
@@ -56,12 +65,15 @@ public class MensagemNotificacaoService : IMensagemNotificacaoService
         string provedor,
         CancellationToken cancellationToken = default)
     {
+        await ValidarWhatsAppAsync(dto, cancellationToken);
         var utcNow = DateTime.UtcNow;
 
         var mensagem = new MensagemNotificacao
         {
             Guid = Guid.NewGuid(),
             EstabelecimentoId = dto.EstabelecimentoId,
+            UsuarioId = dto.UsuarioId,
+            EhVerificacaoWhatsApp = dto.EhVerificacaoWhatsApp,
             Canal = dto.Canal,
             Destinatario = dto.Destinatario.Trim(),
             Assunto = dto.Assunto?.Trim() ?? string.Empty,
@@ -103,5 +115,25 @@ public class MensagemNotificacaoService : IMensagemNotificacaoService
         mensagem.Cancelar(DateTime.UtcNow);
         _repository.Atualizar(mensagem);
         await _repository.SalvarAlteracoesAsync(cancellationToken);
+    }
+
+    private async Task ValidarWhatsAppAsync(RegistrarMensagemNotificacaoDto dto, CancellationToken cancellationToken)
+    {
+        if (dto.Canal != CanalMensagemNotificacao.WhatsApp || dto.EhVerificacaoWhatsApp) return;
+
+        if (dto.UsuarioId.HasValue)
+        {
+            var usuario = await _usuarioRepository.ObterPorIdAsync(dto.UsuarioId.Value, cancellationToken);
+            if (usuario?.PodeReceberAlertasWhatsApp() == true
+                && Helpers.TelefoneHelper.SaoEquivalentes(usuario.Telefone, dto.Destinatario)) return;
+        }
+        else if (dto.EstabelecimentoId.HasValue)
+        {
+            var estabelecimento = await _estabelecimentoRepository.ObterPorIdAsync(dto.EstabelecimentoId.Value, cancellationToken);
+            if (estabelecimento?.PodeReceberAlertasWhatsApp() == true
+                && Helpers.TelefoneHelper.SaoEquivalentes(estabelecimento.Telefone, dto.Destinatario)) return;
+        }
+
+        throw new InvalidOperationException("WhatsApp nao confirmado ou destinatario sem entidade identificada.");
     }
 }

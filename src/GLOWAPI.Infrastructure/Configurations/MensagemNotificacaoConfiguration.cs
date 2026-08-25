@@ -66,6 +66,7 @@ public class MensagemNotificacaoConfiguration : IEntityTypeConfiguration<Mensage
 
         builder.HasIndex(m => m.Canal);
         builder.HasIndex(m => m.EstabelecimentoId);
+        builder.HasIndex(m => m.UsuarioId);
         builder.HasIndex(m => new { m.Status, m.AgendadoPara, m.Prioridade, m.CriadoEm });
         builder.HasIndex(m => new { m.Status, m.ProcessamentoIniciadoEm });
     }

@@ -14,17 +14,23 @@ public class MensagemNotificacaoProcessadorService : IMensagemNotificacaoProcess
 {
     private readonly IMensagemNotificacaoRepository _repository;
     private readonly IProvedorMensagemResolver _provedorResolver;
+    private readonly IUsuarioRepository _usuarioRepository;
+    private readonly IEstabelecimentoRepository _estabelecimentoRepository;
     private readonly MensageriaOptions _options;
     private readonly ILogger<MensagemNotificacaoProcessadorService> _logger;
 
     public MensagemNotificacaoProcessadorService(
         IMensagemNotificacaoRepository repository,
         IProvedorMensagemResolver provedorResolver,
+        IUsuarioRepository usuarioRepository,
+        IEstabelecimentoRepository estabelecimentoRepository,
         IOptions<MensageriaOptions> options,
         ILogger<MensagemNotificacaoProcessadorService> logger)
     {
         _repository = repository;
         _provedorResolver = provedorResolver;
+        _usuarioRepository = usuarioRepository;
+        _estabelecimentoRepository = estabelecimentoRepository;
         _options = options.Value;
         _logger = logger;
     }
@@ -81,6 +87,13 @@ public class MensagemNotificacaoProcessadorService : IMensagemNotificacaoProcess
         DateTime utcNow,
         CancellationToken cancellationToken)
     {
+        if (!await WhatsAppAindaAutorizadoAsync(mensagem, cancellationToken))
+        {
+            mensagem.CancelarPorWhatsAppNaoConfirmado(DateTime.UtcNow);
+            _repository.Atualizar(mensagem);
+            return;
+        }
+
         var provedor = _provedorResolver.Resolver(mensagem);
         var tentativa = mensagem.Tentativas + 1;
 
@@ -146,5 +159,28 @@ public class MensagemNotificacaoProcessadorService : IMensagemNotificacaoProcess
         }
 
         _repository.Atualizar(mensagem);
+    }
+
+    private async Task<bool> WhatsAppAindaAutorizadoAsync(
+        MensagemNotificacao mensagem,
+        CancellationToken cancellationToken)
+    {
+        if (mensagem.Canal != CanalMensagemNotificacao.WhatsApp || mensagem.EhVerificacaoWhatsApp) return true;
+
+        if (mensagem.UsuarioId.HasValue)
+        {
+            var usuario = await _usuarioRepository.ObterPorIdAsync(mensagem.UsuarioId.Value, cancellationToken);
+            return usuario?.PodeReceberAlertasWhatsApp() == true
+                && Helpers.TelefoneHelper.SaoEquivalentes(usuario.Telefone, mensagem.Destinatario);
+        }
+
+        if (mensagem.EstabelecimentoId.HasValue)
+        {
+            var estabelecimento = await _estabelecimentoRepository.ObterPorIdAsync(mensagem.EstabelecimentoId.Value, cancellationToken);
+            return estabelecimento?.PodeReceberAlertasWhatsApp() == true
+                && Helpers.TelefoneHelper.SaoEquivalentes(estabelecimento.Telefone, mensagem.Destinatario);
+        }
+
+        return false;
     }
 }

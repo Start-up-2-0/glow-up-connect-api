@@ -10,12 +10,17 @@ public static class ConfirmacaoWhatsAppInstrucoesBuilder
         MensageriaWhatsAppOptions whatsAppOptions,
         AuthOptions authOptions,
         string telefone,
+        string tokenConfirmacao,
         bool whatsAppEnviado,
         bool emailEnviado)
     {
         var numeroPlataforma = ObterNumeroPlataformaExibicao(whatsAppOptions);
-        var tokenConfirmacao = TelefoneHelper.GerarTokenConfirmacao(telefone);
         var linkConfirmacao = TelefoneHelper.CriarLinkConfirmacao(authOptions.FrontendBaseUrl, tokenConfirmacao);
+        var numeroPlataformaNormalizado = TelefoneHelper.NormalizarParaWhatsApp(whatsAppOptions.NumeroPlataforma);
+        if (!string.IsNullOrWhiteSpace(linkConfirmacao) && !string.IsNullOrWhiteSpace(numeroPlataformaNormalizado))
+        {
+            linkConfirmacao = $"{linkConfirmacao}?numero={Uri.EscapeDataString(numeroPlataformaNormalizado)}";
+        }
         var linkWhatsApp = TelefoneHelper.CriarLinkWaMe(numeroPlataforma, tokenConfirmacao);
 
         return new WhatsAppConfirmacaoInstrucoesDto

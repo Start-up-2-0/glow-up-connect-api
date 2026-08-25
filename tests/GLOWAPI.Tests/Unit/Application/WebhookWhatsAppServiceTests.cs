@@ -1,4 +1,5 @@
 using System.Text.Json;
+using GLOWAPI.Application.Helpers;
 using GLOWAPI.Application.Interfaces.Services;
 using GLOWAPI.Application.Models.Mensageria;
 using GLOWAPI.Application.Options;
@@ -86,7 +87,8 @@ public class WebhookWhatsAppServiceTests
     [Fact]
     public async Task ProcessarMensagemRecebidaAsync_DeveDelegar_QuandoMensagemContemTokenBase64()
     {
-        const string token = "NTU3OTk5ODc1NTExMQ==";
+        var token = ConfirmacaoWhatsAppTokenHelper.Gerar(
+            9, ConfirmacaoWhatsAppTokenHelper.TipoConta, "5579998755111");
 
         var service = CreateService();
         var payload = JsonDocument.Parse($$"""

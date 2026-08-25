@@ -47,7 +47,8 @@ public class ConfirmacaoWhatsAppService : IConfirmacaoWhatsAppService
             throw new ConfirmacaoWhatsAppInvalidaException();
         }
 
-        var tokenConfirmacao = TelefoneHelper.GerarTokenConfirmacao(usuario.Telefone);
+        var tokenConfirmacao = ConfirmacaoWhatsAppTokenHelper.Gerar(
+            usuario.Id, ConfirmacaoWhatsAppTokenHelper.TipoConta, usuario.Telefone);
 
         usuario.WhatsAppConfirmacaoTokenHash = _tokenService.HashToken(tokenConfirmacao);
         usuario.WhatsAppConfirmacaoCodigoHash = null;
@@ -61,6 +62,7 @@ public class ConfirmacaoWhatsAppService : IConfirmacaoWhatsAppService
             _whatsAppOptions,
             _authOptions,
             usuario.Telefone,
+            tokenConfirmacao,
             whatsAppEnviado: false,
             emailEnviado: false);
 
@@ -109,6 +111,11 @@ public class ConfirmacaoWhatsAppService : IConfirmacaoWhatsAppService
             return await ProcessarConfirmacaoInboundDoUsuarioAsync(usuarioPorToken, cancellationToken);
         }
 
+        if (ConfirmacaoWhatsAppTokenHelper.PareceTentativaConfirmacaoPorToken(textoMensagem))
+        {
+            return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.EntidadeNaoEncontrada);
+        }
+
         if (!ConfirmacaoWhatsAppTokenHelper.MensagemContemTokenConfirmacao(textoMensagem, telefoneRemetente))
         {
             return WhatsAppConfirmacaoInboundResultado.Ignorado(WhatsAppConfirmacaoInboundMotivoIgnorado.CodigoInvalido);
@@ -152,6 +159,8 @@ public class ConfirmacaoWhatsAppService : IConfirmacaoWhatsAppService
                 usuarioPorToken.Nome,
                 UsuarioId: usuarioPorToken.Id);
         }
+
+        if (ConfirmacaoWhatsAppTokenHelper.PareceTentativaConfirmacaoPorToken(textoMensagem)) return null;
 
         if (!ConfirmacaoWhatsAppTokenHelper.MensagemContemTokenConfirmacao(textoMensagem, telefoneRemetente))
         {
@@ -211,6 +220,7 @@ public class ConfirmacaoWhatsAppService : IConfirmacaoWhatsAppService
             Destinatario = TelefoneHelper.NormalizarParaWhatsApp(telefoneDestino),
             Assunto = "Confirmacao WhatsApp Glow Up Connect",
             Conteudo = conteudo,
+            EhVerificacaoWhatsApp = true,
             Prioridade = 2
         }, cancellationToken);
 
@@ -355,19 +365,20 @@ public class ConfirmacaoWhatsAppService : IConfirmacaoWhatsAppService
     {
         foreach (var token in ConfirmacaoWhatsAppTokenHelper.ExtrairTokensCandidatos(textoMensagem))
         {
-            if (!ConfirmacaoWhatsAppTokenHelper.TokenPareceTelefoneBrasileiro(token))
+            if (!ConfirmacaoWhatsAppTokenHelper.TentarDecodificar(token, out var payload)
+                || payload!.Type != ConfirmacaoWhatsAppTokenHelper.TipoConta)
             {
                 continue;
             }
 
             var hash = _tokenService.HashToken(token);
-            var usuario = await _usuarioRepository.ObterPorWhatsAppConfirmacaoTokenHashAsync(hash, cancellationToken);
-            if (usuario is null)
+            var usuario = await _usuarioRepository.ObterPorIdAsync(payload.Id, cancellationToken);
+            if (usuario is null || usuario.WhatsAppConfirmacaoTokenHash != hash)
             {
                 continue;
             }
 
-            if (!TelefoneHelper.TokenCorrespondeTelefone(token, usuario.Telefone))
+            if (!TelefoneHelper.SaoEquivalentes(payload.Phone, usuario.Telefone))
             {
                 continue;
             }
